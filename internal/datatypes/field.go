@@ -1,5 +1,7 @@
 package datatypes
 
+import "encoding/json"
+
 type FieldTyp uint8
 
 const (
@@ -9,6 +11,8 @@ const (
 )
 
 type IField interface {
+	json.Marshaler
+
 	Name() string
 
 	Type() FieldTyp
@@ -24,6 +28,10 @@ type kvField struct {
 	name string
 
 	kv IPair
+}
+
+func (k kvField) MarshalJSON() ([]byte, error) {
+	return json.Marshal(k.kv)
 }
 
 func NewKVField(fieldKey string, p IPair) IField {
@@ -66,6 +74,10 @@ func NewListField(fieldKey string, pairs []IPair) IField {
 	}
 }
 
+func (k listField) MarshalJSON() ([]byte, error) {
+	return json.Marshal(k.pairs)
+}
+
 func (k listField) Name() string {
 	return k.name
 }
@@ -97,6 +109,10 @@ func NewDictField(fieldKey string, pairs map[string]IPair) IField {
 		name:  fieldKey,
 		pairs: pairs,
 	}
+}
+
+func (k dictField) MarshalJSON() ([]byte, error) {
+	return json.Marshal(k.pairs)
 }
 
 func (k dictField) Name() string {

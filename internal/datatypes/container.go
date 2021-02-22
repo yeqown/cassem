@@ -9,74 +9,117 @@ import (
 )
 
 var (
-	_ IContainer = &fileContainer{}
-	_ IExporter  = &fileContainer{}
+	_ IContainer = &builtinLogicContainer{}
+	_ IExporter  = &builtinLogicContainer{}
 )
 
 type IContainer interface {
+	IExporter
+
 	Key() string
 
 	NS() string
 
 	// SetField add one pair into IContainer
-	SetField(fieldKey string, value IField) (bool, error)
+	SetField(fld IField) (bool, error)
 
 	// RemoveField delete pair from IContainer
 	RemoveField(fieldKey string) (bool, error)
+
+	// Fields list all field in IContainer
+	Fields() []IField
+
+	// GetField get one field in IContainer
+	GetField(fieldKey string) (bool, IField)
 }
 
-type fileContainer struct {
-	// uniqueKey identify the fileContainer in one namespace
+type builtinLogicContainer struct {
+	// uniqueKey identify the builtinLogicContainer in one namespace
 	uniqueKey string
 
-	// namespace indicates to which namespace the fileContainer belongs.
+	// namespace indicates to which namespace the builtinLogicContainer belongs.
 	namespace string
 
+	// DONE(@yeqown) how to contains list and dictionary?
+	// by abstract layer named field(KV, LIST, DICT)
 	_mu sync.RWMutex
-
-	// TODO(@yeqown) how to contains list and dictionary?
+	// fields means map[IField.Name()]IField
 	fields map[string]IField
 }
 
-func (f *fileContainer) Key() string {
-	return f.uniqueKey
+// NewContainer to construct a logic container.
+func NewContainer(ns, key string) IContainer {
+	return &builtinLogicContainer{
+		uniqueKey: key,
+		namespace: ns,
+		_mu:       sync.RWMutex{},
+		fields:    make(map[string]IField, 4),
+	}
 }
 
-func (f *fileContainer) NS() string {
-	return f.namespace
+func (c *builtinLogicContainer) Key() string {
+	return c.uniqueKey
 }
 
-func (f *fileContainer) SetField(fieldKey string, pair IField) (bool, error) {
-	f._mu.Lock()
-	defer f._mu.Unlock()
+func (c *builtinLogicContainer) NS() string {
+	return c.namespace
+}
 
-	_, ok := f.fields[fieldKey]
-	f.fields[fieldKey] = pair
+func (c *builtinLogicContainer) SetField(fld IField) (bool, error) {
+	if fld.Name() == "" {
+		return false, ErrInvalidField
+	}
+
+	c._mu.Lock()
+	defer c._mu.Unlock()
+
+	_, ok := c.fields[fld.Name()]
+	c.fields[fld.Name()] = fld
 	return ok, nil
 }
 
-func (f *fileContainer) RemoveField(fieldKey string) (bool, error) {
-	f._mu.Lock()
-	defer f._mu.Unlock()
+func (c *builtinLogicContainer) RemoveField(fieldKey string) (bool, error) {
+	c._mu.Lock()
+	defer c._mu.Unlock()
 
-	_, ok := f.fields[fieldKey]
+	_, ok := c.fields[fieldKey]
 	if ok {
-		delete(f.fields, fieldKey)
+		delete(c.fields, fieldKey)
 	}
 
 	return ok, nil
 }
 
-func (f *fileContainer) ToJSON() ([]byte, error) {
-	f._mu.RLock()
-	defer f._mu.RUnlock()
+func (c *builtinLogicContainer) Fields() []IField {
+	c._mu.RLock()
+	defer c._mu.RUnlock()
 
-	return json.Marshal(f.fields)
+	fields := make([]IField, 0, len(c.fields))
+	for k := range c.fields {
+		fields = append(fields, c.fields[k])
+	}
+
+	return fields
 }
 
-func (f *fileContainer) ToTOML() ([]byte, error) {
-	f._mu.RLock()
-	defer f._mu.RUnlock()
+func (c *builtinLogicContainer) GetField(fieldKey string) (bool, IField) {
+	c._mu.RLock()
+	defer c._mu.RUnlock()
 
-	return toml.Marshal(f.fields)
+	v, ok := c.fields[fieldKey]
+	return ok, v
+}
+
+func (c *builtinLogicContainer) ToJSON() ([]byte, error) {
+	c._mu.RLock()
+	defer c._mu.RUnlock()
+
+	return json.Marshal(c.fields)
+}
+
+func (c *builtinLogicContainer) ToTOML() ([]byte, error) {
+	c._mu.RLock()
+	defer c._mu.RUnlock()
+
+	return toml.Marshal(c.fields)
 }

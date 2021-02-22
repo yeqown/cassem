@@ -1,5 +1,7 @@
 package datatypes
 
+import "encoding/json"
+
 type IPair interface {
 	// NS
 	NS() string
@@ -11,35 +13,43 @@ type IPair interface {
 	Value() IData
 }
 
-// Pair include
-type Pair struct {
+// builtinPair include
+type builtinPair struct {
 	// namespace indicates pair would only be used in the same namespace file
 	// container, and also be unique in one namespace.
 	namespace string
 
-	// key is the unique string in one namespace, usually be used to identify the Pair.
+	// key is the unique string in one namespace, usually be used to identify the builtinPair.
 	key string
 
 	// value contains basic data type
 	value IData
 }
 
+func (p builtinPair) UnmarshalJSON(data []byte) error {
+	return json.Unmarshal(data, p.value)
+}
+
+func (p builtinPair) MarshalJSON() ([]byte, error) {
+	return json.Marshal(p.value)
+}
+
 func NewPair(ns, key string, value IData) IPair {
-	return &Pair{
+	return &builtinPair{
 		namespace: ns,
 		key:       key,
 		value:     value,
 	}
 }
 
-func (p Pair) NS() string {
+func (p builtinPair) NS() string {
 	return p.namespace
 }
 
-func (p Pair) Key() string {
+func (p builtinPair) Key() string {
 	return p.key
 }
 
-func (p Pair) Value() IData {
+func (p builtinPair) Value() IData {
 	return p.value
 }
