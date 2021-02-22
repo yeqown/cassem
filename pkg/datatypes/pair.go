@@ -3,6 +3,8 @@ package datatypes
 import "encoding/json"
 
 type IPair interface {
+	json.Marshaler
+
 	// NS
 	NS() string
 

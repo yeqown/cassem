@@ -13,12 +13,18 @@ var (
 	_ IExporter  = &builtinLogicContainer{}
 )
 
+// IContainer helps logic and repository to operates with Container which contains fields of pair.
 type IContainer interface {
 	IExporter
 
+	// Key of IContainer to identify which container in cassem.
 	Key() string
 
+	// NS of IContainer indicates to which namespace in cassem the IContainer belongs.
 	NS() string
+
+	// GetField get one field in IContainer
+	GetField(fieldKey string) (bool, IField)
 
 	// SetField add one pair into IContainer
 	SetField(fld IField) (bool, error)
@@ -28,9 +34,6 @@ type IContainer interface {
 
 	// Fields list all field in IContainer
 	Fields() []IField
-
-	// GetField get one field in IContainer
-	GetField(fieldKey string) (bool, IField)
 }
 
 type builtinLogicContainer struct {

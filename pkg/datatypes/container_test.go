@@ -30,11 +30,15 @@ func Test_Container(t *testing.T) {
 
 	_, err = c.SetField(
 		NewKVField("", NewPair("ns", "int", WithInt(123))))
-	assert.NotNil(t, err)
+	assert.Nil(t, err)
 
-	ok, fld = c.GetField("")
-	assert.False(t, ok)
-	assert.Nil(t, fld)
+	ok, fld = c.GetField("int")
+	assert.True(t, ok)
+	assert.NotNil(t, fld)
+
+	p, ok = fld.Value().(IPair)
+	assert.True(t, ok)
+	assert.EqualValues(t, 123, p.Value())
 }
 
 func Test_Container_ToJSON(t *testing.T) {

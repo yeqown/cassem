@@ -22,6 +22,8 @@ type IField interface {
 
 var (
 	_ IField = kvField{}
+	_ IField = listField{}
+	_ IField = dictField{}
 )
 
 type kvField struct {
@@ -35,6 +37,10 @@ func (k kvField) MarshalJSON() ([]byte, error) {
 }
 
 func NewKVField(fieldKey string, p IPair) IField {
+	if fieldKey == "" {
+		fieldKey = p.Key()
+	}
+
 	return kvField{
 		name: fieldKey,
 		kv:   p,
@@ -53,10 +59,6 @@ func (k kvField) Value() interface{} {
 	return k.kv
 }
 
-var (
-	_ IField = listField{}
-)
-
 type listField struct {
 	name string
 
@@ -64,8 +66,13 @@ type listField struct {
 }
 
 func NewListField(fieldKey string, pairs []IPair) IField {
+	if fieldKey == "" {
+		// TODO(@yeqown): use hashed string to name this fieldKey
+		fieldKey = "todo_list_name_hash"
+	}
+
 	if pairs == nil {
-		pairs = make([]IPair, 4)
+		pairs = make([]IPair, 0, 4)
 	}
 
 	return listField{
@@ -90,10 +97,6 @@ func (k listField) Value() interface{} {
 	return k.pairs
 }
 
-var (
-	_ IField = dictField{}
-)
-
 type dictField struct {
 	name string
 
@@ -101,6 +104,11 @@ type dictField struct {
 }
 
 func NewDictField(fieldKey string, pairs map[string]IPair) IField {
+	if fieldKey == "" {
+		// TODO(@yeqown): use hashed string to name this fieldKey
+		fieldKey = "todo_hashed_dict_name"
+	}
+
 	if pairs == nil {
 		pairs = make(map[string]IPair, 4)
 	}

@@ -1,5 +1,6 @@
 package datatypes
 
+// Datatype indicates to which basic datatype the IData belongs.
 type Datatype uint8
 
 const (
@@ -15,6 +16,11 @@ const (
 
 var (
 	_ IData = FloatDT(12312.123123)
+	_ IData = StringDT("12312.123123")
+	_ IData = IntDT(12312)
+	_ IData = BoolDT(true)
+	_ IData = ListDT{}
+	_ IData = DictDT{}
 )
 
 // IData contains basic data types
