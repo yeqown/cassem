@@ -3,6 +3,8 @@ package mysql
 import (
 	"fmt"
 
+	"github.com/yeqown/log"
+
 	"github.com/yeqown/cassem/internal/persistence"
 
 	"github.com/pkg/errors"
@@ -32,8 +34,31 @@ func (m mysqlRepo) GetContainer(ns, containerKey string) (interface{}, error) {
 	panic("implement me")
 }
 
-func (m mysqlRepo) SaveContainer(c interface{}, isUpdate bool) error {
-	panic("implement me")
+func (m mysqlRepo) SaveContainer(c interface{}, isUpdate bool) (err error) {
+	from, ok := c.(*formContainerParsed)
+	if !ok || from == nil {
+		return errors.New("invalid value of pair")
+	}
+
+	tx := m.db.Begin()
+	defer func() {
+		if err != nil {
+			tx.Commit()
+			return
+		}
+
+		log.
+			WithFields(log.Fields{
+				"error":    err,
+				"isUpdate": isUpdate,
+				"input":    c,
+			}).
+			Debugf("mysqlRepo.SaveContainer failed, now rollback: err=%v", tx.Rollback())
+	}()
+
+	// TODO(@yeqown) fill this part logic
+
+	return
 }
 
 func (m mysqlRepo) PagingContainers(filter *persistence.PagingContainersFilter) ([]interface{}, int, error) {
