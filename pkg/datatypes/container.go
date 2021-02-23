@@ -26,7 +26,8 @@ type IContainer interface {
 	// GetField get one field in IContainer
 	GetField(fieldKey string) (bool, IField)
 
-	// SetField add one pair into IContainer
+	// SetField add one pair into IContainer, return (evicted) bool and (err) error,
+	// ok means fld is duplicated in IContainer, err means there got into an exception.
 	SetField(fld IField) (bool, error)
 
 	// RemoveField delete pair from IContainer
@@ -69,7 +70,7 @@ func (c *builtinLogicContainer) NS() string {
 }
 
 func (c *builtinLogicContainer) SetField(fld IField) (bool, error) {
-	if fld.Name() == "" {
+	if fld == nil || fld.Name() == "" {
 		return false, ErrInvalidField
 	}
 

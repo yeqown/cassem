@@ -1,6 +1,7 @@
 package persistence_test
 
 import (
+	"bytes"
 	"testing"
 
 	"github.com/yeqown/cassem/internal/persistence"
@@ -83,6 +84,107 @@ func (s testRepositorySuite) Test_Namespace() {
 	s.GreaterOrEqual(len(out), 2)
 }
 
+func (s testRepositorySuite) Test_Container() {
+	s2 := datatypes.NewPair("ns", "s", datatypes.WithString("string"))
+	f := datatypes.NewPair("ns", "f", datatypes.WithFloat(1.123))
+	i := datatypes.NewPair("ns", "i", datatypes.WithInt(123))
+	b := datatypes.NewPair("ns", "b", datatypes.WithBool(true))
+
+	d := datatypes.WithDict()
+	d.Add("ds", s2.Value())
+	d.Add("df", f.Value())
+	d.Add("di", i.Value())
+	dictPair := datatypes.NewPair("ns", "dict", d)
+
+	// save pairs
+	p, err := s.repo.Converter().FromPair(s2)
+	s.Require().Nil(err)
+	err = s.repo.SavePair(p, true)
+	s.Require().Nil(err)
+	p, err = s.repo.Converter().FromPair(f)
+	s.Require().Nil(err)
+	err = s.repo.SavePair(p, true)
+	s.Require().Nil(err)
+	p, err = s.repo.Converter().FromPair(i)
+	s.Require().Nil(err)
+	err = s.repo.SavePair(p, true)
+	s.Require().Nil(err)
+	p, err = s.repo.Converter().FromPair(b)
+	s.Require().Nil(err)
+	err = s.repo.SavePair(p, true)
+	s.Require().Nil(err)
+	p, err = s.repo.Converter().FromPair(dictPair)
+	s.Require().Nil(err)
+	err = s.repo.SavePair(p, true)
+	s.Require().Nil(err)
+
+	c := datatypes.NewContainer("ns", "container-1")
+
+	_, _ = c.SetField(datatypes.NewKVField("s", s2))
+	_, _ = c.SetField(datatypes.NewKVField("f", f))
+	_, _ = c.SetField(datatypes.NewKVField("i", i))
+	_, _ = c.SetField(datatypes.NewKVField("b", b))
+	_, _ = c.SetField(datatypes.NewKVField("d", dictPair))
+
+	listBasic := datatypes.NewListField("list_basic", []datatypes.IPair{i, f, i, b})
+	_, _ = c.SetField(listBasic)
+
+	dict := datatypes.NewDictField("dict", map[string]datatypes.IPair{
+		s2.Key():       s2,
+		f.Key():        f,
+		i.Key():        i,
+		b.Key():        b,
+		dictPair.Key(): dictPair,
+	})
+	_, _ = c.SetField(dict)
+
+	// save and read again
+	v, err := s.repo.Converter().FromContainer(c)
+	s.Require().Nil(err)
+	err = s.repo.SaveContainer(v, true)
+	s.Require().Nil(err)
+	v2, err := s.repo.GetContainer("ns", "container-1")
+	s.Require().Nil(err)
+	outc, err := s.repo.Converter().ToContainer(v2)
+	s.Require().Nil(err)
+	//s.EqualValues(c.Fields(), outc.Fields())
+	s.True(s.compareContainer(c, outc))
+
+	// remove field, update get and judge
+	_, err = c.RemoveField("s")
+	s.Require().Nil(err)
+	v3, err := s.repo.Converter().FromContainer(c)
+	s.Require().Nil(err)
+	err = s.repo.SaveContainer(v3, true)
+	s.Require().Nil(err)
+	v4, err := s.repo.GetContainer("ns", "container-1")
+	s.Require().Nil(err)
+	outc2, err := s.repo.Converter().ToContainer(v4)
+	s.Require().Nil(err)
+	//s.EqualValues(c.Fields(), outc2.Fields())
+	s.True(s.compareContainer(c, outc2))
+}
+
+func (s testRepositorySuite) compareContainer(c1, c2 datatypes.IContainer) (bool, error) {
+	byts, err := c1.ToJSON()
+	if err != nil {
+		return false, err
+	}
+
+	byts2, err := c2.ToJSON()
+	if err != nil {
+		return false, err
+	}
+
+	ok := bytes.Equal(byts, byts2)
+	if !ok {
+		s.T().Logf("first:	%s", byts)
+		s.T().Logf("second:	%s", byts2)
+	}
+
+	return ok, nil
+}
+
 func Test_Repo_mysql(t *testing.T) {
 	db, err := gorm.Open(mysqld.Open("root:@tcp(127.0.0.1:3306)/cassem?charset=utf8mb4&parseTime=true&loc=Local"), nil)
 	if err != nil {
@@ -92,6 +194,8 @@ func Test_Repo_mysql(t *testing.T) {
 	if err = db.AutoMigrate(
 		mysql.PairDO{},
 		mysql.NamespaceDO{},
+		mysql.ContainerDO{},
+		mysql.FieldDO{},
 	); err != nil {
 		t.Fatalf("Test_Repo_mysql failed to AutoMigrate mysql DB: %v", err)
 	}

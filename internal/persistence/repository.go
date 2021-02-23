@@ -8,12 +8,12 @@ import "github.com/yeqown/cassem/pkg/datatypes"
 type Repository interface {
 	// datatypes.IContainer includes container properties: key, ns, fields
 	GetContainer(ns, containerKey string) (interface{}, error)
-	SaveContainer(c interface{}, isUpdate bool) error
+	SaveContainer(c interface{}, update bool) error
 	PagingContainers(filter *PagingContainersFilter) ([]interface{}, int, error)
 
 	// datatypes.IPair includes key-value pair data.
 	GetPair(ns, key string) (interface{}, error)
-	SavePair(v interface{}, isUpdate bool) error
+	SavePair(v interface{}, update bool) error
 	PagingPairs(filter *PagingPairsFilter) ([]interface{}, int, error)
 
 	// namespace is a string represent the unique data domain of each data in cassem.
@@ -35,8 +35,9 @@ type Converter interface {
 }
 
 type PagingContainersFilter struct {
-	Limit      int
-	Offset     int
+	Limit  int
+	Offset int
+	// Namespace to filter pairs of current Namespace, DO NOT using fuzzy comparison.
 	Namespace  string
 	KeyPattern string
 }
@@ -45,7 +46,8 @@ type PagingPairsFilter struct {
 	Limit      int
 	Offset     int
 	KeyPattern string
-	Namespace  string
+	// Namespace to filter pairs of current Namespace, DO NOT using fuzzy comparison.
+	Namespace string
 }
 
 type PagingNamespacesFilter struct {

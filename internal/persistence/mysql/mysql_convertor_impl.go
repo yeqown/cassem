@@ -2,6 +2,7 @@ package mysql
 
 import (
 	"encoding/json"
+	"strconv"
 
 	"github.com/yeqown/log"
 
@@ -11,10 +12,11 @@ import (
 )
 
 var (
-	ErrNilPair         = errors.New("nil pair")
-	ErrInvalidPairDO   = errors.New("invalid pair DO data")
-	ErrUnknownDatatype = errors.New("unknown datatype")
-	ErrNilContainer    = errors.New("nil container")
+	ErrNilPair            = errors.New("nil pair")
+	ErrInvalidPairDO      = errors.New("invalid pair DO data")
+	ErrUnknownDatatype    = errors.New("unknown datatype")
+	ErrNilContainer       = errors.New("nil container")
+	ErrInvalidContainerDO = errors.New("invalid container DO data")
 )
 
 type mysqlConverter struct{}
@@ -46,7 +48,7 @@ func (m mysqlConverter) FromPair(p datatypes.IPair) (interface{}, error) {
 
 func (m mysqlConverter) ToPair(v interface{}) (p datatypes.IPair, err error) {
 	pairDO, ok := v.(*PairDO)
-	if !ok {
+	if !ok || pairDO == nil {
 		return nil, ErrInvalidPairDO
 	}
 
@@ -98,93 +100,124 @@ func (m mysqlConverter) ToPair(v interface{}) (p datatypes.IPair, err error) {
 	return
 }
 
-type formContainerParsed struct {
-	c          *ContainerDO
-	fields     []*FieldDO
-	kvFields   []*KVFieldToPairDO
-	listFields []*ListFieldToPairDO
-	dictFields []*DictFieldToPairDO
-	//mappingFieldToId map[string]uint
-	//mappingPairToId  map[string]uint
-}
-
 func (m mysqlConverter) FromContainer(c datatypes.IContainer) (interface{}, error) {
 	if c == nil {
 		return nil, ErrNilContainer
 	}
 
+	_fields := c.Fields()
 	parsed := formContainerParsed{
 		c: &ContainerDO{
 			Key:       c.Key(),
 			Namespace: c.NS(),
 			CheckSum:  "", // TODO(@yeqown) add check sum
 		},
-		fields:     nil,
-		kvFields:   nil,
-		listFields: nil,
-		dictFields: nil,
+		fields:          make([]*FieldDO, 0, len(_fields)),
+		uniqueFieldKeys: make([]string, 0, len(_fields)),
 	}
 
-	_fields := c.Fields()
-	var (
-		fieldDOs = make([]*FieldDO, 0, len(_fields))
-		kv       = make([]*KVFieldToPairDO, 0, len(_fields))
-		l        = make([]*ListFieldToPairDO, 0, len(_fields))
-		d        = make([]*DictFieldToPairDO, 0, len(_fields))
-	)
-
 	for _, fld := range _fields {
-		fldKey := ""
-		pairKey := ""
-
-		fieldDOs = append(fieldDOs, &FieldDO{
-			FieldType: fld.Type(),
-			Key:       fld.Name(),
-			//ContainerID: 0,
-		})
-
+		fieldPairs := make(FieldPairs, 16)
 		// mapping field to pairs, so repository could query or update
 		switch fld.Type() {
 		case datatypes.KV_FIELD_:
-			fldKey = fld.Name()
-			pairKey = fld.Value().(datatypes.IPair).Key()
-			kv = append(kv, &KVFieldToPairDO{
-				FieldKey: fldKey,
-				PairKey:  pairKey,
-				//ContainerID: 0,
-			})
+			pairKey := fld.Value().(datatypes.IPair).Key()
+			fieldPairs[pairKey] = "kv"
 		case datatypes.LIST_FIELD_:
-			for _, v := range fld.Value().([]datatypes.IPair) {
-				l = append(l, &ListFieldToPairDO{
-					//ContainerID: 0,
-					FieldKey: fld.Name(),
-					PairKey:  v.Key(),
-				})
+			// FIXED(@yeqown) list may have duplicated paris. so how to keep the origin detail.
+			for idx, v := range fld.Value().([]datatypes.IPair) {
+				fieldPairs[strconv.Itoa(idx)] = v.Key()
 			}
 		case datatypes.DICT_FIELD_:
 			for k, v := range fld.Value().(map[string]datatypes.IPair) {
-				d = append(d, &DictFieldToPairDO{
-					//ContainerID:  0,
-					FieldKey:     fld.Name(),
-					PairKey:      v.Key(),
-					DictFieldKey: k,
-				})
+				fieldPairs[k] = v.Key()
 			}
 		default:
 			log.
 				WithField("fld", fld).
 				Warn("invalid field type: %d", fld.Type())
 		}
-	}
 
-	(&parsed).fields = fieldDOs
-	(&parsed).kvFields = kv
-	(&parsed).listFields = l
-	(&parsed).dictFields = d
+		parsed.uniqueFieldKeys = append(parsed.uniqueFieldKeys, fld.Name())
+		parsed.fields = append(parsed.fields, &FieldDO{
+			FieldType: fld.Type(),
+			Key:       fld.Name(),
+			Pairs:     fieldPairs,
+		})
+	}
 
 	return &parsed, nil
 }
 
 func (m mysqlConverter) ToContainer(v interface{}) (datatypes.IContainer, error) {
-	panic("implement me")
+	toc, ok := v.(*toContainerWithPairs)
+	if !ok || toc == nil || toc.c == nil {
+		return nil, ErrInvalidContainerDO
+	}
+
+	var (
+		//shouldParsePair   = false
+		parsedPairMapping map[string]datatypes.IPair
+		err               error
+	)
+	if toc.origin == toOriginDetail {
+		// toc.paris is not empty, so need to parse and mapping
+		//shouldParsePair = true
+		parsedPairMapping = make(map[string]datatypes.IPair, len(toc.pairs))
+		for k, v := range toc.pairs {
+			// parse pair and save into mapping
+			if parsedPairMapping[k], err = m.ToPair(v); err != nil {
+				log.WithFields(log.Fields{
+					"k":         k,
+					"container": toc.c,
+				}).Warnf("mysqlConverter.ToContainer failed to convert pair: %v", err)
+			}
+		}
+	}
+
+	// DONE(@yeqown): add pair to field
+	c := datatypes.NewContainer(toc.c.Namespace, toc.c.Key)
+	for _, fld := range toc.c.Fields {
+		var f datatypes.IField
+		switch fld.FieldType {
+		case datatypes.KV_FIELD_:
+			var pair datatypes.IPair
+			for k := range fld.Pairs {
+				pair = parsedPairMapping[k]
+			}
+			f = datatypes.NewKVField(fld.Key, pair)
+		case datatypes.LIST_FIELD_:
+			var pairs = make([]datatypes.IPair, len(fld.Pairs))
+			for idxKey, k := range fld.Pairs {
+				idx, _ := strconv.Atoi(idxKey)
+				pairs[idx] = parsedPairMapping[k]
+			}
+			f = datatypes.NewListField(fld.Key, pairs)
+		case datatypes.DICT_FIELD_:
+			var pairs = make(map[string]datatypes.IPair, len(fld.Pairs))
+			for k, alias := range fld.Pairs {
+				pairs[alias] = parsedPairMapping[k]
+			}
+			f = datatypes.NewDictField(fld.Key, pairs)
+		default:
+			log.
+				WithFields(log.Fields{
+					"fieldType": fld.FieldType,
+					"field":     fld,
+				}).
+				Warnf("mysqlConverter.ToContainer invalid fieldType=%d", fld.FieldType)
+			continue
+		}
+
+		if _, err = c.SetField(f); err != nil {
+			log.
+				WithFields(log.Fields{
+					"field": f,
+					"error": err,
+				}).
+				Warnf("mysqlConverter.ToContainer failed to SetField: %v", err)
+		}
+	}
+
+	return c, nil
 }
