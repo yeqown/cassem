@@ -4,11 +4,10 @@ import (
 	"encoding/json"
 	"strconv"
 
-	"github.com/yeqown/log"
+	"github.com/yeqown/cassem/pkg/datatypes"
 
 	"github.com/pkg/errors"
-
-	"github.com/yeqown/cassem/pkg/datatypes"
+	"github.com/yeqown/log"
 )
 
 var (

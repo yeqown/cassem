@@ -67,7 +67,7 @@ func ConstructIData(v interface{}) IData {
 func constructIDataRecursive(v interface{}) (d IData) {
 	switch v.(type) {
 	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
-		// TODO(@yeqown) maybe unsafe can helps this, if could not convert to int from (uint or int_x)
+		// NOTE(@yeqown) maybe unsafe can helps this, if could not convert to int from (uint or int_x)
 		d = WithInt(v.(int))
 	case float64, float32:
 		d = WithFloat(v.(float64))

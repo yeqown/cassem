@@ -13,14 +13,14 @@ import "github.com/yeqown/cassem/pkg/datatypes"
 // ICoordinator manage all flow from client to server.
 type ICoordinator interface {
 	GetContainer(key, ns string) (datatypes.IContainer, error)
-	AllContainers(filter *FilterContainersOption) ([]*datatypes.IContainer, int, error)
+	PagingContainers(filter *FilterContainersOption) ([]datatypes.IContainer, int, error)
 	SaveContainer(c datatypes.IContainer) error
 
-	AllNamespaces(filter *FilterNamespacesOption) ([]string, int, error)
+	PagingNamespaces(filter *FilterNamespacesOption) ([]string, int, error)
 	SaveNamespace(ns string) error
 
 	GetPair(key, ns string) (datatypes.IPair, error)
-	AllPairs(filter *FilterPairsOption) ([]datatypes.IPair, int, error)
+	PagingPairs(filter *FilterPairsOption) ([]datatypes.IPair, int, error)
 	SavePair(p datatypes.IPair) error
 }
 

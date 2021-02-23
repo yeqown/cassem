@@ -11,7 +11,7 @@ const (
 )
 
 type IField interface {
-	json.Marshaler
+	IEncoder
 
 	Name() string
 
@@ -30,10 +30,6 @@ type kvField struct {
 	name string
 
 	kv IPair
-}
-
-func (k kvField) MarshalJSON() ([]byte, error) {
-	return json.Marshal(k.kv)
 }
 
 func NewKVField(fieldKey string, p IPair) IField {
@@ -57,6 +53,10 @@ func (k kvField) Type() FieldTyp {
 
 func (k kvField) Value() interface{} {
 	return k.kv
+}
+
+func (k kvField) MarshalJSON() ([]byte, error) {
+	return json.Marshal(k.kv)
 }
 
 type listField struct {

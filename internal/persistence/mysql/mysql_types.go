@@ -5,8 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/pkg/errors"
 	"github.com/yeqown/cassem/pkg/datatypes"
+
+	"github.com/pkg/errors"
 	"gorm.io/gorm"
 )
 
@@ -21,52 +22,6 @@ type PairDO struct {
 }
 
 func (m PairDO) TableName() string { return "cassem_pairs" }
-
-// XXXFieldToPairDO 1 field to 1+ pairs related to to field type
-//
-//// KVFieldToPairDO (kv: 1 <> 1)
-//type KVFieldToPairDO struct {
-//	gorm.Model
-//
-//	ContainerID uint   `gorm:"column:container_id;type:bigint;uniqueIndex:idx_unique_kv_field,priority:1"`
-//	FieldKey    string `gorm:"column:field_key;type:varchar(64);uniqueIndex:idx_unique_kv_field,priority:2"`
-//	PairKey     string `gorm:"column:pair_key;type:varchar(64)"`
-//
-//	Pair  PairDO  `gorm:""` // TODO(@yeqown)
-//	Field FieldDO `gorm:""` // TODO(@yeqown)
-//}
-//
-//func (m KVFieldToPairDO) TableName() string { return "cassem_field_kv" }
-//
-//// ListFieldToPairDO (list: 1 <> 1+)
-//type ListFieldToPairDO struct {
-//	gorm.Model
-//
-//	ContainerID uint   `gorm:"column:container_id;type:bigint;uniqueIndex:idx_unique_list_field,priority:1"`
-//	FieldKey    string `gorm:"column:field_key;type:varchar(64);uniqueIndex:idx_unique_list_field,priority:2"`
-//	PairKey     string `gorm:"column:pair_key;type:varchar(64)"`
-//
-//	Pair  PairDO  `gorm:""` // TODO(@yeqown)
-//	Field FieldDO `gorm:""` // TODO(@yeqown)
-//}
-//
-//func (m ListFieldToPairDO) TableName() string { return "cassem_field_list" }
-//
-//// DictFieldToPairDO (dict: 1 <> 1+)
-//// DONE(@yeqown) think about the unique index of DictFieldToPairDO.
-//type DictFieldToPairDO struct {
-//	gorm.Model
-//
-//	ContainerID  uint   `gorm:"column:container_id;type:bigint;uniqueIndex:idx_unique_dict_field,priority:1"`
-//	FieldKey     string `gorm:"column:field_key;type:varchar(64);uniqueIndex:idx_unique_dict_field,priority:2"`
-//	DictFieldKey string `gorm:"column:dict_field_key;type:varchar(64);uniqueIndex:idx_unique_dict_field,priority:3"`
-//	PairKey      string `gorm:"column:pair_key;type:varchar(64)"`
-//
-//	Pair  PairDO  `gorm:""` // TODO(@yeqown)
-//	Field FieldDO `gorm:""` // TODO(@yeqown)
-//}
-//
-//func (m DictFieldToPairDO) TableName() string { return "cassem_field_dict" }
 
 type FieldPairs map[string]string
 

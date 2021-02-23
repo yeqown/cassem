@@ -7,24 +7,25 @@ func (srv *Server) mountAPI(engi *gin.Engine) {
 
 	ns := g.Group("/namespaces")
 	{
-		ns.GET("/", nil)
-		ns.POST("/:ns", nil)
+		ns.GET("", srv.PagingNamespace)
+		ns.POST("/:ns", srv.CreateNamespace)
 		// ns.DELETE("/:ns", nil)
 	}
 
 	container := ns.Group("/:ns/containers")
 	{
-		container.GET("/", nil)
+		container.GET("", nil)
 		container.POST("/:key", nil)
-		container.GET("/:key", nil)
+		container.GET("/:key", srv.GetContainer)
+		container.GET("/:key/file", srv.ContainerToFile)
 		container.DELETE("/:key", nil)
 	}
 
 	pair := ns.Group("/:ns/pairs")
 	{
-		pair.GET("/", nil)
+		pair.GET("", srv.PagingPairs)
 		pair.POST("/:key", nil)
-		pair.GET("/:key", nil)
-		pair.DELETE("/:key", nil)
+		pair.GET("/:key", srv.GetPair)
+		//pair.DELETE("/:key", nil)
 	}
 }

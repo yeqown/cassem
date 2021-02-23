@@ -1,21 +1,22 @@
 package datatypes
 
 import (
+	"bytes"
 	"encoding/json"
 	"sync"
 
-	// TODO(@yeqown) use recommended toml library.
-	"github.com/pelletier/go-toml"
+	// DONE(@yeqown) use recommended toml library.
+	"github.com/BurntSushi/toml"
 )
 
 var (
 	_ IContainer = &builtinLogicContainer{}
-	_ IExporter  = &builtinLogicContainer{}
+	_ IEncoder   = &builtinLogicContainer{}
 )
 
 // IContainer helps logic and repository to operates with Container which contains fields of pair.
 type IContainer interface {
-	IExporter
+	IEncoder
 
 	// Key of IContainer to identify which container in cassem.
 	Key() string
@@ -114,7 +115,7 @@ func (c *builtinLogicContainer) GetField(fieldKey string) (bool, IField) {
 	return ok, v
 }
 
-func (c *builtinLogicContainer) ToJSON() ([]byte, error) {
+func (c *builtinLogicContainer) MarshalJSON() ([]byte, error) {
 	c._mu.RLock()
 	defer c._mu.RUnlock()
 
@@ -125,5 +126,8 @@ func (c *builtinLogicContainer) ToTOML() ([]byte, error) {
 	c._mu.RLock()
 	defer c._mu.RUnlock()
 
-	return toml.Marshal(c.fields)
+	buf := bytes.NewBuffer(nil)
+	err := toml.NewEncoder(buf).Encode(c.fields)
+
+	return buf.Bytes(), err
 }

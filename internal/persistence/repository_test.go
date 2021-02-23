@@ -9,8 +9,6 @@ import (
 	"github.com/yeqown/cassem/pkg/datatypes"
 
 	"github.com/stretchr/testify/suite"
-	mysqld "gorm.io/driver/mysql"
-	"gorm.io/gorm"
 )
 
 type testRepositorySuite struct {
@@ -186,22 +184,30 @@ func (s testRepositorySuite) compareContainer(c1, c2 datatypes.IContainer) (bool
 }
 
 func Test_Repo_mysql(t *testing.T) {
-	db, err := gorm.Open(mysqld.Open("root:@tcp(127.0.0.1:3306)/cassem?charset=utf8mb4&parseTime=true&loc=Local"), nil)
-	if err != nil {
-		t.Fatalf("Test_Repo_mysql failed to open mysql DB: %v", err)
+	cfg := mysql.ConnectConfig{
+		DSN:         "root:@tcp(127.0.0.1:3306)/cassem?charset=utf8mb4&parseTime=true&loc=Local",
+		MaxIdle:     10,
+		MaxOpen:     100,
+		Debug:       true,
+		MaxLifeTime: 3600,
 	}
 
-	if err = db.AutoMigrate(
-		mysql.PairDO{},
-		mysql.NamespaceDO{},
-		mysql.ContainerDO{},
-		mysql.FieldDO{},
-	); err != nil {
-		t.Fatalf("Test_Repo_mysql failed to AutoMigrate mysql DB: %v", err)
+	repo, err := mysql.New(&cfg)
+	if err != nil {
+		t.Fatalf("Test_Repo_mysql failed to open DB")
 	}
+
+	//if err = repo.(*mysqlRepo).db.AutoMigrate(
+	//	mysql.PairDO{},
+	//	mysql.NamespaceDO{},
+	//	mysql.ContainerDO{},
+	//	mysql.FieldDO{},
+	//); err != nil {
+	//	t.Fatalf("Test_Repo_mysql failed to AutoMigrate mysql DB: %v", err)
+	//}
 
 	s := testRepositorySuite{
-		repo: mysql.New(db),
+		repo: repo,
 	}
 
 	suite.Run(t, &s)

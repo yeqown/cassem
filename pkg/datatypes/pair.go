@@ -3,7 +3,7 @@ package datatypes
 import "encoding/json"
 
 type IPair interface {
-	json.Marshaler
+	IEncoder
 
 	// NS
 	NS() string
@@ -26,10 +26,6 @@ type builtinPair struct {
 
 	// value contains basic data type
 	value IData
-}
-
-func (p builtinPair) UnmarshalJSON(data []byte) error {
-	return json.Unmarshal(data, p.value)
 }
 
 func (p builtinPair) MarshalJSON() ([]byte, error) {
