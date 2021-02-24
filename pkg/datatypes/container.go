@@ -20,6 +20,8 @@ var (
 type IContainer interface {
 	IEncoder
 
+	ToTOML() (text []byte, err error)
+
 	// Key of IContainer to identify which container in cassem.
 	Key() string
 
@@ -59,6 +61,8 @@ type builtinLogicContainer struct {
 	_mu sync.RWMutex
 	// fields means map[IField.Name()]IField
 	fields map[string]IField
+
+	TOMLTestField string `toml:"test"`
 }
 
 // NewContainer to construct a logic container.
@@ -129,6 +133,13 @@ func (c *builtinLogicContainer) MarshalJSON() ([]byte, error) {
 	defer c._mu.RUnlock()
 
 	return json.Marshal(c.fields)
+}
+
+func (c *builtinLogicContainer) MarshalText() ([]byte, error) {
+	c._mu.RLock()
+	defer c._mu.RUnlock()
+
+	return []byte("no need"), nil
 }
 
 func (c *builtinLogicContainer) ToTOML() ([]byte, error) {

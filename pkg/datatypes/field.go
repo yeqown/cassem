@@ -1,9 +1,12 @@
 package datatypes
 
 import (
+	"bytes"
 	"encoding/json"
 
 	"github.com/yeqown/cassem/pkg/hash"
+
+	"github.com/BurntSushi/toml"
 )
 
 type FieldTyp uint8
@@ -63,6 +66,13 @@ func (k kvField) MarshalJSON() ([]byte, error) {
 	return json.Marshal(k.kv)
 }
 
+func (k kvField) MarshalText() (text []byte, err error) {
+	buf := bytes.NewBuffer(nil)
+	err = toml.NewEncoder(buf).Encode(k.kv)
+
+	return buf.Bytes(), err
+}
+
 type listField struct {
 	name string
 
@@ -91,6 +101,13 @@ func NewListField(fieldKey string, pairs []IPair) IField {
 
 func (k listField) MarshalJSON() ([]byte, error) {
 	return json.Marshal(k.pairs)
+}
+
+func (k listField) MarshalText() (text []byte, err error) {
+	buf := bytes.NewBuffer(nil)
+	err = toml.NewEncoder(buf).Encode(k.pairs)
+
+	return buf.Bytes(), err
 }
 
 func (k listField) Name() string {
@@ -128,6 +145,13 @@ func NewDictField(fieldKey string, pairs map[string]IPair) IField {
 
 func (k dictField) MarshalJSON() ([]byte, error) {
 	return json.Marshal(k.pairs)
+}
+
+func (k dictField) MarshalText() (text []byte, err error) {
+	buf := bytes.NewBuffer(nil)
+	err = toml.NewEncoder(buf).Encode(k.pairs)
+
+	return buf.Bytes(), err
 }
 
 func (k dictField) Name() string {

@@ -1,6 +1,15 @@
 package datatypes
 
-import "encoding/json"
+import (
+	"bytes"
+	"encoding/json"
+
+	"github.com/BurntSushi/toml"
+)
+
+var (
+	_ IPair = builtinPair{}
+)
 
 type IPair interface {
 	IEncoder
@@ -28,10 +37,6 @@ type builtinPair struct {
 	value IData
 }
 
-func (p builtinPair) MarshalJSON() ([]byte, error) {
-	return json.Marshal(p.value)
-}
-
 func NewPair(ns, key string, value IData) IPair {
 	return &builtinPair{
 		namespace: ns,
@@ -50,4 +55,15 @@ func (p builtinPair) Key() string {
 
 func (p builtinPair) Value() IData {
 	return p.value
+}
+
+func (p builtinPair) MarshalText() (text []byte, err error) {
+	buf := bytes.NewBuffer(nil)
+	err = toml.NewEncoder(buf).Encode(p.value)
+
+	return buf.Bytes(), err
+}
+
+func (p builtinPair) MarshalJSON() ([]byte, error) {
+	return json.Marshal(p.value)
 }

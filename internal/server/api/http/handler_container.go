@@ -218,16 +218,18 @@ func (srv *Server) ContainerDownload(c *gin.Context) {
 	// decide which content type should be passed to responseFile
 	var (
 		ct  contentType
-		buf *bytes.Buffer
+		buf = bytes.NewBuffer(nil)
 	)
 	switch req.Format {
 	case "json":
 		ct = jsonContentType
-		buf = bytes.NewBuffer(nil)
 		err = json.NewEncoder(buf).Encode(container)
 	case "toml":
 		ct = tomlContentType
-		err = errors.New("TODO(@yeqown) support TOML file format")
+		// FIXME(@yeqown): could not encode container in TOML format.
+		var content []byte
+		content, err = container.ToTOML()
+		buf.Write(content)
 	default:
 		err = errors.New("unsupported file format")
 	}

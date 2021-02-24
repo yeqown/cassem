@@ -103,7 +103,7 @@ func Test_Container_ToJSON(t *testing.T) {
 	})
 	_, _ = c.SetField(dict)
 
-	byt, err := c.ToJSON()
+	byt, err := c.MarshalJSON()
 	assert.Nil(t, err)
 	//t.Logf("%s", byt)
 

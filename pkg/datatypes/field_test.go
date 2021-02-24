@@ -62,3 +62,29 @@ func Test_DictField(t *testing.T) {
 	assert.EqualValues(t, DICT_FIELD_, field.Type())
 	assert.IsType(t, map[string]IPair{}, field.Value())
 }
+
+func Test_DictField_TOML(t *testing.T) {
+	t.Skip("not supported yet")
+
+	l := WithList()
+	l.Append(WithInt(123), WithString("222"), WithBool(false), WithFloat(64.23))
+
+	d := WithDict()
+	d.Add("d1", WithString("222"))
+	d.Add("d2", WithInt(222))
+
+	pairs := map[string]IPair{
+		"int":    NewPair("ns", "int", WithInt(123)),
+		"string": NewPair("ns", "string", WithString("222")),
+		"float":  NewPair("ns", "float", WithFloat(64.23)),
+		"bool":   NewPair("ns", "bool", WithBool(false)),
+		"dict":   NewPair("ns", "dict", d),
+		"list":   NewPair("ns", "list", l),
+	}
+
+	field := NewDictField("dict", pairs)
+	content, err := field.MarshalText()
+	assert.Nil(t, err)
+	assert.NotEmpty(t, content)
+	t.Logf("%s", content)
+}
