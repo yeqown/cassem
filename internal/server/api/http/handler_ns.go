@@ -34,7 +34,7 @@ func (srv *Server) PagingNamespace(c *gin.Context) {
 		return
 	}
 
-	responseData(c, out)
+	responseJSON(c, out)
 }
 
 type createNamespaceReq struct {
@@ -54,5 +54,5 @@ func (srv *Server) CreateNamespace(c *gin.Context) {
 		return
 	}
 
-	responseData(c, nil)
+	responseJSON(c, nil)
 }

@@ -64,15 +64,21 @@ func (c coordinator) SaveContainer(container datatypes.IContainer) error {
 	return c.repo.SaveContainer(v, true)
 }
 
-// TODO(@yeqown): handle count return value
+func (c coordinator) RemoveContainer(key string, ns string) error {
+	return c.repo.RemoveContainer(ns, key)
+}
+
+// PagingNamespaces list namespaces those conform to the filter(FilterNamespacesOption).
+//
+// DONE(@yeqown): handle count return value
 func (c coordinator) PagingNamespaces(filter *FilterNamespacesOption) ([]string, int, error) {
-	ns, err := c.repo.PagingNamespace(&persistence.PagingNamespacesFilter{
+	ns, count, err := c.repo.PagingNamespace(&persistence.PagingNamespacesFilter{
 		Limit:            filter.Limit,
 		Offset:           filter.Offset,
 		NamespacePattern: filter.NamespacePattern,
 	})
 
-	return ns, 0, err
+	return ns, count, err
 }
 
 func (c coordinator) SaveNamespace(ns string) error {

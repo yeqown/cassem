@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"sync"
 
+	"github.com/yeqown/cassem/pkg/hash"
+
 	// DONE(@yeqown) use recommended toml library.
 	"github.com/BurntSushi/toml"
 )
@@ -36,17 +38,24 @@ type IContainer interface {
 
 	// Fields list all field in IContainer
 	Fields() []IField
+
+	// CheckSum set or calc checksum of IContainer
+	CheckSum(sum string) string
 }
 
 type builtinLogicContainer struct {
 	// uniqueKey identify the builtinLogicContainer in one namespace
 	uniqueKey string
 
+	// checksum of builtinLogicContainer
+	checksum string
+
 	// namespace indicates to which namespace the builtinLogicContainer belongs.
 	namespace string
 
 	// DONE(@yeqown) how to contains list and dictionary?
 	// by abstract layer named field(KV, LIST, DICT)
+	// FIXME(@yeqown): is there necessary to lock?
 	_mu sync.RWMutex
 	// fields means map[IField.Name()]IField
 	fields map[string]IField
@@ -130,4 +139,22 @@ func (c *builtinLogicContainer) ToTOML() ([]byte, error) {
 	err := toml.NewEncoder(buf).Encode(c.fields)
 
 	return buf.Bytes(), err
+}
+
+// CheckSum set or calculate checksum of builtinLogicContainer.
+// DONE(@yeqown): get content of container and calculate checksum
+func (c *builtinLogicContainer) CheckSum(sum string) string {
+	if len(c.checksum) != 0 {
+		return c.checksum
+	}
+
+	if len(sum) != 0 {
+		c.checksum = sum
+		return c.checksum
+	}
+
+	// both c.checksum and sum is empty, then need to calculate checksum
+	content, _ := json.Marshal(c)
+	c.checksum = hash.CheckSum(content)
+	return c.checksum
 }

@@ -5,3 +5,8 @@
         max_open        = 100
         debug           = true
         max_life_time   = 30
+
+[server]
+    [server.http]
+        addr    = ":2021"
+        debug   = true

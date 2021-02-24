@@ -1,5 +1,9 @@
 package datatypes
 
+func WithEmpty() NonData {
+	return struct{}{}
+}
+
 func WithInt(i int) IntDT {
 	return IntDT(i)
 }

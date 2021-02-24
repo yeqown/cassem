@@ -4,14 +4,13 @@ import "github.com/yeqown/cassem/pkg/datatypes"
 
 // Repository is a proxy who helps convert data between logic and persistence.Not only all parameters of Repository
 // are logic datatype, but also all return values.
-// TODO(@yeqown): how to delete resource or mark it as deprecated ?
+// NOTE(@yeqown): how to delete resource or mark it as deprecated, now only support container deletion.
 type Repository interface {
 	// datatypes.IContainer includes container properties: key, ns, fields
 	GetContainer(ns, containerKey string) (interface{}, error)
 	SaveContainer(c interface{}, update bool) error
 	PagingContainers(filter *PagingContainersFilter) ([]interface{}, int, error)
-	// TODO(@yeqown): container could be deleted
-	// DeleteContainer(ns, containerKey string) (interface{}, error)
+	RemoveContainer(ns, containerKey string) error // DONE(@yeqown): container could be deleted
 
 	// datatypes.IPair includes key-value pair data.
 	GetPair(ns, key string) (interface{}, error)
@@ -19,7 +18,7 @@ type Repository interface {
 	PagingPairs(filter *PagingPairsFilter) ([]interface{}, int, error)
 
 	// namespace is a string represent the unique data domain of each data in cassem.
-	PagingNamespace(filter *PagingNamespacesFilter) ([]string, error)
+	PagingNamespace(filter *PagingNamespacesFilter) ([]string, int, error)
 	SaveNamespace(ns string) error
 
 	// Converter

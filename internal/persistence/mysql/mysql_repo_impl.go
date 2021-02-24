@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/yeqown/cassem/pkg/set"
+
 	"github.com/yeqown/cassem/internal/persistence"
 
 	"github.com/pkg/errors"
@@ -89,14 +91,14 @@ func (m mysqlRepo) GetContainer(ns, containerKey string) (interface{}, error) {
 		return nil, err
 	}
 
-	pairsKeys := make([]string, 0, 64)
+	uniquePairKeys := set.NewStringSet(len(containerDO.Fields) * 4)
 	for _, fld := range containerDO.Fields {
-		pairsKeys = append(pairsKeys, fld.Pairs.Keys()...)
+		uniquePairKeys.Adds(fld.Pairs.PairKeys())
 	}
 
-	pairsDOs := make([]*PairDO, 0, len(pairsKeys))
+	pairsDOs := make([]*PairDO, 0, len(uniquePairKeys))
 	err = m.db.Model(_pairTbl).
-		Where("namespace = ? AND `key` in ?", ns, pairsKeys).
+		Where("`key` IN ? AND namespace = ?", uniquePairKeys.Keys(), ns).
 		Find(&pairsDOs).Error
 	if err != nil {
 		return nil, err
@@ -114,6 +116,9 @@ func (m mysqlRepo) GetContainer(ns, containerKey string) (interface{}, error) {
 	}, nil
 }
 
+// SaveContainer save container and it's fields, and also valid all pairs are exist.
+//
+// DONE(@yeqown) check pair with namespace exists.
 func (m mysqlRepo) SaveContainer(c interface{}, update bool) (err error) {
 	from, ok := c.(*formContainerParsed)
 	if !ok || from == nil {
@@ -134,8 +139,28 @@ func (m mysqlRepo) SaveContainer(c interface{}, update bool) (err error) {
 				"update": update,
 				"input":  c,
 			}).
-			Debugf("mysqlRepo.SaveContainer failed, now rollback: err=%v", tx.Rollback())
+			Debugf("mysqlRepo.SaveContainer failed, now rollback and rollbackErr=%v", tx.Rollback().Error)
 	}()
+
+	// DONE(@yeqown): check all paris exists
+	count := int64(0)
+	if err = tx.Model(_pairTbl).
+		Where("`key` IN ? AND namespace = ?", from.uniquePairKeys.Keys(), from.c.Namespace).
+		Count(&count).Error; err != nil {
+		return errors.Wrap(err, "mysqlRepo.SaveContainer prepare check pairs failed")
+	}
+
+	if int(count) != len(from.uniquePairKeys) {
+		// pair count in DB is not equal to from.uniquePairKeys
+		log.
+			WithFields(log.Fields{
+				"wantPairs": from.uniquePairKeys,
+				"hitCount":  count,
+			}).
+			Error("mysqlRepo.SaveContainer failed to precheck pairs")
+		err = ErrPairKeyNotExist
+		return
+	}
 
 	if update {
 		err = m.updateContainer(tx, from)
@@ -176,7 +201,7 @@ func (m mysqlRepo) updateContainer(tx *gorm.DB, from *formContainerParsed) (err 
 	// DONE(@yeqown): drop deleted-fields before
 	if err = tx.Model(_fieldTbl).
 		Unscoped().
-		Where("container_id = ? AND `key` NOT IN (?)", containerId, from.uniqueFieldKeys).
+		Where("container_id = ? AND `key` NOT IN (?)", containerId, from.uniqueFieldKeys.Keys()).
 		Delete(nil).Error; err != nil {
 		return
 	}
@@ -233,6 +258,57 @@ func (m mysqlRepo) createContainer(tx *gorm.DB, from *formContainerParsed) (err 
 	return nil
 }
 
+func (m mysqlRepo) RemoveContainer(ns, containerKey string) (err error) {
+	// start a transaction
+	tx := m.db.Begin()
+	defer func() {
+		if err == nil {
+			tx.Commit()
+			return
+		}
+
+		log.
+			WithFields(log.Fields{
+				"error":        err,
+				"containerKey": containerKey,
+				"ns":           ns,
+			}).
+			Debugf("mysqlRepo.RemoveContainer failed, now rollback and rollbackErr=%v", tx.Rollback().Error)
+	}()
+
+	// locate container
+	containerDO := new(ContainerDO)
+	if err = tx.Model(_containerTbl).
+		Where("namespace = ? AND `key` = ?", ns, containerKey).
+		First(containerDO).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			// if record not found err, means no need to delete.
+			err = nil
+		}
+
+		return
+	}
+
+	// remove all fields
+	if err = tx.Model(_fieldTbl).
+		Unscoped().
+		Where("container_id = ?", containerDO.ID).
+		Delete(nil).Error; err != nil {
+
+		return
+	}
+
+	// remove container
+	if err = tx.Model(_containerTbl).
+		Unscoped().
+		Delete(containerDO).Error; err != nil {
+
+		return
+	}
+
+	return nil
+}
+
 // PagingContainers do not resolve all data in container, but overview of container to display.
 func (m mysqlRepo) PagingContainers(filter *persistence.PagingContainersFilter) ([]interface{}, int, error) {
 	if filter == nil || filter.Limit <= 0 || filter.Offset < 0 {
@@ -247,10 +323,10 @@ func (m mysqlRepo) PagingContainers(filter *persistence.PagingContainersFilter) 
 	containerDOs := make([]*ContainerDO, 0, filter.Limit)
 	tx := m.db.Model(_containerTbl).Preload("Fields")
 	if filter.KeyPattern != "" {
-		tx = tx.Where("")
+		tx = tx.Where("`key` LIKE ?", fmt.Sprintf("%%%s%%", filter.KeyPattern))
 	}
 	if filter.Namespace != "" {
-		tx = tx.Where("")
+		tx = tx.Where("namespace = ?", filter.Namespace)
 	}
 
 	count := int64(0)
@@ -359,7 +435,7 @@ func (m mysqlRepo) PagingPairs(filter *persistence.PagingPairsFilter) ([]interfa
 	return out, int(count), err
 }
 
-func (m mysqlRepo) PagingNamespace(filter *persistence.PagingNamespacesFilter) ([]string, error) {
+func (m mysqlRepo) PagingNamespace(filter *persistence.PagingNamespacesFilter) ([]string, int, error) {
 	if filter == nil || filter.Limit <= 0 || filter.Offset < 0 {
 		filter = &persistence.PagingNamespacesFilter{
 			Limit:            999,
@@ -370,18 +446,21 @@ func (m mysqlRepo) PagingNamespace(filter *persistence.PagingNamespacesFilter) (
 
 	tx := m.db.Model(_nsTbl)
 	if filter.NamespacePattern != "" {
-		tx = tx.Where("namespace LIKE ?", fmt.Sprintf("%%%s%%", filter.NamespacePattern))
+		// NOTICE: namespace would only left match to use MySQL index.
+		tx = tx.Where("namespace LIKE ?", fmt.Sprintf("%s%%", filter.NamespacePattern))
 	}
 
 	out := make([]string, 0, 10)
+	count := int64(0)
 	err := tx.
 		Order("namespace ASC").
+		Count(&count).
 		Offset(filter.Offset).
 		Limit(filter.Limit).
 		Pluck("namespace", &out).
 		Error
 
-	return out, err
+	return out, int(count), err
 }
 
 func (m mysqlRepo) SaveNamespace(ns string) error {
@@ -400,8 +479,23 @@ func (m mysqlRepo) SaveNamespace(ns string) error {
 
 func (m mysqlRepo) Converter() persistence.Converter {
 	if m.converter == nil {
-		(&m).converter = newConverter()
+		(&m).converter = newConverter(m)
 	}
 
 	return m.converter
+}
+
+func (m mysqlRepo) updateContainerPure(c *ContainerDO) error {
+	if c == nil {
+		return ErrNilContainer
+	}
+
+	err := m.db.Model(_containerTbl).
+		Where("id = ?", c.ID).
+		Updates(c).Error
+	if err != nil {
+		err = errors.Wrap(err, "mysqlRepo.updateContainerPure failed")
+	}
+
+	return err
 }

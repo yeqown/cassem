@@ -2,6 +2,7 @@ package persistence_test
 
 import (
 	"bytes"
+	"encoding/json"
 	"testing"
 
 	"github.com/yeqown/cassem/internal/persistence"
@@ -77,7 +78,7 @@ func (s testRepositorySuite) Test_Namespace() {
 	err = s.repo.SaveNamespace("ns-2")
 	s.Nil(err)
 
-	out, err := s.repo.PagingNamespace(nil)
+	out, _, err := s.repo.PagingNamespace(nil)
 	s.Nil(err)
 	s.GreaterOrEqual(len(out), 2)
 }
@@ -164,12 +165,12 @@ func (s testRepositorySuite) Test_Container() {
 }
 
 func (s testRepositorySuite) compareContainer(c1, c2 datatypes.IContainer) (bool, error) {
-	byts, err := c1.ToJSON()
+	byts, err := json.Marshal(c1)
 	if err != nil {
 		return false, err
 	}
 
-	byts2, err := c2.ToJSON()
+	byts2, err := json.Marshal(c2)
 	if err != nil {
 		return false, err
 	}

@@ -4,8 +4,10 @@ package datatypes
 type Datatype uint8
 
 const (
+	// EMPTY_DATATYPE help construct a IPair with
+	EMPTY_DATATYPE Datatype = iota
 	// basic datatype
-	INT_DATATYPE_ Datatype = iota + 1
+	INT_DATATYPE_
 	STRING_DATATYPE_
 	FLOAT_DATATYPE_
 	BOOL_DATATYPE_
@@ -30,6 +32,16 @@ type IData interface {
 
 	// Value returns readonly value of data.
 	Data() interface{}
+}
+
+type NonData struct{}
+
+func (n NonData) Datatype() Datatype {
+	return EMPTY_DATATYPE
+}
+
+func (n NonData) Data() interface{} {
+	return nil
 }
 
 type FloatDT float64

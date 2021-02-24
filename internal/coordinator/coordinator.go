@@ -15,6 +15,7 @@ type ICoordinator interface {
 	GetContainer(key, ns string) (datatypes.IContainer, error)
 	PagingContainers(filter *FilterContainersOption) ([]datatypes.IContainer, int, error)
 	SaveContainer(c datatypes.IContainer) error
+	RemoveContainer(key string, ns string) error
 
 	PagingNamespaces(filter *FilterNamespacesOption) ([]string, int, error)
 	SaveNamespace(ns string) error

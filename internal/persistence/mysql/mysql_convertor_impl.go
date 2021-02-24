@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"strconv"
 
+	"github.com/yeqown/cassem/pkg/set"
+
 	"github.com/yeqown/cassem/pkg/datatypes"
 
 	"github.com/pkg/errors"
@@ -11,23 +13,34 @@ import (
 )
 
 var (
-	ErrNilPair            = errors.New("nil pair")
-	ErrInvalidPairDO      = errors.New("invalid pair DO data")
-	ErrUnknownDatatype    = errors.New("unknown datatype")
-	ErrNilContainer       = errors.New("nil container")
-	ErrInvalidContainerDO = errors.New("invalid container DO data")
+	ErrNilPair                = errors.New("nil pair")
+	ErrInvalidPairDO          = errors.New("invalid pair DO data")
+	ErrInvalidPairWithNonData = errors.New("non data couldn't be used to save")
+	ErrUnknownDatatype        = errors.New("unknown datatype")
+	ErrNilContainer           = errors.New("nil container")
+	ErrInvalidContainerDO     = errors.New("invalid container DO data")
+
+	ErrPairKeyNotExist = errors.New("some pair key is not exists")
 )
 
-type mysqlConverter struct{}
+type mysqlConverter struct {
+	repo mysqlRepo
+}
 
-func newConverter() *mysqlConverter {
-	return &mysqlConverter{}
+func newConverter(repo mysqlRepo) *mysqlConverter {
+	return &mysqlConverter{
+		repo: repo,
+	}
 }
 
 // FromPair from pair to PairDO
 func (m mysqlConverter) FromPair(p datatypes.IPair) (interface{}, error) {
 	if p == nil {
 		return nil, ErrNilPair
+	}
+
+	if p.Value() == nil || p.Value().Datatype() == datatypes.EMPTY_DATATYPE {
+		return nil, ErrInvalidPairWithNonData
 	}
 
 	v, err := p.MarshalJSON()
@@ -99,6 +112,8 @@ func (m mysqlConverter) ToPair(v interface{}) (p datatypes.IPair, err error) {
 	return
 }
 
+// FromContainer convert datatypes.IContainer into formContainerParsed, so that persistence.Repository could save it
+// into store media.
 func (m mysqlConverter) FromContainer(c datatypes.IContainer) (interface{}, error) {
 	if c == nil {
 		return nil, ErrNilContainer
@@ -109,10 +124,11 @@ func (m mysqlConverter) FromContainer(c datatypes.IContainer) (interface{}, erro
 		c: &ContainerDO{
 			Key:       c.Key(),
 			Namespace: c.NS(),
-			CheckSum:  "", // TODO(@yeqown) add check sum
+			// CheckSum:  "", NOTICE: checksum would not be calculate and updated, until it's requested.
 		},
 		fields:          make([]*FieldDO, 0, len(_fields)),
-		uniqueFieldKeys: make([]string, 0, len(_fields)),
+		uniqueFieldKeys: set.NewStringSet(len(_fields)),
+		uniquePairKeys:  set.NewStringSet(len(_fields) * 4),
 	}
 
 	for _, fld := range _fields {
@@ -121,15 +137,18 @@ func (m mysqlConverter) FromContainer(c datatypes.IContainer) (interface{}, erro
 		switch fld.Type() {
 		case datatypes.KV_FIELD_:
 			pairKey := fld.Value().(datatypes.IPair).Key()
-			fieldPairs[pairKey] = "kv"
+			fieldPairs["KV"] = pairKey
+			_ = parsed.uniquePairKeys.Add(pairKey)
 		case datatypes.LIST_FIELD_:
 			// FIXED(@yeqown) list may have duplicated paris. so how to keep the origin detail.
 			for idx, v := range fld.Value().([]datatypes.IPair) {
 				fieldPairs[strconv.Itoa(idx)] = v.Key()
+				_ = parsed.uniquePairKeys.Add(v.Key())
 			}
 		case datatypes.DICT_FIELD_:
 			for k, v := range fld.Value().(map[string]datatypes.IPair) {
 				fieldPairs[k] = v.Key()
+				_ = parsed.uniquePairKeys.Add(v.Key())
 			}
 		default:
 			log.
@@ -137,7 +156,7 @@ func (m mysqlConverter) FromContainer(c datatypes.IContainer) (interface{}, erro
 				Warn("invalid field type: %d", fld.Type())
 		}
 
-		parsed.uniqueFieldKeys = append(parsed.uniqueFieldKeys, fld.Name())
+		_ = parsed.uniqueFieldKeys.Add(fld.Name())
 		parsed.fields = append(parsed.fields, &FieldDO{
 			FieldType: fld.Type(),
 			Key:       fld.Name(),
@@ -148,6 +167,7 @@ func (m mysqlConverter) FromContainer(c datatypes.IContainer) (interface{}, erro
 	return &parsed, nil
 }
 
+// ToContainer convert toContainerWithPairs into datatypes.IContainer, so that cassem logic could process on it's flow.
 func (m mysqlConverter) ToContainer(v interface{}) (datatypes.IContainer, error) {
 	toc, ok := v.(*toContainerWithPairs)
 	if !ok || toc == nil || toc.c == nil {
@@ -163,12 +183,13 @@ func (m mysqlConverter) ToContainer(v interface{}) (datatypes.IContainer, error)
 		// toc.paris is not empty, so need to parse and mapping
 		//shouldParsePair = true
 		parsedPairMapping = make(map[string]datatypes.IPair, len(toc.pairs))
-		for k, v := range toc.pairs {
+		for pairKey, pairVO := range toc.pairs {
 			// parse pair and save into mapping
-			if parsedPairMapping[k], err = m.ToPair(v); err != nil {
+			if parsedPairMapping[pairKey], err = m.ToPair(pairVO); err != nil {
 				log.WithFields(log.Fields{
-					"k":         k,
-					"container": toc.c,
+					"pairKey": pairKey,
+					"pairDO":  v,
+					"pairs":   toc.pairs,
 				}).Warnf("mysqlConverter.ToContainer failed to convert pair: %v", err)
 			}
 		}
@@ -181,21 +202,21 @@ func (m mysqlConverter) ToContainer(v interface{}) (datatypes.IContainer, error)
 		switch fld.FieldType {
 		case datatypes.KV_FIELD_:
 			var pair datatypes.IPair
-			for k := range fld.Pairs {
-				pair = parsedPairMapping[k]
+			for _, pairKey := range fld.Pairs {
+				pair = parsedPairMapping[pairKey]
 			}
 			f = datatypes.NewKVField(fld.Key, pair)
 		case datatypes.LIST_FIELD_:
 			var pairs = make([]datatypes.IPair, len(fld.Pairs))
-			for idxKey, k := range fld.Pairs {
+			for idxKey, pairKey := range fld.Pairs {
 				idx, _ := strconv.Atoi(idxKey)
-				pairs[idx] = parsedPairMapping[k]
+				pairs[idx] = parsedPairMapping[pairKey]
 			}
 			f = datatypes.NewListField(fld.Key, pairs)
 		case datatypes.DICT_FIELD_:
 			var pairs = make(map[string]datatypes.IPair, len(fld.Pairs))
-			for k, alias := range fld.Pairs {
-				pairs[alias] = parsedPairMapping[k]
+			for dictKey, pairKey := range fld.Pairs {
+				pairs[dictKey] = parsedPairMapping[pairKey]
 			}
 			f = datatypes.NewDictField(fld.Key, pairs)
 		default:
@@ -218,5 +239,31 @@ func (m mysqlConverter) ToContainer(v interface{}) (datatypes.IContainer, error)
 		}
 	}
 
+	var (
+		needUpdate bool
+		checksum   string
+	)
+	if toc.origin != toOriginDetail {
+		// if not detail container, no need to calculate and update checksum.
+		goto toContainerEnd
+	}
+
+	// checksum calculate
+	needUpdate = len(toc.c.CheckSum) == 0
+	checksum = c.CheckSum(toc.c.CheckSum)
+	needUpdate = needUpdate || (checksum != toc.c.CheckSum)
+
+	if needUpdate {
+		go func() {
+			// TODO(@yeqown) this may be a watch changes timing.
+			if err = m.repo.updateContainerPure(toc.c); err != nil {
+				log.
+					WithField("container", toc.c).
+					Errorf("updateContainerPure failed to update checkSum: %v", err)
+			}
+		}()
+	}
+
+toContainerEnd:
 	return c, nil
 }

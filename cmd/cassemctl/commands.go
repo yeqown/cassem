@@ -44,7 +44,8 @@ func getServerCommand() *cli.Command {
 
 			// start server
 			addr := c.String("addr")
-			return apihttp.New(addr, coord.New(repo)).ListenAndServe()
+			cfg.Server.HTTP.Addr = addr
+			return apihttp.New(cfg.Server.HTTP, coord.New(repo)).ListenAndServe()
 		},
 	}
 }

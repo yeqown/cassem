@@ -1,6 +1,10 @@
 package datatypes
 
-import "encoding/json"
+import (
+	"encoding/json"
+
+	"github.com/yeqown/cassem/pkg/hash"
+)
 
 type FieldTyp uint8
 
@@ -34,7 +38,7 @@ type kvField struct {
 
 func NewKVField(fieldKey string, p IPair) IField {
 	if fieldKey == "" {
-		fieldKey = p.Key()
+		fieldKey = hashFieldKey()
 	}
 
 	return kvField{
@@ -65,10 +69,14 @@ type listField struct {
 	pairs []IPair
 }
 
+func hashFieldKey() string {
+	return "field" + hash.RandKey(6)
+}
+
 func NewListField(fieldKey string, pairs []IPair) IField {
 	if fieldKey == "" {
-		// TODO(@yeqown): use hashed string to name this fieldKey
-		fieldKey = "todo_list_name_hash"
+		// DONE(@yeqown): use hashed string to name this fieldKey
+		fieldKey = hashFieldKey()
 	}
 
 	if pairs == nil {
@@ -105,8 +113,7 @@ type dictField struct {
 
 func NewDictField(fieldKey string, pairs map[string]IPair) IField {
 	if fieldKey == "" {
-		// TODO(@yeqown): use hashed string to name this fieldKey
-		fieldKey = "todo_hashed_dict_name"
+		fieldKey = hashFieldKey()
 	}
 
 	if pairs == nil {

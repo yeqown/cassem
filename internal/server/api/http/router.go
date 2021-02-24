@@ -1,6 +1,8 @@
 package http
 
-import "github.com/gin-gonic/gin"
+import (
+	"github.com/gin-gonic/gin"
+)
 
 func (srv *Server) mountAPI(engi *gin.Engine) {
 	g := engi.Group("/api")
@@ -14,17 +16,17 @@ func (srv *Server) mountAPI(engi *gin.Engine) {
 
 	container := ns.Group("/:ns/containers")
 	{
-		container.GET("", nil)
-		container.POST("/:key", nil)
+		container.GET("", srv.PagingContainers)
+		container.POST("/:key", srv.UpsertContainer)
 		container.GET("/:key", srv.GetContainer)
-		container.GET("/:key/file", srv.ContainerToFile)
-		container.DELETE("/:key", nil)
+		container.GET("/:key/dl", srv.ContainerDownload)
+		container.DELETE("/:key", srv.RemoveContainer)
 	}
 
 	pair := ns.Group("/:ns/pairs")
 	{
 		pair.GET("", srv.PagingPairs)
-		pair.POST("/:key", nil)
+		pair.POST("/:key", srv.UpsertPair)
 		pair.GET("/:key", srv.GetPair)
 		//pair.DELETE("/:key", nil)
 	}

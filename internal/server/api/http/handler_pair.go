@@ -1,6 +1,8 @@
 package http
 
 import (
+	"errors"
+
 	coord "github.com/yeqown/cassem/internal/coordinator"
 	"github.com/yeqown/cassem/pkg/datatypes"
 
@@ -37,20 +39,20 @@ func (srv *Server) PagingPairs(c *gin.Context) {
 		return
 	}
 
-	pairs := make([]pairResponse, len(out))
+	pairs := make([]*pairVO, len(out))
 	for idx, v := range out {
-		pairs[idx] = toPairResponse(v)
+		pairs[idx] = toPairVO(v)
 	}
 
 	r := struct {
-		Pairs []pairResponse `json:"pairs"`
-		Total int            `json:"total"`
+		Pairs []*pairVO `json:"pairs"`
+		Total int       `json:"total"`
 	}{
 		Pairs: pairs,
 		Total: count,
 	}
 
-	responseData(c, r)
+	responseJSON(c, r)
 }
 
 type getPairReq struct {
@@ -58,17 +60,23 @@ type getPairReq struct {
 	Key       string `uri:"key"`
 }
 
-type pairResponse struct {
-	Key      string             `json:"key"`
-	Value    interface{}        `json:"value"`
-	Datatype datatypes.Datatype `json:"datatype"`
+type pairVO struct {
+	Key       string             `json:"key" uri:"key"`
+	Value     interface{}        `json:"value"`
+	Datatype  datatypes.Datatype `json:"datatype"`
+	Namespace string             `json:"namespace"`
 }
 
-func toPairResponse(p datatypes.IPair) pairResponse {
-	return pairResponse{
-		Key:      p.Key(),
-		Value:    p.Value(),
-		Datatype: p.Value().Datatype(),
+func toPairVO(p datatypes.IPair) *pairVO {
+	if p == nil {
+		return nil
+	}
+
+	return &pairVO{
+		Key:       p.Key(),
+		Value:     p.Value(),
+		Datatype:  p.Value().Datatype(),
+		Namespace: p.NS(),
 	}
 }
 
@@ -85,5 +93,44 @@ func (srv *Server) GetPair(c *gin.Context) {
 		return
 	}
 
-	responseData(c, toPairResponse(pair))
+	responseJSON(c, toPairVO(pair))
+}
+
+type upsertPairReq struct {
+	pairVO
+
+	Namespace string `uri:"ns"`
+}
+
+func (srv *Server) UpsertPair(c *gin.Context) {
+	req := new(upsertPairReq)
+	if err := c.ShouldBindUri(req); err != nil {
+		responseError(c, err)
+		return
+	}
+
+	if err := c.ShouldBind(req); err != nil {
+		responseError(c, err)
+		return
+	}
+
+	d := datatypes.ConstructIData(req.Value)
+	if d.Datatype() != req.Datatype {
+		responseError(c, errors.New("value and datatype unmatch"))
+		return
+	}
+
+	if d.Data() == nil {
+		responseError(c, errors.New("could not parse value to basic datatype"))
+		return
+	}
+
+	pair := datatypes.NewPair(req.Namespace, req.Key, d)
+	err := srv.coordinator.SavePair(pair)
+	if err != nil {
+		responseError(c, err)
+		return
+	}
+
+	responseJSON(c, nil)
 }
