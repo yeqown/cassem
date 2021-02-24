@@ -103,8 +103,9 @@ Errors:			0	(0.00%)
 ### API (/api/namespaces/:ns/containers/:key) benchmark result
 
 <details>
-	<summary>`curl http://localhost:2021/api/namespaces/ns/containers/container-1` </summary>
-```json
+	<summary>curl http://localhost:2021/api/namespaces/ns/containers/container-1</summary>
+	<div class="highlight highlight-source-json">
+		<pre>
 {
   "errcode": 0,
   "errmsg": "success",
@@ -230,7 +231,8 @@ Errors:			0	(0.00%)
     ]
   }
 }
-```
+</pre>
+	</div>
 </details>
 
 ```sh
