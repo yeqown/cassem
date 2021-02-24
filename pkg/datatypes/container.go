@@ -1,14 +1,14 @@
 package datatypes
 
 import (
-	"bytes"
 	"encoding/json"
+	"fmt"
 	"sync"
 
-	"github.com/yeqown/cassem/pkg/hash"
+	"github.com/pelletier/go-toml"
 
+	"github.com/yeqown/cassem/pkg/hash"
 	// DONE(@yeqown) use recommended toml library.
-	"github.com/BurntSushi/toml"
 )
 
 var (
@@ -19,8 +19,6 @@ var (
 // IContainer helps logic and repository to operates with Container which contains fields of pair.
 type IContainer interface {
 	IEncoder
-
-	ToTOML() (text []byte, err error)
 
 	// Key of IContainer to identify which container in cassem.
 	Key() string
@@ -61,8 +59,6 @@ type builtinLogicContainer struct {
 	_mu sync.RWMutex
 	// fields means map[IField.Name()]IField
 	fields map[string]IField
-
-	TOMLTestField string `toml:"test"`
 }
 
 // NewContainer to construct a logic container.
@@ -135,21 +131,50 @@ func (c *builtinLogicContainer) MarshalJSON() ([]byte, error) {
 	return json.Marshal(c.fields)
 }
 
-func (c *builtinLogicContainer) MarshalText() ([]byte, error) {
+func (c *builtinLogicContainer) MarshalTOML() ([]byte, error) {
 	c._mu.RLock()
 	defer c._mu.RUnlock()
 
-	return []byte("no need"), nil
-}
+	text, err := c.MarshalJSON()
+	fmt.Printf("%s", text)
+	if err != nil {
+		return nil, err
+	}
 
-func (c *builtinLogicContainer) ToTOML() ([]byte, error) {
-	c._mu.RLock()
-	defer c._mu.RUnlock()
+	var jsonMap map[string]interface{}
+	if err = json.Unmarshal(text, &jsonMap); err != nil {
+		return nil, err
+	}
 
-	buf := bytes.NewBuffer(nil)
-	err := toml.NewEncoder(buf).Encode(c.fields)
+	tree, err := toml.TreeFromMap(jsonMap)
+	if err != nil {
+		return nil, err
+	}
 
-	return buf.Bytes(), err
+	return tree.Marshal()
+
+	//err := toml.NewEncoder(buf).Encode(c.fields)
+	//for k, field := range c.fields {
+	//	text, err := field.MarshalTOML()
+	//	if err != nil {
+	//		return nil, errors.Wrap(err, "container failed marshal field into TOML: "+field.Name())
+	//	}
+	//	switch field.Type() {
+	//	case KV_FIELD_:
+	//		//if field.Value().(IPair).Value().Datatype() == DICT_DATATYPE_ {
+	//		//	buf.WriteString("[" + k + "]\n")
+	//		//} else {
+	//		//	buf.WriteString(k + " = ")
+	//		//}
+	//	case LIST_FIELD_:
+	//		buf.WriteString(k + " = ")
+	//	case DICT_FIELD_:
+	//		buf.WriteString("[" + k + "]\n")
+	//	}
+	//	buf.Write(text)
+	//	buf.WriteString("\n")
+	//}
+	//return buf.Bytes(), err
 }
 
 // CheckSum set or calculate checksum of builtinLogicContainer.

@@ -1,10 +1,13 @@
 package conf
 
 import (
+	"io"
+	"os"
+
 	"github.com/yeqown/cassem/internal/persistence/mysql"
 	apihtp "github.com/yeqown/cassem/internal/server/api/http"
 
-	"github.com/BurntSushi/toml"
+	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
 )
 
@@ -18,8 +21,13 @@ type Config struct {
 	} `toml:"server"`
 }
 
-func Load(p string) (*Config, error) {
-	if p == "" {
+func openFile(path string) (r io.Reader, err error) {
+	return os.Open(path)
+}
+
+// Load decode into *Config from path (config filepath) in TOML format.
+func Load(path string) (*Config, error) {
+	if path == "" {
 		panic("todo load conf automatically")
 	}
 
@@ -27,8 +35,12 @@ func Load(p string) (*Config, error) {
 	c.Persistence.Mysql = new(mysql.ConnectConfig)
 	c.Server.HTTP = new(apihtp.Config)
 
-	if _, err := toml.DecodeFile(p, c); err != nil {
-		return nil, errors.Wrap(err, "could not decode FILE in TOML format")
+	r, err := openFile(path)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not open FILE")
+	}
+	if err = toml.NewDecoder(r).Decode(c); err != nil {
+		return nil, errors.Wrap(err, "decode TOML file failed")
 	}
 
 	return c, nil

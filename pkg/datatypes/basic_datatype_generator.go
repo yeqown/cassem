@@ -1,5 +1,7 @@
 package datatypes
 
+import "fmt"
+
 func WithEmpty() NonData {
 	return struct{}{}
 }
@@ -69,7 +71,7 @@ func ConstructIData(v interface{}) IData {
 }
 
 func constructIDataRecursive(v interface{}) (d IData) {
-	switch v.(type) {
+	switch typ := v.(type) {
 	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
 		// NOTE(@yeqown) maybe unsafe can helps this, if could not convert to int from (uint or int_x)
 		d = WithInt(v.(int))
@@ -91,6 +93,8 @@ func constructIDataRecursive(v interface{}) (d IData) {
 			l.Append(constructIDataRecursive(value))
 		}
 		d = l
+	default:
+		panic(fmt.Sprintf("unsupported type: %v", typ))
 	}
 
 	return d

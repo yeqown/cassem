@@ -94,6 +94,7 @@ func (l ListDT) Data() interface{} {
 	return l
 }
 
+// FIXME(@yeqown): List should contains same type of pairs
 func (l *ListDT) Append(vs ...IData) {
 	if l == nil {
 		panic("ListDT is not initialized")

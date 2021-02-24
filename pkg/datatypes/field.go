@@ -1,12 +1,9 @@
 package datatypes
 
 import (
-	"bytes"
 	"encoding/json"
 
 	"github.com/yeqown/cassem/pkg/hash"
-
-	"github.com/BurntSushi/toml"
 )
 
 type FieldTyp uint8
@@ -66,11 +63,26 @@ func (k kvField) MarshalJSON() ([]byte, error) {
 	return json.Marshal(k.kv)
 }
 
-func (k kvField) MarshalText() (text []byte, err error) {
-	buf := bytes.NewBuffer(nil)
-	err = toml.NewEncoder(buf).Encode(k.kv)
-
-	return buf.Bytes(), err
+func (k kvField) MarshalTOML() (text []byte, err error) {
+	return nil, nil
+	//buf := bytes.NewBuffer(nil)
+	//pair := k.kv
+	//text, err = pair.MarshalTOML()
+	//if err != nil {
+	//	return nil, errors.Wrap(err, "kvField failed marshal into TOML: "+pair.Key())
+	//}
+	//
+	//switch pair.Value().Datatype() {
+	//case DICT_DATATYPE_:
+	//	buf.WriteString("[" + k.name + "]\n")
+	//	buf.Write(text)
+	//default:
+	//	buf.WriteString(k.name + " = ")
+	//	buf.Write(text)
+	//}
+	//buf.WriteString("\n")
+	//
+	//return buf.Bytes(), nil
 }
 
 type listField struct {
@@ -83,6 +95,7 @@ func hashFieldKey() string {
 	return "field" + hash.RandKey(6)
 }
 
+// FIXME(@yeqown): List should contains same type of pairs
 func NewListField(fieldKey string, pairs []IPair) IField {
 	if fieldKey == "" {
 		// DONE(@yeqown): use hashed string to name this fieldKey
@@ -103,11 +116,37 @@ func (k listField) MarshalJSON() ([]byte, error) {
 	return json.Marshal(k.pairs)
 }
 
-func (k listField) MarshalText() (text []byte, err error) {
-	buf := bytes.NewBuffer(nil)
-	err = toml.NewEncoder(buf).Encode(k.pairs)
+//var (
+//	leftBracket   = []byte("[")
+//	rightBracket  = []byte("]")
+//	commaAndSpace = []byte(", ")
+//)
 
-	return buf.Bytes(), err
+func (k listField) MarshalTOML() (text []byte, err error) {
+	return nil, nil
+	//buf := bytes.NewBuffer(nil)
+	//buf.Write(leftBracket)
+	//for idx, pair := range k.pairs {
+	//	text, err = pair.MarshalTOML()
+	//	if err != nil {
+	//		return nil, errors.Wrap(err, "listField failed marshal into TOML: "+pair.Key())
+	//	}
+	//
+	//	switch pair.Value().Datatype() {
+	//	case DICT_DATATYPE_:
+	//		buf.WriteString("[" + "listFieldName" + k.name + "]\n")
+	//		buf.Write(text)
+	//	default:
+	//		buf.Write(text)
+	//	}
+	//
+	//	if idx+1 != len(k.pairs) {
+	//		buf.Write(commaAndSpace)
+	//	}
+	//}
+	//
+	//buf.Write(rightBracket)
+	//return buf.Bytes(), err
 }
 
 func (k listField) Name() string {
@@ -147,11 +186,29 @@ func (k dictField) MarshalJSON() ([]byte, error) {
 	return json.Marshal(k.pairs)
 }
 
-func (k dictField) MarshalText() (text []byte, err error) {
-	buf := bytes.NewBuffer(nil)
-	err = toml.NewEncoder(buf).Encode(k.pairs)
-
-	return buf.Bytes(), err
+func (k dictField) MarshalTOML() (text []byte, err error) {
+	return nil, nil
+	//	buf := bytes.NewBuffer(nil)
+	//	for dictKey, pair := range k.pairs {
+	//		text, err = pair.MarshalTOML()
+	//		if err != nil {
+	//			return nil, errors.Wrap(err, "dictField failed marshal into TOML: "+pair.Key())
+	//		}
+	//
+	//		switch pair.Value().Datatype() {
+	//		case DICT_DATATYPE_:
+	//			//buf.WriteString("[" + "parentKey_todo" + "." + dictKey + "]\n")
+	//			buf.WriteString("[" + dictKey + "]\n")
+	//			buf.Write(text)
+	//		default:
+	//			buf.WriteString(dictKey + " = ")
+	//			buf.Write(text)
+	//		}
+	//
+	//		buf.WriteString("\n")
+	//	}
+	//
+	//	return buf.Bytes(), nil
 }
 
 func (k dictField) Name() string {

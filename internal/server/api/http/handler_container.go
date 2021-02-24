@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/pelletier/go-toml"
+
 	coord "github.com/yeqown/cassem/internal/coordinator"
 	"github.com/yeqown/cassem/pkg/datatypes"
 
@@ -225,11 +227,14 @@ func (srv *Server) ContainerDownload(c *gin.Context) {
 		ct = jsonContentType
 		err = json.NewEncoder(buf).Encode(container)
 	case "toml":
+		// another way to resolve this is:
+		// json2toml
+		// tree := toml.TreeFromMap(jsonMap)
+		// tree.ToTomlString()
+
+		// FIXED(@yeqown): could not encode container in TOML format.
 		ct = tomlContentType
-		// FIXME(@yeqown): could not encode container in TOML format.
-		var content []byte
-		content, err = container.ToTOML()
-		buf.Write(content)
+		err = toml.NewEncoder(buf).Encode(container)
 	default:
 		err = errors.New("unsupported file format")
 	}

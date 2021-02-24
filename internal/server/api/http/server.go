@@ -42,10 +42,11 @@ func (srv *Server) boot() {
 	srv.engi.Use(gin.Recovery())
 	srv.engi.Use(gin.Logger())
 
-	// TODO(@yeqown) authorize middleware is needed.
 	if srv._cfg.Debug {
 		pprof.Register(srv.engi, "/debug/pprof")
 	}
+	// TODO(@yeqown) authorize middleware is needed.
+	srv.engi.Use(authorize())
 
 	// mount API
 	srv.mountAPI(srv.engi)

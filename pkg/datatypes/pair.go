@@ -1,10 +1,7 @@
 package datatypes
 
 import (
-	"bytes"
 	"encoding/json"
-
-	"github.com/BurntSushi/toml"
 )
 
 var (
@@ -57,13 +54,40 @@ func (p builtinPair) Value() IData {
 	return p.value
 }
 
-func (p builtinPair) MarshalText() (text []byte, err error) {
-	buf := bytes.NewBuffer(nil)
-	err = toml.NewEncoder(buf).Encode(p.value)
-
-	return buf.Bytes(), err
+// FIXED: customized marshal TOML
+func (p builtinPair) MarshalTOML() (text []byte, err error) {
+	return nil, nil
+	// p.value is basic datatype, so how to marshal as TOML.
+	//return p.Value().MarshalTOML()
+	//return toTomlElement(p.Value())
 }
 
 func (p builtinPair) MarshalJSON() ([]byte, error) {
 	return json.Marshal(p.value)
 }
+
+//
+//func toTomlElement(d IData) (text []byte, err error) {
+//	var s string
+//	v := d.Data()
+//	switch d.Datatype() {
+//	case INT_DATATYPE_, FLOAT_DATATYPE_, BOOL_DATATYPE_:
+//		s = fmt.Sprintf("%v", v)
+//	case STRING_DATATYPE_:
+//		s = fmt.Sprintf(`"%v"`, v)
+//	case LIST_DATATYPE_:
+//		for _, v := range v.(ListDT) {
+//			tt, _ := toTomlElement(v)
+//			s += string(tt) + ", "
+//		}
+//		s = "[" + strings.TrimRight(s, ", ") + "]"
+//	case DICT_DATATYPE_:
+//		buf := bytes.NewBuffer(nil)
+//		err = toml.NewEncoder(buf).Encode(v)
+//		return buf.Bytes(), err
+//	default:
+//		err = errors.New("unsupported datatype")
+//	}
+//
+//	return []byte(s), err
+//}
