@@ -14,8 +14,7 @@ import (
 type Raft struct {
 	Base     string `toml:"base"`
 	Bind     string `toml:"bind"`
-	Join     string `toml:"join"`   // cluster managing port [client using]
-	Listen   string `toml:"listen"` // cluster nodes manage port [server using]
+	Join     string `toml:"join"` // append to cluster
 	ServerID string `toml:"serverId"`
 }
 

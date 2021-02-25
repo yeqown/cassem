@@ -4,8 +4,13 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+func (srv *Server) mountRaftAPI(engi *gin.Engine) {
+	engi.GET("/", srv.OperateNode)
+}
+
 func (srv *Server) mountAPI(engi *gin.Engine) {
-	g := engi.Group("/api")
+	// TODO(@yeqown) authorize middleware is needed.
+	g := engi.Group("/api", authorize())
 
 	ns := g.Group("/namespaces")
 	{

@@ -2,10 +2,9 @@ package daemon
 
 import (
 	"encoding/json"
-	"fmt"
-	"io/ioutil"
 	"net/http"
 	"net/url"
+	"strings"
 
 	"github.com/pkg/errors"
 	"github.com/yeqown/log"
@@ -15,121 +14,93 @@ var (
 	client = &http.Client{}
 )
 
-func sendReq(req *http.Request) error {
-	r, err := client.Do(req)
-	if err != nil {
-		log.Errorf("invalid do: %v", err)
-		return err
-	}
-	defer r.Body.Close()
-	byts, err := ioutil.ReadAll(r.Body)
-	if err != nil {
-		log.Errorf("invalid do: %v", err)
-		return err
-	}
-
-	resp := new(commonResp)
-	if err = json.Unmarshal(byts, resp); err != nil {
-		return err
-	}
-
-	if resp.Code != 0 {
-		err = errors.New("request failed: " + resp.Errmsg)
-	}
-
-	return err
+type operateNodeResp struct {
+	ErrCode    int         `json:"errcode"`
+	ErrMessage string      `json:"errmsg,omitempty"`
+	Data       interface{} `json:"data,omitempty"`
 }
 
-func (d *Daemon) join() error {
-	form := url.Values{}
-	form.Add("serverId", d.serverId)
-	form.Add("action", "join")
-	form.Add("addr", d.cfg.Server.Raft.Bind)
+func operateNodeRequest(base string, data map[string]string) error {
+	if base == "" {
+		log.Warn("operateNodeRequest could not be executed with empty RAFT bind address, skip")
+		return nil
+	}
+	// detection and fix schema
+	if !strings.HasPrefix(base, "http://") && !strings.HasPrefix(base, "https://") {
+		base = "http://" + base
+	}
 
-	uri := "http://" + d.cfg.Server.Raft.Join + "?" + form.Encode()
+	// assemble form parameters
+	form := url.Values{}
+	for k, v := range data {
+		form.Add(k, v)
+	}
+
+	uri := base + "?" + form.Encode()
 	req, err := http.NewRequest(http.MethodGet, uri, nil)
 	if err != nil {
 		log.Errorf("invalid http.NewRequest: %v", err)
 		return errors.Wrap(err, "invalid http.NewRequest")
 	}
 
-	if err = sendReq(req); err != nil {
-		return errors.Wrapf(err, "sendReq failed")
+	r, err := client.Do(req)
+	if err != nil {
+		log.Errorf("invalid do: %v", err)
+		return err
 	}
 
-	d.joinedCluster = true
-	return nil
+	if r.StatusCode != http.StatusOK {
+		defer r.Body.Close()
+		result := new(operateNodeResp)
+		if err = json.NewDecoder(r.Body).Decode(result); err != nil {
+			log.Errorf("executeOperateNodeRequest could not parse response: %v", err)
+			return err
+		}
+
+		err = errors.New(result.ErrMessage)
+	}
+
+	return err
 }
 
-func (d *Daemon) leave() error {
-	form := url.Values{}
-	form.Add("serverId", d.serverId)
-	form.Add("action", "leave")
+const (
+	_formServerId        = "serverId"
+	_formAction          = "action"
+	_formRaftBindAddress = "bind"
 
-	uri := "http://" + d.cfg.Server.Raft.Join + "?" + form.Encode()
-	req, err := http.NewRequest(http.MethodGet, uri, nil)
-	if err != nil {
+	_actionJoin = "join"
+	_actionLeft = "left"
+)
+
+func (d *Daemon) tryJoinCluster() (err error) {
+	base := d.cfg.Server.Raft.Join
+	if err = operateNodeRequest(base, map[string]string{
+		_formServerId:        d.serverId,
+		_formAction:          _actionJoin,
+		_formRaftBindAddress: d.cfg.Server.Raft.Bind,
+	}); err != nil {
 		log.Errorf("invalid request: %v", err)
+
 		return errors.Wrap(err, "invalid http.NewRequest")
 	}
 
-	if err = sendReq(req); err != nil {
-		return errors.Wrapf(err, "sendReq failed")
+	d.joinedCluster = true
+
+	return
+}
+
+func (d *Daemon) tryLeaveCluster() (err error) {
+	base := d.cfg.Server.Raft.Join
+	if err = operateNodeRequest(base, map[string]string{
+		_formServerId: d.serverId,
+		_formAction:   _actionLeft,
+	}); err != nil {
+		log.Errorf("invalid request: %v", err)
+
+		return errors.Wrap(err, "invalid http.NewRequest")
 	}
 
 	d.joinedCluster = false
-	return nil
-}
 
-func (d Daemon) serveClusterNode() error {
-	http.HandleFunc("/", func(w http.ResponseWriter, req *http.Request) {
-		log.Debugf("cluster handler received a request")
-
-		_ = req.ParseForm()
-		serverId := req.Form.Get("serverId")
-		addr := req.Form.Get("addr")
-		action := req.Form.Get("action")
-
-		var err error
-		switch action {
-		case "join":
-			err = d.addNode(serverId, addr)
-		case "leave":
-			err = d.removeNode(serverId)
-		default:
-			err = errors.New("Unknown action")
-		}
-
-		if err != nil {
-			responseError(w, err)
-			return
-		}
-
-		responseOK(w)
-	})
-
-	return http.ListenAndServe(d.cfg.Server.Raft.Listen, nil)
-}
-
-type commonResp struct {
-	Code   int    `json:"result"`
-	Errmsg string `json:"errmsg"`
-}
-
-func responseError(w http.ResponseWriter, err error) {
-	r := commonResp{
-		Code:   -1,
-		Errmsg: err.Error(),
-	}
-	byts, _ := json.Marshal(r)
-	_, _ = fmt.Fprint(w, string(byts))
-}
-
-func responseOK(w http.ResponseWriter) {
-	r := commonResp{
-		Code:   0,
-		Errmsg: "success",
-	}
-	byts, _ := json.Marshal(r)
-	_, _ = fmt.Fprint(w, string(byts))
+	return
 }

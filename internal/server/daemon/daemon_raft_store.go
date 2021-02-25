@@ -92,67 +92,16 @@ func (d *Daemon) bootstrapRaft() (err error) {
 		return
 	}
 
-	// restart
+	// node restart or cluster restart
 	if fs.Exists(d.cfg.Server.Raft.Base) && d.cfg.Server.Raft.Join == "" {
-		// local store file exists
+		// local store file exists and join is empty means cluster restart, not node restart
 		// pass: do nothing
 	} else {
-		// FIXED(@yeqown) could not return error, join could retry
-		if err2 := d.join(); err2 != nil {
-			log.Errorf("join cluster failed: %v", err2)
+		// FIXED(@yeqown) could not return error, tryJoinCluster could retry
+		if err2 := d.tryJoinCluster(); err2 != nil {
+			log.Errorf("tryJoinCluster cluster failed: %v", err2)
 		}
 	}
 
 	return
-}
-
-func (d Daemon) addNode(serverId, addr string) error {
-	log.Infof("received join request for remote node %s, addr %s", serverId, addr)
-
-	cf := d.raft.GetConfiguration()
-	if err := cf.Error(); err != nil {
-		log.Errorf("failed to get raft configuration: %v", err)
-		return err
-	}
-
-	for _, server := range cf.Configuration().Servers {
-		if server.ID == raft.ServerID(serverId) {
-			log.Infof("node %s already joinedCluster raft cluster", serverId)
-			return nil
-		}
-	}
-
-	f := d.raft.AddVoter(raft.ServerID(serverId), raft.ServerAddress(addr), 0, 0)
-	if err := f.Error(); err != nil {
-		return err
-	}
-
-	log.Infof("node %s at %s joinedCluster successfully", serverId, addr)
-	return nil
-}
-
-func (d Daemon) removeNode(nodeID string) error {
-	log.Infof("received join request for remote node %s", nodeID)
-
-	cf := d.raft.GetConfiguration()
-	if err := cf.Error(); err != nil {
-		log.Errorf("failed to get raft configuration: %v", err)
-		return err
-	}
-
-	for _, srv := range cf.Configuration().Servers {
-		if srv.ID == raft.ServerID(nodeID) {
-			f := d.raft.RemoveServer(srv.ID, 0, 0)
-			if err := f.Error(); err != nil {
-				log.Errorf("failed to remove srv %s, err: ", nodeID, err)
-				return err
-			}
-
-			log.Infof("node %s left successfully", nodeID)
-			return nil
-		}
-	}
-
-	log.Infof("node %s not exists in raft group", nodeID)
-	return nil
 }

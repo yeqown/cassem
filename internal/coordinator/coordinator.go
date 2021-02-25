@@ -12,6 +12,8 @@ import "github.com/yeqown/cassem/pkg/datatypes"
 
 // ICoordinator manage all flow from client to server.
 type ICoordinator interface {
+	IRaftCluster
+
 	GetContainer(key, ns string) (datatypes.IContainer, error)
 	PagingContainers(filter *FilterContainersOption) ([]datatypes.IContainer, int, error)
 	SaveContainer(c datatypes.IContainer) error
@@ -23,6 +25,12 @@ type ICoordinator interface {
 	GetPair(key, ns string) (datatypes.IPair, error)
 	PagingPairs(filter *FilterPairsOption) ([]datatypes.IPair, int, error)
 	SavePair(p datatypes.IPair) error
+}
+
+type IRaftCluster interface {
+	AddNode(serverId, addr string) error
+
+	RemoveNode(serverId string) error
 }
 
 type FilterContainersOption struct {

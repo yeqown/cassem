@@ -13,11 +13,23 @@ To start the `server` and it's daemon process, components in `server` include:
 Now, you can start the `cassemd` server as following command:
 
 ```sh
-# DONE(@yeqown): finish this part.
-./cassemd -c ./configs/cassem.example.toml \
+# @yeqown@gmail.com
+# @cassemd
+
+./cassemd \
+	-c ./configs/cassem.example.toml \		# config file path
+	--id="2e422fdf" \ 						# nodeID of cassemd which is unique
+	--raft-base="./debugdata/2e422fdf"  \ 	# raft base directory to store
+	--http-listen="127.0.0.1:2021" \		# cassemd restful HTTP address
+	--bind="127.0.0.1:3021" \				# address for raft protocol to communicate to each other
+	--join=""								# address to send join cluster request
+```
+
+```sh
+./cassemd \
+	-c ./configs/cassem.example.toml \
 	--id="2e422fdf" \
-	--raft-base="./debugdata/2e422fdf" \
-	--raft-listen="127.0.0.1:4021" \
+	--raft-base="./debugdata/2e422fdf"  \
 	--http-listen="127.0.0.1:2021" \
 	--bind="127.0.0.1:3021" \
 	--join=""
@@ -25,18 +37,16 @@ Now, you can start the `cassemd` server as following command:
 ./cassemd -c ./configs/cassem.example.toml \
 	--id=b6a77ac2 \
 	--raft-base="./debugdata/b6a77ac2" \
-	--raft-listen="127.0.0.1:4022" \
 	--http-listen="127.0.0.1:2022" \
 	--bind="127.0.0.1:3022" \
-	--join="127.0.0.1:4021"
+	--join="127.0.0.1:2021"
 
 ./cassemd -c ./configs/cassem.example.toml \
 	--id="a035b428" \
 	--raft-base="./debugdata/a035b428" \
-	--raft-listen="127.0.0.1:4023" \
 	--http-listen="127.0.0.1:2023" \
 	--bind="127.0.0.1:3023" \
-	--join="127.0.0.1:4021"
+	--join="127.0.0.1:2021"
 ```
 
 then you'll get the following content:

@@ -19,26 +19,27 @@ import (
 type Config struct {
 	Base     string `toml:"dir"`
 	BindAddr string `toml:"bind_addr"`
-	Join     string `toml:"join"`
+	Join     string `toml:"tryJoinCluster"`
 }
 
 // Daemon is the cassemd server that would guards api server running and alas controls other components. Especially,
 // raft protocol which supports the architecture of cassemd (master-slave). All writes must be operated on master node,
 // salve nodes could execute read operations.
 type Daemon struct {
+	coord.ICoordinator
+
+	// cfg
 	cfg *conf.Config
 
-	isMaster bool
-
+	// components
+	// repo
+	repo persistence.Repository
+	// restapi
+	restapi *apihtp.Server
 	// cache TODO(@yeqown):
 	// watcher TODO(@yeqown):
 
-	containerPairs persistence.Repository
-
-	coordinator coord.ICoordinator
-
-	httpd *apihtp.Server
-
+	// raft related properties.
 	serverId      string
 	joinedCluster bool
 	raft          *raft.Raft
@@ -59,16 +60,13 @@ func New(cfg *conf.Config) (*Daemon, error) {
 func (d *Daemon) initialize(cfg *conf.Config) (err error) {
 	d.cfg = cfg
 
-	d.containerPairs, err = mysql.New(cfg.Persistence.Mysql)
+	d.repo, err = mysql.New(cfg.Persistence.Mysql)
 	if err != nil {
 		return errors.Wrapf(err, "Daemon.initialize failed to load persistence: %v", err)
 	}
 	log.Info("Daemon: persistence component loaded")
 
-	d.coordinator = coord.New(d.containerPairs)
-	log.Info("Daemon: coordinator component loaded")
-
-	d.httpd = apihtp.New(cfg.Server.HTTP, d.coordinator)
+	d.restapi = apihtp.New(cfg.Server.HTTP, d)
 	log.Info("Daemon: HTTP server loaded")
 
 	// start raft
@@ -92,15 +90,15 @@ func (d *Daemon) Heartbeat() {
 		case <-tick.C:
 			log.Info("Daemon is running")
 			if !d.joinedCluster {
-				if err := d.join(); err != nil {
-					log.Errorf("could not join cluster: %v", err)
+				if err := d.tryJoinCluster(); err != nil {
+					log.Errorf("could not tryJoinCluster cluster: %v", err)
 				}
 			}
 		case <-quit:
 			log.Info("Daemon quit, start release resources...")
 			//retryLeave:
-			//	if err := d.leave(); err != nil {
-			//		log.Errorf("could not leave cluster: %v", err)
+			//	if err := d.tryLeaveCluster(); err != nil {
+			//		log.Errorf("could not tryLeaveCluster cluster: %v", err)
 			//		goto retryLeave
 			//	}
 			// TODO(@yeqown): graceful shutdown components
@@ -110,14 +108,15 @@ func (d *Daemon) Heartbeat() {
 }
 
 func (d Daemon) loop() {
-	// start httpd
-	go startWithRecover("httpd", d.startHTTP)
+	// start restapi
+	go startWithRecover("restapi", d.startHTTP)
 
-	go startWithRecover("cluster-dadmon", d.serveClusterNode)
+	// cluster-daemon
+	//go startWithRecover("cluster-daemon", d.serveClusterNode)
 }
 
 func (d Daemon) startHTTP() (err error) {
-	if err = d.httpd.ListenAndServe(); err != nil {
+	if err = d.restapi.ListenAndServe(); err != nil {
 		log.Errorf("Daemon.failed to start: %v", err)
 	}
 

@@ -45,9 +45,9 @@ func (srv *Server) boot() {
 	if srv._cfg.Debug {
 		pprof.Register(srv.engi, "/debug/pprof")
 	}
-	// TODO(@yeqown) authorize middleware is needed.
-	srv.engi.Use(authorize())
 
+	// mount operate raft API
+	srv.mountRaftAPI(srv.engi)
 	// mount API
 	srv.mountAPI(srv.engi)
 }
