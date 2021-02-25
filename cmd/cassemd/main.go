@@ -3,6 +3,9 @@ package main
 import (
 	"os"
 
+	"github.com/yeqown/cassem/internal/conf"
+	"github.com/yeqown/cassem/internal/server/daemon"
+
 	"github.com/urfave/cli/v2"
 	"github.com/yeqown/log"
 )
@@ -10,8 +13,8 @@ import (
 func main() {
 	app := cli.NewApp()
 	app.EnableBashCompletion = true
-	app.Name = "cassem"
-	app.Usage = "cassem control tool"
+	app.Name = "cassemd"
+	app.Usage = "cassem daemon server"
 	app.Authors = []*cli.Author{
 		{
 			Name:  "yeqown",
@@ -19,20 +22,28 @@ func main() {
 		},
 	}
 	app.Version = "v1.6.4"
-	app.Description = `A tool for managing cassem`
+	app.Description = `The server of cassem.`
 	app.Flags = _cliGlobalFlags
-
-	mountCommands(app)
+	app.Action = start
 
 	if err := app.Run(os.Args); err != nil {
 		log.Fatal(err)
 	}
 }
 
-func mountCommands(app *cli.App) {
-	app.Commands = []*cli.Command{
-		getInitCommand(),
+func start(ctx *cli.Context) error {
+	cfg, err := conf.Load(ctx.String("conf"))
+	if err != nil {
+		return err
 	}
+
+	d, err := daemon.New(cfg)
+	if err != nil {
+		return err
+	}
+
+	d.Heartbeat()
+	return nil
 }
 
 var _cliGlobalFlags = []cli.Flag{
