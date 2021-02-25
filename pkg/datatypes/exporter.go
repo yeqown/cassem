@@ -1,10 +1,10 @@
 package datatypes
 
-import (
-	"encoding/json"
-
-	"github.com/pelletier/go-toml"
-)
+//import (
+//	"encoding/json"
+//
+//	"github.com/pelletier/go-toml"
+//)
 
 // IEncoder gather all needed serialization methods to restraint how all type in cassem acts.
 //
@@ -13,9 +13,5 @@ import (
 // YAML specification: https://yaml.org/spec/1.2/spec.html
 //
 type IEncoder interface {
-	// json.Marshaler JSON format.
-	json.Marshaler
-
-	// toml.Marshaler TOML format.
-	toml.Marshaler
+	ToMarshalInterface() interface{}
 }

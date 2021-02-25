@@ -24,24 +24,17 @@ func Test_KVField_TOML(t *testing.T) {
 	d.Add("d1", WithString("222"))
 	d.Add("d2", WithInt(222))
 
-	field := NewKVField("dict", NewPair("ns", "dict", d))
-	content, err := field.MarshalTOML()
-	assert.Nil(t, err)
-	assert.NotEmpty(t, content)
-	t.Logf("dict %s", content)
+	field := NewKVField("kv-dict", NewPair("ns", "dict", d))
+	v := field.ToMarshalInterface()
+	encodeAndTest(t, `{"d1":"222","d2":222}`, v)
 
-	field = NewKVField("list", NewPair("ns", "list", l))
-	content, err = field.MarshalTOML()
-	assert.Nil(t, err)
-	assert.NotEmpty(t, content)
-	t.Logf("list: %s", content)
+	field = NewKVField("kv-list", NewPair("ns", "list", l))
+	v = field.ToMarshalInterface()
+	encodeAndTest(t, `[123,"222",false,64.23]`, v)
 
-	field = NewKVField("list", NewPair("ns", "bool", WithBool(true)))
-	content, err = field.MarshalTOML()
-	assert.Nil(t, err)
-	assert.NotEmpty(t, content)
-	t.Logf("kv: %s", content)
-
+	field = NewKVField("kv-bool", NewPair("ns", "bool", WithBool(true)))
+	v = field.ToMarshalInterface()
+	encodeAndTest(t, "true", v)
 }
 
 func Test_ListField(t *testing.T) {
@@ -87,10 +80,8 @@ func Test_ListField_TOML(t *testing.T) {
 	}
 
 	field := NewListField("list", pairs)
-	content, err := field.MarshalTOML()
-	assert.Nil(t, err)
-	assert.NotEmpty(t, content)
-	t.Logf("list-field: %s", content)
+	v := field.ToMarshalInterface()
+	encodeAndTest(t, `[123,"222",64.23,false,{"d1":"222","d2":222},[123,"222",false,64.23]]`, v)
 }
 
 func Test_DictField(t *testing.T) {
@@ -136,8 +127,9 @@ func Test_DictField_TOML(t *testing.T) {
 	}
 
 	field := NewDictField("dict", pairs)
-	content, err := field.MarshalTOML()
-	assert.Nil(t, err)
-	assert.NotEmpty(t, content)
-	t.Logf("dictField: \n%s", content)
+	v := field.ToMarshalInterface()
+
+	encodeAndTest(t, `{"bool":false,"dict":{"d1":"222","d2":222},"float":64.23,"int":123,
+"list":[123,"222",false,64.23],"string":"222"}`, v)
+
 }

@@ -1,7 +1,11 @@
 package datatypes
 
 import (
+	"encoding/json"
+	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -15,30 +19,40 @@ func Test_NewPair(t *testing.T) {
 	assert.Equal(t, "ns-pair", p.NS())
 }
 
-func Test_Pair_MarshalTOML(t *testing.T) {
+func encodeAndTest(t *testing.T, expected string, v interface{}) {
+	byts, err := json.Marshal(v)
+	require.Nil(t, err)
+	require.NotEmpty(t, byts)
+
+	output := string(byts)
+	// remove \n\t and space from expected
+	expected = strings.Replace(expected, "\n", "", -1)
+	expected = strings.Replace(expected, "\t", "", -1)
+	expected = strings.Replace(expected, " ", "", -1)
+
+	output = strings.Replace(output, "\n", "", -1)
+	output = strings.Replace(output, "\t", "", -1)
+	output = strings.Replace(output, " ", "", -1)
+
+	assert.Equal(t, expected, output)
+}
+
+func Test_Pair_ToMarshalInterface(t *testing.T) {
 	p := NewPair("ns", "int-pair", WithInt(123))
-	byts, err := p.MarshalTOML()
-	assert.Nil(t, err)
-	assert.NotEmpty(t, byts)
-	t.Logf("int: %s", byts)
+	v := p.ToMarshalInterface()
+	encodeAndTest(t, "123", v)
 
 	p = NewPair("ns", "float64-pair", WithFloat(123.2132))
-	byts, err = p.MarshalTOML()
-	assert.Nil(t, err)
-	assert.NotEmpty(t, byts)
-	t.Logf("float64: %s", byts)
+	v = p.ToMarshalInterface()
+	encodeAndTest(t, "123.2132", v)
 
 	p = NewPair("ns", "bool-pair", WithBool(true))
-	byts, err = p.MarshalTOML()
-	assert.Nil(t, err)
-	assert.NotEmpty(t, byts)
-	t.Logf("bool: %s", byts)
+	v = p.ToMarshalInterface()
+	encodeAndTest(t, "true", v)
 
 	p = NewPair("ns", "string-pair", WithString("123"))
-	byts, err = p.MarshalTOML()
-	assert.Nil(t, err)
-	assert.NotEmpty(t, byts)
-	t.Logf("string: %s", byts)
+	v = p.ToMarshalInterface()
+	encodeAndTest(t, `"123"`, v)
 
 	// list
 	l := WithList()
@@ -46,10 +60,8 @@ func Test_Pair_MarshalTOML(t *testing.T) {
 	l2 := WithList()
 	l2.Append(WithInt(2), WithString("123123"), l)
 	p = NewPair("ns", "list-pair", l2)
-	byts, err = p.MarshalTOML()
-	assert.Nil(t, err)
-	assert.NotEmpty(t, byts)
-	t.Logf("list: \n%s", byts)
+	v = p.ToMarshalInterface()
+	encodeAndTest(t, `[2,"123123",[1,1.12312,true]]`, v)
 
 	d := WithDict()
 	d.Add("di", WithInt(1231))
@@ -59,8 +71,8 @@ func Test_Pair_MarshalTOML(t *testing.T) {
 	d.Add("d2", l)
 	d.Add("d3", l2)
 	p = NewPair("ns", "dict-pair", d)
-	byts, err = p.MarshalTOML()
-	assert.Nil(t, err)
-	assert.NotEmpty(t, byts)
-	t.Logf("dict: \n%s", byts)
+	v = p.ToMarshalInterface()
+	encodeAndTest(t, `{"d2":[1,1.12312,true],"d3":[2,"123123",[1,1.12312,true]],"db":true,"df":1231.1232,
+"di":1231,"ds":"12312"}`, v)
+
 }

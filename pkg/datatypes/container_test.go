@@ -1,8 +1,12 @@
 package datatypes
 
 import (
+	"bytes"
+	"encoding/json"
 	"strings"
 	"testing"
+
+	"github.com/pelletier/go-toml"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -28,17 +32,12 @@ func Test_Container(t *testing.T) {
 	assert.True(t, ok)
 	assert.EqualValues(t, "string value", p.Value())
 
+	// test fieldKey is empty, hashKey would be used
 	_, err = c.SetField(
 		NewKVField("", NewPair("ns", "int", WithInt(123))))
 	assert.Nil(t, err)
-
-	ok, fld = c.GetField("int")
-	assert.True(t, ok)
-	assert.NotNil(t, fld)
-
-	p, ok = fld.Value().(IPair)
-	assert.True(t, ok)
-	assert.EqualValues(t, 123, p.Value())
+	_fields := c.Fields()
+	assert.Equal(t, 2, len(_fields))
 }
 
 func Test_Container_MarshalJSON(t *testing.T) {
@@ -103,7 +102,7 @@ func Test_Container_MarshalJSON(t *testing.T) {
 	})
 	_, _ = c.SetField(dict)
 
-	byt, err := c.MarshalJSON()
+	byt, err := json.Marshal(c.ToMarshalInterface())
 	assert.Nil(t, err)
 	//t.Logf("%s", byt)
 
@@ -114,7 +113,7 @@ func Test_Container_MarshalJSON(t *testing.T) {
 	assert.Equal(t, expected, string(byt))
 }
 
-func Test_Container_MarshalTOML(t *testing.T) {
+func Test_Container_ToMarshalInterface(t *testing.T) {
 	c := NewContainer("ns", "container-to-toml")
 
 	// construct a complex container and call ToJSON
@@ -170,16 +169,17 @@ ds = "string"
 	})
 	_, _ = c.SetField(dict)
 
-	byt, err := c.MarshalTOML()
+	buf := bytes.NewBuffer(nil)
+	err := toml.NewEncoder(buf).Encode(c.ToMarshalInterface())
 	assert.Nil(t, err)
-	t.Logf("container: \n%s", byt)
+	output := buf.String()
+	t.Logf("container: \n%s", output)
 
 	// remove \n\t and space from expected
 	expected = strings.Replace(expected, "\n", "", -1)
 	expected = strings.Replace(expected, "\t", "", -1)
 	expected = strings.Replace(expected, " ", "", -1)
 
-	output := string(byt)
 	output = strings.Replace(output, "\n", "", -1)
 	output = strings.Replace(output, "\t", "", -1)
 	output = strings.Replace(output, " ", "", -1)

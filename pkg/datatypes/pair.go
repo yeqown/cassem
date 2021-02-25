@@ -5,11 +5,12 @@ import (
 )
 
 var (
-	_ IPair = builtinPair{}
+	_ IPair = &builtinPair{}
 )
 
 type IPair interface {
 	IEncoder
+	json.Marshaler
 
 	// NS
 	NS() string
@@ -42,52 +43,26 @@ func NewPair(ns, key string, value IData) IPair {
 	}
 }
 
-func (p builtinPair) NS() string {
+func (p *builtinPair) NS() string {
 	return p.namespace
 }
 
-func (p builtinPair) Key() string {
+func (p *builtinPair) Key() string {
 	return p.key
 }
 
-func (p builtinPair) Value() IData {
+func (p *builtinPair) Value() IData {
 	return p.value
 }
 
-// FIXED: customized marshal TOML
-func (p builtinPair) MarshalTOML() (text []byte, err error) {
-	return nil, nil
-	// p.value is basic datatype, so how to marshal as TOML.
-	//return p.Value().MarshalTOML()
-	//return toTomlElement(p.Value())
+func (p *builtinPair) ToMarshalInterface() interface{} {
+	// FIXED: paging container do not need pairs in field, but still calling IField.ToMarshalInterface()
+	if p == nil {
+		return nil
+	}
+	return p.value.Data()
 }
 
-func (p builtinPair) MarshalJSON() ([]byte, error) {
+func (p *builtinPair) MarshalJSON() ([]byte, error) {
 	return json.Marshal(p.value)
 }
-
-//
-//func toTomlElement(d IData) (text []byte, err error) {
-//	var s string
-//	v := d.Data()
-//	switch d.Datatype() {
-//	case INT_DATATYPE_, FLOAT_DATATYPE_, BOOL_DATATYPE_:
-//		s = fmt.Sprintf("%v", v)
-//	case STRING_DATATYPE_:
-//		s = fmt.Sprintf(`"%v"`, v)
-//	case LIST_DATATYPE_:
-//		for _, v := range v.(ListDT) {
-//			tt, _ := toTomlElement(v)
-//			s += string(tt) + ", "
-//		}
-//		s = "[" + strings.TrimRight(s, ", ") + "]"
-//	case DICT_DATATYPE_:
-//		buf := bytes.NewBuffer(nil)
-//		err = toml.NewEncoder(buf).Encode(v)
-//		return buf.Bytes(), err
-//	default:
-//		err = errors.New("unsupported datatype")
-//	}
-//
-//	return []byte(s), err
-//}

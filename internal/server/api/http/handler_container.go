@@ -225,16 +225,15 @@ func (srv *Server) ContainerDownload(c *gin.Context) {
 	switch req.Format {
 	case "json":
 		ct = jsonContentType
-		err = json.NewEncoder(buf).Encode(container)
+		encoder := json.NewEncoder(buf)
+		encoder.SetIndent("", "\t")
+		err = encoder.Encode(container.ToMarshalInterface())
 	case "toml":
-		// another way to resolve this is:
-		// json2toml
-		// tree := toml.TreeFromMap(jsonMap)
-		// tree.ToTomlString()
-
-		// FIXED(@yeqown): could not encode container in TOML format.
 		ct = tomlContentType
-		err = toml.NewEncoder(buf).Encode(container)
+		err = toml.
+			NewEncoder(buf).
+			Indentation("\t").
+			Encode(container.ToMarshalInterface())
 	default:
 		err = errors.New("unsupported file format")
 	}

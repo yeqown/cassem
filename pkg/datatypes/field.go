@@ -15,6 +15,8 @@ const (
 )
 
 type IField interface {
+	json.Marshaler
+
 	IEncoder
 
 	Name() string
@@ -63,26 +65,12 @@ func (k kvField) MarshalJSON() ([]byte, error) {
 	return json.Marshal(k.kv)
 }
 
-func (k kvField) MarshalTOML() (text []byte, err error) {
-	return nil, nil
-	//buf := bytes.NewBuffer(nil)
-	//pair := k.kv
-	//text, err = pair.MarshalTOML()
-	//if err != nil {
-	//	return nil, errors.Wrap(err, "kvField failed marshal into TOML: "+pair.Key())
-	//}
-	//
-	//switch pair.Value().Datatype() {
-	//case DICT_DATATYPE_:
-	//	buf.WriteString("[" + k.name + "]\n")
-	//	buf.Write(text)
-	//default:
-	//	buf.WriteString(k.name + " = ")
-	//	buf.Write(text)
-	//}
-	//buf.WriteString("\n")
-	//
-	//return buf.Bytes(), nil
+func (k kvField) ToMarshalInterface() interface{} {
+	if k.kv == nil {
+		return nil
+	}
+
+	return k.kv.ToMarshalInterface()
 }
 
 type listField struct {
@@ -116,37 +104,17 @@ func (k listField) MarshalJSON() ([]byte, error) {
 	return json.Marshal(k.pairs)
 }
 
-//var (
-//	leftBracket   = []byte("[")
-//	rightBracket  = []byte("]")
-//	commaAndSpace = []byte(", ")
-//)
+func (k listField) ToMarshalInterface() interface{} {
+	out := make([]interface{}, len(k.pairs))
+	for idx, pair := range k.pairs {
+		if pair == nil {
+			return nil
+		}
 
-func (k listField) MarshalTOML() (text []byte, err error) {
-	return nil, nil
-	//buf := bytes.NewBuffer(nil)
-	//buf.Write(leftBracket)
-	//for idx, pair := range k.pairs {
-	//	text, err = pair.MarshalTOML()
-	//	if err != nil {
-	//		return nil, errors.Wrap(err, "listField failed marshal into TOML: "+pair.Key())
-	//	}
-	//
-	//	switch pair.Value().Datatype() {
-	//	case DICT_DATATYPE_:
-	//		buf.WriteString("[" + "listFieldName" + k.name + "]\n")
-	//		buf.Write(text)
-	//	default:
-	//		buf.Write(text)
-	//	}
-	//
-	//	if idx+1 != len(k.pairs) {
-	//		buf.Write(commaAndSpace)
-	//	}
-	//}
-	//
-	//buf.Write(rightBracket)
-	//return buf.Bytes(), err
+		out[idx] = pair.ToMarshalInterface()
+	}
+
+	return out
 }
 
 func (k listField) Name() string {
@@ -186,29 +154,16 @@ func (k dictField) MarshalJSON() ([]byte, error) {
 	return json.Marshal(k.pairs)
 }
 
-func (k dictField) MarshalTOML() (text []byte, err error) {
-	return nil, nil
-	//	buf := bytes.NewBuffer(nil)
-	//	for dictKey, pair := range k.pairs {
-	//		text, err = pair.MarshalTOML()
-	//		if err != nil {
-	//			return nil, errors.Wrap(err, "dictField failed marshal into TOML: "+pair.Key())
-	//		}
-	//
-	//		switch pair.Value().Datatype() {
-	//		case DICT_DATATYPE_:
-	//			//buf.WriteString("[" + "parentKey_todo" + "." + dictKey + "]\n")
-	//			buf.WriteString("[" + dictKey + "]\n")
-	//			buf.Write(text)
-	//		default:
-	//			buf.WriteString(dictKey + " = ")
-	//			buf.Write(text)
-	//		}
-	//
-	//		buf.WriteString("\n")
-	//	}
-	//
-	//	return buf.Bytes(), nil
+func (k dictField) ToMarshalInterface() interface{} {
+	out := make(map[string]interface{}, len(k.pairs))
+	for dictKey, pair := range k.pairs {
+		if pair == nil {
+			return nil
+		}
+		out[dictKey] = pair.ToMarshalInterface()
+	}
+
+	return out
 }
 
 func (k dictField) Name() string {
