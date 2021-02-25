@@ -17,7 +17,7 @@ func stack() []byte {
 	return buf[:n]
 }
 
-func (d Daemon) startWithRecover(invokerName string, invoker func() error) {
+func startWithRecover(invokerName string, invoker func() error) {
 	var (
 		panicked = true
 		err      error

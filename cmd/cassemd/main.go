@@ -37,12 +37,23 @@ func start(ctx *cli.Context) error {
 		return err
 	}
 
+	// DONE(@yeqown) use CLI args override cfg.Server.Raft
+	cfg.Server.Raft.Bind = ctx.String("bind")
+	cfg.Server.Raft.Base = ctx.String("raft-base")
+	cfg.Server.Raft.Join = ctx.String("join")
+	cfg.Server.Raft.Listen = ctx.String("raft-listen")
+	cfg.Server.Raft.ServerID = ctx.String("id")
+	cfg.Server.HTTP.Addr = ctx.String("http-listen")
+
+	log.Debugf("config %+v", cfg.Server.Raft)
+
 	d, err := daemon.New(cfg)
 	if err != nil {
 		return err
 	}
 
 	d.Heartbeat()
+
 	return nil
 }
 
@@ -53,6 +64,48 @@ var _cliGlobalFlags = []cli.Flag{
 		Value:       "./configs/cassem.example.toml",
 		DefaultText: "./configs/cassem.example.toml",
 		Usage:       "choose which `path/to/file` to load",
+		Required:    false,
+	},
+	&cli.StringFlag{
+		Name:        "raft-base",
+		Value:       "./debugdata/d1",
+		DefaultText: "./debugdata/d1",
+		Usage:       "raft consensus protocol component's base directory",
+		Required:    false,
+	},
+	&cli.StringFlag{
+		Name:        "raft-listen",
+		Value:       "127.0.0.1:4021",
+		DefaultText: "127.0.0.1:4021",
+		Usage:       "raft consensus protocol cluster address",
+		Required:    false,
+	},
+	&cli.StringFlag{
+		Name:        "http-listen",
+		Value:       "127.0.0.1:2021",
+		DefaultText: "127.0.0.1:2021",
+		Usage:       "http server listen on",
+		Required:    false,
+	},
+	&cli.StringFlag{
+		Name:        "bind",
+		Value:       "127.0.0.1:3021",
+		DefaultText: "127.0.0.1:3021",
+		Usage:       "raft consensus protocol component's used address",
+		Required:    false,
+	},
+	&cli.StringFlag{
+		Name:        "join",
+		Value:       "",
+		DefaultText: "",
+		Usage:       "raft consensus protocol cluster address",
+		Required:    false,
+	},
+	&cli.StringFlag{
+		Name:        "id",
+		Value:       "",
+		DefaultText: "",
+		Usage:       "server identify name, should be unique",
 		Required:    true,
 	},
 }

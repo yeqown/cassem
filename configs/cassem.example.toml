@@ -1,3 +1,4 @@
+debug = true
 [persistence]
     [persistence.mysql]
         dsn             = "root:@tcp(127.0.0.1:3306)/cassem?charset=utf8mb4&parseTime=true&loc=Local"
@@ -5,6 +6,7 @@
         max_open        = 100
         debug           = true
         max_life_time   = 30
+
 
 [server]
     [server.http]

@@ -11,13 +11,24 @@ import (
 	"github.com/pkg/errors"
 )
 
+type Raft struct {
+	Base     string `toml:"base"`
+	Bind     string `toml:"bind"`
+	Join     string `toml:"join"`   // cluster managing port [client using]
+	Listen   string `toml:"listen"` // cluster nodes manage port [server using]
+	ServerID string `toml:"serverId"`
+}
+
 type Config struct {
+	Debug bool `toml:"debug"`
+
 	Persistence struct {
 		Mysql *mysql.ConnectConfig `toml:"mysql"`
 	} `toml:"persistence"`
 
 	Server struct {
 		HTTP *apihtp.Config `toml:"http"`
+		Raft *Raft          `toml:"raft"`
 	} `toml:"server"`
 }
 
@@ -34,6 +45,7 @@ func Load(path string) (*Config, error) {
 	c := new(Config)
 	c.Persistence.Mysql = new(mysql.ConnectConfig)
 	c.Server.HTTP = new(apihtp.Config)
+	c.Server.Raft = new(Raft)
 
 	r, err := openFile(path)
 	if err != nil {
