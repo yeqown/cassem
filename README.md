@@ -18,6 +18,8 @@ config assembler from key-value pairs' container which include basic datatypes, 
 
 ## Documentation
 
+<img src="./assets/cassem-architecture.svg" width="100%"/>
+
 ### - [cassemctl](./cmd/cassemctl/README.md)
 
 ### - [cassemd](./cmd/cassemd/README.md)
