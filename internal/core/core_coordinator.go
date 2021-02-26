@@ -1,25 +1,26 @@
 package core
 
 import (
-	"github.com/hashicorp/raft"
-	"github.com/pkg/errors"
 	coord "github.com/yeqown/cassem/internal/coordinator"
 	"github.com/yeqown/cassem/internal/persistence"
 	"github.com/yeqown/cassem/pkg/datatypes"
+
+	"github.com/hashicorp/raft"
+	"github.com/pkg/errors"
 	"github.com/yeqown/log"
 )
 
-//type Core struct {
-//	repo persistence.Repository
-//}
-//
-//func New(repo persistence.Repository) ICoordinator {
-//	return Core{
-//		repo: repo,
-//	}
-//}
+var (
+	_ coord.ICoordinator = Core{}
 
+	ErrNotLeader = errors.New("current node is not allow to write, " +
+		"TODO(@yeqown) server proxy request to server")
+)
+
+// TODO(@yeqown): query from cache first and also sync to other node if missed.
 func (c Core) GetContainer(key, ns string) (datatypes.IContainer, error) {
+	//hit, err := c.cache.Query(key, ns)
+
 	v, err := c.repo.GetContainer(ns, key)
 	if err != nil {
 		return nil, errors.Wrap(err, "Core.GetContainer failed to get container")
@@ -57,6 +58,11 @@ func (c Core) PagingContainers(filter *coord.FilterContainersOption) ([]datatype
 }
 
 func (c Core) SaveContainer(container datatypes.IContainer) error {
+	if !c.couldWrite() {
+
+		return ErrNotLeader
+	}
+
 	v, err := c.repo.Converter().FromContainer(container)
 	if err != nil {
 		return errors.Wrap(err, "Core.SaveContainer failed to convert container")
@@ -83,6 +89,11 @@ func (c Core) PagingNamespaces(filter *coord.FilterNamespacesOption) ([]string, 
 }
 
 func (c Core) SaveNamespace(ns string) error {
+	if !c.couldWrite() {
+
+		return ErrNotLeader
+	}
+
 	return c.repo.SaveNamespace(ns)
 }
 
@@ -124,6 +135,10 @@ func (c Core) PagingPairs(filter *coord.FilterPairsOption) ([]datatypes.IPair, i
 }
 
 func (c Core) SavePair(p datatypes.IPair) error {
+	if !c.couldWrite() {
+		return ErrNotLeader
+	}
+
 	v, err := c.repo.Converter().FromPair(p)
 	if err != nil {
 		return errors.Wrap(err, "Core.SavePair failed to convert pair")
@@ -133,7 +148,7 @@ func (c Core) SavePair(p datatypes.IPair) error {
 }
 
 func (c Core) AddNode(serverId, addr string) error {
-	log.Infof("received tryJoinCluster request for remote node %s, addr %s", serverId, addr)
+	log.Infof("received AddNode request for remote node %s, addr %s", serverId, addr)
 
 	cf := c.raft.GetConfiguration()
 	if err := cf.Error(); err != nil {
@@ -158,7 +173,7 @@ func (c Core) AddNode(serverId, addr string) error {
 }
 
 func (c Core) RemoveNode(nodeID string) error {
-	log.Infof("received tryJoinCluster request for remote node %s", nodeID)
+	log.Infof("received RemoveNode request for remote node %s", nodeID)
 
 	cf := c.raft.GetConfiguration()
 	if err := cf.Error(); err != nil {
@@ -181,4 +196,12 @@ func (c Core) RemoveNode(nodeID string) error {
 
 	log.Infof("node %s not exists in raft group", nodeID)
 	return nil
+}
+
+// TODO(@yeqown): let node be notified while leader changes, and also mark current node is leader or not?
+func (c Core) watchLeaderChanges() {
+}
+
+func (c Core) couldWrite() bool {
+	return c.raft.State() == raft.Leader
 }

@@ -12,8 +12,6 @@ import (
 
 	"github.com/hashicorp/raft"
 	raftboltdb "github.com/hashicorp/raft-boltdb"
-	"github.com/yeqown/cassem/pkg/fs"
-
 	"github.com/pkg/errors"
 	"github.com/yeqown/log"
 )
@@ -126,12 +124,8 @@ func (c *Core) bootstrapRaft() (err error) {
 		}
 	}()
 
-	raftConf := c.cfg.Server.Raft
-	config := raft.DefaultConfig()
-	config.LocalID = raft.ServerID(c.serverId)
-	config.SnapshotThreshold = 1024
-
 	// prepare transport
+	raftConf := c.cfg.Server.Raft
 	addr, err := net.ResolveTCPAddr("tcp", raftConf.RaftBind)
 	if err != nil {
 		return errors.Wrap(err, "ResolveTCPAddr failed")
@@ -142,7 +136,7 @@ func (c *Core) bootstrapRaft() (err error) {
 	}
 
 	// prepare snapshot store
-	ss, err := raft.NewFileSnapshotStore(raftConf.RaftBase, 2, os.Stderr)
+	snapshotStore, err := raft.NewFileSnapshotStore(raftConf.RaftBase, 2, os.Stderr)
 	if err != nil {
 		return errors.Wrap(err, "NewFileSnapshotStore failed")
 	}
@@ -154,37 +148,38 @@ func (c *Core) bootstrapRaft() (err error) {
 	}
 
 	// construct raft system
-	if c.raft, err = raft.NewRaft(config, c.fsm, boltDB, boltDB, ss, transport); err != nil {
+	config := raft.DefaultConfig()
+	config.LocalID = raft.ServerID(c.serverId)
+	config.SnapshotThreshold = 1024
+
+	if c.raft, err = raft.NewRaft(config, c.fsm, boltDB, boltDB, snapshotStore, transport); err != nil {
 		return errors.Wrap(err, "raft.NewRaft failed")
 	}
 
-	// FIXED: BootstrapCluster only executed at first time without any store.
-	bootstrapCluster := c.cfg.Server.Raft.ClusterAddrToJoin == "" && !fs.Exists(raftConf.RaftBase)
-	if bootstrapCluster {
-		c.joinedCluster = true
-		configuration := raft.Configuration{
-			Servers: []raft.Server{
-				{
-					ID:      config.LocalID,
-					Address: transport.LocalAddr(),
-				},
-			},
-		}
-		if err = c.raft.BootstrapCluster(configuration).Error(); err != nil {
-			err = errors.Wrap(err, "c.raft.BootstrapCluster failed")
-		}
+	// DONE(@yeqown): allow node to bootstrap every time (IGNORING error), but only to join cluster when
+	// raftConf.ClusterAddrToJoin is not empty and raftConf.ClusterToJoin != raftConf.Listen
+	var couldIgnore error
 
-		return
+	// A cluster can only be bootstrapped once from a single participating Voter server.
+	// Any further attempts to bootstrap will return an error that can be safely ignored.
+	if couldIgnore = c.raft.BootstrapCluster(raft.Configuration{
+		Servers: []raft.Server{
+			{
+				ID:      config.LocalID,
+				Address: transport.LocalAddr(),
+			},
+		},
+	}).Error(); couldIgnore != nil {
+		log.Warnf("core.bootstrapRaft could not BootstrapCluster: %v", couldIgnore)
 	}
 
-	// node restart or cluster restart
-	if fs.Exists(c.cfg.Server.Raft.RaftBase) && c.cfg.Server.Raft.ClusterAddrToJoin == "" {
-		// local store file exists and join is empty means cluster restart, not node restart
-		// pass: do nothing
-	} else {
-		// FIXED(@yeqown) could not return error, tryJoinCluster could retry
-		if err2 := c.tryJoinCluster(); err2 != nil {
-			log.Errorf("tryJoinCluster cluster failed: %v", err2)
+	c.joinedCluster = true
+	shouldJoinCluster := raftConf.ClusterAddrToJoin != ""
+	if shouldJoinCluster {
+		// FIXED(@yeqown) could not return error, tryJoinCluster will retry again.
+		if couldIgnore = c.tryJoinCluster(); couldIgnore != nil {
+			log.Warnf("tryJoinCluster cluster failed: %v", couldIgnore)
+			c.joinedCluster = false
 		}
 	}
 
