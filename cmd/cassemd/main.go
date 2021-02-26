@@ -4,7 +4,7 @@ import (
 	"os"
 
 	"github.com/yeqown/cassem/internal/conf"
-	"github.com/yeqown/cassem/internal/server/daemon"
+	"github.com/yeqown/cassem/internal/core"
 
 	"github.com/urfave/cli/v2"
 	"github.com/yeqown/log"
@@ -38,15 +38,15 @@ func start(ctx *cli.Context) error {
 	}
 
 	// DONE(@yeqown) use CLI args override cfg.Server.Raft
-	cfg.Server.Raft.Base = ctx.String("raft-base")
-	cfg.Server.Raft.Bind = ctx.String("bind")
-	cfg.Server.Raft.Join = ctx.String("join")
-	cfg.Server.Raft.ServerID = ctx.String("id")
+	cfg.Server.Raft.RaftBase = ctx.String("raft-base")
+	cfg.Server.Raft.RaftBind = ctx.String("bind")
+	cfg.Server.Raft.ClusterAddrToJoin = ctx.String("join")
+	cfg.Server.Raft.ServerId = ctx.String("id")
 	cfg.Server.HTTP.Addr = ctx.String("http-listen")
 
 	log.Debugf("config %+v", cfg.Server.Raft)
 
-	d, err := daemon.New(cfg)
+	d, err := core.New(cfg)
 	if err != nil {
 		return err
 	}

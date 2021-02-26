@@ -1,4 +1,4 @@
-package daemon
+package core
 
 import (
 	"github.com/hashicorp/raft"
@@ -9,45 +9,45 @@ import (
 	"github.com/yeqown/log"
 )
 
-//type Daemon struct {
+//type Core struct {
 //	repo persistence.Repository
 //}
 //
 //func New(repo persistence.Repository) ICoordinator {
-//	return Daemon{
+//	return Core{
 //		repo: repo,
 //	}
 //}
 
-func (d Daemon) GetContainer(key, ns string) (datatypes.IContainer, error) {
-	v, err := d.repo.GetContainer(ns, key)
+func (c Core) GetContainer(key, ns string) (datatypes.IContainer, error) {
+	v, err := c.repo.GetContainer(ns, key)
 	if err != nil {
-		return nil, errors.Wrap(err, "Daemon.GetContainer failed to get container")
+		return nil, errors.Wrap(err, "Core.GetContainer failed to get container")
 	}
 
-	return d.repo.Converter().ToContainer(v)
+	return c.repo.Converter().ToContainer(v)
 }
 
-func (d Daemon) PagingContainers(filter *coord.FilterContainersOption) ([]datatypes.IContainer, int, error) {
-	outs, count, err := d.repo.PagingContainers(&persistence.PagingContainersFilter{
+func (c Core) PagingContainers(filter *coord.FilterContainersOption) ([]datatypes.IContainer, int, error) {
+	outs, count, err := c.repo.PagingContainers(&persistence.PagingContainersFilter{
 		Limit:      filter.Limit,
 		Offset:     filter.Offset,
 		KeyPattern: filter.KeyPattern,
 		Namespace:  filter.Namespace,
 	})
 	if err != nil {
-		return nil, 0, errors.Wrap(err, "Daemon.PagingContainers failed to paging pairs")
+		return nil, 0, errors.Wrap(err, "Core.PagingContainers failed to paging pairs")
 	}
 
 	containers := make([]datatypes.IContainer, 0, len(outs))
 	for _, v := range outs {
-		p, err := d.repo.Converter().ToContainer(v)
+		p, err := c.repo.Converter().ToContainer(v)
 		if err != nil {
 			log.
 				WithFields(log.Fields{
 					"containerSource": v,
 				}).
-				Warnf("Daemon.PagingContainers could not convert pair: %v", err)
+				Warnf("Core.PagingContainers could not convert pair: %v", err)
 			continue
 		}
 		containers = append(containers, p)
@@ -56,24 +56,24 @@ func (d Daemon) PagingContainers(filter *coord.FilterContainersOption) ([]dataty
 	return containers, count, nil
 }
 
-func (d Daemon) SaveContainer(container datatypes.IContainer) error {
-	v, err := d.repo.Converter().FromContainer(container)
+func (c Core) SaveContainer(container datatypes.IContainer) error {
+	v, err := c.repo.Converter().FromContainer(container)
 	if err != nil {
-		return errors.Wrap(err, "Daemon.SaveContainer failed to convert container")
+		return errors.Wrap(err, "Core.SaveContainer failed to convert container")
 	}
 
-	return d.repo.SaveContainer(v, true)
+	return c.repo.SaveContainer(v, true)
 }
 
-func (d Daemon) RemoveContainer(key string, ns string) error {
-	return d.repo.RemoveContainer(ns, key)
+func (c Core) RemoveContainer(key string, ns string) error {
+	return c.repo.RemoveContainer(ns, key)
 }
 
 // PagingNamespaces list namespaces those conform to the filter(FilterNamespacesOption).
 //
 // DONE(@yeqown): handle count return value
-func (d Daemon) PagingNamespaces(filter *coord.FilterNamespacesOption) ([]string, int, error) {
-	ns, count, err := d.repo.PagingNamespace(&persistence.PagingNamespacesFilter{
+func (c Core) PagingNamespaces(filter *coord.FilterNamespacesOption) ([]string, int, error) {
+	ns, count, err := c.repo.PagingNamespace(&persistence.PagingNamespacesFilter{
 		Limit:            filter.Limit,
 		Offset:           filter.Offset,
 		NamespacePattern: filter.NamespacePattern,
@@ -82,39 +82,39 @@ func (d Daemon) PagingNamespaces(filter *coord.FilterNamespacesOption) ([]string
 	return ns, count, err
 }
 
-func (d Daemon) SaveNamespace(ns string) error {
-	return d.repo.SaveNamespace(ns)
+func (c Core) SaveNamespace(ns string) error {
+	return c.repo.SaveNamespace(ns)
 }
 
-func (d Daemon) GetPair(key, ns string) (datatypes.IPair, error) {
-	v, err := d.repo.GetPair(ns, key)
+func (c Core) GetPair(key, ns string) (datatypes.IPair, error) {
+	v, err := c.repo.GetPair(ns, key)
 	if err != nil {
-		return nil, errors.Wrap(err, "Daemon.GetPair failed to get pair")
+		return nil, errors.Wrap(err, "Core.GetPair failed to get pair")
 	}
 
-	return d.repo.Converter().ToPair(v)
+	return c.repo.Converter().ToPair(v)
 }
 
-func (d Daemon) PagingPairs(filter *coord.FilterPairsOption) ([]datatypes.IPair, int, error) {
-	outs, count, err := d.repo.PagingPairs(&persistence.PagingPairsFilter{
+func (c Core) PagingPairs(filter *coord.FilterPairsOption) ([]datatypes.IPair, int, error) {
+	outs, count, err := c.repo.PagingPairs(&persistence.PagingPairsFilter{
 		Limit:      filter.Limit,
 		Offset:     filter.Offset,
 		KeyPattern: filter.KeyPattern,
 		Namespace:  filter.Namespace,
 	})
 	if err != nil {
-		return nil, 0, errors.Wrap(err, "Daemon.PagingPairs failed to paging pairs")
+		return nil, 0, errors.Wrap(err, "Core.PagingPairs failed to paging pairs")
 	}
 
 	pairs := make([]datatypes.IPair, 0, len(outs))
 	for _, v := range outs {
-		p, err := d.repo.Converter().ToPair(v)
+		p, err := c.repo.Converter().ToPair(v)
 		if err != nil {
 			log.
 				WithFields(log.Fields{
 					"pairSource": v,
 				}).
-				Warnf("Daemon.PagingPairs could not convert pair: %v", err)
+				Warnf("Core.PagingPairs could not convert pair: %v", err)
 			continue
 		}
 		pairs = append(pairs, p)
@@ -123,19 +123,19 @@ func (d Daemon) PagingPairs(filter *coord.FilterPairsOption) ([]datatypes.IPair,
 	return pairs, count, nil
 }
 
-func (d Daemon) SavePair(p datatypes.IPair) error {
-	v, err := d.repo.Converter().FromPair(p)
+func (c Core) SavePair(p datatypes.IPair) error {
+	v, err := c.repo.Converter().FromPair(p)
 	if err != nil {
-		return errors.Wrap(err, "Daemon.SavePair failed to convert pair")
+		return errors.Wrap(err, "Core.SavePair failed to convert pair")
 	}
 
-	return d.repo.SavePair(v, true)
+	return c.repo.SavePair(v, true)
 }
 
-func (d Daemon) AddNode(serverId, addr string) error {
+func (c Core) AddNode(serverId, addr string) error {
 	log.Infof("received tryJoinCluster request for remote node %s, addr %s", serverId, addr)
 
-	cf := d.raft.GetConfiguration()
+	cf := c.raft.GetConfiguration()
 	if err := cf.Error(); err != nil {
 		log.Errorf("failed to get raft configuration: %v", err)
 		return err
@@ -148,7 +148,7 @@ func (d Daemon) AddNode(serverId, addr string) error {
 		}
 	}
 
-	f := d.raft.AddVoter(raft.ServerID(serverId), raft.ServerAddress(addr), 0, 0)
+	f := c.raft.AddVoter(raft.ServerID(serverId), raft.ServerAddress(addr), 0, 0)
 	if err := f.Error(); err != nil {
 		return err
 	}
@@ -157,10 +157,10 @@ func (d Daemon) AddNode(serverId, addr string) error {
 	return nil
 }
 
-func (d Daemon) RemoveNode(nodeID string) error {
+func (c Core) RemoveNode(nodeID string) error {
 	log.Infof("received tryJoinCluster request for remote node %s", nodeID)
 
-	cf := d.raft.GetConfiguration()
+	cf := c.raft.GetConfiguration()
 	if err := cf.Error(); err != nil {
 		log.Errorf("failed to get raft configuration: %v", err)
 		return err
@@ -168,7 +168,7 @@ func (d Daemon) RemoveNode(nodeID string) error {
 
 	for _, srv := range cf.Configuration().Servers {
 		if srv.ID == raft.ServerID(nodeID) {
-			f := d.raft.RemoveServer(srv.ID, 0, 0)
+			f := c.raft.RemoveServer(srv.ID, 0, 0)
 			if err := f.Error(); err != nil {
 				log.Errorf("failed to remove srv %s, err: ", nodeID, err)
 				return err

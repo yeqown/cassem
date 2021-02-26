@@ -1,4 +1,4 @@
-package daemon
+package core
 
 import (
 	"os"
@@ -6,26 +6,21 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/hashicorp/raft"
-	"github.com/pkg/errors"
 	"github.com/yeqown/cassem/internal/conf"
 	coord "github.com/yeqown/cassem/internal/coordinator"
 	"github.com/yeqown/cassem/internal/persistence"
 	"github.com/yeqown/cassem/internal/persistence/mysql"
 	apihtp "github.com/yeqown/cassem/internal/server/api/http"
+
+	"github.com/hashicorp/raft"
+	"github.com/pkg/errors"
 	"github.com/yeqown/log"
 )
 
-type Config struct {
-	Base     string `toml:"dir"`
-	BindAddr string `toml:"bind_addr"`
-	Join     string `toml:"tryJoinCluster"`
-}
-
-// Daemon is the cassemd server that would guards api server running and alas controls other components. Especially,
+// Core is the cassemd server that would guards api server running and alas controls other components. Especially,
 // raft protocol which supports the architecture of cassemd (master-slave). All writes must be operated on master node,
 // salve nodes could execute read operations.
-type Daemon struct {
+type Core struct {
 	coord.ICoordinator
 
 	// cfg
@@ -46,8 +41,8 @@ type Daemon struct {
 	fsm           raft.FSM
 }
 
-func New(cfg *conf.Config) (*Daemon, error) {
-	d := new(Daemon)
+func New(cfg *conf.Config) (*Core, error) {
+	d := new(Core)
 	if err := d.initialize(cfg); err != nil {
 		return nil, err
 	}
@@ -57,30 +52,30 @@ func New(cfg *conf.Config) (*Daemon, error) {
 	return d, nil
 }
 
-func (d *Daemon) initialize(cfg *conf.Config) (err error) {
-	d.cfg = cfg
+func (c *Core) initialize(cfg *conf.Config) (err error) {
+	c.cfg = cfg
 
-	d.repo, err = mysql.New(cfg.Persistence.Mysql)
+	c.repo, err = mysql.New(cfg.Persistence.Mysql)
 	if err != nil {
-		return errors.Wrapf(err, "Daemon.initialize failed to load persistence: %v", err)
+		return errors.Wrapf(err, "Core.initialize failed to load persistence: %v", err)
 	}
-	log.Info("Daemon: persistence component loaded")
+	log.Info("Core: persistence component loaded")
 
-	d.restapi = apihtp.New(cfg.Server.HTTP, d)
-	log.Info("Daemon: HTTP server loaded")
+	c.restapi = apihtp.New(cfg.Server.HTTP, c)
+	log.Info("Core: HTTP server loaded")
 
 	// start raft
 	// DONE(@yeqown) serverId shoule be persistence so that we can recover it from panic.
-	d.serverId = cfg.Server.Raft.ServerID
-	d.fsm = newFSM()
-	if err = d.bootstrapRaft(); err != nil {
-		return errors.Wrapf(err, "Daemon.initialize failed to load raft")
+	c.serverId = cfg.Server.Raft.ServerId
+	c.fsm = newFSM()
+	if err = c.bootstrapRaft(); err != nil {
+		return errors.Wrapf(err, "Core.initialize failed to load raft")
 	}
 
 	return nil
 }
 
-func (d *Daemon) Heartbeat() {
+func (c *Core) Heartbeat() {
 	tick := time.NewTicker(10 * time.Second)
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, os.Kill, os.Interrupt, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
@@ -88,16 +83,16 @@ func (d *Daemon) Heartbeat() {
 	for {
 		select {
 		case <-tick.C:
-			log.Info("Daemon is running")
-			if !d.joinedCluster {
-				if err := d.tryJoinCluster(); err != nil {
+			log.Info("Core is running")
+			if !c.joinedCluster {
+				if err := c.tryJoinCluster(); err != nil {
 					log.Errorf("could not tryJoinCluster cluster: %v", err)
 				}
 			}
 		case <-quit:
-			log.Info("Daemon quit, start release resources...")
+			log.Info("Core quit, start release resources...")
 			//retryLeave:
-			//	if err := d.tryLeaveCluster(); err != nil {
+			//	if err := c.tryLeaveCluster(); err != nil {
 			//		log.Errorf("could not tryLeaveCluster cluster: %v", err)
 			//		goto retryLeave
 			//	}
@@ -107,17 +102,17 @@ func (d *Daemon) Heartbeat() {
 	}
 }
 
-func (d Daemon) loop() {
+func (c Core) loop() {
 	// start restapi
-	go startWithRecover("restapi", d.startHTTP)
+	go startWithRecover("restapi", c.startHTTP)
 
 	// cluster-daemon
-	//go startWithRecover("cluster-daemon", d.serveClusterNode)
+	//go startWithRecover("cluster-daemon", c.serveClusterNode)
 }
 
-func (d Daemon) startHTTP() (err error) {
-	if err = d.restapi.ListenAndServe(); err != nil {
-		log.Errorf("Daemon.failed to start: %v", err)
+func (c Core) startHTTP() (err error) {
+	if err = c.restapi.ListenAndServe(); err != nil {
+		log.Errorf("Core.failed to start: %v", err)
 	}
 
 	return

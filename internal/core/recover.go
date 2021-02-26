@@ -1,4 +1,4 @@
-package daemon
+package core
 
 import (
 	"fmt"
@@ -6,7 +6,6 @@ import (
 	"runtime"
 
 	"github.com/pkg/errors"
-	"github.com/yeqown/log"
 )
 
 const size = 64 << 10
@@ -30,10 +29,13 @@ func startWithRecover(invokerName string, invoker func() error) {
 			_, _ = fmt.Fprint(os.Stderr, formatted)
 			err = recoverFrom(v)
 		}
+
+		// TODO(@yeqown): backoff strategy of restart, if the invoker panics too quick.
+		go startWithRecover(invokerName, invoker)
 	}()
 
 	if err = invoker(); err != nil {
-		log.Errorf("Daemon: component(%s) quit: %v", invoker, err)
+		_, _ = fmt.Fprintf(os.Stderr, "startWithRecover: component(%s) quit: %v", invokerName, err)
 	}
 
 	panicked = false
