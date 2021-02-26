@@ -20,6 +20,8 @@ var (
 	client = &http.Client{}
 )
 
+// operateNodeResp is a copy from internal/api/http.commonResponse, only be used to
+// be unmarshalled from response of Core.tryJoinCluster.
 type operateNodeResp struct {
 	ErrCode    int         `json:"errcode"`
 	ErrMessage string      `json:"errmsg,omitempty"`
@@ -152,7 +154,8 @@ func (c *Core) bootstrapRaft() (err error) {
 	config.LocalID = raft.ServerID(c.serverId)
 	config.SnapshotThreshold = 1024
 
-	if c.raft, err = raft.NewRaft(config, c.fsm, boltDB, boltDB, snapshotStore, transport); err != nil {
+	raftFSM := newFSM(c._containerCache)
+	if c.raft, err = raft.NewRaft(config, raftFSM, boltDB, boltDB, snapshotStore, transport); err != nil {
 		return errors.Wrap(err, "raft.NewRaft failed")
 	}
 

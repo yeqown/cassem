@@ -153,7 +153,7 @@ func (m mysqlConverter) FromContainer(c datatypes.IContainer) (interface{}, erro
 		default:
 			log.
 				WithField("fld", fld).
-				Warn("invalid field type: %d", fld.Type())
+				Warnf("invalid field type: %d", fld.Type())
 		}
 
 		_ = parsed.uniqueFieldKeys.Add(fld.Name())
@@ -171,6 +171,12 @@ func (m mysqlConverter) FromContainer(c datatypes.IContainer) (interface{}, erro
 func (m mysqlConverter) ToContainer(v interface{}) (datatypes.IContainer, error) {
 	toc, ok := v.(*toContainerWithPairs)
 	if !ok || toc == nil || toc.c == nil {
+		log.WithFields(log.Fields{
+			"v":   v,
+			"ok":  ok,
+			"toc": toc,
+		}).Debug("mysqlConverter.ToContainer invalid containerDO")
+
 		return nil, ErrInvalidContainerDO
 	}
 
@@ -256,6 +262,7 @@ func (m mysqlConverter) ToContainer(v interface{}) (datatypes.IContainer, error)
 	if needUpdate {
 		go func() {
 			// TODO(@yeqown) this may be a watch changes timing.
+			toc.c.CheckSum = checksum
 			if err = m.repo.updateContainerPure(toc.c); err != nil {
 				log.
 					WithField("container", toc.c).

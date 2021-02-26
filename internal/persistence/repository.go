@@ -23,6 +23,8 @@ type Repository interface {
 
 	// Converter
 	Converter() Converter
+
+	Migrate() error
 }
 
 // DONE(@yeqown) design Converter to unbind Repository and logic datatype in repository's logic.

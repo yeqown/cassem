@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/yeqown/cassem/internal/cache"
-
 	"github.com/yeqown/cassem/internal/conf"
 	coord "github.com/yeqown/cassem/internal/coordinator"
 	"github.com/yeqown/cassem/internal/persistence"
@@ -33,15 +32,15 @@ type Core struct {
 	repo persistence.Repository
 	// restapi
 	restapi *apihtp.Server
-	// containerCache
-	containerCache cache.ICache
+	// _containerCache
+	_containerCache cache.ICache
 	// watcher TODO(@yeqown):
 
 	// raft related properties.
 	serverId      string
 	joinedCluster bool
 	raft          *raft.Raft
-	fsm           raft.FSM
+	//fsm           raft.FSM
 }
 
 func New(cfg *conf.Config) (*Core, error) {
@@ -67,13 +66,14 @@ func (c *Core) initialize(cfg *conf.Config) (err error) {
 	c.restapi = apihtp.New(cfg.Server.HTTP, c)
 	log.Info("Core: HTTP server loaded")
 
-	// start raft
-	// DONE(@yeqown) serverId shoule be persistence so that we can recover it from panic.
+	c._containerCache = cache.NewNonCache()
+	log.Info("Core: cache loaded")
+
 	c.serverId = cfg.Server.Raft.ServerId
-	c.fsm = newFSM()
 	if err = c.bootstrapRaft(); err != nil {
 		return errors.Wrapf(err, "Core.initialize failed to load raft")
 	}
+	log.Info("Core: raft component loaded")
 
 	return nil
 }
@@ -81,7 +81,7 @@ func (c *Core) initialize(cfg *conf.Config) (err error) {
 func (c *Core) Heartbeat() {
 	tick := time.NewTicker(10 * time.Second)
 	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, os.Kill, os.Interrupt, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
+	signal.Notify(quit, os.Interrupt, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 
 	for {
 		select {

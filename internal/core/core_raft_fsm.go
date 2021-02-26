@@ -1,7 +1,9 @@
 package core
 
 import (
+	"encoding/json"
 	"io"
+	"io/ioutil"
 
 	"github.com/yeqown/cassem/internal/cache"
 
@@ -13,27 +15,27 @@ type fsm struct {
 	containerCache cache.ICache
 }
 
-// TODO(@yeqown): this part called persistence?
-func newFSM() raft.FSM {
-	return fsm{}
+func newFSM(c cache.ICache) raft.FSM {
+	return fsm{
+		containerCache: c,
+	}
 }
 
 func (f fsm) Apply(log *raft.Log) interface{} {
-	//var c command
-	//if err := json.Unmarshal(l.Data, &c); err != nil {
-	//	panic("failed to unmarshal raft log")
-	//}
-	//
-	//switch strings.ToLower(c.Op) {
-	//case "set":
-	//	return f.applySet(c.Key, c.Value)
-	//case "delete":
-	//	return f.applyDelete(c.Key)
-	//default:
-	//	panic("command type not support")
-	//}
+	var cc cacheSetCommand
 
-	return errors.New("not implement")
+	if err := json.Unmarshal(log.Data, &cc); err != nil {
+		panic("could not unmarshal: " + err.Error())
+	}
+
+	if cc.NeedSetKey != "" {
+		f.containerCache.Set(cc.NeedSetKey, cc.NeedSetData)
+	}
+	if cc.NeedDeleteKey != "" {
+		_ = f.containerCache.Del(cc.NeedDeleteKey)
+	}
+
+	return nil
 }
 
 func (f fsm) Snapshot() (raft.FSMSnapshot, error) {
@@ -42,6 +44,19 @@ func (f fsm) Snapshot() (raft.FSMSnapshot, error) {
 	}, nil
 }
 
+// Restore data which is produced from fsmSnapshot.Persist.
 func (f fsm) Restore(closer io.ReadCloser) error {
-	return errors.New("not implement")
+	// "github.com/golang/protobuf/proto"
+	defer closer.Close()
+
+	buf, err := ioutil.ReadAll(closer)
+	if err != nil {
+		return errors.Wrapf(err, "could not read from reader")
+	}
+
+	if err = f.containerCache.Restore(buf); err != nil {
+		return errors.Wrapf(err, "could not restore into data")
+	}
+
+	return nil
 }

@@ -49,8 +49,8 @@ func fieldPairs(fld datatypes.IField, showDetail bool) interface{} {
 	if pairV == nil {
 		log.
 			WithFields(log.Fields{
-				"fld.Key":  fld.Name(),
-				"fld.Type": fld.Type(),
+				"fld.NeedSetKey": fld.Name(),
+				"fld.Type":       fld.Type(),
 			}).
 			Warnf("fieldPairs could not handle field with nil pair")
 

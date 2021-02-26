@@ -499,3 +499,12 @@ func (m mysqlRepo) updateContainerPure(c *ContainerDO) error {
 
 	return err
 }
+
+func (m mysqlRepo) Migrate() error {
+	return m.db.AutoMigrate(
+		NamespaceDO{},
+		ContainerDO{},
+		FieldDO{},
+		PairDO{},
+	)
+}

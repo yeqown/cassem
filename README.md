@@ -11,10 +11,10 @@ config assembler from key-value pairs' container which include basic datatypes, 
 - [x] HTTP Restful API.
 - [x] Export container (config container) into different file format (JSON / TOML).
 - [ ] Manage `CTL` / `UI` support.
-- [ ] Master / Slave architecture support based raft (only write on master).
+- [x] Master / Slave architecture support based raft (only write on master).
 - [ ] RESTful API permission control.
 - [ ] `Changes` watching and notifying.
-- [ ] Distributed `Cache` middleware to speed up server query performance. 
+- [x] Distributed `Cache` middleware to speed up the API which downloads container in specified format. 
 
 ## Documentation
 

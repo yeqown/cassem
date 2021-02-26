@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 
-	"github.com/yeqown/cassem/internal/cache"
-
 	coord "github.com/yeqown/cassem/internal/coordinator"
 	"github.com/yeqown/cassem/internal/persistence"
 	"github.com/yeqown/cassem/pkg/datatypes"
@@ -23,7 +21,6 @@ var (
 		"TODO(@yeqown) server proxy request to server")
 )
 
-// TODO(@yeqown): query from cache first and also sync to other node if missed.
 func (c Core) GetContainer(key, ns string) (datatypes.IContainer, error) {
 	//hit, err := c.cache.Query(key, ns)
 
@@ -40,32 +37,16 @@ func (c Core) GetContainer(key, ns string) (datatypes.IContainer, error) {
 // RAFT's FSM.
 func (c Core) DownloadContainer(key, ns, format string) ([]byte, error) {
 	cacheKey := key + "#" + ns + "#" + format
-	data, err := c.containerCache.Get(cacheKey)
-	switch err {
-	case nil:
-		log.
-			WithField("cacheKey", cacheKey).
-			Debug("container cache hit")
+	hit, data := c.getContainerCache(cacheKey)
+	if hit {
 		return data, nil
-	default:
-		log.
-			WithField("cacheKey", cacheKey).
-			Debug("get cache failed")
-	case cache.ErrMiss:
-		log.
-			WithField("cacheKey", cacheKey).
-			Debug("container cache missed")
 	}
 
-	v, err := c.GetContainer(key, ns)
+	container, err := c.GetContainer(key, ns)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "Core.DownloadContainer failed to get container")
 	}
 
-	container, err := c.repo.Converter().ToContainer(v)
-	if err != nil {
-		return nil, err
-	}
 	buf := bytes.NewBuffer(nil)
 	switch format {
 	case "json":
@@ -85,17 +66,7 @@ func (c Core) DownloadContainer(key, ns, format string) ([]byte, error) {
 	}
 
 	data = buf.Bytes()
-	evicted, err := c.containerCache.Set(cacheKey, data)
-	if err != nil {
-		log.
-			WithField("cacheKey", cacheKey).
-			Error("could not set container cache")
-	}
-	if evicted {
-		// TODO(@yeqown): should call raft to synchronous other nodes' data. apply from here.
-		// means cache replacing happened
-		// f := s.raft.Apply(msg, 10*time.Second)
-	}
+	c.setContainerCache(cacheKey, data)
 
 	return data, nil
 }
@@ -262,7 +233,7 @@ func (c Core) RemoveNode(nodeID string) error {
 		if srv.ID == raft.ServerID(nodeID) {
 			f := c.raft.RemoveServer(srv.ID, 0, 0)
 			if err := f.Error(); err != nil {
-				log.Errorf("failed to remove srv %s, err: ", nodeID, err)
+				log.Errorf("failed to remove srv %s, err: %v", nodeID, err)
 				return err
 			}
 
