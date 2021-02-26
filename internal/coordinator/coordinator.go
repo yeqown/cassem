@@ -15,6 +15,7 @@ type ICoordinator interface {
 	IRaftCluster
 
 	GetContainer(key, ns string) (datatypes.IContainer, error)
+	DownloadContainer(key, ns, format string) ([]byte, error)
 	PagingContainers(filter *FilterContainersOption) ([]datatypes.IContainer, int, error)
 	SaveContainer(c datatypes.IContainer) error
 	RemoveContainer(key string, ns string) error

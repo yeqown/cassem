@@ -1,11 +1,17 @@
 package core
 
 import (
+	"bytes"
+	"encoding/json"
+
+	"github.com/yeqown/cassem/internal/cache"
+
 	coord "github.com/yeqown/cassem/internal/coordinator"
 	"github.com/yeqown/cassem/internal/persistence"
 	"github.com/yeqown/cassem/pkg/datatypes"
 
 	"github.com/hashicorp/raft"
+	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
 	"github.com/yeqown/log"
 )
@@ -27,6 +33,71 @@ func (c Core) GetContainer(key, ns string) (datatypes.IContainer, error) {
 	}
 
 	return c.repo.Converter().ToContainer(v)
+}
+
+// DownloadContainer query formatted container data at first, if not hit or got unexpected error, normal process
+// would be used, if all process works well, core set into cache. plz notice that, the cache is distributed based on
+// RAFT's FSM.
+func (c Core) DownloadContainer(key, ns, format string) ([]byte, error) {
+	cacheKey := key + "#" + ns + "#" + format
+	data, err := c.containerCache.Get(cacheKey)
+	switch err {
+	case nil:
+		log.
+			WithField("cacheKey", cacheKey).
+			Debug("container cache hit")
+		return data, nil
+	default:
+		log.
+			WithField("cacheKey", cacheKey).
+			Debug("get cache failed")
+	case cache.ErrMiss:
+		log.
+			WithField("cacheKey", cacheKey).
+			Debug("container cache missed")
+	}
+
+	v, err := c.GetContainer(key, ns)
+	if err != nil {
+		return nil, err
+	}
+
+	container, err := c.repo.Converter().ToContainer(v)
+	if err != nil {
+		return nil, err
+	}
+	buf := bytes.NewBuffer(nil)
+	switch format {
+	case "json":
+		encoder := json.NewEncoder(buf)
+		encoder.SetIndent("", "\t")
+		err = encoder.Encode(container.ToMarshalInterface())
+	case "toml":
+		err = toml.
+			NewEncoder(buf).
+			Indentation("\t").
+			Encode(container.ToMarshalInterface())
+	default:
+		err = errors.New("unsupported file format")
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	data = buf.Bytes()
+	evicted, err := c.containerCache.Set(cacheKey, data)
+	if err != nil {
+		log.
+			WithField("cacheKey", cacheKey).
+			Error("could not set container cache")
+	}
+	if evicted {
+		// TODO(@yeqown): should call raft to synchronous other nodes' data. apply from here.
+		// means cache replacing happened
+		// f := s.raft.Apply(msg, 10*time.Second)
+	}
+
+	return data, nil
 }
 
 func (c Core) PagingContainers(filter *coord.FilterContainersOption) ([]datatypes.IContainer, int, error) {
@@ -59,7 +130,7 @@ func (c Core) PagingContainers(filter *coord.FilterContainersOption) ([]datatype
 
 func (c Core) SaveContainer(container datatypes.IContainer) error {
 	if !c.couldWrite() {
-
+		// TODO(@yeqown): forwarding request to leader server
 		return ErrNotLeader
 	}
 
@@ -72,6 +143,11 @@ func (c Core) SaveContainer(container datatypes.IContainer) error {
 }
 
 func (c Core) RemoveContainer(key string, ns string) error {
+	if !c.couldWrite() {
+		// TODO(@yeqown): forwarding request to leader server
+		return ErrNotLeader
+	}
+
 	return c.repo.RemoveContainer(ns, key)
 }
 
@@ -90,7 +166,7 @@ func (c Core) PagingNamespaces(filter *coord.FilterNamespacesOption) ([]string, 
 
 func (c Core) SaveNamespace(ns string) error {
 	if !c.couldWrite() {
-
+		// TODO(@yeqown): forwarding request to leader server
 		return ErrNotLeader
 	}
 
@@ -136,6 +212,7 @@ func (c Core) PagingPairs(filter *coord.FilterPairsOption) ([]datatypes.IPair, i
 
 func (c Core) SavePair(p datatypes.IPair) error {
 	if !c.couldWrite() {
+		// TODO(@yeqown): forwarding request to leader server
 		return ErrNotLeader
 	}
 
@@ -202,6 +279,7 @@ func (c Core) RemoveNode(nodeID string) error {
 func (c Core) watchLeaderChanges() {
 }
 
+// couldWrite only return true if current node is leader.
 func (c Core) couldWrite() bool {
 	return c.raft.State() == raft.Leader
 }

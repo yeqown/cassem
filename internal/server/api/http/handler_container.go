@@ -1,11 +1,7 @@
 package http
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
-
-	"github.com/pelletier/go-toml"
 
 	coord "github.com/yeqown/cassem/internal/coordinator"
 	"github.com/yeqown/cassem/pkg/datatypes"
@@ -206,7 +202,7 @@ func (srv *Server) ContainerDownload(c *gin.Context) {
 		return
 	}
 
-	container, err := srv.coordinator.GetContainer(req.Key, req.Namespace)
+	data, err := srv.coordinator.DownloadContainer(req.Key, req.Namespace, req.Format)
 	if err != nil {
 		responseError(c, err)
 		return
@@ -214,42 +210,22 @@ func (srv *Server) ContainerDownload(c *gin.Context) {
 
 	// generate filename
 	if req.Filename == "" {
-		req.Filename = container.Key() + "." + req.Format
+		req.Filename = req.Key + "." + req.Format
 	}
 
 	// decide which content type should be passed to responseFile
 	var (
-		ct  contentType
-		buf = bytes.NewBuffer(nil)
+		ct contentType
 	)
 	switch req.Format {
 	case "json":
 		ct = jsonContentType
-		encoder := json.NewEncoder(buf)
-		encoder.SetIndent("", "\t")
-		err = encoder.Encode(container.ToMarshalInterface())
 	case "toml":
 		ct = tomlContentType
-		err = toml.
-			NewEncoder(buf).
-			Indentation("\t").
-			Encode(container.ToMarshalInterface())
-	default:
-		err = errors.New("unsupported file format")
-	}
-
-	if err != nil {
-		responseError(c, err)
-		return
-	}
-
-	if buf == nil {
-		responseError(c, errors.New("server error: nil buf"))
-		return
 	}
 
 	// DONE(@yeqown): response a file
-	responseFile(c, req.Filename, ct, buf.Bytes())
+	responseFile(c, req.Filename, ct, data)
 }
 
 type pagingContainersReq struct {

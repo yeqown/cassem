@@ -6,6 +6,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/yeqown/cassem/internal/cache"
+
 	"github.com/yeqown/cassem/internal/conf"
 	coord "github.com/yeqown/cassem/internal/coordinator"
 	"github.com/yeqown/cassem/internal/persistence"
@@ -31,7 +33,8 @@ type Core struct {
 	repo persistence.Repository
 	// restapi
 	restapi *apihtp.Server
-	// cache TODO(@yeqown):
+	// containerCache
+	containerCache cache.ICache
 	// watcher TODO(@yeqown):
 
 	// raft related properties.
