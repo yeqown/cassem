@@ -42,6 +42,6 @@ var _cliGlobalFlags = []cli.Flag{
 		Value:       "./configs/cassem.example.toml",
 		DefaultText: "./configs/cassem.example.toml",
 		Usage:       "choose which `path/to/file` to load",
-		Required:    true,
+		Required:    false,
 	},
 }
