@@ -1,16 +1,18 @@
 package http
 
-import (
-	"github.com/gin-gonic/gin"
-)
-
-func (srv *Server) mountRaftAPI(engi *gin.Engine) {
-	engi.GET("/", srv.OperateNode)
+func (srv *Server) mountRaftClusterInternalAPI() {
+	// DONE(@yeqown): cluster need authorize too to reject request from cluster outside.
+	cluster := srv.engi.Group("/cluster", clusterAuthorizeSimple())
+	{
+		cluster.GET("/node", srv.OperateNode)
+		// TODO(@yeqown): apply to raft cluster
+		// cluster.POST("/apply", srv.Apply)
+	}
 }
 
-func (srv *Server) mountAPI(engi *gin.Engine) {
+func (srv *Server) mountAPI() {
 	// TODO(@yeqown) authorize middleware is needed.
-	g := engi.Group("/api", authorize())
+	g := srv.engi.Group("/api", authorize())
 
 	ns := g.Group("/namespaces")
 	{

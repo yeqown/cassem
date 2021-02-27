@@ -3,6 +3,7 @@ package core
 import (
 	"bytes"
 	"encoding/json"
+	"time"
 
 	coord "github.com/yeqown/cassem/internal/coordinator"
 	"github.com/yeqown/cassem/internal/persistence"
@@ -100,7 +101,7 @@ func (c Core) PagingContainers(filter *coord.FilterContainersOption) ([]datatype
 }
 
 func (c Core) SaveContainer(container datatypes.IContainer) error {
-	if !c.couldWrite() {
+	if !c.isLeader() {
 		// TODO(@yeqown): forwarding request to leader server
 		return ErrNotLeader
 	}
@@ -114,7 +115,7 @@ func (c Core) SaveContainer(container datatypes.IContainer) error {
 }
 
 func (c Core) RemoveContainer(key string, ns string) error {
-	if !c.couldWrite() {
+	if !c.isLeader() {
 		// TODO(@yeqown): forwarding request to leader server
 		return ErrNotLeader
 	}
@@ -136,7 +137,7 @@ func (c Core) PagingNamespaces(filter *coord.FilterNamespacesOption) ([]string, 
 }
 
 func (c Core) SaveNamespace(ns string) error {
-	if !c.couldWrite() {
+	if !c.isLeader() {
 		// TODO(@yeqown): forwarding request to leader server
 		return ErrNotLeader
 	}
@@ -182,7 +183,7 @@ func (c Core) PagingPairs(filter *coord.FilterPairsOption) ([]datatypes.IPair, i
 }
 
 func (c Core) SavePair(p datatypes.IPair) error {
-	if !c.couldWrite() {
+	if !c.isLeader() {
 		// TODO(@yeqown): forwarding request to leader server
 		return ErrNotLeader
 	}
@@ -195,6 +196,7 @@ func (c Core) SavePair(p datatypes.IPair) error {
 	return c.repo.SavePair(v, true)
 }
 
+// AddNode only leader node would receive such request. MAYBE?
 func (c Core) AddNode(serverId, addr string) error {
 	log.Infof("received AddNode request for remote node %s, addr %s", serverId, addr)
 
@@ -220,6 +222,7 @@ func (c Core) AddNode(serverId, addr string) error {
 	return nil
 }
 
+// RemoveNode only leader node would receive such request.
 func (c Core) RemoveNode(nodeID string) error {
 	log.Infof("received RemoveNode request for remote node %s", nodeID)
 
@@ -246,11 +249,34 @@ func (c Core) RemoveNode(nodeID string) error {
 	return nil
 }
 
-// TODO(@yeqown): let node be notified while leader changes, and also mark current node is leader or not?
-func (c Core) watchLeaderChanges() {
+// DONE(@yeqown): let node be notified while leader changes, and also mark current node is leader or not?
+func (c Core) watchLeaderChanges() error {
+	isLeaderCh := c.raft.LeaderCh()
+	for {
+		select {
+		case isLeader := <-isLeaderCh:
+			log.
+				WithField("isLeader", isLeader).
+				Debug("Core.watchLeaderChanges got a signal")
+			if isLeader {
+				// DONE(@yeqown): should broadcast to other nodes of leaders
+				msg, _ := newFsmLog(logActionSetLeaderAddr, setLeaderAddr{
+					LeaderAddr: c.cfg.Server.HTTP.Addr,
+				})
+				if f := c.raft.Apply(msg, 10*time.Second); f.Error() != nil {
+					log.
+						WithFields(log.Fields{
+							"addr": c.cfg.Server.HTTP.Addr,
+							"msg":  msg,
+						}).
+						Errorf("Core.watchLeaderChanges applyTo raft failed: %v", f.Error())
+				}
+			}
+		}
+	}
 }
 
-// couldWrite only return true if current node is leader.
-func (c Core) couldWrite() bool {
+// isLeader only return true if current node is leader.
+func (c Core) isLeader() bool {
 	return c.raft.State() == raft.Leader
 }

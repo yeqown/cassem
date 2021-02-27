@@ -13,28 +13,53 @@ import (
 
 type fsm struct {
 	containerCache cache.ICache
+
+	// leaderAddr indicates the leader's http application address.
+	leaderAddr string
 }
 
 func newFSM(c cache.ICache) raft.FSM {
-	return fsm{
+	return &fsm{
 		containerCache: c,
 	}
 }
 
-func (f fsm) Apply(l *raft.Log) interface{} {
-	var cc = new(cacheSetCommand)
-	if err := cc.deserialize(l.Data); err != nil {
+func (f *fsm) Apply(l *raft.Log) interface{} {
+	var fsmLog = new(coreFSMLog)
+	if err := fsmLog.deserialize(l.Data); err != nil {
 		panic("could not unmarshal: " + err.Error())
 	}
 
-	log.
-		WithField("cacheSetCommand", cc).
-		Debug("fsm.Apply called")
-	if cc.NeedSetKey != "" {
-		f.containerCache.Set(cc.NeedSetKey, cc.NeedSetData)
-	}
-	if cc.NeedDeleteKey != "" {
-		_ = f.containerCache.Del(cc.NeedDeleteKey)
+	switch fsmLog.Action {
+	case logActionSyncCache:
+		cc := new(coreSetCache)
+		if err := cc.deserialize(fsmLog.Data); err != nil {
+			panic("could not unmarshal: " + err.Error())
+		}
+
+		log.
+			WithField("coreSetCache", cc).
+			Debug("fsm.Apply called")
+		if cc.NeedSetKey != "" {
+			f.containerCache.Set(cc.NeedSetKey, cc.NeedSetData)
+		}
+		if cc.NeedDeleteKey != "" {
+			_ = f.containerCache.Del(cc.NeedDeleteKey)
+		}
+
+	case logActionSetLeaderAddr:
+		cc := new(setLeaderAddr)
+		if err := cc.deserialize(fsmLog.Data); err != nil {
+			panic("could not unmarshal: " + err.Error())
+		}
+
+		log.
+			WithField("setLeaderAddr", cc).
+			Debug("fsm.Apply called")
+		f.leaderAddr = cc.LeaderAddr
+
+	default:
+		return errors.New("invalid action")
 	}
 
 	return nil

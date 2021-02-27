@@ -1,10 +1,11 @@
 package core
 
 import (
-	"encoding/json"
+	"net/http"
 	"time"
 
 	"github.com/yeqown/cassem/internal/cache"
+
 	"github.com/yeqown/log"
 )
 
@@ -53,14 +54,31 @@ func (c Core) setContainerCache(cacheKey string, data []byte) {
 		}).
 		Debug("Core.setContainerCache applyTo raft")
 
-	msg, _ := (cacheSetCommand{
+	msg, _ := newFsmLog(logActionSyncCache, coreSetCache{
 		NeedSetKey:    cacheKey,
 		NeedSetData:   data,
 		NeedDeleteKey: ss.NeedDeleteKey,
-	}).serialize()
+	})
 
-	// FIXME(@yeqown): following code got error while current node is not Leader.
+	// DONE(@yeqown): following code got error while current node is not Leader.
 	// This must be run on the leader or it will fail.
+	if !c.isLeader() {
+		if err := c.forwardToLeader(&forwardRequest{
+			path:   "/cluster/apply",
+			method: http.MethodPost,
+			form:   nil,
+			body: struct {
+				ApplyData []byte
+			}{
+				ApplyData: msg,
+			},
+		}); err != nil {
+			log.
+				Errorf("Core.setContainerCache forwardToLeader failed: %v", err)
+		}
+		return
+	}
+
 	if f := c.raft.Apply(msg, 10*time.Second); f.Error() != nil {
 		log.
 			WithFields(log.Fields{
@@ -70,25 +88,4 @@ func (c Core) setContainerCache(cacheKey string, data []byte) {
 			Errorf("Core.setContainerCache applyTo raft failed: %v", f.Error())
 	}
 
-}
-
-//type _action uint8
-//
-//const (
-//	ccActionSet _action = iota + 1
-//	ccActionDel
-//)
-
-type cacheSetCommand struct {
-	NeedDeleteKey string
-	NeedSetKey    string
-	NeedSetData   []byte
-}
-
-func (cc cacheSetCommand) serialize() ([]byte, error) {
-	return json.Marshal(cc)
-}
-
-func (cc *cacheSetCommand) deserialize(data []byte) error {
-	return json.Unmarshal(data, cc)
 }

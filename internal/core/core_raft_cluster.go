@@ -1,6 +1,7 @@
 package core
 
 import (
+	"bytes"
 	"encoding/json"
 	"net"
 	"net/http"
@@ -20,57 +21,6 @@ var (
 	client = &http.Client{}
 )
 
-// operateNodeResp is a copy from internal/api/http.commonResponse, only be used to
-// be unmarshalled from response of Core.tryJoinCluster.
-type operateNodeResp struct {
-	ErrCode    int         `json:"errcode"`
-	ErrMessage string      `json:"errmsg,omitempty"`
-	Data       interface{} `json:"data,omitempty"`
-}
-
-func operateNodeRequest(base string, data map[string]string) error {
-	if base == "" {
-		log.Warn("operateNodeRequest could not be executed with empty RAFT bind address, skip")
-		return nil
-	}
-	// detection and fix schema
-	if !strings.HasPrefix(base, "http://") && !strings.HasPrefix(base, "https://") {
-		base = "http://" + base
-	}
-
-	// assemble form parameters
-	form := url.Values{}
-	for k, v := range data {
-		form.Add(k, v)
-	}
-
-	uri := base + "?" + form.Encode()
-	req, err := http.NewRequest(http.MethodGet, uri, nil)
-	if err != nil {
-		log.Errorf("invalid http.NewRequest: %v", err)
-		return errors.Wrap(err, "invalid http.NewRequest")
-	}
-
-	r, err := client.Do(req)
-	if err != nil {
-		log.Errorf("invalid do: %v", err)
-		return err
-	}
-
-	if r.StatusCode != http.StatusOK {
-		defer r.Body.Close()
-		result := new(operateNodeResp)
-		if err = json.NewDecoder(r.Body).Decode(result); err != nil {
-			log.Errorf("executeOperateNodeRequest could not parse response: %v", err)
-			return err
-		}
-
-		err = errors.New(result.ErrMessage)
-	}
-
-	return err
-}
-
 const (
 	_formServerId        = "serverId"
 	_formAction          = "action"
@@ -80,10 +30,11 @@ const (
 	_actionLeft = "left"
 )
 
-// FIXME(@yeqown): should send request to leader
+// tryJoinCluster only called by follower node, normally, conf.Config.Server.Raft.ClusterAddrToJoin is
+// the leader's address which is set manually. MAYBE~
 func (c *Core) tryJoinCluster() (err error) {
 	base := c.cfg.Server.Raft.ClusterAddrToJoin
-	if err = operateNodeRequest(base, map[string]string{
+	if err = handleGET(base, map[string]string{
 		_formServerId:        c.serverId,
 		_formAction:          _actionJoin,
 		_formRaftBindAddress: c.cfg.Server.Raft.RaftBind,
@@ -98,17 +49,30 @@ func (c *Core) tryJoinCluster() (err error) {
 	return
 }
 
-// FIXME(@yeqown): should send request to leader
+// tryLeaveCluster only called by follower node.
 func (c *Core) tryLeaveCluster() (err error) {
-	base := c.cfg.Server.Raft.ClusterAddrToJoin
-	if err = operateNodeRequest(base, map[string]string{
-		_formServerId: c.serverId,
-		_formAction:   _actionLeft,
-	}); err != nil {
+	req := forwardRequest{
+		path:   "/cluster/nodes",
+		method: http.MethodGet,
+		form: map[string]string{
+			_formServerId: c.serverId,
+			_formAction:   _actionLeft,
+		},
+		body: nil,
+	}
+
+	// DONE(@yeqown): should send request to leader
+	if err = c.forwardToLeader(&req); err != nil {
 		log.Errorf("invalid request: %v", err)
 
 		return errors.Wrap(err, "invalid http.NewRequest")
 	}
+
+	//base := c.cfg.Server.Raft.ClusterAddrToJoin
+	//if err = handleGET(base); err != nil {
+	//	log.Errorf("invalid request: %v", err)
+	//	return errors.Wrap(err, "invalid http.NewRequest")
+	//}
 
 	c.joinedCluster = false
 
@@ -156,8 +120,8 @@ func (c *Core) bootstrapRaft() (err error) {
 	config.LocalID = raft.ServerID(c.serverId)
 	config.SnapshotThreshold = 1024
 
-	raftFSM := newFSM(c._containerCache)
-	if c.raft, err = raft.NewRaft(config, raftFSM, boltDB, boltDB, snapshotStore, transport); err != nil {
+	c.fsm = newFSM(c._containerCache)
+	if c.raft, err = raft.NewRaft(config, c.fsm, boltDB, boltDB, snapshotStore, transport); err != nil {
 		return errors.Wrap(err, "raft.NewRaft failed")
 	}
 
@@ -189,4 +153,108 @@ func (c *Core) bootstrapRaft() (err error) {
 	}
 
 	return
+}
+
+type forwardRequest struct {
+	path   string
+	method string
+	form   map[string]string
+	body   interface{}
+}
+
+// forwardToLeader only forward operations in core (apply, join, leave).
+// this would send a request(HTTP) to leader contains what operation need to do, of course, it takes
+// necessary external information.
+func (c *Core) forwardToLeader(req *forwardRequest) (err error) {
+	base := c.fsm.(*fsm).leaderAddr
+
+	switch req.method {
+	case http.MethodGet:
+		err = handleGET(base, req.form)
+	case http.MethodPost:
+		err = handlePOST(base, req.body)
+	}
+
+	return errors.New("not implement")
+}
+
+// operateNodeResp is a copy from internal/api/http.commonResponse, only be used to
+// be unmarshalled from response of Core.tryJoinCluster.
+type operateNodeResp struct {
+	ErrCode    int         `json:"errcode"`
+	ErrMessage string      `json:"errmsg,omitempty"`
+	Data       interface{} `json:"data,omitempty"`
+}
+
+func handlePOST(base string, body interface{}) error {
+	if base == "" {
+		log.Warn("handleGET could not be executed with empty RAFT bind address, skip")
+		return nil
+	}
+	// detection and fix schema
+	if !strings.HasPrefix(base, "http://") && !strings.HasPrefix(base, "https://") {
+		base = "http://" + base
+	}
+
+	buf := bytes.NewBuffer(nil)
+	if err := json.NewEncoder(buf).Encode(body); err != nil {
+		return errors.Wrap(err, "could not encode body")
+	}
+
+	uri := base + "?" + "clusterSecret=9520059dd167"
+	req, err := http.NewRequest(http.MethodGet, uri, buf)
+	if err != nil {
+		log.Errorf("invalid http.NewRequest: %v", err)
+		return errors.Wrap(err, "invalid http.NewRequest")
+	}
+
+	return execute(req)
+}
+
+func handleGET(base string, data map[string]string) error {
+	if base == "" {
+		log.Warn("handleGET could not be executed with empty RAFT bind address, skip")
+		return nil
+	}
+	// detection and fix schema
+	if !strings.HasPrefix(base, "http://") && !strings.HasPrefix(base, "https://") {
+		base = "http://" + base
+	}
+
+	// assemble form parameters
+	form := url.Values{}
+	for k, v := range data {
+		form.Add(k, v)
+	}
+	form.Add("clusterSecret", "9520059dd167")
+
+	uri := base + "?" + form.Encode()
+	req, err := http.NewRequest(http.MethodGet, uri, nil)
+	if err != nil {
+		log.Errorf("invalid http.NewRequest: %v", err)
+		return errors.Wrap(err, "invalid http.NewRequest")
+	}
+
+	return execute(req)
+}
+
+func execute(req *http.Request) error {
+	r, err := client.Do(req)
+	if err != nil {
+		log.Errorf("invalid do: %v", err)
+		return err
+	}
+
+	if r.StatusCode != http.StatusOK {
+		defer r.Body.Close()
+		result := new(operateNodeResp)
+		if err = json.NewDecoder(r.Body).Decode(result); err != nil {
+			log.Errorf("executeOperateNodeRequest could not parse response: %v", err)
+			return err
+		}
+
+		err = errors.New(result.ErrMessage)
+	}
+
+	return err
 }

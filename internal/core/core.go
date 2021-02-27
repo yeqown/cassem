@@ -40,7 +40,7 @@ type Core struct {
 	serverId      string
 	joinedCluster bool
 	raft          *raft.Raft
-	//fsm           raft.FSM
+	fsm           raft.FSM
 }
 
 func New(cfg *conf.Config) (*Core, error) {
@@ -94,12 +94,22 @@ func (c *Core) Heartbeat() {
 			}
 		case <-quit:
 			log.Info("Core quit, start release resources...")
-			//retryLeave:
-			//	if err := c.tryLeaveCluster(); err != nil {
-			//		log.Errorf("could not tryLeaveCluster cluster: %v", err)
-			//		goto retryLeave
-			//	}
-			// TODO(@yeqown): graceful shutdown components
+			// TODO(@yeqown): graceful shutdown components, snapshot something.
+			if c.isLeader() {
+			retryLeaderLeave:
+				if err := c.raft.RemoveServer(raft.ServerID(c.serverId), 0, 0).Error(); err != nil {
+					log.Errorf("Core.Heartbeat (leader) could not remove from cluster: %v", err)
+					goto retryLeaderLeave
+				}
+				return
+			}
+		retryLeave:
+			if err := c.tryLeaveCluster(); err != nil {
+				log.Errorf("Core.Heartbeat (node) could not remove from cluster: %v", err)
+				time.Sleep(5 * time.Second)
+				goto retryLeave
+			}
+
 			return
 		}
 	}
@@ -109,8 +119,8 @@ func (c Core) loop() {
 	// start restapi
 	go startWithRecover("restapi", c.startHTTP)
 
-	// cluster-daemon
-	//go startWithRecover("cluster-daemon", c.serveClusterNode)
+	// leadership changes
+	go startWithRecover("leadership-changes", c.watchLeaderChanges)
 }
 
 func (c Core) startHTTP() (err error) {

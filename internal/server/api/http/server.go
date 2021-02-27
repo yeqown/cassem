@@ -47,9 +47,9 @@ func (srv *Server) boot() {
 	}
 
 	// mount operate raft API
-	srv.mountRaftAPI(srv.engi)
+	srv.mountRaftClusterInternalAPI()
 	// mount API
-	srv.mountAPI(srv.engi)
+	srv.mountAPI()
 }
 
 func (srv *Server) ListenAndServe() (err error) {
