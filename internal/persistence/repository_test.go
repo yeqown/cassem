@@ -125,7 +125,7 @@ func (s testRepositorySuite) Test_Container() {
 	_, _ = c.SetField(datatypes.NewKVField("b", b))
 	_, _ = c.SetField(datatypes.NewKVField("d", dictPair))
 
-	listBasic := datatypes.NewListField("list_basic", []datatypes.IPair{i, f, i, b})
+	listBasic := datatypes.NewListField("list_basic", []datatypes.IPair{i, i, i, i})
 	_, _ = c.SetField(listBasic)
 
 	dict := datatypes.NewDictField("dict", map[string]datatypes.IPair{

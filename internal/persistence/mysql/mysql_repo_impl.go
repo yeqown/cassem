@@ -154,7 +154,7 @@ func (m mysqlRepo) SaveContainer(c interface{}, update bool) (err error) {
 		// pair count in DB is not equal to from.uniquePairKeys
 		log.
 			WithFields(log.Fields{
-				"wantPairs": from.uniquePairKeys,
+				"wantPairs": from.uniquePairKeys.Keys(),
 				"hitCount":  count,
 			}).
 			Error("mysqlRepo.SaveContainer failed to precheck pairs")
@@ -502,9 +502,9 @@ func (m mysqlRepo) updateContainerPure(c *ContainerDO) error {
 
 func (m mysqlRepo) Migrate() error {
 	return m.db.AutoMigrate(
-		NamespaceDO{},
-		ContainerDO{},
-		FieldDO{},
-		PairDO{},
+		&NamespaceDO{},
+		&ContainerDO{},
+		&FieldDO{},
+		&PairDO{},
 	)
 }

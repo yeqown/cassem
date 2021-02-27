@@ -66,9 +66,9 @@ func Test_Container_MarshalJSON(t *testing.T) {
 	   "i": 123,
 	   "list_basic": [
 	       123,
-	       1.123,
 	       123,
-	       true
+	       123,
+	       123
 	   ],
 	   "s": "string"
 	}`
@@ -90,7 +90,7 @@ func Test_Container_MarshalJSON(t *testing.T) {
 	_, _ = c.SetField(NewKVField("b", b))
 	_, _ = c.SetField(NewKVField("d", dictPair))
 
-	listBasic := NewListField("list_basic", []IPair{i, f, i, b})
+	listBasic := NewListField("list_basic", []IPair{i, i, i, i})
 	_, _ = c.SetField(listBasic)
 
 	dict := NewDictField("dict", map[string]IPair{

@@ -39,22 +39,17 @@ func Test_KVField_TOML(t *testing.T) {
 
 func Test_ListField(t *testing.T) {
 	l := WithList()
-	l.Append(WithInt(123), WithString("222"), WithBool(false), WithFloat(64.23))
+	i := WithInt(123)
+	l.Append(i, i, i, i)
 
 	d := WithDict()
 	d.Add("d1", WithString("222"))
 	d.Add("d2", WithInt(222))
+	d.Add("d3", WithFloat(22.22))
+	d.Add("dl", l)
 
-	pairs := []IPair{
-		NewPair("ns", "int", WithInt(123)),
-		NewPair("ns", "string", WithString("222")),
-		NewPair("ns", "float", WithFloat(64.23)),
-		NewPair("ns", "bool", WithBool(false)),
-		NewPair("ns", "dict", d),
-		NewPair("ns", "list", l),
-	}
-
-	field := NewListField("list", pairs)
+	pairD := NewPair("ns", "dict", d)
+	field := NewListField("list", []IPair{pairD, pairD, pairD, pairD})
 
 	assert.EqualValues(t, "list", field.Name())
 	assert.EqualValues(t, LIST_FIELD_, field.Type())
@@ -62,26 +57,23 @@ func Test_ListField(t *testing.T) {
 }
 
 func Test_ListField_TOML(t *testing.T) {
-	//t.Skip("not supported yet")
 	l := WithList()
-	l.Append(WithInt(123), WithString("222"), WithBool(false), WithFloat(64.23))
+	i := WithInt(123)
+	l.Append(i, i, i, i)
 
 	d := WithDict()
 	d.Add("d1", WithString("222"))
 	d.Add("d2", WithInt(222))
+	d.Add("d3", WithFloat(22.22))
+	d.Add("dl", l)
 
-	pairs := []IPair{
-		NewPair("ns", "int", WithInt(123)),
-		NewPair("ns", "string", WithString("222")),
-		NewPair("ns", "float", WithFloat(64.23)),
-		NewPair("ns", "bool", WithBool(false)),
-		NewPair("ns", "dict", d),
-		NewPair("ns", "list", l),
-	}
+	pairD := NewPair("ns", "dict", d)
+	field := NewListField("list", []IPair{pairD, pairD, pairD, pairD})
 
-	field := NewListField("list", pairs)
 	v := field.ToMarshalInterface()
-	encodeAndTest(t, `[123,"222",64.23,false,{"d1":"222","d2":222},[123,"222",false,64.23]]`, v)
+	encodeAndTest(t, `[{"d1":"222","d2":222,"d3":22.22,"dl":[123,123,123,123]},{"d1":"222",
+"d2":222,"d3":22.22,"dl":[123,123,123,123]},{"d1":"222","d2":222,"d3":22.22,"dl":[123,123,123,123]},
+{"d1":"222","d2":222,"d3":22.22,"dl":[123,123,123,123]}]`, v)
 }
 
 func Test_DictField(t *testing.T) {

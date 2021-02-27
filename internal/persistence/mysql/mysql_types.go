@@ -16,12 +16,10 @@ import (
 type PairDO struct {
 	gorm.Model
 
-	Key string `gorm:"column:key;type:varchar(64);uniqueIndex:idx_unique_pair,priority:1;
-index:idx_ns_to_key;priority:2"`
-	Namespace string `gorm:"column:namespace;type:varchar(32);uniqueIndex:idx_unique_pair,priority:2;
-index:idx_ns_to_key;priority:1"`
-	Datatype datatypes.Datatype `gorm:"column:datatype;type:tinyint(3)"`
-	Value    []byte             `gorm:"column:value;type:blob"`
+	Key       string             `gorm:"column:key;type:varchar(64);uniqueIndex:idx_unique_pair,priority:1;index:idx_ns_to_key,priority:2"`
+	Namespace string             `gorm:"column:namespace;type:varchar(32);uniqueIndex:idx_unique_pair,priority:2;index:idx_ns_to_key,priority:1"`
+	Datatype  datatypes.Datatype `gorm:"column:datatype;type:tinyint(3)"`
+	Value     []byte             `gorm:"column:value;type:blob"`
 }
 
 func (m PairDO) TableName() string { return "cassem_pairs" }

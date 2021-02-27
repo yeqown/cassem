@@ -94,10 +94,20 @@ func (l ListDT) Data() interface{} {
 	return l
 }
 
-// FIXME(@yeqown): List should contains same type of pairs
+// FIXED(@yeqown): List should contains same type of pairs
 func (l *ListDT) Append(vs ...IData) {
 	if l == nil {
 		panic("ListDT is not initialized")
+	}
+
+	if len(*l) > 0 {
+		// if any element has been saved in list
+		typ := (*l)[0].Datatype()
+		for _, v := range vs {
+			if v.Datatype() != typ {
+				panic("different types in one ListDT")
+			}
+		}
 	}
 
 	*l = append(*l, vs...)
