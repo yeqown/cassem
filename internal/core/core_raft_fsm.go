@@ -1,7 +1,6 @@
 package core
 
 import (
-	"encoding/json"
 	"io"
 	"io/ioutil"
 
@@ -9,6 +8,7 @@ import (
 
 	"github.com/hashicorp/raft"
 	"github.com/pkg/errors"
+	"github.com/yeqown/log"
 )
 
 type fsm struct {
@@ -21,13 +21,15 @@ func newFSM(c cache.ICache) raft.FSM {
 	}
 }
 
-func (f fsm) Apply(log *raft.Log) interface{} {
-	var cc cacheSetCommand
-
-	if err := json.Unmarshal(log.Data, &cc); err != nil {
+func (f fsm) Apply(l *raft.Log) interface{} {
+	var cc = new(cacheSetCommand)
+	if err := cc.deserialize(l.Data); err != nil {
 		panic("could not unmarshal: " + err.Error())
 	}
 
+	log.
+		WithField("cacheSetCommand", cc).
+		Debug("fsm.Apply called")
 	if cc.NeedSetKey != "" {
 		f.containerCache.Set(cc.NeedSetKey, cc.NeedSetData)
 	}
@@ -39,14 +41,20 @@ func (f fsm) Apply(log *raft.Log) interface{} {
 }
 
 func (f fsm) Snapshot() (raft.FSMSnapshot, error) {
+	log.Debug("fsm.Snapshot called")
+	data, err := f.containerCache.Persist()
+	if err != nil {
+		return nil, errors.Wrap(err, "fs.containerCache.Persist() failed")
+	}
+
 	return fsmSnapshot{
-		containerCache: f.containerCache,
+		serialized: data,
 	}, nil
 }
 
 // Restore data which is produced from fsmSnapshot.Persist.
 func (f fsm) Restore(closer io.ReadCloser) error {
-	// "github.com/golang/protobuf/proto"
+	log.Debug("fsm.Restore called")
 	defer closer.Close()
 
 	buf, err := ioutil.ReadAll(closer)

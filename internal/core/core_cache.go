@@ -57,7 +57,7 @@ func (c Core) setContainerCache(cacheKey string, data []byte) {
 		NeedSetKey:    cacheKey,
 		NeedSetData:   data,
 		NeedDeleteKey: ss.NeedDeleteKey,
-	}).Serialize()
+	}).serialize()
 
 	// FIXME(@yeqown): following code got error while current node is not Leader.
 	// This must be run on the leader or it will fail.
@@ -85,6 +85,10 @@ type cacheSetCommand struct {
 	NeedSetData   []byte
 }
 
-func (cc cacheSetCommand) Serialize() ([]byte, error) {
+func (cc cacheSetCommand) serialize() ([]byte, error) {
 	return json.Marshal(cc)
+}
+
+func (cc *cacheSetCommand) deserialize(data []byte) error {
+	return json.Unmarshal(data, cc)
 }

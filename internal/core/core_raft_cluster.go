@@ -80,6 +80,7 @@ const (
 	_actionLeft = "left"
 )
 
+// FIXME(@yeqown): should send request to leader
 func (c *Core) tryJoinCluster() (err error) {
 	base := c.cfg.Server.Raft.ClusterAddrToJoin
 	if err = operateNodeRequest(base, map[string]string{
@@ -97,6 +98,7 @@ func (c *Core) tryJoinCluster() (err error) {
 	return
 }
 
+// FIXME(@yeqown): should send request to leader
 func (c *Core) tryLeaveCluster() (err error) {
 	base := c.cfg.Server.Raft.ClusterAddrToJoin
 	if err = operateNodeRequest(base, map[string]string{

@@ -1,27 +1,20 @@
 package core
 
 import (
-	"github.com/yeqown/cassem/internal/cache"
-
 	"github.com/hashicorp/raft"
 	"github.com/pkg/errors"
 	"github.com/yeqown/log"
 )
 
 type fsmSnapshot struct {
-	containerCache cache.ICache
+	serialized []byte
 }
 
 func (fs fsmSnapshot) Persist(sink raft.SnapshotSink) (err error) {
-	log.Info("Release action in fsmSnapshot")
+	log.Info("fsmSnapshot.Persist action in fsmSnapshot")
 	defer sink.Close()
 
-	data, err := fs.containerCache.Persist()
-	if err != nil {
-		return errors.Wrap(err, "fs.containerCache.Persist() failed")
-	}
-
-	if _, err = sink.Write(data); err != nil {
+	if _, err = sink.Write(fs.serialized); err != nil {
 		return errors.Wrap(err, "sink.Write(data) failed")
 	}
 
@@ -29,5 +22,5 @@ func (fs fsmSnapshot) Persist(sink raft.SnapshotSink) (err error) {
 }
 
 func (fs fsmSnapshot) Release() {
-	log.Info("Release action in fsmSnapshot")
+	log.Info("fsmSnapshot.Release action in fsmSnapshot")
 }
