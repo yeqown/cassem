@@ -27,12 +27,31 @@ func (srv *Server) OperateNode(c *gin.Context) {
 			err = errors.New("bind could not be empty")
 		}
 	case "left":
-		err = srv.coordinator.AddNode(req.ServerID, req.Bind)
+		err = srv.coordinator.RemoveNode(req.ServerID)
 	default:
 		err = errors.New("unknown action")
 	}
 
 	if err != nil {
+		responseError(c, err)
+		return
+	}
+
+	responseJSON(c, nil)
+}
+
+type applyReq struct {
+	Data []byte `json:"Data" binding:"required"`
+}
+
+func (srv *Server) Apply(c *gin.Context) {
+	req := new(applyReq)
+	if err := c.ShouldBind(req); err != nil {
+		responseError(c, err)
+		return
+	}
+
+	if err := srv.coordinator.Apply(req.Data); err != nil {
 		responseError(c, err)
 		return
 	}

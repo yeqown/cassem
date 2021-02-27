@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"time"
 
 	"github.com/pkg/errors"
 )
@@ -31,6 +32,7 @@ func startWithRecover(invokerName string, invoker func() error) {
 		}
 
 		// TODO(@yeqown): backoff strategy of restart, if the invoker panics too quick.
+		time.Sleep(5 * time.Second)
 		go startWithRecover(invokerName, invoker)
 	}()
 

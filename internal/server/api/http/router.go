@@ -4,9 +4,8 @@ func (srv *Server) mountRaftClusterInternalAPI() {
 	// DONE(@yeqown): cluster need authorize too to reject request from cluster outside.
 	cluster := srv.engi.Group("/cluster", clusterAuthorizeSimple())
 	{
-		cluster.GET("/node", srv.OperateNode)
-		// TODO(@yeqown): apply to raft cluster
-		// cluster.POST("/apply", srv.Apply)
+		cluster.GET("/nodes", srv.OperateNode)
+		cluster.POST("/apply", srv.Apply)
 	}
 }
 

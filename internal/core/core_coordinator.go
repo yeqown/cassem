@@ -67,7 +67,8 @@ func (c Core) DownloadContainer(key, ns, format string) ([]byte, error) {
 	}
 
 	data = buf.Bytes()
-	c.setContainerCache(cacheKey, data)
+	// OPTIMISZE(@yeqown) set cache asynchronously, so download response quickly.
+	go c.setContainerCache(cacheKey, data)
 
 	return data, nil
 }
@@ -200,6 +201,13 @@ func (c Core) SavePair(p datatypes.IPair) error {
 func (c Core) AddNode(serverId, addr string) error {
 	log.Infof("received AddNode request for remote node %s, addr %s", serverId, addr)
 
+	if !c.isLeader() {
+		log.
+			Warn("RemoveNode request should not be executed by nonleader node")
+
+		return ErrNotLeader
+	}
+
 	cf := c.raft.GetConfiguration()
 	if err := cf.Error(); err != nil {
 		log.Errorf("failed to get raft configuration: %v", err)
@@ -226,6 +234,13 @@ func (c Core) AddNode(serverId, addr string) error {
 func (c Core) RemoveNode(nodeID string) error {
 	log.Infof("received RemoveNode request for remote node %s", nodeID)
 
+	if !c.isLeader() {
+		log.
+			Warn("RemoveNode request should not be executed by nonleader node")
+
+		return ErrNotLeader
+	}
+
 	cf := c.raft.GetConfiguration()
 	if err := cf.Error(); err != nil {
 		log.Errorf("failed to get raft configuration: %v", err)
@@ -249,34 +264,22 @@ func (c Core) RemoveNode(nodeID string) error {
 	return nil
 }
 
-// DONE(@yeqown): let node be notified while leader changes, and also mark current node is leader or not?
-func (c Core) watchLeaderChanges() error {
-	isLeaderCh := c.raft.LeaderCh()
-	for {
-		select {
-		case isLeader := <-isLeaderCh:
-			log.
-				WithField("isLeader", isLeader).
-				Debug("Core.watchLeaderChanges got a signal")
-			if isLeader {
-				// DONE(@yeqown): should broadcast to other nodes of leaders
-				msg, _ := newFsmLog(logActionSetLeaderAddr, setLeaderAddr{
-					LeaderAddr: c.cfg.Server.HTTP.Addr,
-				})
-				if f := c.raft.Apply(msg, 10*time.Second); f.Error() != nil {
-					log.
-						WithFields(log.Fields{
-							"addr": c.cfg.Server.HTTP.Addr,
-							"msg":  msg,
-						}).
-						Errorf("Core.watchLeaderChanges applyTo raft failed: %v", f.Error())
-				}
-			}
-		}
-	}
-}
+func (c Core) Apply(msg []byte) (err error) {
+	if !c.isLeader() {
+		log.
+			Warn("Apply request should not be executed by nonleader node")
 
-// isLeader only return true if current node is leader.
-func (c Core) isLeader() bool {
-	return c.raft.State() == raft.Leader
+		return ErrNotLeader
+	}
+
+	f := c.raft.Apply(msg, 10*time.Second)
+	if err = f.Error(); err != nil {
+		log.
+			WithFields(log.Fields{
+				"msg": msg,
+			}).
+			Errorf("Core.watchLeaderChanges applyTo raft failed: %v", f.Error())
+	}
+
+	return
 }

@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -33,16 +34,34 @@ const (
 // tryJoinCluster only called by follower node, normally, conf.Config.Server.Raft.ClusterAddrToJoin is
 // the leader's address which is set manually. MAYBE~
 func (c *Core) tryJoinCluster() (err error) {
-	base := c.cfg.Server.Raft.ClusterAddrToJoin
-	if err = handleGET(base, map[string]string{
-		_formServerId:        c.serverId,
-		_formAction:          _actionJoin,
-		_formRaftBindAddress: c.cfg.Server.Raft.RaftBind,
-	}); err != nil {
-		log.Errorf("invalid request: %v", err)
-
-		return errors.Wrap(err, "invalid http.NewRequest")
+	req := forwardRequest{
+		forceBase: c.cfg.Server.Raft.ClusterAddrToJoin,
+		path:      "/cluster/nodes",
+		method:    http.MethodGet,
+		form: map[string]string{
+			_formServerId:        c.serverId,
+			_formAction:          _actionJoin,
+			_formRaftBindAddress: c.cfg.Server.Raft.RaftBind,
+		},
+		body: nil,
 	}
+
+	// DONE(@yeqown): should send request to leader
+	if err = c.forwardToLeader(&req); err != nil {
+		log.Errorf("Core.tryLeaveCluster calling c.forwardToLeader %v", err)
+
+		return errors.Wrap(err, "tryJoinCluster failed")
+	}
+	//base := c.cfg.Server.Raft.ClusterAddrToJoin
+	//if err = handleGET(base, map[string]string{
+	//	_formServerId:        c.serverId,
+	//	_formAction:          _actionJoin,
+	//	_formRaftBindAddress: c.cfg.Server.Raft.RaftBind,
+	//}); err != nil {
+	//	log.Errorf("invalid request: %v", err)
+	//
+	//	return errors.Wrap(err, "invalid http.NewRequest")
+	//}
 
 	c.joinedCluster = true
 
@@ -63,9 +82,9 @@ func (c *Core) tryLeaveCluster() (err error) {
 
 	// DONE(@yeqown): should send request to leader
 	if err = c.forwardToLeader(&req); err != nil {
-		log.Errorf("invalid request: %v", err)
+		log.Errorf("Core.tryLeaveCluster calling c.forwardToLeader failed: %v", err)
 
-		return errors.Wrap(err, "invalid http.NewRequest")
+		return errors.Wrap(err, "tryLeaveCluster failed")
 	}
 
 	//base := c.cfg.Server.Raft.ClusterAddrToJoin
@@ -75,6 +94,9 @@ func (c *Core) tryLeaveCluster() (err error) {
 	//}
 
 	c.joinedCluster = false
+	if err = c.raft.Shutdown().Error(); err != nil {
+		err = errors.Wrap(err, "Core.tryLeaveCluster shutdown failed")
+	}
 
 	return
 }
@@ -156,10 +178,11 @@ func (c *Core) bootstrapRaft() (err error) {
 }
 
 type forwardRequest struct {
-	path   string
-	method string
-	form   map[string]string
-	body   interface{}
+	forceBase string
+	path      string
+	method    string
+	form      map[string]string
+	body      interface{}
 }
 
 // forwardToLeader only forward operations in core (apply, join, leave).
@@ -167,6 +190,23 @@ type forwardRequest struct {
 // necessary external information.
 func (c *Core) forwardToLeader(req *forwardRequest) (err error) {
 	base := c.fsm.(*fsm).leaderAddr
+	if req.forceBase != "" {
+		base = req.forceBase
+	}
+
+	// detection base empty or not, fix schema and assemble path to base
+	if base == "" {
+		log.Warn("handlePOST could not be executed with empty RAFT bind address, skip")
+		return nil
+	}
+
+	if !strings.HasPrefix(base, "http://") && !strings.HasPrefix(base, "https://") {
+		base = "http://" + base
+	}
+	if strings.HasSuffix(base, "/") {
+		base = strings.TrimRight(base, "/")
+	}
+	base += req.path
 
 	switch req.method {
 	case http.MethodGet:
@@ -175,7 +215,7 @@ func (c *Core) forwardToLeader(req *forwardRequest) (err error) {
 		err = handlePOST(base, req.body)
 	}
 
-	return errors.New("not implement")
+	return
 }
 
 // operateNodeResp is a copy from internal/api/http.commonResponse, only be used to
@@ -187,40 +227,23 @@ type operateNodeResp struct {
 }
 
 func handlePOST(base string, body interface{}) error {
-	if base == "" {
-		log.Warn("handleGET could not be executed with empty RAFT bind address, skip")
-		return nil
-	}
-	// detection and fix schema
-	if !strings.HasPrefix(base, "http://") && !strings.HasPrefix(base, "https://") {
-		base = "http://" + base
-	}
-
 	buf := bytes.NewBuffer(nil)
 	if err := json.NewEncoder(buf).Encode(body); err != nil {
 		return errors.Wrap(err, "could not encode body")
 	}
 
 	uri := base + "?" + "clusterSecret=9520059dd167"
-	req, err := http.NewRequest(http.MethodGet, uri, buf)
+	req, err := http.NewRequest(http.MethodPost, uri, buf)
 	if err != nil {
 		log.Errorf("invalid http.NewRequest: %v", err)
 		return errors.Wrap(err, "invalid http.NewRequest")
 	}
+	req.Header.Set("Content-Type", "application/json")
 
 	return execute(req)
 }
 
 func handleGET(base string, data map[string]string) error {
-	if base == "" {
-		log.Warn("handleGET could not be executed with empty RAFT bind address, skip")
-		return nil
-	}
-	// detection and fix schema
-	if !strings.HasPrefix(base, "http://") && !strings.HasPrefix(base, "https://") {
-		base = "http://" + base
-	}
-
 	// assemble form parameters
 	form := url.Values{}
 	for k, v := range data {
@@ -246,14 +269,16 @@ func execute(req *http.Request) error {
 	}
 
 	if r.StatusCode != http.StatusOK {
+		err = errors.New("response code:" + strconv.Itoa(r.StatusCode))
+
 		defer r.Body.Close()
 		result := new(operateNodeResp)
-		if err = json.NewDecoder(r.Body).Decode(result); err != nil {
-			log.Errorf("executeOperateNodeRequest could not parse response: %v", err)
-			return err
+		if err2 := json.NewDecoder(r.Body).Decode(result); err2 != nil {
+			log.Errorf("executeOperateNodeRequest could not parse response: %v", err2)
+			return errors.Wrap(err, err2.Error())
 		}
 
-		err = errors.New(result.ErrMessage)
+		err = errors.Wrap(err, result.ErrMessage)
 	}
 
 	return err

@@ -32,6 +32,8 @@ type IRaftCluster interface {
 	AddNode(serverId, addr string) error
 
 	RemoveNode(serverId string) error
+
+	Apply(msg []byte) error
 }
 
 type FilterContainersOption struct {

@@ -94,16 +94,13 @@ func (c *Core) Heartbeat() {
 			}
 		case <-quit:
 			log.Info("Core quit, start release resources...")
-			// TODO(@yeqown): graceful shutdown components, snapshot something.
+			// DONE(@yeqown): graceful shutdown components, snapshot something.
+		retryLeave:
 			if c.isLeader() {
-			retryLeaderLeave:
-				if err := c.raft.RemoveServer(raft.ServerID(c.serverId), 0, 0).Error(); err != nil {
-					log.Errorf("Core.Heartbeat (leader) could not remove from cluster: %v", err)
-					goto retryLeaderLeave
-				}
+				// FIXED(@yeqown): could not remove leader ...
 				return
 			}
-		retryLeave:
+
 			if err := c.tryLeaveCluster(); err != nil {
 				log.Errorf("Core.Heartbeat (node) could not remove from cluster: %v", err)
 				time.Sleep(5 * time.Second)
@@ -129,4 +126,36 @@ func (c Core) startHTTP() (err error) {
 	}
 
 	return
+}
+
+// DONE(@yeqown): let node be notified while leader changes, and also mark current node is leader or not?
+func (c Core) watchLeaderChanges() error {
+	isLeaderCh := c.raft.LeaderCh()
+	for {
+		select {
+		case isLeader := <-isLeaderCh:
+			log.
+				WithField("isLeader", isLeader).
+				Debug("Core.watchLeaderChanges got a signal")
+			if isLeader {
+				// DONE(@yeqown): should broadcast to other nodes of leaders
+				msg, _ := newFsmLog(logActionSetLeaderAddr, setLeaderAddr{
+					LeaderAddr: c.cfg.Server.HTTP.Addr,
+				})
+				if f := c.raft.Apply(msg, 10*time.Second); f.Error() != nil {
+					log.
+						WithFields(log.Fields{
+							"addr": c.cfg.Server.HTTP.Addr,
+							"msg":  msg,
+						}).
+						Errorf("Core.watchLeaderChanges applyTo raft failed: %v", f.Error())
+				}
+			}
+		}
+	}
+}
+
+// isLeader only return true if current node is leader.
+func (c Core) isLeader() bool {
+	return c.raft.State() == raft.Leader
 }

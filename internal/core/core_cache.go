@@ -68,7 +68,7 @@ func (c Core) setContainerCache(cacheKey string, data []byte) {
 			method: http.MethodPost,
 			form:   nil,
 			body: struct {
-				ApplyData []byte
+				ApplyData []byte `json:"Data"`
 			}{
 				ApplyData: msg,
 			},
