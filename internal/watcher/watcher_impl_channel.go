@@ -2,89 +2,150 @@ package watcher
 
 import (
 	"sync"
+	"time"
 
 	"github.com/yeqown/log"
 )
 
-type bucket struct {
-	chs map[string][]chan<- ChangeNotify
+// topicBucket used to manage one topic and it's observers. The main purpose to design
+// this is to reduce lock conflicts.
+type topicBucket struct {
+	sync.RWMutex
+
+	observers map[string]IObserver
 }
 
+func newTopicBucket() *topicBucket {
+	return &topicBucket{
+		observers: make(map[string]IObserver, 4),
+	}
+}
+
+func (t *topicBucket) add(observer IObserver) {
+	t.Lock()
+	defer t.Unlock()
+
+	t.observers[observer.Identity()] = observer
+}
+
+func (t *topicBucket) remove(observer IObserver) {
+	t.Lock()
+	defer t.Unlock()
+
+	t.observers[observer.Identity()] = observer
+}
+
+// distribute will not block sending to c: the caller must ensure that c has sufficient buffer space to
+// keep up with the expected signal rate. For a channel used for notification of just one signal value,
+// a buffer of size 1 is sufficient.
+func (t *topicBucket) distribute(notify Changes) {
+	t.RLock()
+	defer t.RUnlock()
+
+	for _, observer := range t.observers {
+		// NOTICE: send but do not block for it
+		select {
+		case observer.ChangeNotifyCh() <- notify:
+		default:
+
+		}
+
+	}
+}
+
+// channelWatcher implement IWatcher used in core.Core.
 type channelWatcher struct {
-	ch      chan ChangeNotify
-	buckets []bucket
+	ch chan Changes
 
-	topicCh map[string]chan ChangeNotify
+	// buckets indicates map[topic][]IObserver
+	_mu     sync.RWMutex
+	buckets map[string]*topicBucket
 }
 
-func newChannelWatcher(bucketSize int) IWatcher {
-	buckets := make([]bucket, bucketSize)
-	return &channelWatcher{
-		ch:      make(chan ChangeNotify, bucketSize),
-		buckets: buckets,
-		topicCh: make(map[string]chan ChangeNotify, bucketSize),
-	}
-}
-
-// TODO(@yeqown): how to identify which channel should be removed?
-func (c channelWatcher) Unsubscribe(topics ...string) {
-	panic("not implement")
-}
-
-func (c channelWatcher) Subscribe(ch chan<- ChangeNotify, topics ...string) {
-	for _, topic := range topics {
-		if topic == "" {
-			continue
-		}
-
-		if _, ok := c.topicCh[topic]; !ok {
-			ch <- ChangeNotify{}
-		}
-
-		// TODO(@yeqown): register into channelWatcher
+func newChannelWatcher(bufferSize int) IWatcher {
+	w := channelWatcher{
+		ch:      make(chan Changes, bufferSize),
+		_mu:     sync.RWMutex{},
+		buckets: make(map[string]*topicBucket, 4),
 	}
 
-	// MAYBE ERROR got.
+	go w.loop()
+
+	return &w
 }
 
-func (c channelWatcher) ChangeNotifyCh() chan<- ChangeNotify {
-	return c.ch
-}
+func (c *channelWatcher) loop() {
+	defer func() {
+		if v := recover(); v != nil {
+			log.
+				Errorf("channelWatcher.loop panicked: %v", v)
 
-func (c channelWatcher) loop() {
+			time.Sleep(2 * time.Second)
+			go c.loop()
+		}
+	}()
+
 	for {
 		select {
 		case notify := <-c.ch:
 			log.
 				WithField("notifyData", notify).
 				Debug("channelWatcher loop gets one signal")
-			// TODO(@yeqown): then fan-out
+
+			c._mu.RLock()
+			bucket, ok := c.buckets[notify.Topic]
+			c._mu.RUnlock()
+			if !ok {
+				log.
+					WithField("notify", notify).
+					Warn("topic has not observer")
+
+				return
+			}
+
+			// DONE(@yeqown): use channel instead of method calling
+			go bucket.distribute(notify)
 		}
 	}
 }
 
-func merge(cs ...<-chan ChangeNotify) <-chan ChangeNotify {
-	var wg sync.WaitGroup
-	out := make(chan ChangeNotify)
+// TODO(@yeqown): race detect
+func (c *channelWatcher) Subscribe(obs ...IObserver) {
+	for _, observer := range obs {
+		if observer == nil || observer.Identity() == "" {
+			log.
+				WithField("observer", observer).
+				Warn("channelWatcher.Subscribe would not handle with EMPTY IObserver")
 
-	// Start an output goroutine for each input channel in cs.  output
-	// copies values from c to out until c is closed, then calls wg.Done.
-	output := func(c <-chan ChangeNotify) {
-		for n := range c {
-			out <- n
+			continue
 		}
-		wg.Done()
+
+		topics := observer.Topics()
+		// register observer into topic.
+		for _, topic := range topics {
+			if _, ok := c.buckets[topic]; !ok {
+				c.buckets[topic] = newTopicBucket()
+			}
+
+			c.buckets[topic].add(observer)
+		}
 	}
-	wg.Add(len(cs))
-	for _, c := range cs {
-		go output(c)
+}
+
+func (c *channelWatcher) Unsubscribe(observer IObserver) {
+	if observer == nil || observer.Identity() == "" {
+		log.
+			WithField("observer", observer).
+			Warn("channelWatcher.Unsubscribe would not handle with EMPTY IObserver")
+
+		return
 	}
 
-	// Start a goroutine to close out once all the output goroutines are
-	// done.  This must start after the wg.Add call.
-	go func() {
-		wg.Wait()
-		close(out)
-	}()
-	return out
+	for _, topic := range observer.Topics() {
+		c.buckets[topic].remove(observer)
+	}
+}
+
+func (c *channelWatcher) ChangeNotify(notify Changes) {
+	c.ch <- notify
 }
