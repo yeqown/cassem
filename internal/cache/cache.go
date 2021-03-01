@@ -26,13 +26,13 @@ type ICache interface {
 	Get(key string) ([]byte, error)
 
 	// Del if any error is returned, core.Core would not trigger synchronous of cache.
-	Del(key string) error
+	Del(key string) SetResult
 }
 
 // SetResult represents what operations would be caused by ICache.Set, operations include:
 //
 // 1. NeedSync tells users that them should trigger setting apply.
-// 2. NeedDeleteKey should be set while Cache-Replacing happened.
+// 2. NeedDeleteKey should be set while Cache-Replacing happened or core need to delete cache by itself.
 //
 type SetResult struct {
 	err           error

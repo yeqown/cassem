@@ -39,7 +39,7 @@ func (c Core) GetContainer(key, ns string) (datatypes.IContainer, error) {
 // would be used, if all process works well, core set into cache. plz notice that, the cache is distributed based on
 // RAFT's FSM.
 func (c Core) DownloadContainer(key, ns string, format datatypes.ContainerFormat) ([]byte, error) {
-	cacheKey := key + "#" + ns + "#" + format.String()
+	cacheKey := c.genContainerCacheKey(ns, key, format)
 	hit, data := c.getContainerCache(cacheKey)
 	if hit {
 		return data, nil
@@ -295,6 +295,8 @@ func (c Core) Apply(msg []byte) (err error) {
 
 // watchContainerChanges would load container in detail and recalculate its checksum. If old and new is different
 // trigger watcher.IWatcher to notify changes and persistence.Repository to update new checksum.
+//
+// Notice: only leader would trigger this logic.
 func (c Core) watchContainerChanges(ns, key string) error {
 	log.WithFields(log.Fields{
 		"ns":  ns,
@@ -332,23 +334,35 @@ func (c Core) watchContainerChanges(ns, key string) error {
 		return nil
 	}
 
-	// trigger changes notify
-	// DONE(@yeqown): cover different file format?
-	c.watcher.ChangeNotify(watcher.Changes{
-		CheckSum:  newCheckSum,
-		Key:       key,
-		Namespace: ns,
-		Format:    datatypes.JSON,
-		Data:      content,
-	})
+	// FIXED(@yeqwon) reset cache container cache, A brute force to delete all ns+key+formats(TOML/JSON)
+	go func() {
+		// container in JSON format changes and delete cache
+		c.watcher.ChangeNotify(watcher.Changes{
+			CheckSum:  newCheckSum,
+			Key:       key,
+			Namespace: ns,
+			Format:    datatypes.JSON,
+			Data:      content,
+		})
 
-	c.watcher.ChangeNotify(watcher.Changes{
-		CheckSum:  newCheckSum,
-		Key:       key,
-		Namespace: ns,
-		Format:    datatypes.TOML,
-		Data:      content,
-	})
+		// DONE(@yeqown): reset cache
+		cacheKey := c.genContainerCacheKey(ns, key, datatypes.JSON)
+		c.delContainerCache(cacheKey)
+	}()
+
+	go func() {
+		// container in TOML format changes and delete cache
+		c.watcher.ChangeNotify(watcher.Changes{
+			CheckSum:  newCheckSum,
+			Key:       key,
+			Namespace: ns,
+			Format:    datatypes.TOML,
+			Data:      content,
+		})
+
+		cacheKey := c.genContainerCacheKey(ns, key, datatypes.TOML)
+		c.delContainerCache(cacheKey)
+	}()
 
 	return nil
 }

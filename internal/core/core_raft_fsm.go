@@ -52,7 +52,7 @@ func (f *fsm) Apply(l *raft.Log) interface{} {
 		}
 
 		if cc.NeedSetKey != "" {
-			f.containerCache.Set(cc.NeedSetKey, cc.NeedSetData)
+			_ = f.containerCache.Set(cc.NeedSetKey, cc.NeedSetData)
 		}
 		if cc.NeedDeleteKey != "" {
 			_ = f.containerCache.Del(cc.NeedDeleteKey)

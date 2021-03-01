@@ -5,9 +5,14 @@ import (
 	"time"
 
 	"github.com/yeqown/cassem/internal/cache"
+	"github.com/yeqown/cassem/pkg/datatypes"
 
 	"github.com/yeqown/log"
 )
+
+func (c Core) genContainerCacheKey(ns, key string, format datatypes.ContainerFormat) string {
+	return key + "#" + ns + "#" + format.String()
+}
 
 func (c Core) getContainerCache(cacheKey string) (hit bool, data []byte) {
 	var err error
@@ -88,4 +93,62 @@ func (c Core) setContainerCache(cacheKey string, data []byte) {
 			Errorf("Core.setContainerCache applyTo raft failed: %v", f.Error())
 	}
 
+}
+
+func (c Core) delContainerCache(cacheKey string) {
+	ss := c._containerCache.Del(cacheKey)
+	if ss.Error() != nil {
+		log.
+			WithField("cacheKey", cacheKey).
+			Error("Core.delContainerCache could not del container cache")
+		return
+	}
+
+	log.WithField("setCacheResult", ss).
+		Debug("Core.delContainerCache called")
+	if !ss.NeedSync {
+		return
+	}
+
+	// DONE(@yeqown): should call raft to synchronous other nodes' data. apply from here.
+	// means cache replacing happened
+	log.
+		WithFields(log.Fields{
+			"key": cacheKey,
+		}).
+		Debug("Core.delContainerCache applyTo raft")
+
+	msg, _ := newFsmLog(logActionSyncCache, coreSetCache{
+		NeedSetKey:    "",
+		NeedSetData:   nil,
+		NeedDeleteKey: ss.NeedDeleteKey,
+	})
+
+	// DONE(@yeqown): following code got error while current node is not Leader.
+	// This must be run on the leader or it will fail.
+	if !c.isLeader() {
+		if err := c.forwardToLeader(&forwardRequest{
+			path:   "/cluster/apply",
+			method: http.MethodPost,
+			form:   nil,
+			body: struct {
+				ApplyData []byte `json:"Data"`
+			}{
+				ApplyData: msg,
+			},
+		}); err != nil {
+			log.
+				Errorf("Core.delContainerCache forwardToLeader failed: %v", err)
+		}
+		return
+	}
+
+	if f := c.raft.Apply(msg, 10*time.Second); f.Error() != nil {
+		log.
+			WithFields(log.Fields{
+				"key": cacheKey,
+				"msg": msg,
+			}).
+			Errorf("Core.delContainerCache applyTo raft failed: %v", f.Error())
+	}
 }

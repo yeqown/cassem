@@ -47,20 +47,23 @@ func (n *nonCache) Get(key string) ([]byte, error) {
 
 	v, ok := n.data[key]
 	if !ok {
-
 		return nil, ErrMiss
 	}
 
 	return v, nil
 }
 
-func (n *nonCache) Del(key string) error {
+func (n *nonCache) Del(key string) SetResult {
 	n.Lock()
 	defer n.Unlock()
 
 	delete(n.data, key)
 
-	return nil
+	return SetResult{
+		err:           nil,
+		NeedSync:      true,
+		NeedDeleteKey: key,
+	}
 }
 
 func NewNonCache() ICache {
