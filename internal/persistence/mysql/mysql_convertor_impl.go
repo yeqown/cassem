@@ -245,32 +245,8 @@ func (m mysqlConverter) ToContainer(v interface{}) (datatypes.IContainer, error)
 		}
 	}
 
-	var (
-		needUpdate bool
-		checksum   string
-	)
-	if toc.origin != toOriginDetail {
-		// if not detail container, no need to calculate and update checksum.
-		goto toContainerEnd
-	}
+	// set containerDO's checksum to container
+	c.CheckSum(toc.c.CheckSum)
 
-	// checksum calculate
-	needUpdate = len(toc.c.CheckSum) == 0
-	checksum = c.CheckSum(toc.c.CheckSum)
-	needUpdate = needUpdate || (checksum != toc.c.CheckSum)
-
-	if needUpdate {
-		go func() {
-			// TODO(@yeqown) this may be a watch changes timing.
-			toc.c.CheckSum = checksum
-			if err = m.repo.updateContainerPure(toc.c); err != nil {
-				log.
-					WithField("container", toc.c).
-					Errorf("updateContainerPure failed to update checkSum: %v", err)
-			}
-		}()
-	}
-
-toContainerEnd:
 	return c, nil
 }

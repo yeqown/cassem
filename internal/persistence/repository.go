@@ -11,6 +11,7 @@ type Repository interface {
 	SaveContainer(c interface{}, update bool) error
 	PagingContainers(filter *PagingContainersFilter) ([]interface{}, int, error)
 	RemoveContainer(ns, containerKey string) error // DONE(@yeqown): container could be deleted
+	UpdateContainerCheckSum(ns, key, checksum string) error
 
 	// datatypes.IPair includes key-value pair data.
 	GetPair(ns, key string) (interface{}, error)

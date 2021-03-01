@@ -29,11 +29,11 @@ func startWithRecover(invokerName string, invoker func() error) {
 			// output to stderr
 			_, _ = fmt.Fprint(os.Stderr, formatted)
 			err = recoverFrom(v)
-		}
 
-		// TODO(@yeqown): backoff strategy of restart, if the invoker panics too quick.
-		time.Sleep(5 * time.Second)
-		go startWithRecover(invokerName, invoker)
+			// TODO(@yeqown): backoff strategy of restart, if the invoker panics too quick.
+			time.Sleep(5 * time.Second)
+			go startWithRecover(invokerName, invoker)
+		}
 	}()
 
 	if err = invoker(); err != nil {

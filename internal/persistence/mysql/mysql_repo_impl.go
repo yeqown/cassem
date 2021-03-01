@@ -4,9 +4,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/yeqown/cassem/pkg/set"
-
 	"github.com/yeqown/cassem/internal/persistence"
+	"github.com/yeqown/cassem/pkg/set"
 
 	"github.com/pkg/errors"
 	"github.com/yeqown/log"
@@ -485,16 +484,12 @@ func (m mysqlRepo) Converter() persistence.Converter {
 	return m.converter
 }
 
-func (m mysqlRepo) updateContainerPure(c *ContainerDO) error {
-	if c == nil {
-		return ErrNilContainer
-	}
-
+func (m mysqlRepo) UpdateContainerCheckSum(ns, key, checksum string) error {
 	err := m.db.Model(_containerTbl).
-		Where("id = ?", c.ID).
-		Updates(c).Error
+		Where("`key` = ? AND namespace = ?", key, ns).
+		Update("checksum", checksum).Error
 	if err != nil {
-		err = errors.Wrap(err, "mysqlRepo.updateContainerPure failed")
+		err = errors.Wrap(err, "mysqlRepo.UpdateContainerCheckSum failed")
 	}
 
 	return err

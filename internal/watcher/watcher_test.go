@@ -1,6 +1,7 @@
 package watcher
 
 import (
+	"fmt"
 	"log"
 	"math/rand"
 	"testing"
@@ -9,33 +10,44 @@ import (
 	"github.com/yeqown/cassem/pkg/hash"
 )
 
-var topics = []string{
-	"topic1",
-	"topic2",
-	"topic3",
+var keys = []string{
+	"key1",
+	"key2",
+	"key3",
 }
 
 func randChooseTopic() string {
-	n := rand.Intn(len(topics))
-	return topics[n]
+	n := rand.Intn(len(keys))
+	return keys[n]
 }
 
 type testObserver struct {
-	id     string
-	topics []string
-	ch     chan Changes
+	id        string
+	keys      []string
+	namespace string
+	format    string
+	ch        chan Changes
 }
 
 func (t *testObserver) Identity() string              { return t.id }
-func (t testObserver) Topics() []string               { return t.topics }
 func (t testObserver) ChangeNotifyCh() chan<- Changes { return t.ch }
+func (t testObserver) Topics() []string {
+	topics := make([]string, len(t.keys))
+	for idx, key := range t.keys {
+		topics[idx] = fmt.Sprintf("%s#%s#%s", t.namespace, key, t.format)
+	}
 
-// channel and topic of subscriber holds
-func genTopicObserver(quit <-chan struct{}, topics ...string) *testObserver {
+	return topics
+}
+
+// channel and key of subscriber holds
+func genTopicObserver(quit <-chan struct{}, ns, format string, keys ...string) *testObserver {
 	ob := testObserver{
-		id:     hash.RandKey(8),
-		topics: topics,
-		ch:     make(chan Changes, 2),
+		id:        hash.RandKey(8),
+		keys:      keys,
+		ch:        make(chan Changes, 2),
+		namespace: ns,
+		format:    format,
 	}
 
 	go func() {
@@ -43,7 +55,7 @@ func genTopicObserver(quit <-chan struct{}, topics ...string) *testObserver {
 		for {
 			select {
 			case n := <-ob.ch:
-				log.Printf("got one notify signal of Topic=%s", n.Topic)
+				log.Printf("got one notify signal of Key=%s", n.Topic())
 			case <-quit:
 				return
 			}
@@ -59,22 +71,25 @@ func Test_Watcher(t *testing.T) {
 
 	// count data and control flag
 	counter := 20
-	sent := make(map[string]int, len(topics))
-	for _, topic := range topics {
-		sent[topic] = 0
+	sent := make(map[string]int, len(keys))
+	for _, key := range keys {
+		sent[key] = 0
 	}
 
 	quit := make(chan struct{}, 1)
 
 	// Subscribe
-	ob1 := genTopicObserver(quit, "topic1")
+	ob1 := genTopicObserver(quit, "ns", "json", "key1")
 	w.Subscribe(ob1)
-	ob2 := genTopicObserver(quit, "topic1", "topic2", "topic3")
+	ob2 := genTopicObserver(quit, "ns", "json", "key1", "key2", "key3")
 	w.Subscribe(ob2)
-	ob3 := genTopicObserver(quit, "topic2", "topic3")
+	ob3 := genTopicObserver(quit, "ns", "json", "key2", "key3")
 	w.Subscribe(ob3)
-	ob4 := genTopicObserver(quit, "topic1", "topic3")
+	ob4 := genTopicObserver(quit, "ns", "json", "key1", "key3")
 	w.Subscribe(ob4)
+	// ob5 watch other namespaces, should never be notified
+	ob5 := genTopicObserver(quit, "ns222", "json", "key1", "key3")
+	w.Subscribe(ob5)
 
 	ticker := time.NewTicker(1 * time.Second)
 	for {
@@ -84,13 +99,15 @@ func Test_Watcher(t *testing.T) {
 				goto FINISH
 			}
 			// generate mock data
-			topic := randChooseTopic()
+			key := randChooseTopic()
 			w.ChangeNotify(Changes{
-				CheckSum: hash.RandKey(10),
-				Topic:    topic,
-				Data:     nil,
+				Namespace: "ns",
+				Key:       key,
+				Format:    "json",
+				CheckSum:  hash.RandKey(10),
+				Data:      nil,
 			})
-			sent[topic] += 1
+			sent[key] += 1
 			counter -= 1
 		}
 	}

@@ -6,6 +6,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/yeqown/cassem/internal/watcher"
+
 	"github.com/yeqown/cassem/internal/cache"
 	"github.com/yeqown/cassem/internal/conf"
 	coord "github.com/yeqown/cassem/internal/coordinator"
@@ -34,7 +36,8 @@ type Core struct {
 	restapi *apihtp.Server
 	// _containerCache
 	_containerCache cache.ICache
-	// watcher TODO(@yeqown):
+	// watcher
+	watcher watcher.IWatcher
 
 	// raft related properties.
 	serverId      string
@@ -68,6 +71,9 @@ func (c *Core) initialize(cfg *conf.Config) (err error) {
 
 	c._containerCache = cache.NewNonCache()
 	log.Info("Core: cache loaded")
+
+	c.watcher = watcher.NewChannelWatcher(64)
+	log.Info("Core: watcher component loaded")
 
 	c.serverId = cfg.Server.Raft.ServerId
 	if err = c.bootstrapRaft(); err != nil {

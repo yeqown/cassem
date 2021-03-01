@@ -15,3 +15,15 @@ package datatypes
 type IEncoder interface {
 	ToMarshalInterface() interface{}
 }
+
+// ContainerFormat defines all format type of container could be encoded into.
+type ContainerFormat string
+
+func (c ContainerFormat) String() string {
+	return string(c)
+}
+
+const (
+	JSON ContainerFormat = "json"
+	TOML ContainerFormat = "toml"
+)

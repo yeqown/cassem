@@ -83,14 +83,16 @@ func hashFieldKey() string {
 	return "field" + hash.RandKey(6)
 }
 
-// DONE(@yeqown): List should contains same type of pairs
+// DONE(@yeqown): List should contains same type of pairs.
+
 func NewListField(fieldKey string, pairs []IPair) IField {
 	if fieldKey == "" {
 		// DONE(@yeqown): use hashed string to name this fieldKey
 		fieldKey = hashFieldKey()
 	}
 
-	if len(pairs) > 2 {
+	// FIXED(@yeqown): pair could be nil while paging container which would not load any pairs.
+	if len(pairs) > 2 && pairs[0] != nil {
 		typ := pairs[0].Value().Datatype()
 		for _, v := range pairs {
 			if v.Value().Datatype() != typ {

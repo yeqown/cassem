@@ -184,8 +184,8 @@ type commonNSAndKeyReq struct {
 type containerDownloadReq struct {
 	commonNSAndKeyReq
 
-	Format   string `form:"format,default=json" binding:"required,oneof=json toml"`
-	Filename string `form:"filename"`
+	Format   datatypes.ContainerFormat `form:"format,default=json" binding:"required,oneof=json toml"`
+	Filename string                    `form:"filename"`
 }
 
 // ContainerDownload could download container into one file as you want (format, filename).
@@ -210,7 +210,7 @@ func (srv *Server) ContainerDownload(c *gin.Context) {
 
 	// generate filename
 	if req.Filename == "" {
-		req.Filename = req.Key + "." + req.Format
+		req.Filename = req.Key + "." + req.Format.String()
 	}
 
 	// decide which content type should be passed to responseFile
@@ -218,9 +218,9 @@ func (srv *Server) ContainerDownload(c *gin.Context) {
 		ct contentType
 	)
 	switch req.Format {
-	case "json":
+	case datatypes.JSON:
 		ct = jsonContentType
-	case "toml":
+	case datatypes.TOML:
 		ct = tomlContentType
 	}
 

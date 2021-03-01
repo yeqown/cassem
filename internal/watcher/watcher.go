@@ -1,9 +1,17 @@
 package watcher
 
+import "github.com/yeqown/cassem/pkg/datatypes"
+
 type Changes struct {
-	CheckSum string
-	Topic    string
-	Data     []byte
+	Key       string
+	Namespace string
+	Format    datatypes.ContainerFormat
+	CheckSum  string
+	Data      []byte
+}
+
+func (c Changes) Topic() string {
+	return c.Namespace + "#" + c.Key + "#" + c.Format.String()
 }
 
 // IWatcher
@@ -23,7 +31,7 @@ type IObserver interface {
 	// Identity must keep unique in cassemd server.
 	Identity() string
 
-	// Topics describes all topic(containerKey) those IObserver cares about.
+	// Topics describes all topic="NAMESPACE#CONTAINER_KEY#FORMAT" those IObserver cares about.
 	Topics() []string
 
 	// ChangeNotifyCh will receive all changes about topics.

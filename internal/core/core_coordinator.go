@@ -7,7 +7,9 @@ import (
 
 	coord "github.com/yeqown/cassem/internal/coordinator"
 	"github.com/yeqown/cassem/internal/persistence"
+	"github.com/yeqown/cassem/internal/watcher"
 	"github.com/yeqown/cassem/pkg/datatypes"
+	"github.com/yeqown/cassem/pkg/hash"
 
 	"github.com/hashicorp/raft"
 	"github.com/pelletier/go-toml"
@@ -36,8 +38,8 @@ func (c Core) GetContainer(key, ns string) (datatypes.IContainer, error) {
 // DownloadContainer query formatted container data at first, if not hit or got unexpected error, normal process
 // would be used, if all process works well, core set into cache. plz notice that, the cache is distributed based on
 // RAFT's FSM.
-func (c Core) DownloadContainer(key, ns, format string) ([]byte, error) {
-	cacheKey := key + "#" + ns + "#" + format
+func (c Core) DownloadContainer(key, ns string, format datatypes.ContainerFormat) ([]byte, error) {
+	cacheKey := key + "#" + ns + "#" + format.String()
 	hit, data := c.getContainerCache(cacheKey)
 	if hit {
 		return data, nil
@@ -50,11 +52,11 @@ func (c Core) DownloadContainer(key, ns, format string) ([]byte, error) {
 
 	buf := bytes.NewBuffer(nil)
 	switch format {
-	case "json":
+	case datatypes.JSON:
 		encoder := json.NewEncoder(buf)
 		encoder.SetIndent("", "\t")
 		err = encoder.Encode(container.ToMarshalInterface())
-	case "toml":
+	case datatypes.TOML:
 		err = toml.
 			NewEncoder(buf).
 			Indentation("\t").
@@ -101,6 +103,9 @@ func (c Core) PagingContainers(filter *coord.FilterContainersOption) ([]datatype
 	return containers, count, nil
 }
 
+// SaveContainer save container into persistence, but at the same time would trigger watcher if there is any
+// changes of current container. Notice that only SaveContainer would trigger IWatcher.ChangesNotify with thought what
+// pairs would be changed with low frequency.
 func (c Core) SaveContainer(container datatypes.IContainer) error {
 	if !c.isLeader() {
 		// TODO(@yeqown): forwarding request to leader server
@@ -112,7 +117,15 @@ func (c Core) SaveContainer(container datatypes.IContainer) error {
 		return errors.Wrap(err, "Core.SaveContainer failed to convert container")
 	}
 
-	return c.repo.SaveContainer(v, true)
+	err = c.repo.SaveContainer(v, true)
+
+	// Core.watchContainerChanges would check and update container.checksum
+	// if checksum changed means container changes happened.
+	go startWithRecover("watchContainerChanges", func() error {
+		return c.watchContainerChanges(container.NS(), container.Key())
+	})
+
+	return err
 }
 
 func (c Core) RemoveContainer(key string, ns string) error {
@@ -282,4 +295,64 @@ func (c Core) Apply(msg []byte) (err error) {
 	}
 
 	return
+}
+
+// watchContainerChanges would load container in detail and recalculate its checksum. If old and new is different
+// trigger watcher.IWatcher to notify changes and persistence.Repository to update new checksum.
+func (c Core) watchContainerChanges(ns, key string) error {
+	log.WithFields(log.Fields{
+		"ns":  ns,
+		"key": key,
+	}).Debug("Core.watchContainerChanges called")
+
+	container, err := c.GetContainer(key, ns)
+	if err != nil {
+		return errors.Wrap(err, "Core.watchContainerChanges failed to c.repo.Converter().ToContainer(v)")
+	}
+
+	oldCheckSum := container.CheckSum("")
+	content, _ := json.Marshal(container)
+	newCheckSum := container.CheckSum(hash.CheckSum(content))
+
+	log.
+		WithFields(log.Fields{
+			"old": oldCheckSum,
+			"new": newCheckSum,
+		}).
+		Debug("comparing container's checksum")
+
+	if oldCheckSum == newCheckSum {
+		// no changes happened, do nothing.
+		return nil
+	}
+
+	if err = c.repo.UpdateContainerCheckSum(ns, key, newCheckSum); err != nil {
+		return errors.Wrapf(err, "Core.watchContainerChanges failed to c.repo.UpdateContainerChecksum")
+	}
+
+	// now update container's checksum into persistence
+	if oldCheckSum == "" {
+		// would not trigger changes, only update container's checksum
+		return nil
+	}
+
+	// trigger changes notify
+	// TODO(@yeqown): cover different file format?
+	c.watcher.ChangeNotify(watcher.Changes{
+		CheckSum:  newCheckSum,
+		Key:       key,
+		Namespace: ns,
+		Format:    datatypes.JSON,
+		Data:      content,
+	})
+
+	c.watcher.ChangeNotify(watcher.Changes{
+		CheckSum:  newCheckSum,
+		Key:       key,
+		Namespace: ns,
+		Format:    datatypes.TOML,
+		Data:      content,
+	})
+
+	return nil
 }

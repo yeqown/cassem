@@ -57,8 +57,8 @@ func (t *topicBucket) distribute(notify Changes) {
 type channelWatcher struct {
 	ch chan Changes
 
+	_mu sync.RWMutex
 	// buckets indicates map[topic][]IObserver
-	_mu     sync.RWMutex
 	buckets map[string]*topicBucket
 }
 
@@ -100,18 +100,24 @@ func (c *channelWatcher) loop() {
 		select {
 		case notify := <-c.ch:
 			log.
-				WithField("notifyData", notify).
+				WithFields(log.Fields{
+					"topic":    notify.Topic(),
+					"checksum": notify.CheckSum,
+					"data":     string(notify.Data),
+				}).
 				Debug("channelWatcher loop gets one signal")
 
 			c._mu.RLock()
-			bucket, ok := c.buckets[notify.Topic]
+			bucket, ok := c.buckets[notify.Topic()]
 			c._mu.RUnlock()
 			if !ok {
 				log.
-					WithField("notify", notify).
+					WithFields(log.Fields{
+						"topic": notify.Topic(),
+					}).
 					Warn("topic has not observer")
 
-				return
+				continue
 			}
 
 			// DONE(@yeqown): use channel instead of method calling
@@ -131,13 +137,15 @@ func (c *channelWatcher) Subscribe(obs ...IObserver) {
 			continue
 		}
 
-		topics := observer.Topics()
 		// register observer into topic.
-		for _, topic := range topics {
+		for _, topic := range observer.Topics() {
+			log.
+				WithField("topic", topic).
+				Debug("channelWatcher.Subscribe add one observer")
+
 			if _, ok := c.buckets[topic]; !ok {
 				c.buckets[topic] = newTopicBucket()
 			}
-
 			c.buckets[topic].add(observer)
 		}
 	}

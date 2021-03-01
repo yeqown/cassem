@@ -3,8 +3,6 @@ package datatypes
 import (
 	"encoding/json"
 	"sync"
-
-	"github.com/yeqown/cassem/pkg/hash"
 	// DONE(@yeqown) use recommended toml library.
 )
 
@@ -134,22 +132,24 @@ func (c *builtinLogicContainer) MarshalJSON() ([]byte, error) {
 	return json.Marshal(c.fields)
 }
 
-// CheckSum set or calculate checksum of builtinLogicContainer.
-// DONE(@yeqown): get content of container and calculate checksum
+// CheckSum get or set checksum of builtinLogicContainer.
 func (c *builtinLogicContainer) CheckSum(sum string) string {
-	if len(c.checksum) != 0 {
-		return c.checksum
-	}
-
+	changed := false
 	if len(sum) != 0 {
+		if c.checksum != sum {
+			changed = true
+		}
 		c.checksum = sum
-		return c.checksum
 	}
+	_ = changed
 
-	// both c.checksum and sum is empty, then need to calculate checksum
-	content, _ := json.Marshal(c)
-	c.checksum = hash.CheckSum(content)
 	return c.checksum
+
+	//
+	//// both c.checksum and sum is empty, then need to calculate checksum
+	//content, _ := json.Marshal(c)
+	//c.checksum = hash.CheckSum(content)
+	//return c.checksum
 }
 
 // ToMap used to be marshaled into file, to fix: there isn't a better way to customize ToMarshalInterface
