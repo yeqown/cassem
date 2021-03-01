@@ -31,8 +31,9 @@ func (t *topicBucket) add(observer IObserver) {
 func (t *topicBucket) remove(observer IObserver) {
 	t.Lock()
 	defer t.Unlock()
+	defer observer.Close()
 
-	t.observers[observer.Identity()] = observer
+	delete(t.observers, observer.Identity())
 }
 
 // distribute will not block sending to c: the caller must ensure that c has sufficient buffer space to
@@ -40,16 +41,21 @@ func (t *topicBucket) remove(observer IObserver) {
 // a buffer of size 1 is sufficient.
 func (t *topicBucket) distribute(notify Changes) {
 	t.RLock()
-	defer t.RUnlock()
+	observers := t.observers
+	t.RUnlock()
 
-	for _, observer := range t.observers {
+	if len(observers) == 0 {
+		log.
+			WithField("count", len(observers)).
+			Debug("topicBucket.distribute called")
+	}
+
+	for _, observer := range observers {
 		// NOTICE: send but do not block for it
 		select {
 		case observer.ChangeNotifyCh() <- notify:
 		default:
-
 		}
-
 	}
 }
 
@@ -107,6 +113,7 @@ func (c *channelWatcher) loop() {
 				}).
 				Debug("channelWatcher loop gets one signal")
 
+			// TODO(@yeqown): optimise here to lock free?
 			c._mu.RLock()
 			bucket, ok := c.buckets[notify.Topic()]
 			c._mu.RUnlock()
@@ -129,6 +136,10 @@ func (c *channelWatcher) loop() {
 // TODO(@yeqown): race detect
 func (c *channelWatcher) Subscribe(obs ...IObserver) {
 	for _, observer := range obs {
+		log.
+			WithField("observer", observer).
+			Debug("channelWatcher.Subscribe called")
+
 		if observer == nil || observer.Identity() == "" {
 			log.
 				WithField("observer", observer).
@@ -152,6 +163,10 @@ func (c *channelWatcher) Subscribe(obs ...IObserver) {
 }
 
 func (c *channelWatcher) Unsubscribe(observer IObserver) {
+	log.
+		WithField("observer", observer).
+		Debug("channelWatcher.Unsubscribe called")
+
 	if observer == nil || observer.Identity() == "" {
 		log.
 			WithField("observer", observer).

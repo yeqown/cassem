@@ -39,6 +39,7 @@ func (t testObserver) Topics() []string {
 
 	return topics
 }
+func (t testObserver) Close() { close(t.ch) }
 
 // channel and key of subscriber holds
 func genTopicObserver(quit <-chan struct{}, ns, format string, keys ...string) *testObserver {

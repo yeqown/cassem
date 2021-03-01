@@ -36,4 +36,7 @@ type IObserver interface {
 
 	// ChangeNotifyCh will receive all changes about topics.
 	ChangeNotifyCh() chan<- Changes
+
+	// release observer resources, only be called IWatcher, importantly close channel.
+	Close()
 }

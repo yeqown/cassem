@@ -6,14 +6,13 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/yeqown/cassem/internal/watcher"
-
 	"github.com/yeqown/cassem/internal/cache"
 	"github.com/yeqown/cassem/internal/conf"
 	coord "github.com/yeqown/cassem/internal/coordinator"
 	"github.com/yeqown/cassem/internal/persistence"
 	"github.com/yeqown/cassem/internal/persistence/mysql"
-	apihtp "github.com/yeqown/cassem/internal/server/api/http"
+	"github.com/yeqown/cassem/internal/server/api"
+	"github.com/yeqown/cassem/internal/watcher"
 
 	"github.com/hashicorp/raft"
 	"github.com/pkg/errors"
@@ -32,8 +31,8 @@ type Core struct {
 	// components
 	// repo
 	repo persistence.Repository
-	// restapi
-	restapi *apihtp.Server
+	// apiGate
+	apiGate *api.Gateway
 	// _containerCache
 	_containerCache cache.ICache
 	// watcher
@@ -66,7 +65,7 @@ func (c *Core) initialize(cfg *conf.Config) (err error) {
 	}
 	log.Info("Core: persistence component loaded")
 
-	c.restapi = apihtp.New(cfg.Server.HTTP, c)
+	c.apiGate = api.New(cfg.Server.HTTP, c)
 	log.Info("Core: HTTP server loaded")
 
 	c._containerCache = cache.NewNonCache()
@@ -143,16 +142,16 @@ func (c *Core) Heartbeat() {
 }
 
 func (c Core) loop() {
-	// start restapi
-	go startWithRecover("restapi", c.startHTTP)
+	// start apiGate
+	go startWithRecover("api-gate", c.startGateway)
 
 	// leadership changes
 	go startWithRecover("leadership-changes", c.watchLeaderChanges)
 }
 
-func (c Core) startHTTP() (err error) {
-	if err = c.restapi.ListenAndServe(); err != nil {
-		log.Errorf("Core.failed to start: %v", err)
+func (c Core) startGateway() (err error) {
+	if err = c.apiGate.ListenAndServe(); err != nil {
+		log.Errorf("Core.failed to startGateway: %v", err)
 	}
 
 	return

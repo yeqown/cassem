@@ -6,12 +6,11 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/pkg/errors"
-
 	coord "github.com/yeqown/cassem/internal/coordinator"
 
 	"github.com/gin-contrib/pprof"
 	"github.com/gin-gonic/gin"
+	"github.com/pkg/errors"
 	"github.com/yeqown/log"
 )
 
@@ -41,12 +40,13 @@ func New(c *Config, coordinator coord.ICoordinator) *Server {
 		_cfg:        *c,
 		coordinator: coordinator,
 	}
-	srv.boot()
+
+	srv.initialize()
 
 	return srv
 }
 
-func (srv *Server) boot() {
+func (srv *Server) initialize() {
 	// mount middlewares
 	srv.engi.Use(gin.Recovery())
 	srv.engi.Use(gin.Logger())
@@ -61,15 +61,20 @@ func (srv *Server) boot() {
 	srv.mountAPI()
 }
 
-func (srv *Server) ListenAndServe() (err error) {
-	log.Debugf("server running on: %s", srv._cfg.Addr)
-
-	if err = srv.engi.Run(srv._cfg.Addr); err != nil {
-		log.Errorf("server running failed: %v", err)
-	}
-
-	return
+func (srv *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	srv.engi.ServeHTTP(w, req)
 }
+
+//
+//func (srv *Server) ListenAndServe() (err error) {
+//	log.Debugf("server running on: %s", srv._cfg.Addr)
+//
+//	if err = srv.engi.Run(srv._cfg.Addr); err != nil {
+//		log.Errorf("server running failed: %v", err)
+//	}
+//
+//	return
+//}
 
 // needForwardAndExecute checks current request should be forwarded to leader, if needed
 // forwarding calling would be executed and handle response by needForwardAndExecute itself.

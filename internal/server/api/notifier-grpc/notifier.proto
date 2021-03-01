@@ -1,0 +1,30 @@
+syntax = "proto3";
+
+enum Format {
+  Invalid = 0;
+  JSON = 1;
+  TOML = 2;
+};
+
+message Changes {
+  string namespace = 1;
+  string key       = 2;
+  Format format    = 3;
+  string checksum  = 4;
+  bytes  data      = 5;
+};
+
+message WatchReq {
+  repeated WatchOption watches = 1;
+};
+
+message WatchOption {
+  string          namespace = 1;
+  repeated string keys      = 2;
+  Format          format    = 3;
+}
+
+service watcher {
+  // Watch will rev a stream response in client.
+  rpc Watch(WatchReq) returns (stream Changes) {};
+}
