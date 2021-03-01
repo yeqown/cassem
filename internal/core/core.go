@@ -196,3 +196,7 @@ func (c Core) watchLeaderChanges() error {
 func (c Core) isLeader() bool {
 	return c.raft.State() == raft.Leader
 }
+
+func (c Core) ShouldForwardToLeader() (shouldForward bool, leadAddr string) {
+	return !c.isLeader(), c.fsm.LeaderAddr()
+}

@@ -34,6 +34,8 @@ type IRaftCluster interface {
 	RemoveNode(serverId string) error
 
 	Apply(msg []byte) error
+
+	ShouldForwardToLeader() (shouldForward bool, leaderAddr string)
 }
 
 type FilterContainersOption struct {

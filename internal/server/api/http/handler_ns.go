@@ -42,6 +42,10 @@ type createNamespaceReq struct {
 }
 
 func (srv *Server) CreateNamespace(c *gin.Context) {
+	if srv.needForwardAndExecute(c) {
+		return
+	}
+
 	req := new(createNamespaceReq)
 	if err := c.ShouldBindUri(req); err != nil {
 		responseError(c, err)

@@ -13,7 +13,7 @@ config assembler from key-value pairs' container which include basic datatypes, 
 - [ ] Manage `CTL` / `UI` support.
 - [x] Master / Slave architecture support based raft (only write on master).
   - [x] Master / Slave architecture and only allow to write on master.
-  - [ ] Slave need to forward request to master.
+  - [x] Slave need to forward request to master.
 - [ ] RESTful API permission control.
 - [ ] `Changes` watching and notifying.
   - [x] Watcher component.

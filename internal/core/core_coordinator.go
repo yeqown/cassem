@@ -108,7 +108,6 @@ func (c Core) PagingContainers(filter *coord.FilterContainersOption) ([]datatype
 // pairs would be changed with low frequency.
 func (c Core) SaveContainer(container datatypes.IContainer) error {
 	if !c.isLeader() {
-		// TODO(@yeqown): forwarding request to leader server
 		return ErrNotLeader
 	}
 
@@ -130,7 +129,6 @@ func (c Core) SaveContainer(container datatypes.IContainer) error {
 
 func (c Core) RemoveContainer(key string, ns string) error {
 	if !c.isLeader() {
-		// TODO(@yeqown): forwarding request to leader server
 		return ErrNotLeader
 	}
 
@@ -152,7 +150,6 @@ func (c Core) PagingNamespaces(filter *coord.FilterNamespacesOption) ([]string, 
 
 func (c Core) SaveNamespace(ns string) error {
 	if !c.isLeader() {
-		// TODO(@yeqown): forwarding request to leader server
 		return ErrNotLeader
 	}
 
@@ -198,7 +195,6 @@ func (c Core) PagingPairs(filter *coord.FilterPairsOption) ([]datatypes.IPair, i
 
 func (c Core) SavePair(p datatypes.IPair) error {
 	if !c.isLeader() {
-		// TODO(@yeqown): forwarding request to leader server
 		return ErrNotLeader
 	}
 
@@ -337,7 +333,7 @@ func (c Core) watchContainerChanges(ns, key string) error {
 	}
 
 	// trigger changes notify
-	// TODO(@yeqown): cover different file format?
+	// DONE(@yeqown): cover different file format?
 	c.watcher.ChangeNotify(watcher.Changes{
 		CheckSum:  newCheckSum,
 		Key:       key,

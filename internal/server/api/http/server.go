@@ -1,6 +1,13 @@
 package http
 
 import (
+	"net/http"
+	"net/http/httputil"
+	"net/url"
+	"strings"
+
+	"github.com/pkg/errors"
+
 	coord "github.com/yeqown/cassem/internal/coordinator"
 
 	"github.com/gin-contrib/pprof"
@@ -8,6 +15,8 @@ import (
 	"github.com/yeqown/log"
 )
 
+// Server provides both RESTFul API for client also provides part of API for internal cluster, all internal APIs
+// stay in handler_cluster.go and register in Server.mountRaftClusterInternalAPI.
 type Server struct {
 	engi *gin.Engine
 
@@ -60,4 +69,55 @@ func (srv *Server) ListenAndServe() (err error) {
 	}
 
 	return
+}
+
+// needForwardAndExecute checks current request should be forwarded to leader, if needed
+// forwarding calling would be executed and handle response by needForwardAndExecute itself.
+func (srv *Server) needForwardAndExecute(c *gin.Context) (forwarded bool) {
+	var leaderAddr string
+	if forwarded, leaderAddr = srv.coordinator.ShouldForwardToLeader(); !forwarded {
+		return
+	}
+
+	// execute forward calling
+	if err := forwardToLeader(c, leaderAddr); err != nil {
+		responseError(c, err)
+		return
+	}
+
+	return
+}
+
+// TODO(@yeqown): maybe cache the reverse proxy client?
+func forwardToLeader(c *gin.Context, leaderAddr string) error {
+	log.
+		WithFields(log.Fields{
+			"leaderAddr": leaderAddr,
+		}).
+		Debug("forwardToLeader called caused by current node is not leader")
+
+	// fix leaderAddr schema
+	if !strings.HasPrefix(leaderAddr, "http://") && !strings.HasPrefix(leaderAddr, "https://") {
+		leaderAddr = "http://" + leaderAddr
+	}
+
+	remote, err := url.Parse(leaderAddr)
+	if err != nil {
+		return errors.Wrap(err, "forwardToLeader failed to parse leaderAddr")
+	}
+
+	proxy := httputil.NewSingleHostReverseProxy(remote)
+
+	// define the director func
+	proxy.Director = func(req *http.Request) {
+		req.Header = c.Request.Header
+		req.Host = remote.Host
+		req.URL.Scheme = remote.Scheme
+		req.URL.Host = remote.Host
+		req.URL.Path = c.Request.URL.Path
+	}
+
+	proxy.ServeHTTP(c.Writer, c.Request)
+
+	return nil
 }

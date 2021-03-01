@@ -281,6 +281,10 @@ type upsertContainerReq struct {
 }
 
 func (srv *Server) UpsertContainer(c *gin.Context) {
+	if srv.needForwardAndExecute(c) {
+		return
+	}
+
 	req := new(upsertContainerReq)
 	if err := c.ShouldBindUri(&(req.commonNSAndKeyReq)); err != nil {
 		responseError(c, err)
@@ -334,6 +338,10 @@ type removeContainerReq struct {
 }
 
 func (srv *Server) RemoveContainer(c *gin.Context) {
+	if srv.needForwardAndExecute(c) {
+		return
+	}
+
 	req := new(removeContainerReq)
 	if err := c.ShouldBindUri(&(req.commonNSAndKeyReq)); err != nil {
 		responseError(c, err)

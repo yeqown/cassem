@@ -14,6 +14,7 @@ func authorize() gin.HandlerFunc {
 }
 
 func clusterAuthorizeSimple() gin.HandlerFunc {
+
 	return func(c *gin.Context) {
 		if c.Query("clusterSecret") == "9520059dd167" {
 			c.Next()

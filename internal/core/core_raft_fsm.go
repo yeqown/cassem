@@ -40,6 +40,10 @@ func (f *fsm) Apply(l *raft.Log) interface{} {
 		panic("could not unmarshal: " + err.Error())
 	}
 
+	log.
+		WithField("fmsLogData", string(fsmLog.Data)).
+		Debug("fsm.Apply called")
+
 	switch fsmLog.Action {
 	case logActionSyncCache:
 		cc := new(coreSetCache)
@@ -47,9 +51,6 @@ func (f *fsm) Apply(l *raft.Log) interface{} {
 			panic("could not unmarshal: " + err.Error())
 		}
 
-		log.
-			WithField("coreSetCache", cc).
-			Debug("fsm.Apply called")
 		if cc.NeedSetKey != "" {
 			f.containerCache.Set(cc.NeedSetKey, cc.NeedSetData)
 		}
@@ -62,10 +63,6 @@ func (f *fsm) Apply(l *raft.Log) interface{} {
 		if err := cc.deserialize(fsmLog.Data); err != nil {
 			panic("could not unmarshal: " + err.Error())
 		}
-
-		log.
-			WithField("setLeaderAddr", cc).
-			Debug("fsm.Apply called")
 
 		f.SetLeaderAddr(cc.LeaderAddr)
 

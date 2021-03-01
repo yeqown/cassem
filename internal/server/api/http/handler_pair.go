@@ -103,6 +103,10 @@ type upsertPairReq struct {
 }
 
 func (srv *Server) UpsertPair(c *gin.Context) {
+	if srv.needForwardAndExecute(c) {
+		return
+	}
+
 	req := new(upsertPairReq)
 	if err := c.ShouldBindUri(req); err != nil {
 		responseError(c, err)
