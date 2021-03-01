@@ -62,16 +62,27 @@ type channelWatcher struct {
 	buckets map[string]*topicBucket
 }
 
-func newChannelWatcher(bufferSize int) IWatcher {
-	w := channelWatcher{
-		ch:      make(chan Changes, bufferSize),
-		_mu:     sync.RWMutex{},
-		buckets: make(map[string]*topicBucket, 4),
-	}
+var (
+	_w    IWatcher
+	_once sync.Once
+)
 
-	go w.loop()
+// NewChannelWatcher construct a IWatcher at first call, if there is a IWatcher instance already,
+// that instance would be returned at once.
+func NewChannelWatcher(bufferSize int) IWatcher {
+	_once.Do(func() {
+		w := channelWatcher{
+			ch:      make(chan Changes, bufferSize),
+			_mu:     sync.RWMutex{},
+			buckets: make(map[string]*topicBucket, 4),
+		}
 
-	return &w
+		go w.loop()
+
+		_w = &w
+	})
+
+	return _w
 }
 
 func (c *channelWatcher) loop() {

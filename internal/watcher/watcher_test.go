@@ -55,7 +55,7 @@ func genTopicObserver(quit <-chan struct{}, topics ...string) *testObserver {
 
 func Test_Watcher(t *testing.T) {
 	rand.Seed(time.Now().UnixNano())
-	w := newChannelWatcher(5)
+	w := NewChannelWatcher(5)
 
 	// count data and control flag
 	counter := 20

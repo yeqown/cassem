@@ -4,6 +4,8 @@ import "github.com/pkg/errors"
 
 var ErrMiss = errors.New("key missed")
 
+// IStore required ICache to implement persist and restore functions, so that the cache could be
+// save into file and restore from that.
 type IStore interface {
 	// Persist serializes cache into []byte data.
 	Persist() ([]byte, error)
@@ -23,13 +25,15 @@ type ICache interface {
 	// Get
 	Get(key string) ([]byte, error)
 
+	// Del if any error is returned, core.Core would not trigger synchronous of cache.
 	Del(key string) error
 }
 
-// SetResult represents what operations would be caused by ICache.Set.
+// SetResult represents what operations would be caused by ICache.Set, operations include:
 //
-// NeedSync tells users that them should trigger setting apply, NeedDeleteKey should be set while
-// Cache-Replacing happened.
+// 1. NeedSync tells users that them should trigger setting apply.
+// 2. NeedDeleteKey should be set while Cache-Replacing happened.
+//
 type SetResult struct {
 	err           error
 	NeedSync      bool
