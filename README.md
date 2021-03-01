@@ -12,8 +12,13 @@ config assembler from key-value pairs' container which include basic datatypes, 
 - [x] Export container (config container) into different file format (JSON / TOML).
 - [ ] Manage `CTL` / `UI` support.
 - [x] Master / Slave architecture support based raft (only write on master).
+  - [x] Master / Slave architecture and only allow to write on master.
+  - [ ] Slave need to forward request to master.
 - [ ] RESTful API permission control.
 - [ ] `Changes` watching and notifying.
+  - [x] Watcher component.
+  - [ ] Watcher Server.
+  - [ ] Client SDK support.
 - [x] Distributed `Cache` middleware to speed up the API which downloads container in specified format. 
 
 ## Documentation
