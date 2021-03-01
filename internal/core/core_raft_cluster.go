@@ -48,7 +48,7 @@ func (c *Core) tryJoinCluster() (err error) {
 
 	// DONE(@yeqown): should send request to leader
 	if err = c.forwardToLeader(&req); err != nil {
-		log.Errorf("Core.tryLeaveCluster calling c.forwardToLeader %v", err)
+		log.Errorf("Core.tryJoinCluster calling c.forwardToLeader failed: %v", err)
 
 		return errors.Wrap(err, "tryJoinCluster failed")
 	}
@@ -189,7 +189,7 @@ type forwardRequest struct {
 // this would send a request(HTTP) to leader contains what operation need to do, of course, it takes
 // necessary external information.
 func (c *Core) forwardToLeader(req *forwardRequest) (err error) {
-	base := c.fsm.(*fsm).leaderAddr
+	base := c.fsm.LeaderAddr()
 	if req.forceBase != "" {
 		base = req.forceBase
 	}

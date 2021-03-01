@@ -43,7 +43,7 @@ type Core struct {
 	serverId      string
 	joinedCluster bool
 	raft          *raft.Raft
-	fsm           raft.FSM
+	fsm           FSMWrapper
 }
 
 func New(cfg *conf.Config) (*Core, error) {
@@ -84,6 +84,15 @@ func (c *Core) initialize(cfg *conf.Config) (err error) {
 	return nil
 }
 
+// Heartbeat start a ticker to print log and check healthy of each component in core.Core.
+// The second purpose is to watch the QUIT / KILL signal to release resources of core.Core, the most important work is to
+// let current node leave raft cluster. If current node is leader just quit, otherwise current node should tell the leader
+// about the fact there is a node is shutting down.
+//
+// Notice that, tryLeaveCluster maybe failed if cluster could not be maintained while there is only one node in cluster,
+// it could not be removed, it will still be elected as leader. (Situation: count of cluster nodes is less than 2).
+//
+// NOTE: could leader call removeNode by it self?
 func (c *Core) Heartbeat() {
 	tick := time.NewTicker(10 * time.Second)
 	quit := make(chan os.Signal, 1)
@@ -101,14 +110,29 @@ func (c *Core) Heartbeat() {
 		case <-quit:
 			log.Info("Core quit, start release resources...")
 			// DONE(@yeqown): graceful shutdown components, snapshot something.
+			failedCount := 3
+
 		retryLeave:
-			if c.isLeader() {
-				// FIXED(@yeqown): could not remove leader ...
+			if failedCount <= 0 {
+				// limit maximum failed count
 				return
 			}
 
+			if c.isLeader() {
+				if err := c.RemoveNode(c.serverId); err != nil {
+					log.
+						Errorf("Core.Heartbeat (leader) could not remove from cluster: %v", err)
+				}
+				failedCount--
+				time.Sleep(5 * time.Second)
+				goto retryLeave
+			}
+
 			if err := c.tryLeaveCluster(); err != nil {
-				log.Errorf("Core.Heartbeat (node) could not remove from cluster: %v", err)
+				log.
+					Errorf("Core.Heartbeat (node) could not remove from cluster: %v", err)
+
+				failedCount--
 				time.Sleep(5 * time.Second)
 				goto retryLeave
 			}
@@ -141,21 +165,28 @@ func (c Core) watchLeaderChanges() error {
 		select {
 		case isLeader := <-isLeaderCh:
 			log.
-				WithField("isLeader", isLeader).
+				WithField("toBeLeader", isLeader).
 				Debug("Core.watchLeaderChanges got a signal")
-			if isLeader {
-				// DONE(@yeqown): should broadcast to other nodes of leaders
-				msg, _ := newFsmLog(logActionSetLeaderAddr, setLeaderAddr{
-					LeaderAddr: c.cfg.Server.HTTP.Addr,
-				})
-				if f := c.raft.Apply(msg, 10*time.Second); f.Error() != nil {
-					log.
-						WithFields(log.Fields{
-							"addr": c.cfg.Server.HTTP.Addr,
-							"msg":  msg,
-						}).
-						Errorf("Core.watchLeaderChanges applyTo raft failed: %v", f.Error())
-				}
+
+			// FIXED(@yeqown): reset leader address when leadership transition has occured.
+			c.fsm.SetLeaderAddr("")
+
+			if !isLeader {
+				continue
+			}
+
+			// broadcast leader itself address to nodes.
+			// DONE(@yeqown): should broadcast to other nodes of leaders
+			msg, _ := newFsmLog(logActionSetLeaderAddr, setLeaderAddr{
+				LeaderAddr: c.cfg.Server.HTTP.Addr,
+			})
+			if f := c.raft.Apply(msg, 10*time.Second); f.Error() != nil {
+				log.
+					WithFields(log.Fields{
+						"addr": c.cfg.Server.HTTP.Addr,
+						"msg":  msg,
+					}).
+					Errorf("Core.watchLeaderChanges applyTo raft failed: %v", f.Error())
 			}
 		}
 	}

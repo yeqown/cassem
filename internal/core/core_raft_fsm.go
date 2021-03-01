@@ -11,6 +11,16 @@ import (
 	"github.com/yeqown/log"
 )
 
+// FSMWrapper contains raft.FSM and customized methods to help core.Core use raft distributed power, as for now,
+// it includes, leaderAddr which represents the address of accesmd's http server.
+type FSMWrapper interface {
+	raft.FSM
+
+	SetLeaderAddr(addr string)
+
+	LeaderAddr() string
+}
+
 type fsm struct {
 	containerCache cache.ICache
 
@@ -18,7 +28,7 @@ type fsm struct {
 	leaderAddr string
 }
 
-func newFSM(c cache.ICache) raft.FSM {
+func newFSM(c cache.ICache) FSMWrapper {
 	return &fsm{
 		containerCache: c,
 	}
@@ -56,7 +66,8 @@ func (f *fsm) Apply(l *raft.Log) interface{} {
 		log.
 			WithField("setLeaderAddr", cc).
 			Debug("fsm.Apply called")
-		f.leaderAddr = cc.LeaderAddr
+
+		f.SetLeaderAddr(cc.LeaderAddr)
 
 	default:
 		return errors.New("invalid action")
@@ -92,4 +103,12 @@ func (f fsm) Restore(closer io.ReadCloser) error {
 	}
 
 	return nil
+}
+
+func (f *fsm) SetLeaderAddr(addr string) {
+	f.leaderAddr = addr
+}
+
+func (f *fsm) LeaderAddr() string {
+	return f.leaderAddr
 }
