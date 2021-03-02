@@ -15,10 +15,10 @@ config assembler from key-value pairs' container which include basic datatypes, 
   - [x] Master / Slave architecture and only allow to write on master.
   - [x] Slave need to forward request to master.
 - [ ] RESTful API permission control.
-- [ ] `Changes` watching and notifying.
+- [x] `Changes` watching and notifying.
   - [x] Watcher component.
-  - [ ] Watcher Server.
-  - [ ] Client SDK support.
+  - [x] Watcher Server.
+  - [x] Client SDK support.
 - [x] Distributed `Cache` middleware to speed up the API which downloads container in specified format. 
 
 ## Documentation
@@ -34,3 +34,8 @@ config assembler from key-value pairs' container which include basic datatypes, 
 benchmark tested core RESTful API and try to optimize them, each benchmark test displays the final QPS result. 
 
 [README](./benchmark/README.md)
+
+## References
+
+* https://github.com/yongman/leto
+* https://github.com/laohanlinux/riot
