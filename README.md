@@ -21,7 +21,7 @@ config assembler from key-value pairs' container which include basic datatypes, 
   - [x] Client SDK support.
 - [x] Distributed `Cache` middleware to speed up the API which downloads container in specified format. 
 
-## Documentation
+## [Documentation](./docs/README.md)
 
 <img src="./assets/cassem-architecture.svg" width="100%"/>
 
