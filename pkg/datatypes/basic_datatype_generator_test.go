@@ -69,3 +69,56 @@ func Test_WithDict(t *testing.T) {
 	assert.EqualValues(t, 123.222, ds["float"].Data())
 
 }
+
+func Test_Construct_KV(t *testing.T) {
+	var i interface{} = 123
+	d := FromInterface(i)
+	assert.Equal(t, INT_DATATYPE_, d.Datatype())
+	assert.EqualValues(t, 123, d.Data())
+
+	var b interface{} = false
+	d = FromInterface(b)
+	assert.Equal(t, BOOL_DATATYPE_, d.Datatype())
+	assert.EqualValues(t, false, d.Data())
+
+	var s interface{} = "123"
+	d = FromInterface(s)
+	assert.Equal(t, STRING_DATATYPE_, d.Datatype())
+	assert.EqualValues(t, "123", d.Data())
+
+	var f interface{} = 12.123123
+	d = FromInterface(f)
+	assert.Equal(t, FLOAT_DATATYPE_, d.Datatype())
+	assert.EqualValues(t, 12.123123, d.Data())
+}
+
+func Test_Construct_List(t *testing.T) {
+	var l interface{} = []interface{}{1, 2, 3, 4, 5, 56}
+	d := FromInterface(l)
+	assert.Equal(t, LIST_DATATYPE_, d.Datatype())
+	assert.EqualValues(t, ListDT{
+		WithInt(1),
+		WithInt(2),
+		WithInt(3),
+		WithInt(4),
+		WithInt(5),
+		WithInt(56),
+	}, d.Data())
+}
+
+func Test_Construct_Dict(t *testing.T) {
+	var dd interface{} = map[string]interface{}{
+		"i": 1,
+		"b": true,
+		"f": 12312.123123,
+		"s": "string",
+	}
+	d := FromInterface(dd)
+	assert.Equal(t, DICT_DATATYPE_, d.Datatype())
+	assert.EqualValues(t, DictDT{
+		"b": WithBool(true),
+		"f": WithFloat(12312.123123),
+		"i": WithInt(1),
+		"s": WithString("string"),
+	}, d.Data())
+}

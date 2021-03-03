@@ -2,11 +2,14 @@ package http
 
 import (
 	"errors"
+	"fmt"
+	"reflect"
 
 	coord "github.com/yeqown/cassem/internal/coordinator"
 	"github.com/yeqown/cassem/pkg/datatypes"
 
 	"github.com/gin-gonic/gin"
+	"github.com/yeqown/log"
 )
 
 type pagingPairsReq struct {
@@ -118,9 +121,16 @@ func (srv *Server) UpsertPair(c *gin.Context) {
 		return
 	}
 
-	d := datatypes.ConstructIData(req.Value)
+	log.
+		WithFields(log.Fields{
+			"type":  reflect.TypeOf(req.Value).String(),
+			"value": req.Value,
+		}).
+		Debug("UpsertPair gets a request")
+
+	d := datatypes.FromInterface(req.Value, datatypes.WithExpectedDataType(req.Datatype))
 	if d.Datatype() != req.Datatype {
-		responseError(c, errors.New("value and datatype unmatch"))
+		responseError(c, fmt.Errorf("value and datatype unmatch: %d != %d", d.Datatype(), req.Datatype))
 		return
 	}
 

@@ -1,6 +1,12 @@
 package datatypes
 
-import "fmt"
+import (
+	"encoding/json"
+	"fmt"
+	"reflect"
+
+	"github.com/yeqown/log"
+)
 
 func WithEmpty() NonData {
 	return struct{}{}
@@ -27,7 +33,7 @@ func WithList() ListDT {
 	return ListDT{}
 }
 
-func ConstructListRecursive(v []interface{}) ListDT {
+func FromSliceInterfaceToList(v []interface{}) ListDT {
 	if v == nil {
 		return nil
 	}
@@ -38,7 +44,7 @@ func ConstructListRecursive(v []interface{}) ListDT {
 	}
 
 	for _, value := range v {
-		l.Append(constructIDataRecursive(value))
+		l.Append(fromInterface(value))
 	}
 
 	return l
@@ -50,7 +56,7 @@ func WithDict() DictDT {
 	return d
 }
 
-func ConstructDictRecursive(v map[string]interface{}) DictDT {
+func FromMapInterfaceToDict(v map[string]interface{}) DictDT {
 	if v == nil {
 		return nil
 	}
@@ -61,17 +67,69 @@ func ConstructDictRecursive(v map[string]interface{}) DictDT {
 	}
 
 	for k, value := range v {
-		d.Add(k, constructIDataRecursive(value))
+		d.Add(k, fromInterface(value))
 	}
 	return d
 }
 
-func ConstructIData(v interface{}) IData {
-	return constructIDataRecursive(v)
+var (
+	defaultRepresentOpt = &option{
+		expectedDatatype: EMPTY_DATATYPE,
+	}
+)
+
+type option struct {
+	expectedDatatype Datatype
 }
 
-func constructIDataRecursive(v interface{}) (d IData) {
+type RepresentOption func(o *option)
+
+func WithExpectedDataType(dt Datatype) func(o *option) {
+	return func(o *option) {
+		o.expectedDatatype = dt
+	}
+}
+
+// fromInterface get the representation of v (interface{}) recursively, .
+// Importantly, it panics while the value (v interface{}) could not be handled in following case:
+//
+// 1. v.(type) out range of integer, json.Number, float, string, bool, []interface{}, map[string]interface{}
+// 2. json.Number wanted to be others Datatype excepts INT_DATATYPE_ and FLOAT_DATATYPE_.
+//
+// RepresentOption will help this process sometimes For example, int and float could not be distinguished
+// by JSON decoder, so that we need external datatype information to help conversion handlers,
+// now you can use WithExpectedDataType.
+//
+// Notice that json.Number is a enhancement for JSON decoder to identify the actual value. it could be interpreted
+// as int64, float64 and string.
+func fromInterface(v interface{}, opts ...RepresentOption) (d IData) {
+	ro := defaultRepresentOpt
+	for _, apply := range opts {
+		apply(ro)
+	}
+
 	switch typ := v.(type) {
+	case json.Number:
+		var err error
+		// FIXED:(@yeqown): JSON encoder can distinguish between int64 and float64 with json.Number.
+		switch ro.expectedDatatype {
+		case INT_DATATYPE_:
+			var i int64
+			i, err = v.(json.Number).Int64()
+			d = WithInt(int(i))
+		case FLOAT_DATATYPE_:
+			var f float64
+			f, err = v.(json.Number).Float64()
+			d = WithFloat(f)
+		default:
+			err = fmt.Errorf("invalid datatype to number: %v", ro.expectedDatatype)
+		}
+		if err != nil {
+			log.
+				WithField("jsonNumber", v).
+				Errorf("assertion failed to int64: %v", err)
+			panic(err)
+		}
 	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
 		// NOTE(@yeqown) maybe unsafe can helps this, if could not convert to int from (uint or int_x)
 		d = WithInt(v.(int))
@@ -84,18 +142,24 @@ func constructIDataRecursive(v interface{}) (d IData) {
 	case []interface{}:
 		l := WithList()
 		for _, value := range v.([]interface{}) {
-			l.Append(constructIDataRecursive(value))
+			l.Append(fromInterface(value))
 		}
 		d = l
 	case map[string]interface{}:
-		l := WithList()
-		for _, value := range v.(map[string]interface{}) {
-			l.Append(constructIDataRecursive(value))
+		l := WithDict()
+		for key, value := range v.(map[string]interface{}) {
+			l.Add(key, fromInterface(value))
 		}
 		d = l
 	default:
-		panic(fmt.Sprintf("unsupported type: %v", typ))
+		_ = typ
+		panic(fmt.Sprintf("unsupported type: %s", reflect.TypeOf(v).String()))
 	}
 
 	return d
+}
+
+// FromInterface export fromInterface method, please look up with fromInterface to get more information.
+func FromInterface(v interface{}, opts ...RepresentOption) IData {
+	return fromInterface(v, opts...)
 }

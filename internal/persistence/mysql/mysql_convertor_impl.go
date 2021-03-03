@@ -92,13 +92,13 @@ func (m mysqlConverter) ToPair(v interface{}) (p datatypes.IPair, err error) {
 		var ll []interface{}
 		d = datatypes.WithList()
 		if err = json.Unmarshal(pairDO.Value, &ll); err == nil {
-			datatypes.ConstructListRecursive(ll)
+			d = datatypes.FromSliceInterfaceToList(ll)
 		}
 	case datatypes.DICT_DATATYPE_:
 		d = datatypes.WithDict()
 		dd := make(map[string]interface{})
 		if err = json.Unmarshal(pairDO.Value, &dd); err == nil {
-			d = datatypes.ConstructDictRecursive(dd)
+			d = datatypes.FromMapInterfaceToDict(dd)
 		}
 	default:
 		err = ErrUnknownDatatype

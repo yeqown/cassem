@@ -73,6 +73,7 @@ func (f *fsm) Apply(l *raft.Log) interface{} {
 	return nil
 }
 
+// TODO(@yeqown): figure out a way to use snapshot rather than Apply each log while node restart.
 func (f fsm) Snapshot() (raft.FSMSnapshot, error) {
 	log.Debug("fsm.Snapshot called")
 	data, err := f.containerCache.Persist()
