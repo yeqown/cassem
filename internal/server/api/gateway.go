@@ -12,6 +12,7 @@ package api
 import (
 	"net/http"
 	"strings"
+	"time"
 
 	coord "github.com/yeqown/cassem/internal/coordinator"
 	apihtp "github.com/yeqown/cassem/internal/server/api/http"
@@ -69,11 +70,12 @@ func (gate Gateway) Addr() string {
 }
 
 func (gate Gateway) ListenAndServe() error {
-
 	srv := http.Server{
-		Addr:    gate.Addr(),
-		Handler: gate.http2Wrapper(),
-		// TODO(@yeqown): more server properties
+		Addr:         gate.Addr(),
+		Handler:      gate.http2Wrapper(),
+		ReadTimeout:  10 * time.Second,
+		WriteTimeout: 10 * time.Second,
+		//IdleTimeout:  0,
 	}
 
 	return srv.ListenAndServe()

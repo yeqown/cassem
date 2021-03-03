@@ -53,8 +53,8 @@ func (srv *Server) initialize() {
 	}
 
 	// mount middlewares
-	// TODO(@yeqown): replace Recovery middleware so that we response error messages.
-	srv.engi.Use(gin.Recovery())
+	// DONE(@yeqown): replace Recovery middleware so that we response error messages.
+	srv.engi.Use(recovery())
 	srv.engi.Use(gin.Logger())
 
 	if srv._cfg.Debug {
