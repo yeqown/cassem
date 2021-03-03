@@ -6,7 +6,7 @@ This document describes all Restful APIs in `cassem`.
 
 [Response convention](#Response-convention)
 
-[Error Code convention](#Error-Code convention)
+[Error Code convention](#Error-Code-convention)
  
 [1. Namespace](#1-Namespace)
 
