@@ -47,7 +47,13 @@ func New(c *Config, coordinator coord.ICoordinator) *Server {
 }
 
 func (srv *Server) initialize() {
+	gin.EnableJsonDecoderUseNumber()
+	if !srv._cfg.Debug {
+		gin.SetMode(gin.ReleaseMode)
+	}
+
 	// mount middlewares
+	// TODO(@yeqown): replace Recovery middleware so that we response error messages.
 	srv.engi.Use(gin.Recovery())
 	srv.engi.Use(gin.Logger())
 
