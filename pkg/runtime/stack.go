@@ -1,7 +1,6 @@
 package runtime
 
 import (
-	"errors"
 	"fmt"
 	"runtime"
 )
@@ -15,10 +14,6 @@ func Stack() []byte {
 }
 
 func RecoverFrom(v interface{}) (err error) {
-	if v == nil {
-		return errors.New("panic nil")
-	}
-
-	err = fmt.Errorf("panic: %v", err)
+	err = fmt.Errorf("panic: %v", v)
 	return
 }

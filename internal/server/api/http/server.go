@@ -5,6 +5,7 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"strings"
+	"sync/atomic"
 
 	coord "github.com/yeqown/cassem/internal/coordinator"
 
@@ -71,22 +72,11 @@ func (srv *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	srv.engi.ServeHTTP(w, req)
 }
 
-//
-//func (srv *Server) ListenAndServe() (err error) {
-//	log.Debugf("server running on: %s", srv._cfg.Addr)
-//
-//	if err = srv.engi.Run(srv._cfg.Addr); err != nil {
-//		log.Errorf("server running failed: %v", err)
-//	}
-//
-//	return
-//}
-
 // needForwardAndExecute checks current request should be forwarded to leader, if needed
 // forwarding calling would be executed and handle response by needForwardAndExecute itself.
-func (srv *Server) needForwardAndExecute(c *gin.Context) (forwarded bool) {
+func (srv *Server) needForwardAndExecute(c *gin.Context) (shouldForward bool) {
 	var leaderAddr string
-	if forwarded, leaderAddr = srv.coordinator.ShouldForwardToLeader(); !forwarded {
+	if shouldForward, leaderAddr = srv.coordinator.ShouldForwardToLeader(); !shouldForward {
 		return
 	}
 
@@ -99,13 +89,22 @@ func (srv *Server) needForwardAndExecute(c *gin.Context) (forwarded bool) {
 	return
 }
 
-// TODO(@yeqown): maybe cache the reverse proxy client?
-func forwardToLeader(c *gin.Context, leaderAddr string) error {
-	log.
-		WithFields(log.Fields{
-			"leaderAddr": leaderAddr,
-		}).
-		Debug("forwardToLeader called caused by current node is not leader")
+var (
+	_isProxySetting int32 = 0
+	_lastLeaderAddr       = ""
+	_lastProxy      *httputil.ReverseProxy
+)
+
+func getProxy(leaderAddr string) (*httputil.ReverseProxy, error) {
+	if leaderAddr == _lastLeaderAddr && _lastProxy != nil {
+		// hit cache and proxy has been initialized.
+		return _lastProxy, nil
+	}
+
+	// initialize proxy
+	for !atomic.CompareAndSwapInt32(&_isProxySetting, 0, 1) {
+		// blocking lock
+	}
 
 	// fix leaderAddr schema
 	if !strings.HasPrefix(leaderAddr, "http://") && !strings.HasPrefix(leaderAddr, "https://") {
@@ -114,18 +113,26 @@ func forwardToLeader(c *gin.Context, leaderAddr string) error {
 
 	remote, err := url.Parse(leaderAddr)
 	if err != nil {
-		return errors.Wrap(err, "forwardToLeader failed to parse leaderAddr")
+		return nil, errors.Wrap(err, "getProxy failed to parse leaderAddr")
 	}
+	_lastLeaderAddr = leaderAddr
+	_lastProxy = httputil.NewSingleHostReverseProxy(remote)
+	atomic.CompareAndSwapInt32(&_isProxySetting, 1, 0)
 
-	proxy := httputil.NewSingleHostReverseProxy(remote)
+	return _lastProxy, nil
+}
 
-	// define the director func
-	proxy.Director = func(req *http.Request) {
-		req.Header = c.Request.Header
-		req.Host = remote.Host
-		req.URL.Scheme = remote.Scheme
-		req.URL.Host = remote.Host
-		req.URL.Path = c.Request.URL.Path
+// DONE(@yeqown): maybe cache the reverse proxy client
+func forwardToLeader(c *gin.Context, leaderAddr string) error {
+	log.
+		WithFields(log.Fields{
+			"leaderAddr": leaderAddr,
+		}).
+		Debug("forwardToLeader called caused by current node is not leader")
+
+	proxy, err := getProxy(leaderAddr)
+	if err != nil {
+		return err
 	}
 
 	proxy.ServeHTTP(c.Writer, c.Request)

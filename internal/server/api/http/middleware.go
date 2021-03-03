@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httputil"
+	"os"
 
 	"github.com/yeqown/cassem/pkg/runtime"
 
@@ -37,10 +38,14 @@ func recovery() gin.HandlerFunc {
 		defer func() {
 			if v := recover(); v != nil || panicked {
 				dumpReq, _ := httputil.DumpRequest(c.Request, true)
-				formatted := fmt.Sprintf("server panic: %v %v %s", dumpReq, v, runtime.Stack())
-				log.Errorf(formatted)
-				responseError(c, runtime.RecoverFrom(v))
-				c.Abort()
+				formatted := fmt.Sprintf("server panic: %v\n%s %s", v, dumpReq, runtime.Stack())
+				_, _ = fmt.Fprint(os.Stderr, formatted)
+				err := runtime.RecoverFrom(v)
+				log.Errorf("server panic: %v", err)
+				c.AbortWithStatusJSON(http.StatusInternalServerError, commonResponse{
+					ErrCode:    FAILED,
+					ErrMessage: err.Error(),
+				})
 			}
 		}()
 
