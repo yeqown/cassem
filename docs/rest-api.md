@@ -4,13 +4,17 @@ This document describes all Restful APIs in `cassem`.
 
 ### Contents
 
-[00 Response convention](#Response convention)
+[Response convention](#Response-convention)
 
-[01 Error Code convention](#Error Code convention)
+[Error Code convention](#Error-Code convention)
  
-[1. Namespace](#1 Namespace)
-[2. Namespace](#2 Containers)
-[3. Namespace](#3 Pairs)
+[1. Namespace](#1-Namespace)
+
+[2. Namespace](#2-Containers)
+
+[3. Namespace](#3-Pairs)
+
+[4. Datatypes](#4-Datatypes)
 
 
 ### Response convention
