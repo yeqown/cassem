@@ -28,7 +28,7 @@ Now, you can start the `cassemd` server as following command:
 ```sh
 ./cassemd \
 	-c ./configs/cassem.example.toml \
-	--id="2e422fdf" \
+	--id=2e422fdf \
 	--raft-base="./debugdata/2e422fdf"  \
 	--http-listen="127.0.0.1:2021" \
 	--bind="127.0.0.1:3021" \
@@ -42,7 +42,7 @@ Now, you can start the `cassemd` server as following command:
 	--join="127.0.0.1:2021"
 
 ./cassemd -c ./configs/cassem.example.toml \
-	--id="a035b428" \
+	--id=a035b428 \
 	--raft-base="./debugdata/a035b428" \
 	--http-listen="127.0.0.1:2023" \
 	--bind="127.0.0.1:3023" \

@@ -113,7 +113,6 @@ func (c *channelWatcher) loop() {
 				}).
 				Debug("channelWatcher loop gets one signal")
 
-			// TODO(@yeqown): optimise here to lock free?
 			c._mu.RLock()
 			bucket, ok := c.buckets[notify.Topic()]
 			c._mu.RUnlock()
@@ -133,7 +132,6 @@ func (c *channelWatcher) loop() {
 	}
 }
 
-// TODO(@yeqown): race detect
 func (c *channelWatcher) Subscribe(obs ...IObserver) {
 	for _, observer := range obs {
 		log.
@@ -148,6 +146,7 @@ func (c *channelWatcher) Subscribe(obs ...IObserver) {
 			continue
 		}
 
+		c._mu.Lock()
 		// register observer into topic.
 		for _, topic := range observer.Topics() {
 			log.
@@ -159,6 +158,7 @@ func (c *channelWatcher) Subscribe(obs ...IObserver) {
 			}
 			c.buckets[topic].add(observer)
 		}
+		c._mu.Unlock()
 	}
 }
 

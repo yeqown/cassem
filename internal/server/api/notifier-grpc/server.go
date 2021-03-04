@@ -85,8 +85,10 @@ func New() *grpc.Server {
 		quit:    make(chan struct{}, 1),
 	}
 
-	// TODO(@yeqown): recover and logger interceptor needed
-	s := grpc.NewServer()
+	// DONE(@yeqown): recover and logger interceptor needed
+	s := grpc.NewServer(
+		grpc.UnaryInterceptor(chainUnaryServer(serverRecovery(), serverLogger())),
+	)
 	pb.RegisterWatcherServer(s, srv)
 	reflection.Register(s)
 
