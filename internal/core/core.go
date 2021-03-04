@@ -100,7 +100,13 @@ func (c *Core) Heartbeat() {
 	for {
 		select {
 		case <-tick.C:
-			log.Info("Core is running")
+			log.
+				WithFields(log.Fields{
+					"isLeader":      c.isLeader(),
+					"joinedCluster": c.joinedCluster,
+				}).
+				Info("Core is running")
+
 			if !c.joinedCluster {
 				if err := c.tryJoinCluster(); err != nil {
 					log.Errorf("could not tryJoinCluster cluster: %v", err)
@@ -147,6 +153,9 @@ func (c Core) loop() {
 
 	// leadership changes
 	go startWithRecover("leadership-changes", c.watchLeaderChanges)
+
+	// snapshot executor
+	go startWithRecover("snapshot-strategy", c.doSnapshot)
 }
 
 func (c Core) startGateway() (err error) {
@@ -191,11 +200,47 @@ func (c Core) watchLeaderChanges() error {
 	}
 }
 
-// isLeader only return true if current node is leader.
-func (c Core) isLeader() bool {
-	return c.raft.State() == raft.Leader
-}
+const (
+	// _SIZE_EXECUTIONS is a value which limit the minimum count of logs
+	// must be executed since last snapshot action.
+	_SIZE_EXECUTIONS = 100
+)
 
-func (c Core) ShouldForwardToLeader() (shouldForward bool, leadAddr string) {
-	return !c.isLeader(), c.fsm.LeaderAddr()
+// doSnapshot to execute snapshot of state machine with specified strategy:
+//
+// 1. just do snapshot periodically.
+// 2. if state machine has executed logs more than specified size.
+//
+func (c Core) doSnapshot() error {
+	ticker := time.NewTicker(30 * time.Minute)
+	sizeTicker := time.NewTicker(10 * time.Second)
+
+	for {
+		needSnapshot := false
+		select {
+		case <-ticker.C:
+			needSnapshot = true
+
+		case <-sizeTicker.C:
+			if !c.isLeader() {
+				continue
+			}
+			if c.fsm.ExecutionSinceLastSnapshot() > _SIZE_EXECUTIONS {
+				// if the state machine has received log over than 10
+				// after last snapshot.
+				needSnapshot = true
+			}
+
+			log.
+				WithField("needSnapshot", needSnapshot).
+				Debug("Core.doSnapshot called")
+
+			if needSnapshot {
+				if err := c.raft.Snapshot().Error(); err != nil {
+					log.Errorf("Core.doSnapshot failed to snapshot: %v", err)
+				}
+			}
+			// case done
+		}
+	}
 }

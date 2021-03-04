@@ -366,3 +366,12 @@ func (c Core) watchContainerChanges(ns, key string) error {
 
 	return nil
 }
+
+// isLeader only return true if current node is leader.
+func (c Core) isLeader() bool {
+	return c.raft.State() == raft.Leader
+}
+
+func (c Core) ShouldForwardToLeader() (shouldForward bool, leadAddr string) {
+	return !c.isLeader(), c.fsm.LeaderAddr()
+}
