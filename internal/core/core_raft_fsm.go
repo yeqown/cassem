@@ -12,16 +12,21 @@ import (
 	"github.com/yeqown/log"
 )
 
-// FSMWrapper contains raft.FSM and customized methods to help core.Core use raft distributed power, as for now,
-// it includes, leaderAddr which represents the address of accesmd's http server.
+// FSMWrapper contains raft.FSM and customized methods to help core.Core use raft distributed power.
+// raft.FSM is mainly implemented to store caches of containers, the key to raft state machine.
+//
+// setLeaderAddrCommand and getLeaderAddr all operate fsm.leaderAddr.
+//
+// getExecutionSinceLastSnapshot exposes a way to read fsm.executionSinceLastSnapshot.
+//
 type FSMWrapper interface {
 	raft.FSM
 
-	SetLeaderAddr(addr string)
+	setLeaderAddr(addr string)
 
-	LeaderAddr() string
+	getLeaderAddr() string
 
-	ExecutionSinceLastSnapshot() int
+	getExecutionSinceLastSnapshot() int
 }
 
 // fsm implement raft.FSM which means the state machine in RAFT consensus algorithm.
@@ -32,6 +37,8 @@ type fsm struct {
 	// leaderAddr indicates the leader's http application address.
 	leaderAddr string
 
+	// executionSinceLastSnapshot records the count how many times has fsm.Apply been called since
+	// last time fsm.Snapshot called. It helps Core.doSnapshot to judge that should Core trigger snapshot or not.
 	executionSinceLastSnapshot int32
 }
 
@@ -54,7 +61,7 @@ func (f *fsm) Apply(l *raft.Log) interface{} {
 
 	switch fsmLog.Action {
 	case logActionSyncCache:
-		cc := new(coreSetCache)
+		cc := new(setCacheCommand)
 		if err := cc.deserialize(fsmLog.Data); err != nil {
 			panic("could not unmarshal: " + err.Error())
 		}
@@ -67,12 +74,12 @@ func (f *fsm) Apply(l *raft.Log) interface{} {
 		}
 
 	case logActionSetLeaderAddr:
-		cc := new(setLeaderAddr)
+		cc := new(setLeaderAddrCommand)
 		if err := cc.deserialize(fsmLog.Data); err != nil {
 			panic("could not unmarshal: " + err.Error())
 		}
 
-		f.SetLeaderAddr(cc.LeaderAddr)
+		f.setLeaderAddr(cc.LeaderAddr)
 
 	default:
 		return errors.New("invalid action")
@@ -124,18 +131,18 @@ func (f fsm) Restore(closer io.ReadCloser) error {
 	return nil
 }
 
-func (f *fsm) SetLeaderAddr(addr string) {
+func (f *fsm) setLeaderAddr(addr string) {
 	f.leaderAddr = addr
 }
 
-func (f *fsm) LeaderAddr() string {
+func (f *fsm) getLeaderAddr() string {
 	return f.leaderAddr
 }
 
-func (f fsm) ExecutionSinceLastSnapshot() int {
+func (f fsm) getExecutionSinceLastSnapshot() int {
 	//log.
-	//	WithField("executionSinceLastSnapshot", f.executionSinceLastSnapshot).
-	//	Debug("fsm.ExecutionSinceLastSnapshot called")
+	//	WithField("getExecutionSinceLastSnapshot", f.getExecutionSinceLastSnapshot).
+	//	Debug("fsm.getExecutionSinceLastSnapshot called")
 
 	return int(f.executionSinceLastSnapshot)
 }

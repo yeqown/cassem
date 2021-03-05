@@ -59,7 +59,7 @@ func (c Core) setContainerCache(cacheKey string, data []byte) {
 		}).
 		Debug("Core.setContainerCache applyTo raft")
 
-	msg, _ := newFsmLog(logActionSyncCache, coreSetCache{
+	msg, _ := newFsmLog(logActionSyncCache, setCacheCommand{
 		NeedSetKey:    cacheKey,
 		NeedSetData:   data,
 		NeedDeleteKey: ss.NeedDeleteKey,
@@ -118,7 +118,7 @@ func (c Core) delContainerCache(cacheKey string) {
 		}).
 		Debug("Core.delContainerCache applyTo raft")
 
-	msg, _ := newFsmLog(logActionSyncCache, coreSetCache{
+	msg, _ := newFsmLog(logActionSyncCache, setCacheCommand{
 		NeedSetKey:    "",
 		NeedSetData:   nil,
 		NeedDeleteKey: ss.NeedDeleteKey,

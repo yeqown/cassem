@@ -37,28 +37,28 @@ type serializer interface {
 	serialize() ([]byte, error)
 }
 
-type setLeaderAddr struct {
+type setLeaderAddrCommand struct {
 	LeaderAddr string
 }
 
-func (cla setLeaderAddr) serialize() ([]byte, error) {
+func (cla setLeaderAddrCommand) serialize() ([]byte, error) {
 	return json.Marshal(cla)
 }
 
-func (cla *setLeaderAddr) deserialize(data []byte) error {
+func (cla *setLeaderAddrCommand) deserialize(data []byte) error {
 	return json.Unmarshal(data, cla)
 }
 
-type coreSetCache struct {
+type setCacheCommand struct {
 	NeedDeleteKey string
 	NeedSetKey    string
 	NeedSetData   []byte
 }
 
-func (cc coreSetCache) serialize() ([]byte, error) {
+func (cc setCacheCommand) serialize() ([]byte, error) {
 	return json.Marshal(cc)
 }
 
-func (cc *coreSetCache) deserialize(data []byte) error {
+func (cc *setCacheCommand) deserialize(data []byte) error {
 	return json.Unmarshal(data, cc)
 }

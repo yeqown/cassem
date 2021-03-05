@@ -26,6 +26,7 @@ import (
 
 // Gateway is the gate to all cassem API. It provides both HTTP and gRPC protocol applications at once.
 // The purpose is a solution what could serve them on one TCP port, this makes easily for client to
+// build connections to cassem server.
 type Gateway struct {
 	addr         string
 	api          *apihtp.Server

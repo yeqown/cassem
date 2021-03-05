@@ -14,7 +14,8 @@ func (c Changes) Topic() string {
 	return c.Namespace + "#" + c.Key + "#" + c.Format.String()
 }
 
-// IWatcher
+// IWatcher provides Subscribe(obs ...IObserver) and Unsubscribe(obs IObserver) for observers,
+// and ChangeNotify(notify Changes) for producer.
 type IWatcher interface {
 	// tell watcher there is a client want to get notified while these topic changed.
 	Subscribe(obs ...IObserver)

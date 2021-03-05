@@ -372,5 +372,5 @@ func (c Core) isLeader() bool {
 }
 
 func (c Core) ShouldForwardToLeader() (shouldForward bool, leadAddr string) {
-	return !c.isLeader(), c.fsm.LeaderAddr()
+	return !c.isLeader(), c.fsm.getLeaderAddr()
 }

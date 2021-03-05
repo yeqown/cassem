@@ -19,31 +19,63 @@ import (
 	"github.com/yeqown/log"
 )
 
-// Core is the cassemd server that would guards api server running and alas controls other components. Especially,
-// raft protocol which supports the architecture of cassemd (master-slave). All writes must be operated on master node,
-// salve nodes could execute read operations.
+// Core is the cassemd server that would guards api server running and alas controls other components.
+// Especially, raft protocol which supports the architecture of cassemd (master-slave).
+//
+// Notice that all writes must be operated on master node, salve nodes could execute read operations.
+//
 type Core struct {
 	coord.ICoordinator
 
-	// cfg
-	cfg *conf.Config
+	config *conf.Config
 
-	// components
-	// repo
+	// All components in core.Core are following.
+	//
+	// repo is the entry to communicate with persistence component. It helps core.Core to implement
+	// coord.ICoordinator interface.
 	repo persistence.Repository
-	// apiGate
+
+	// apiGate contains HTTP and gRPC protocol server. HTTP server provides all PUBLIC managing API and
+	// internal cluster API. The duty of gRPC server is serving cassem's clients for watching changes.
+	//
+	// Notice that HTTP server and gRPC server use backend of gateway, so there is only one TCP port to
+	// listen on.
 	apiGate *api.Gateway
-	// _containerCache
+
+	// _containerCache is a cache component which provides set, delete, get, persist and restore abilities.
+	// TODO(@yeqown): remove this component from core.Core but hold in fsm.
 	_containerCache cache.ICache
-	// watcher
+
+	// watcher is abstract watcher.IWatcher layer, so trigger and observers could be splitting.
+	// core.Core has no need to care about how to get touch with observers, just produce signal and data.
 	watcher watcher.IWatcher
 
-	// raft related properties.
-	serverId      string
-	tryJoinIdx    int
+	// The following properties are all about raft consensus algorithm.
+	//
+	// serverId indicates the unique identify in raft cluster,
+	// also used to as the raft store directory name.
+	serverId string
+
+	// tryJoinIdx is a index to memory which address should be tried when
+	// next tryJoinCluster called. This property helps to support that multiple
+	// addresses of cluster nodes can be passed.
+	tryJoinIdx int
+
+	// joinedCluster indicates whether current node has joined to the cluster.
+	// If current node is started as leader node, joinedCluster is true as default, otherwise
+	// joinedCluster controls tryJoinCluster again and again in Core.Heartbeat.
 	joinedCluster bool
-	raft          *raft.Raft
-	fsm           FSMWrapper
+
+	// raft is a core of core.Core to construct an distributed system.
+	raft *raft.Raft
+
+	// fsm is the state machine to be used in raft.RAFT. In cassem, it's mainly used to store
+	// caches those encoded bytes to containers who are requested and should be cached.
+	//
+	// It also be used to store and apply leaderAddr which indicates the address of the leader.
+	// While a leadership changes happened, leader node calls raft.Apply() to commit a log that
+	// will update slave nodes' leaderAddr. please checkout FSMWrapper for more information.
+	fsm FSMWrapper
 }
 
 func New(cfg *conf.Config) (*Core, error) {
@@ -58,7 +90,7 @@ func New(cfg *conf.Config) (*Core, error) {
 }
 
 func (c *Core) initialize(cfg *conf.Config) (err error) {
-	c.cfg = cfg
+	c.config = cfg
 
 	c.repo, err = mysql.New(cfg.Persistence.Mysql)
 	if err != nil {
@@ -125,6 +157,7 @@ func (c *Core) Heartbeat() {
 			}
 
 			if c.isLeader() {
+				// FIXME(@yeqown): if there is no more nodes in cluster, just let leader quit.
 				if err := c.RemoveNode(c.serverId); err != nil {
 					log.
 						Errorf("Core.Heartbeat (leader) could not remove from cluster: %v", err)
@@ -177,8 +210,8 @@ func (c Core) watchLeaderChanges() error {
 				WithField("toBeLeader", isLeader).
 				Debug("Core.watchLeaderChanges got a signal")
 
-			// FIXED(@yeqown): reset leader address when leadership transition has occured.
-			c.fsm.SetLeaderAddr("")
+			// FIXED(@yeqown): reset leader address when leadership transition has occurred.
+			c.fsm.setLeaderAddr("")
 
 			if !isLeader {
 				continue
@@ -186,13 +219,13 @@ func (c Core) watchLeaderChanges() error {
 
 			// broadcast leader itself address to nodes.
 			// DONE(@yeqown): should broadcast to other nodes of leaders
-			msg, _ := newFsmLog(logActionSetLeaderAddr, setLeaderAddr{
-				LeaderAddr: c.cfg.Server.HTTP.Addr,
+			msg, _ := newFsmLog(logActionSetLeaderAddr, setLeaderAddrCommand{
+				LeaderAddr: c.config.Server.HTTP.Addr,
 			})
 			if f := c.raft.Apply(msg, 10*time.Second); f.Error() != nil {
 				log.
 					WithFields(log.Fields{
-						"addr": c.cfg.Server.HTTP.Addr,
+						"addr": c.config.Server.HTTP.Addr,
 						"msg":  msg,
 					}).
 					Errorf("Core.watchLeaderChanges applyTo raft failed: %v", f.Error())
@@ -226,7 +259,7 @@ func (c Core) doSnapshot() error {
 			if !c.isLeader() {
 				continue
 			}
-			if c.fsm.ExecutionSinceLastSnapshot() > _SIZE_EXECUTIONS {
+			if c.fsm.getExecutionSinceLastSnapshot() > _SIZE_EXECUTIONS {
 				// if the state machine has received log over than 10
 				// after last snapshot.
 				needSnapshot = true

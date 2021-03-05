@@ -36,8 +36,8 @@ const (
 func (c *Core) tryJoinCluster() (err error) {
 	var base string
 
-	if count := len(c.cfg.Server.Raft.ClusterAddresses); count != 0 {
-		base = c.cfg.Server.Raft.ClusterAddresses[c.tryJoinIdx]
+	if count := len(c.config.Server.Raft.ClusterAddresses); count != 0 {
+		base = c.config.Server.Raft.ClusterAddresses[c.tryJoinIdx]
 		c.tryJoinIdx = (c.tryJoinIdx + 1) % count
 	}
 
@@ -48,7 +48,7 @@ func (c *Core) tryJoinCluster() (err error) {
 		form: map[string]string{
 			_formServerId:        c.serverId,
 			_formAction:          _actionJoin,
-			_formRaftBindAddress: c.cfg.Server.Raft.RaftBind,
+			_formRaftBindAddress: c.config.Server.Raft.RaftBind,
 		},
 		body: nil,
 	}
@@ -97,7 +97,7 @@ func (c *Core) bootstrapRaft() (err error) {
 		if err != nil {
 			log.
 				WithFields(log.Fields{
-					"raftConfig": c.cfg.Server.Raft,
+					"raftConfig": c.config.Server.Raft,
 					"joined":     c.joinedCluster,
 					"serverId":   c.serverId,
 				}).
@@ -106,7 +106,7 @@ func (c *Core) bootstrapRaft() (err error) {
 	}()
 
 	// prepare transport
-	raftConf := c.cfg.Server.Raft
+	raftConf := c.config.Server.Raft
 	addr, err := net.ResolveTCPAddr("tcp", raftConf.RaftBind)
 	if err != nil {
 		return errors.Wrap(err, "ResolveTCPAddr failed")
@@ -180,7 +180,7 @@ type forwardRequest struct {
 // this would send a request(HTTP) to leader contains what operation need to do, of course, it takes
 // necessary external information.
 func (c *Core) forwardToLeader(req *forwardRequest) (err error) {
-	base := c.fsm.LeaderAddr()
+	base := c.fsm.getLeaderAddr()
 	if req.forceBase != "" {
 		base = req.forceBase
 	}
