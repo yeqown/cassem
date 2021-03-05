@@ -40,6 +40,7 @@ type Core struct {
 
 	// raft related properties.
 	serverId      string
+	tryJoinIdx    int
 	joinedCluster bool
 	raft          *raft.Raft
 	fsm           FSMWrapper

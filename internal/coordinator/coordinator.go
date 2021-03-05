@@ -28,6 +28,8 @@ type ICoordinator interface {
 	SavePair(p datatypes.IPair) error
 }
 
+// IRaftCluster restrict what methods should coordinator should provide to API, so that API layer can
+// provide internal API those helps cluster nodes to communicate with leader.
 type IRaftCluster interface {
 	AddNode(serverId, addr string) error
 
@@ -35,6 +37,8 @@ type IRaftCluster interface {
 
 	Apply(msg []byte) error
 
+	// ShouldForwardToLeader returns shouldForward and current leaderAddr,
+	// shouldForward = !(currentNode == Leader).
 	ShouldForwardToLeader() (shouldForward bool, leaderAddr string)
 }
 
