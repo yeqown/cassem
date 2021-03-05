@@ -22,7 +22,7 @@ Now, you can start the `cassemd` server as following command:
 	--raft-base="./debugdata/2e422fdf"  \ 	# raft base directory to store
 	--http-listen="127.0.0.1:2021" \		# cassemd restful HTTP address
 	--bind="127.0.0.1:3021" \				# address for raft protocol to communicate to each other
-	--join=""								# address to send join cluster request
+	--join=""								# addresses to send join cluster request
 ```
 
 ```sh
@@ -46,7 +46,7 @@ Now, you can start the `cassemd` server as following command:
 	--raft-base="./debugdata/a035b428" \
 	--http-listen="127.0.0.1:2023" \
 	--bind="127.0.0.1:3023" \
-	--join="127.0.0.1:2021"
+	--join="127.0.0.1:2022" --join="127.0.0.1:2021"
 ```
 
 then you'll get the following content:

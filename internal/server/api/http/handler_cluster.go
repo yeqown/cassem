@@ -12,6 +12,10 @@ type operateNodeReq struct {
 }
 
 func (srv *Server) OperateNode(c *gin.Context) {
+	if srv.needForwardAndExecute(c) {
+		return
+	}
+
 	req := new(operateNodeReq)
 	if err := c.ShouldBind(req); err != nil {
 		responseError(c, err)

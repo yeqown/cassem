@@ -40,7 +40,7 @@ func start(ctx *cli.Context) error {
 	// DONE(@yeqown) use CLI args override cfg.Server.Raft
 	cfg.Server.Raft.RaftBase = ctx.String("raft-base")
 	cfg.Server.Raft.RaftBind = ctx.String("bind")
-	cfg.Server.Raft.ClusterAddrToJoin = ctx.String("join")
+	cfg.Server.Raft.ClusterAddresses = ctx.StringSlice("join")
 	cfg.Server.Raft.ServerId = ctx.String("id")
 	cfg.Server.HTTP.Addr = ctx.String("http-listen")
 
@@ -86,9 +86,9 @@ var _cliGlobalFlags = []cli.Flag{
 		Usage:       "raft consensus protocol component's used address",
 		Required:    false,
 	},
-	&cli.StringFlag{
+	&cli.StringSliceFlag{
 		Name:        "join",
-		Value:       "",
+		Value:       &cli.StringSlice{},
 		DefaultText: "",
 		Usage:       "raft consensus protocol cluster address",
 		Required:    false,

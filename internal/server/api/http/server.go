@@ -130,6 +130,10 @@ func forwardToLeader(c *gin.Context, leaderAddr string) error {
 		}).
 		Debug("forwardToLeader called caused by current node is not leader")
 
+	if leaderAddr == "" {
+		return errors.New("forwardToLeader could not executed: empty leaderAddr")
+	}
+
 	proxy, err := getProxy(leaderAddr)
 	if err != nil {
 		return err

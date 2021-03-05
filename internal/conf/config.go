@@ -12,10 +12,10 @@ import (
 )
 
 type Raft struct {
-	RaftBase          string `toml:"base"`
-	RaftBind          string `toml:"bind"`
-	ClusterAddrToJoin string `toml:"join"` // append to cluster
-	ServerId          string `toml:"serverId"`
+	RaftBase         string   `toml:"base"`
+	RaftBind         string   `toml:"bind"`
+	ClusterAddresses []string `toml:"join"` // append to cluster
+	ServerId         string   `toml:"serverId"`
 }
 
 type Config struct {

@@ -31,11 +31,18 @@ const (
 	_actionLeft = "left"
 )
 
-// tryJoinCluster only called by follower node, normally, conf.Config.Server.Raft.ClusterAddrToJoin is
+// tryJoinCluster only called by follower node, normally, conf.Config.Server.Raft.ClusterAddresses is
 // the leader's address which is set manually. MAYBE~
 func (c *Core) tryJoinCluster() (err error) {
+	var base string
+
+	if count := len(c.cfg.Server.Raft.ClusterAddresses); count != 0 {
+		base = c.cfg.Server.Raft.ClusterAddresses[c.tryJoinIdx]
+		c.tryJoinIdx = (c.tryJoinIdx + 1) % count
+	}
+
 	req := forwardRequest{
-		forceBase: c.cfg.Server.Raft.ClusterAddrToJoin,
+		forceBase: base,
 		path:      "/cluster/nodes",
 		method:    http.MethodGet,
 		form: map[string]string{
@@ -52,16 +59,6 @@ func (c *Core) tryJoinCluster() (err error) {
 
 		return errors.Wrap(err, "tryJoinCluster failed")
 	}
-	//base := c.cfg.Server.Raft.ClusterAddrToJoin
-	//if err = handleGET(base, map[string]string{
-	//	_formServerId:        c.serverId,
-	//	_formAction:          _actionJoin,
-	//	_formRaftBindAddress: c.cfg.Server.Raft.RaftBind,
-	//}); err != nil {
-	//	log.Errorf("invalid request: %v", err)
-	//
-	//	return errors.Wrap(err, "invalid http.NewRequest")
-	//}
 
 	c.joinedCluster = true
 
@@ -86,12 +83,6 @@ func (c *Core) tryLeaveCluster() (err error) {
 
 		return errors.Wrap(err, "tryLeaveCluster failed")
 	}
-
-	//base := c.cfg.Server.Raft.ClusterAddrToJoin
-	//if err = handleGET(base); err != nil {
-	//	log.Errorf("invalid request: %v", err)
-	//	return errors.Wrap(err, "invalid http.NewRequest")
-	//}
 
 	c.joinedCluster = false
 	if err = c.raft.Shutdown().Error(); err != nil {
@@ -148,7 +139,7 @@ func (c *Core) bootstrapRaft() (err error) {
 	}
 
 	// DONE(@yeqown): allow node to bootstrap every time (IGNORING error), but only to join cluster when
-	// raftConf.ClusterAddrToJoin is not empty and raftConf.ClusterToJoin != raftConf.Listen
+	// raftConf.ClusterAddresses is not empty and raftConf.ClusterToJoin != raftConf.Listen
 	var couldIgnore error
 
 	// A cluster can only be bootstrapped once from a single participating Voter server.
@@ -165,7 +156,7 @@ func (c *Core) bootstrapRaft() (err error) {
 	}
 
 	c.joinedCluster = true
-	shouldJoinCluster := raftConf.ClusterAddrToJoin != ""
+	shouldJoinCluster := len(raftConf.ClusterAddresses) != 0
 	if shouldJoinCluster {
 		// FIXED(@yeqown) could not return error, tryJoinCluster will retry again.
 		if couldIgnore = c.tryJoinCluster(); couldIgnore != nil {
@@ -196,7 +187,7 @@ func (c *Core) forwardToLeader(req *forwardRequest) (err error) {
 
 	// detection base empty or not, fix schema and assemble path to base
 	if base == "" {
-		log.Warn("handlePOST could not be executed with empty RAFT bind address, skip")
+		log.Warn("forwardToLeader could not be executed with empty RAFT bind address, skip")
 		return nil
 	}
 

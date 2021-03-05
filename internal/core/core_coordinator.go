@@ -20,8 +20,7 @@ import (
 var (
 	_ coord.ICoordinator = Core{}
 
-	ErrNotLeader = errors.New("current node is not allow to write, " +
-		"TODO(@yeqown) server proxy request to server")
+	ErrNotLeader = errors.New("current node is not allow to write, should not be triggered normally")
 )
 
 func (c Core) GetContainer(key, ns string) (datatypes.IContainer, error) {
