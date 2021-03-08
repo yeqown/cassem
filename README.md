@@ -23,6 +23,8 @@ config assembler from key-value pairs' container which include basic datatypes, 
 
 ## [Documentation](./docs/README.md)
 
+<img src="./assets/cassem-concepts.png" width="100%"/>
+
 <img src="./assets/cassem-architecture.svg" width="100%"/>
 
 ### - [cassemctl](./cmd/cassemctl/README.md)
