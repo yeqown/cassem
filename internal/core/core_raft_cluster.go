@@ -12,6 +12,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/yeqown/cassem/internal/cache"
+
 	"github.com/hashicorp/raft"
 	raftboltdb "github.com/hashicorp/raft-boltdb"
 	"github.com/pkg/errors"
@@ -133,7 +135,7 @@ func (c *Core) bootstrapRaft() (err error) {
 	config.LocalID = raft.ServerID(c.serverId)
 	config.SnapshotThreshold = 1024
 
-	c.fsm = newFSM(c._containerCache)
+	c.fsm = newFSM(cache.NewNonCache())
 	if c.raft, err = raft.NewRaft(config, c.fsm, boltDB, boltDB, snapshotStore, transport); err != nil {
 		return errors.Wrap(err, "raft.NewRaft failed")
 	}

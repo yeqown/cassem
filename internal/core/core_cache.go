@@ -16,7 +16,7 @@ func (c Core) genContainerCacheKey(ns, key string, format datatypes.ContainerFor
 
 func (c Core) getContainerCache(cacheKey string) (hit bool, data []byte) {
 	var err error
-	data, err = c._containerCache.Get(cacheKey)
+	data, err = c.fsm.get(cacheKey)
 	switch err {
 	case nil:
 		hit = true
@@ -37,7 +37,7 @@ func (c Core) getContainerCache(cacheKey string) (hit bool, data []byte) {
 }
 
 func (c Core) setContainerCache(cacheKey string, data []byte) {
-	ss := c._containerCache.Set(cacheKey, data)
+	ss := c.fsm.set(cacheKey, data)
 	if ss.Error() != nil {
 		log.
 			WithField("cacheKey", cacheKey).
@@ -96,7 +96,7 @@ func (c Core) setContainerCache(cacheKey string, data []byte) {
 }
 
 func (c Core) delContainerCache(cacheKey string) {
-	ss := c._containerCache.Del(cacheKey)
+	ss := c.fsm.del(cacheKey)
 	if ss.Error() != nil {
 		log.
 			WithField("cacheKey", cacheKey).

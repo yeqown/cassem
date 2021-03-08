@@ -6,7 +6,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/yeqown/cassem/internal/cache"
 	"github.com/yeqown/cassem/internal/conf"
 	coord "github.com/yeqown/cassem/internal/coordinator"
 	"github.com/yeqown/cassem/internal/persistence"
@@ -43,8 +42,9 @@ type Core struct {
 	apiGate *api.Gateway
 
 	// _containerCache is a cache component which provides set, delete, get, persist and restore abilities.
-	// TODO(@yeqown): remove this component from core.Core but hold in fsm.
-	_containerCache cache.ICache
+	// DONE(@yeqown): remove this component from core.Core but hold in fsm.
+	// checkout https://github.com/yeqown/cassem/issues/7 for more information.
+	//_containerCache cache.ICache
 
 	// watcher is abstract watcher.IWatcher layer, so trigger and observers could be splitting.
 	// core.Core has no need to care about how to get touch with observers, just produce signal and data.
@@ -101,8 +101,8 @@ func (c *Core) initialize(cfg *conf.Config) (err error) {
 	c.apiGate = api.New(cfg.Server.HTTP, c)
 	log.Info("Core: HTTP server loaded")
 
-	c._containerCache = cache.NewNonCache()
-	log.Info("Core: cache loaded")
+	//c._containerCache = cache.NewNonCache()
+	//log.Info("Core: cache loaded")
 
 	c.watcher = watcher.NewChannelWatcher(64)
 	log.Info("Core: watcher component loaded")
@@ -124,7 +124,7 @@ func (c *Core) initialize(cfg *conf.Config) (err error) {
 // Notice that, tryLeaveCluster maybe failed if cluster could not be maintained while there is only one node in cluster,
 // it could not be removed, it will still be elected as leader. (Situation: count of cluster nodes is less than 2).
 //
-// NOTE: could leader call removeNode by it self?
+// NOTE: could leader call removeNode by it self? (leader could call removeNode only when cluster has more than 1 node)
 func (c *Core) Heartbeat() {
 	tick := time.NewTicker(10 * time.Second)
 	quit := make(chan os.Signal, 1)
@@ -153,15 +153,23 @@ func (c *Core) Heartbeat() {
 		retryLeave:
 			if failedCount <= 0 {
 				// limit maximum failed count
+				log.
+					Warn("failed to quit more than 3 times, just quit.")
+
 				return
 			}
 
 			if c.isLeader() {
-				// FIXME(@yeqown): if there is no more nodes in cluster, just let leader quit.
+				// FIXED(@yeqown): if there is no more nodes in cluster, just let leader quit.
+				if len(c.raft.GetConfiguration().Configuration().Servers) < 2 {
+					return
+				}
+
 				if err := c.RemoveNode(c.serverId); err != nil {
 					log.
 						Errorf("Core.Heartbeat (leader) could not remove from cluster: %v", err)
 				}
+
 				failedCount--
 				time.Sleep(5 * time.Second)
 				goto retryLeave

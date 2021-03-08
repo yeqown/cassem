@@ -27,6 +27,15 @@ type FSMWrapper interface {
 	getLeaderAddr() string
 
 	getExecutionSinceLastSnapshot() int
+
+	// get proxy GET operation to cache.ICache in fsm.
+	get(key string) ([]byte, error)
+
+	// set proxy SET operation to cache.ICache in fsm.
+	set(key string, data []byte) cache.SetResult
+
+	// del proxy DELETE operation to cache.ICache in fsm.
+	del(key string) cache.SetResult
 }
 
 // fsm implement raft.FSM which means the state machine in RAFT consensus algorithm.
@@ -145,4 +154,16 @@ func (f fsm) getExecutionSinceLastSnapshot() int {
 	//	Debug("fsm.getExecutionSinceLastSnapshot called")
 
 	return int(f.executionSinceLastSnapshot)
+}
+
+func (f fsm) get(key string) ([]byte, error) {
+	return f.containerCache.Get(key)
+}
+
+func (f fsm) set(key string, data []byte) cache.SetResult {
+	return f.containerCache.Set(key, data)
+}
+
+func (f fsm) del(key string) cache.SetResult {
+	return f.containerCache.Del(key)
 }
