@@ -10,8 +10,9 @@ func (srv *Server) mountRaftClusterInternalAPI() {
 }
 
 func (srv *Server) mountAPI() {
-	// TODO(@yeqown) authorize middleware is needed.
-	g := srv.engi.Group("/api", authorize())
+	// DONE(@yeqown) authorize middleware is needed.
+	gPub := srv.engi.Group("/api")
+	g := srv.engi.Group("/api", authorize(srv.auth))
 
 	ns := g.Group("/namespaces")
 	{
@@ -35,5 +36,19 @@ func (srv *Server) mountAPI() {
 		pair.POST("/:key", srv.UpsertPair)
 		pair.GET("/:key", srv.GetPair)
 		//pair.DELETE("/:key", nil)
+	}
+
+	gPub.POST("/login", srv.Login)
+	user := g.Group("/users")
+	{
+		user.GET("", srv.PagingUsers)
+		user.POST("/new", srv.CreateUser)
+		user.POST("/reset-password", srv.ResetPassword)
+	}
+
+	policy := user.Group("/:userid/policies")
+	{
+		policy.GET("", srv.GetUserPolicies)
+		policy.PUT("/policy", srv.UpdateUserPolicies)
 	}
 }

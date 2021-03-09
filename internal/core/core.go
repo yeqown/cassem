@@ -6,6 +6,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/yeqown/cassem/internal/authorizer"
 	"github.com/yeqown/cassem/internal/conf"
 	coord "github.com/yeqown/cassem/internal/coordinator"
 	"github.com/yeqown/cassem/internal/persistence"
@@ -98,7 +99,12 @@ func (c *Core) initialize(cfg *conf.Config) (err error) {
 	}
 	log.Info("Core: persistence component loaded")
 
-	c.apiGate = api.New(cfg.Server.HTTP, c)
+	_auth, err := authorizer.New(cfg.Persistence.Mysql.DSN)
+	if err != nil {
+		return errors.Wrapf(err, "Core.initialize failed to load authorizer: %v", err)
+	}
+
+	c.apiGate = api.New(cfg.Server.HTTP, c, _auth)
 	log.Info("Core: HTTP server loaded")
 
 	//c._containerCache = cache.NewNonCache()

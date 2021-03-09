@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/yeqown/cassem/internal/authorizer"
 	coord "github.com/yeqown/cassem/internal/coordinator"
 	apihtp "github.com/yeqown/cassem/internal/server/api/http"
 	"github.com/yeqown/cassem/internal/server/api/notifier-grpc"
@@ -33,8 +34,8 @@ type Gateway struct {
 	notifyServer *grpc.Server
 }
 
-func New(cfg *apihtp.Config, coordinator coord.ICoordinator) *Gateway {
-	api := apihtp.New(cfg, coordinator)
+func New(cfg *apihtp.Config, coordinator coord.ICoordinator, auth authorizer.IAuthorizer) *Gateway {
+	api := apihtp.New(cfg, coordinator, auth)
 	notifyServer := notifier.New()
 
 	return &Gateway{

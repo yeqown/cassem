@@ -4,18 +4,32 @@ This document describes all Restful APIs in `cassem`.
 
 ### Contents
 
+[API Token](#API-Token)
+
 [Response convention](#Response-convention)
 
 [Error Code convention](#Error-Code-convention)
  
 [1. Namespace](#1-Namespace)
 
-[2. Namespace](#2-Containers)
+[2. Containers](#2-Containers)
 
-[3. Namespace](#3-Pairs)
+[3. Pairs](#3-Pairs)
 
-[4. Datatypes](#4-Datatypes)
+[4. User And Policy](#4-User-And-Policy)
 
+[Datatypes](#Datatypes)
+
+[Objects](#Objects)
+
+[Actions](#Actions)
+
+### API Token
+
+Almost all API works with permission checking, That means you should provide the token to 
+identify you are allowed to request, please checkout the [LOGIN](#4-1-login) section.
+
+If API is marked with `NEED TOKEN`, you should take token in your request as HEADER name it as `Token`.
 
 ### Response convention
 
@@ -54,6 +68,8 @@ errcode     |description
 
 #### 1-1 create namespace
 
+> NEED TOKEN
+
 create a namespace in cassemd.
 
 Path: `POST /api/namespaces/:{ns}`
@@ -75,6 +91,8 @@ Response:
 
 
 #### 1-2 paging namespaces
+
+> NEED TOKEN
 
 paging namespaces.
 
@@ -103,6 +121,8 @@ Response:
 ### 2 Containers
 
 #### 2-1 paging containers
+
+> NEED TOKEN
 
 paging containers in cassemd.
 
@@ -187,6 +207,8 @@ Response:
 
 #### 2-2 get container
 
+> NEED TOKEN
+
 get container in detail.
 
 Path: `GET /api/namespaces/:{ns}/containers/{container}`
@@ -268,6 +290,8 @@ Response:
 
 #### 2-3 create namespace
 
+> NEED TOKEN
+
 create a namespace in cassemd.
 
 Path: `POST /api/namespaces/:{ns}/containers/:{container}`
@@ -322,6 +346,8 @@ Response:
 
 #### 2-4 remove container
 
+> NEED TOKEN
+
 remove container from cassemd.
 
 Path: `DELETE /api/namespaces/:{ns}/containers/:{container}`
@@ -345,6 +371,8 @@ Response:
 ### 3 Pairs
 
 #### 3-1 paging pair 
+
+> NEED TOKEN
 
 paging pairs in cassemd.
 
@@ -415,6 +443,8 @@ Response:
 
 #### 3-2 get pair
 
+> NEED TOKEN
+
 get pair in detail.
 
 Path: `GET /api/namespaces/:{ns}/pairs/:{pair}`
@@ -447,6 +477,8 @@ Response:
 
 
 #### 3-3 create/update pair
+
+> NEED TOKEN
 
 get pair in detail.
 
@@ -504,7 +536,171 @@ Response:
 }
 ```
 
-### 4 Datatypes 
+
+### 4 User And Policy
+
+#### 4-1 Login
+
+login system, then you'll get `token` in `response.data`. please send it in your subsequent request as HEADER,
+`Token: TOKEN_IN_LOGIN_RESPONSE`
+
+Path: `POST /api/login`
+
+Parameters:
+
+field    |type       |description                   | position
+---------|-----------|------------------------------|----
+account  |string     |account                       | BODY
+password |string     |password                      | BODY
+
+Response:
+
+```json
+{
+  "errcode": 0,
+  "errmsg": "success",
+  "data": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdXRob3JpemVkIjp0cnVlLCJ1c2VyX2lkIjoxfQ.V-mKEshD1pyxNF7o0PajkSQF2PJ5XACQOTBGM6E1C2U"
+}
+```
+
+
+#### 4-2 Create account
+
+> NEED TOKEN
+
+create a user.
+
+Path: `POST /api/users/new`
+
+Parameters:
+
+field    |type       |description                   | position
+---------|-----------|------------------------------|----
+account  |string     |account                       | BODY
+password |string     |password                      | BODY
+name     |string     |name                          | BODY
+
+Response:
+
+```json
+{
+  "errcode": 0,
+  "errmsg": "success"
+}
+```
+
+
+#### 4-3 Paging users
+
+> NEED TOKEN
+
+create a user.
+
+Path: `GET /api/users`
+
+Parameters:
+
+field    |type       |description                   | position
+---------|-----------|------------------------------|----
+account  |string     |account pattern               | QUERY
+limit    |int        |limit,default: 10             | QUERY
+offset   |int        |offset,default: 0             | QUERY
+
+Response:
+
+```json
+{
+  "errcode": 0,
+  "errmsg": "success",
+  "data": {
+    "users": [
+      {
+        "userId": 3,
+        "account": "yeqown@gmail.com",
+        "name": "root-2",
+        "createdAt": 1615280741
+      },
+      {
+        "userId": 1,
+        "account": "root",
+        "name": "cassem",
+        "createdAt": 1615272377
+      }
+    ],
+    "total": 2
+  }
+}
+```
+
+
+#### 4-4 List user's policy
+
+> NEED TOKEN
+
+create a user.
+
+Path: `GET /api/users/:userid/policies`
+
+Parameters:
+
+field    |type       |description                   | position
+---------|-----------|------------------------------|----
+userid   |string     |userid                        | PATH
+
+Response:
+
+```json
+{
+  "errcode": 0,
+  "errmsg": "success",
+  "data": [
+    {
+      "object": "namespace",
+      "action": "any",
+      "subject": "uid:3"
+    }
+  ]
+}
+```
+
+
+#### 4-5 Update user's policy
+
+> NEED TOKEN
+
+create a user.
+
+Path: `POST /api/users/:userid/policies/policy`
+
+Parameters:
+
+field    |type       |description                   | position
+---------|-----------|------------------------------|----
+payload  |JSON       |request payload               | BODY
+
+Payload: 
+
+```json
+{
+  "metas": [
+    {
+      "object": "namespace",
+      "action": "any"
+    }
+  ]
+}
+```
+
+Response:
+
+```json
+{
+  "errcode": 0,
+  "errmsg": "success"
+}
+```
+
+### Datatypes 
 
 datatype enum|description
 -------------|-----------
@@ -514,3 +710,23 @@ datatype enum|description
 4            |bool
 5            |list
 6            |dict
+
+
+### Objects
+
+value        |description
+-------------|-----------
+namespace    |namespace object resources
+container    |container object resources
+pair         |pair object resources
+user         |user object resources
+policy       |policy object resources
+any          |all object resources (all above objects)
+
+### Actions
+
+value        |description
+-------------|-----------
+read         |read action
+write        |write action
+any          |any action (read and write)

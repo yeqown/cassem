@@ -1,6 +1,9 @@
 package persistence
 
-import "github.com/yeqown/cassem/pkg/datatypes"
+import (
+	"github.com/yeqown/cassem/pkg/datatypes"
+	"gorm.io/gorm"
+)
 
 // Repository is a proxy who helps convert data between logic and persistence.Not only all parameters of Repository
 // are logic datatype, but also all return values.
@@ -58,4 +61,32 @@ type PagingNamespacesFilter struct {
 	Limit            int
 	Offset           int
 	NamespacePattern string
+}
+
+type UserRepository interface {
+	Create(u *UserDO) error
+
+	ResetPassword(account, passwordWithSalt string) error
+
+	QueryUser(account string) (*UserDO, error)
+
+	PagingUsers(filter *PagingUsersFilter) ([]*UserDO, int, error)
+}
+
+type PagingUsersFilter struct {
+	Limit          int
+	Offset         int
+	AccountPattern string
+}
+
+type UserDO struct {
+	gorm.Model
+
+	Account          string `gorm:"column:account;type:varchar(32);uniqueIndex:idx_unique_account"`
+	PasswordWithSalt string `gorm:"column:password;type:varchar(64)"`
+	Name             string `gorm:"column:name;type:varchar(16)"`
+}
+
+func (m UserDO) TableName() string {
+	return "cassem_user"
 }

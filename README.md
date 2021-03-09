@@ -14,7 +14,7 @@ config assembler from key-value pairs' container which include basic datatypes, 
 - [x] Master / Slave architecture support based raft (only write on master).
   - [x] Master / Slave architecture and only allow to write on master.
   - [x] Slave need to forward request to master.
-- [ ] RESTful API permission control.
+- [x] RESTful API permission control.
 - [x] `Changes` watching and notifying.
   - [x] Watcher component.
   - [x] Watcher Server.

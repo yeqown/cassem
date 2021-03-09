@@ -5,6 +5,9 @@ import (
 	"encoding/json"
 	"testing"
 
+	mysqld "gorm.io/driver/mysql"
+	"gorm.io/gorm"
+
 	"github.com/yeqown/cassem/internal/persistence"
 	"github.com/yeqown/cassem/internal/persistence/mysql"
 	"github.com/yeqown/cassem/pkg/datatypes"
@@ -15,7 +18,8 @@ import (
 type testRepositorySuite struct {
 	suite.Suite
 
-	repo persistence.Repository
+	repo     persistence.Repository
+	userRepo persistence.UserRepository
 }
 
 func (s testRepositorySuite) TearDownSuite() {
@@ -184,6 +188,16 @@ func (s testRepositorySuite) compareContainer(c1, c2 datatypes.IContainer) (bool
 	return ok, nil
 }
 
+func (s testRepositorySuite) Test_UserRepository() {
+	err := s.userRepo.Create(&persistence.UserDO{
+		Account: "root",
+		// 123456
+		PasswordWithSalt: "92f9ce613443bfa68e8d511ed579d0e29fe69778de19ab4dda10a35360940882",
+		Name:             "cassem",
+	})
+	s.Nil(err)
+}
+
 func Test_Repo_mysql(t *testing.T) {
 	cfg := mysql.ConnectConfig{
 		DSN:         "root:@tcp(127.0.0.1:3306)/cassem?charset=utf8mb4&parseTime=true&loc=Local",
@@ -198,17 +212,25 @@ func Test_Repo_mysql(t *testing.T) {
 		t.Fatalf("Test_Repo_mysql failed to open DB")
 	}
 
-	//if err = repo.(*mysqlRepo).db.AutoMigrate(
-	//	mysql.PairDO{},
+	db, err := gorm.Open(mysqld.Open(cfg.DSN), nil)
+	if err != nil {
+		t.Fatalf("Test_Repo_mysql failed to open DB")
+	}
+	userRepo := mysql.NewUserRepository(db)
+
+	//if err = db.AutoMigrate(
+	//	mysql.PairDO{},w
 	//	mysql.NamespaceDO{},
 	//	mysql.ContainerDO{},
 	//	mysql.FieldDO{},
+	//	persistence.UserDO{},
 	//); err != nil {
 	//	t.Fatalf("Test_Repo_mysql failed to AutoMigrate mysql DB: %v", err)
 	//}
 
 	s := testRepositorySuite{
-		repo: repo,
+		repo:     repo,
+		userRepo: userRepo,
 	}
 
 	suite.Run(t, &s)
