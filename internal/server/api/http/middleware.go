@@ -79,7 +79,7 @@ var (
 			action: authorizer.ACTION_READ,
 			object: authorizer.OBJ_POLICY,
 		},
-		"/api/users/:userid/policies/policy#POST": {
+		"/api/users/:userid/policies/policy#PUT": {
 			action: authorizer.ACTION_WRITE,
 			object: authorizer.OBJ_POLICY,
 		},

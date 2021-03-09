@@ -73,7 +73,7 @@ type Token struct {
 }
 
 func (t Token) Subject() string {
-	return "uid" + strconv.Itoa(t.UserId)
+	return "uid:" + strconv.Itoa(t.UserId)
 }
 
 // IAuthorizeManager manages user, roles.

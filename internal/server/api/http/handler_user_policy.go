@@ -1,6 +1,8 @@
 package http
 
 import (
+	"strconv"
+
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
 	"github.com/yeqown/cassem/internal/authorizer"
@@ -93,17 +95,25 @@ func toPolicyVO(p authorizer.Policy) policyVO {
 }
 
 func (srv Server) GetUserPolicies(c *gin.Context) {
-	v, ok := c.Get(_authorizationKey)
-	if !ok {
+	s := c.Params.ByName("userid")
+	uid, err := strconv.Atoi(s)
+	if err != nil {
 		responseError(c, errors.New("invalid token: not set"))
 		return
 	}
+	token := authorizer.Token{UserId: uid}
 
-	token, ok := v.(*authorizer.Token)
-	if !ok || token == nil {
-		responseError(c, errors.New("invalid token: empty or invalid type"))
-		return
-	}
+	//v, ok := c.Get(_authorizationKey)
+	//if !ok {
+	//	responseError(c, errors.New("invalid token: not set"))
+	//	return
+	//}
+	//
+	//token, ok := v.(*authorizer.Token)
+	//if !ok || token == nil {
+	//	responseError(c, errors.New("invalid token: empty or invalid type"))
+	//	return
+	//}
 
 	out := srv.auth.ListSubjectPolicies(token.Subject())
 	policies := make([]policyVO, 0, len(out))
@@ -132,27 +142,22 @@ func (req updateUserPoliciesReq) policies(subject string) []authorizer.Policy {
 }
 
 func (srv Server) UpdateUserPolicies(c *gin.Context) {
-	v, ok := c.Get(_authorizationKey)
-	if !ok {
-		responseError(c, errors.New("invalid token: not set"))
+	s := c.Params.ByName("userid")
+	uid, err := strconv.Atoi(s)
+	if err != nil {
+		responseError(c, errors.Wrap(err, "invalid uid"))
 		return
 	}
-
-	token, ok := v.(*authorizer.Token)
-	if !ok || token == nil {
-		responseError(c, errors.New("invalid token: empty or invalid type"))
-		return
-	}
+	token := authorizer.Token{UserId: uid}
 
 	req := new(updateUserPoliciesReq)
-	if err := c.ShouldBind(req); err != nil {
+	if err = c.ShouldBind(req); err != nil {
 		responseError(c, err)
 		return
 	}
 
 	subject := token.Subject()
-	err := srv.auth.UpdateSubjectPolicies(subject, req.policies(subject))
-	if err != nil {
+	if err = srv.auth.UpdateSubjectPolicies(subject, req.policies(subject)); err != nil {
 		responseError(c, err)
 		return
 	}

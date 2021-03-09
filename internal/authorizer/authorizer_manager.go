@@ -15,6 +15,7 @@ var (
 	_SECRET_ = []byte("cassem")
 )
 
+// TODO(@yeqown): any default permissions to a new user?
 func (c casbinAuthorities) AddUser(account, password, name string) error {
 	return c.userRepo.Create(&persistence.UserDO{
 		Account:          account,

@@ -43,12 +43,12 @@ func (srv *Server) mountAPI() {
 	{
 		user.GET("", srv.PagingUsers)
 		user.POST("/new", srv.CreateUser)
-		user.PUT("/reset-password", srv.ResetPassword)
+		user.POST("/reset-password", srv.ResetPassword)
 	}
 
-	userPolicy := user.Group("/:userid/policies")
+	policy := user.Group("/:userid/policies")
 	{
-		userPolicy.GET("", srv.GetUserPolicies)
-		userPolicy.POST("/policy", srv.UpdateUserPolicies)
+		policy.GET("", srv.GetUserPolicies)
+		policy.PUT("/policy", srv.UpdateUserPolicies)
 	}
 }
