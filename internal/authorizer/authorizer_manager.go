@@ -94,3 +94,11 @@ func parseToken(tokenString string) (int, error) {
 func (c casbinAuthorities) ResetPassword(account, password string) error {
 	return c.userRepo.ResetPassword(account, hash.WithSalt(password, "cassem"))
 }
+
+func (c casbinAuthorities) PagingUsers(limit, offset int, accountPattern string) ([]*persistence.UserDO, int, error) {
+	return c.userRepo.PagingUsers(&persistence.PagingUsersFilter{
+		Limit:          limit,
+		Offset:         offset,
+		AccountPattern: accountPattern,
+	})
+}

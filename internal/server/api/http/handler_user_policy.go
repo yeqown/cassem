@@ -3,9 +3,11 @@ package http
 import (
 	"strconv"
 
+	"github.com/yeqown/cassem/internal/authorizer"
+	"github.com/yeqown/cassem/internal/persistence"
+
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
-	"github.com/yeqown/cassem/internal/authorizer"
 )
 
 type loginReq struct {
@@ -53,9 +55,55 @@ func (srv Server) CreateUser(c *gin.Context) {
 	responseJSON(c, nil)
 }
 
+type pagingUsersRequest struct {
+	Limit          int    `form:"limit,default=100"`
+	Offset         int    `form:"offset,default=0"`
+	AccountPattern string `form:"account"`
+}
+
+type userVO struct {
+	UserId    uint   `json:"userId"`
+	Account   string `json:"account"`
+	Name      string `json:"name"`
+	CreatedAt int64  `json:"createdAt"`
+}
+
+func toUserVO(u *persistence.UserDO) userVO {
+	return userVO{
+		UserId:    u.ID,
+		Account:   u.Account,
+		Name:      u.Name,
+		CreatedAt: u.CreatedAt.Unix(),
+	}
+}
+
+type pagingUsersResp struct {
+	Users []userVO `json:"users"`
+	Total int      `json:"total"`
+}
+
 func (srv Server) PagingUsers(c *gin.Context) {
-	// TODO(@yeqown): fill paging logic
-	panic("implement me")
+	req := new(pagingUsersRequest)
+
+	if err := c.ShouldBind(req); err != nil {
+		responseError(c, err)
+		return
+	}
+
+	out, count, err := srv.auth.PagingUsers(req.Limit, req.Offset, req.AccountPattern)
+	if err != nil {
+		responseError(c, err)
+		return
+	}
+
+	r := new(pagingUsersResp)
+	r.Total = count
+	r.Users = make([]userVO, 0, len(out))
+	for _, u := range out {
+		r.Users = append(r.Users, toUserVO(u))
+	}
+
+	responseJSON(c, r)
 }
 
 type resetPasswordReq struct {
@@ -81,8 +129,8 @@ func (srv Server) ResetPassword(c *gin.Context) {
 }
 
 type policyVO struct {
-	Object  string `json:"object" binding:"required,oneof=namespace container pair user"`
-	Action  string `json:"action" binding:"required, oneof=read write any"`
+	Object  string `json:"object" binding:"required,oneof=namespace container pair user policy"`
+	Action  string `json:"action" binding:"required,oneof=read write any"`
 	Subject string `json:"subject"`
 }
 

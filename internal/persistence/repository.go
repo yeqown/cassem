@@ -69,6 +69,14 @@ type UserRepository interface {
 	ResetPassword(account, passwordWithSalt string) error
 
 	QueryUser(account string) (*UserDO, error)
+
+	PagingUsers(filter *PagingUsersFilter) ([]*UserDO, int, error)
+}
+
+type PagingUsersFilter struct {
+	Limit          int
+	Offset         int
+	AccountPattern string
 }
 
 type UserDO struct {

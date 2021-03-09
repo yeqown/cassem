@@ -3,6 +3,8 @@ package authorizer
 import (
 	"strconv"
 
+	"github.com/yeqown/cassem/internal/persistence"
+
 	"github.com/pkg/errors"
 )
 
@@ -87,4 +89,5 @@ type IAuthorizeManager interface {
 	Login(account, password string) (string, error)
 	Session(tokenString string) (*Token, error)
 	ResetPassword(account, password string) error
+	PagingUsers(limit, offset int, accountPattern string) ([]*persistence.UserDO, int, error)
 }
