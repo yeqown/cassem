@@ -1,8 +1,7 @@
 package authorizer
 
 import (
-	"time"
-
+	"github.com/yeqown/cassem/internal/conf"
 	"github.com/yeqown/cassem/internal/persistence"
 	"github.com/yeqown/cassem/internal/persistence/mysql"
 
@@ -11,8 +10,6 @@ import (
 	gormadapter "github.com/casbin/gorm-adapter/v3"
 	"github.com/pkg/errors"
 	"github.com/yeqown/log"
-	mysqld "gorm.io/driver/mysql"
-	"gorm.io/gorm"
 )
 
 var _MODEL = `
@@ -35,20 +32,11 @@ type casbinAuthorities struct {
 	userRepo    persistence.UserRepository
 }
 
-func New(dsn string) (auth IAuthorizer, err error) {
-	db, err := gorm.Open(mysqld.Open(dsn), nil)
+func New(c *conf.MySQL) (auth IAuthorizer, err error) {
+	db, err := mysql.Connect(c)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "authorizer.New could not connect to DB")
 	}
-
-	sqlDB, err := db.DB()
-	if err != nil {
-		return nil, errors.Wrap(err, "invalid sql.DB")
-	}
-
-	sqlDB.SetMaxIdleConns(10)
-	sqlDB.SetMaxOpenConns(100)
-	sqlDB.SetConnMaxLifetime(39 * time.Second)
 
 	// adapter
 	a, err := gormadapter.NewAdapterByDBUseTableName(db, "cassem", "permission_policy")
@@ -106,20 +94,17 @@ func New(dsn string) (auth IAuthorizer, err error) {
 	return
 }
 
+// Migrate ...
+// DONE(@yeqown): migrate to init data, only be called cassemctl.
 func (c casbinAuthorities) Migrate() error {
-	// c.aclEnforcer.Add
-	// c.aclEnforcer.AddPolicy()
+	if err := c.userRepo.Migrate(); err != nil {
+		return errors.Wrap(err, "failed to migrate user table")
+	}
 
-	//hasPolicy := c.aclEnforcer.HasPolicy("alice", "data1", "w")
-	//fmt.Println(hasPolicy)
-	//
-	//allSubjects := c.aclEnforcer.GetAllSubjects()
-	//fmt.Println(allSubjects)
-	//
-	//allActions := c.aclEnforcer.GetAllActions()
-	//fmt.Println(allActions)
-
-	// TODO(@yeqown): migrate to init data, only be called cassemctl.
+	// TODO(@yeqown) add root account automatically, and add all permissions to root account.
+	//if err := c.aclEnforcer.Migrate(); err != nil {
+	//	return errors.Wrap(err, "failed to migrate ACL tables")
+	//}
 
 	return nil
 }

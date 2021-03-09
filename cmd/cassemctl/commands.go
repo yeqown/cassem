@@ -1,10 +1,12 @@
 package main
 
 import (
+	"github.com/yeqown/cassem/internal/authorizer"
 	"github.com/yeqown/cassem/internal/conf"
 	"github.com/yeqown/cassem/internal/persistence/mysql"
 
 	"github.com/urfave/cli/v2"
+	"github.com/yeqown/log"
 )
 
 func getInitCommand() *cli.Command {
@@ -21,8 +23,37 @@ func getInitCommand() *cli.Command {
 			if err != nil {
 				return err
 			}
+			if err = repo.Migrate(); err != nil {
+				log.Warn("failed to migrate repo persistence, try again")
+			}
 
-			return repo.Migrate()
+			auth, err := authorizer.New(cfg.Persistence.Mysql)
+			if err != nil {
+				return err
+			}
+			if err = auth.Migrate(); err != nil {
+				log.Warn("failed to migrate auth, try again")
+			}
+
+			return nil
 		},
 	}
+}
+
+func getGenConfCommand() *cli.Command {
+	return &cli.Command{}
+}
+
+func getResourceCtlCommands() *cli.Command {
+	return &cli.Command{
+		Subcommands: func() cli.Commands {
+			return cli.Commands{
+				addUserCommand(),
+			}
+		}(),
+	}
+}
+
+func addUserCommand() *cli.Command {
+	return &cli.Command{}
 }

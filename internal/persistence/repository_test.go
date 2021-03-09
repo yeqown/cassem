@@ -8,6 +8,7 @@ import (
 	mysqld "gorm.io/driver/mysql"
 	"gorm.io/gorm"
 
+	"github.com/yeqown/cassem/internal/conf"
 	"github.com/yeqown/cassem/internal/persistence"
 	"github.com/yeqown/cassem/internal/persistence/mysql"
 	"github.com/yeqown/cassem/pkg/datatypes"
@@ -199,7 +200,7 @@ func (s testRepositorySuite) Test_UserRepository() {
 }
 
 func Test_Repo_mysql(t *testing.T) {
-	cfg := mysql.ConnectConfig{
+	cfg := conf.MySQL{
 		DSN:         "root:@tcp(127.0.0.1:3306)/cassem?charset=utf8mb4&parseTime=true&loc=Local",
 		MaxIdle:     10,
 		MaxOpen:     100,

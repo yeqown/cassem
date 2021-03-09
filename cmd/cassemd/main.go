@@ -21,8 +21,8 @@ func main() {
 			Email: "yeqown@gmail.com",
 		},
 	}
-	app.Version = "v1.6.4"
-	app.Description = `The server of cassem.`
+	app.Version = "v1.0.0"
+	app.Description = `The daemon process of cassem.`
 	app.Flags = _cliGlobalFlags
 	app.Action = start
 

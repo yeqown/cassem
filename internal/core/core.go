@@ -99,7 +99,7 @@ func (c *Core) initialize(cfg *conf.Config) (err error) {
 	}
 	log.Info("Core: persistence component loaded")
 
-	_auth, err := authorizer.New(cfg.Persistence.Mysql.DSN)
+	_auth, err := authorizer.New(cfg.Persistence.Mysql)
 	if err != nil {
 		return errors.Wrapf(err, "Core.initialize failed to load authorizer: %v", err)
 	}

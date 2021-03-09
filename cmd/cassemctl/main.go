@@ -18,7 +18,7 @@ func main() {
 			Email: "yeqown@gmail.com",
 		},
 	}
-	app.Version = "v1.6.4"
+	app.Version = "v1.0.0"
 	app.Description = `A tool for managing cassem`
 	app.Flags = _cliGlobalFlags
 
@@ -32,6 +32,9 @@ func main() {
 func mountCommands(app *cli.App) {
 	app.Commands = []*cli.Command{
 		getInitCommand(),
+		getGenConfCommand(),
+		getResourceCtlCommands(),
+		//getClusterDashCommand(),
 	}
 }
 

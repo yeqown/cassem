@@ -4,9 +4,6 @@ import (
 	"io"
 	"os"
 
-	"github.com/yeqown/cassem/internal/persistence/mysql"
-	apihtp "github.com/yeqown/cassem/internal/server/api/http"
-
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
 )
@@ -18,16 +15,29 @@ type Raft struct {
 	ServerId         string   `toml:"serverId"`
 }
 
+type HTTP struct {
+	Addr  string `toml:"addr"`
+	Debug bool
+}
+
+type MySQL struct {
+	DSN         string `toml:"dsn"`
+	MaxIdle     int    `toml:"max_idle"`
+	MaxOpen     int    `toml:"max_open"`
+	MaxLifeTime int    `toml:"max_life_time"`
+	Debug       bool
+}
+
 type Config struct {
 	Debug bool `toml:"debug"`
 
 	Persistence struct {
-		Mysql *mysql.ConnectConfig `toml:"mysql"`
+		Mysql *MySQL `toml:"mysql"`
 	} `toml:"persistence"`
 
 	Server struct {
-		HTTP *apihtp.Config `toml:"http"`
-		Raft *Raft          `toml:"raft"`
+		HTTP *HTTP `toml:"http"`
+		Raft *Raft `toml:"raft"`
 	} `toml:"server"`
 }
 
@@ -42,8 +52,8 @@ func Load(path string) (*Config, error) {
 	}
 
 	c := new(Config)
-	c.Persistence.Mysql = new(mysql.ConnectConfig)
-	c.Server.HTTP = new(apihtp.Config)
+	c.Persistence.Mysql = new(MySQL)
+	c.Server.HTTP = new(HTTP)
 	c.Server.Raft = new(Raft)
 
 	r, err := openFile(path)
@@ -53,6 +63,10 @@ func Load(path string) (*Config, error) {
 	if err = toml.NewDecoder(r).Decode(c); err != nil {
 		return nil, errors.Wrap(err, "decode TOML file failed")
 	}
+
+	// keep debug mode consistent
+	c.Server.HTTP.Debug = c.Debug
+	c.Persistence.Mysql.Debug = c.Debug
 
 	return c, nil
 }
