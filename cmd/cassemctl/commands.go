@@ -41,7 +41,14 @@ func getInitCommand() *cli.Command {
 }
 
 func getGenConfCommand() *cli.Command {
-	return &cli.Command{}
+	return &cli.Command{
+		Name:  "genconf",
+		Usage: "genconf",
+		Action: func(ctx *cli.Context) error {
+			// save default conf into current directory.
+			return conf.GenDefaultConfigFile(ctx.String("conf"))
+		},
+	}
 }
 
 func getResourceCtlCommands() *cli.Command {
