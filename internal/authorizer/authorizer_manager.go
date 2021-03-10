@@ -24,18 +24,19 @@ func (c casbinAuthorities) AddUser(account, password, name string) error {
 	})
 }
 
-func (c casbinAuthorities) Login(account, password string) (string, error) {
+func (c casbinAuthorities) Login(account, password string) (*persistence.UserDO, string, error) {
 	u, err := c.userRepo.QueryUser(account)
 	if err != nil {
-		return "", err
+		return nil, "", err
 	}
 
 	if u.PasswordWithSalt != hash.WithSalt(password, "cassem") {
-		return "", errors.New("account and password could not match")
+		return nil, "", errors.New("account and password could not match")
 	}
 
 	// DONE(@yeqown): generate jwt token
-	return genToken(u)
+	token, err := genToken(u)
+	return u, token, err
 }
 
 func (c casbinAuthorities) Session(tokenString string) (*Token, error) {

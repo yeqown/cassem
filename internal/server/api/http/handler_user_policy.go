@@ -15,6 +15,11 @@ type loginReq struct {
 	Password string `json:"password" binding:"required"`
 }
 
+type loginResp struct {
+	Token string `json:"token"`
+	User  userVO `json:"user"`
+}
+
 func (srv Server) Login(c *gin.Context) {
 	req := new(loginReq)
 
@@ -23,13 +28,16 @@ func (srv Server) Login(c *gin.Context) {
 		return
 	}
 
-	token, err := srv.auth.Login(req.Account, req.Password)
+	u, token, err := srv.auth.Login(req.Account, req.Password)
 	if err != nil {
 		responseError(c, err)
 		return
 	}
+	r := new(loginResp)
+	r.Token = token
+	r.User = toUserVO(u)
 
-	responseJSON(c, token)
+	responseJSON(c, r)
 }
 
 type createUserReq struct {

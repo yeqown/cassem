@@ -88,7 +88,7 @@ type IAuthorizeManager interface {
 
 	// user and session manage API
 	AddUser(account, password, name string) error
-	Login(account, password string) (string, error)
+	Login(account, password string) (*persistence.UserDO, string, error)
 	Session(tokenString string) (*Token, error)
 	ResetPassword(account, password string) error
 	PagingUsers(limit, offset int, accountPattern string) ([]*persistence.UserDO, int, error)

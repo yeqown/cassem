@@ -559,7 +559,15 @@ Response:
 {
   "errcode": 0,
   "errmsg": "success",
-  "data": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdXRob3JpemVkIjp0cnVlLCJ1c2VyX2lkIjoxfQ.V-mKEshD1pyxNF7o0PajkSQF2PJ5XACQOTBGM6E1C2U"
+  "data": {
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdXRob3JpemVkIjp0cnVlLCJ1c2VyX2lkIjozfQ.On4k_CZNgNZTPQIVSAkTagJQpJ6v8WLDIovOKXlhq2c",
+    "user": {
+      "userId": 3,
+      "account": "yeqown@gmail.com",
+      "name": "root-2",
+      "createdAt": 1615280741
+    }
+  }
 }
 ```
 
