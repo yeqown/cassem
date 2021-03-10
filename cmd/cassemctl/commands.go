@@ -1,25 +1,34 @@
 package main
 
 import (
-	"github.com/yeqown/cassem/internal/authorizer"
 	"github.com/yeqown/cassem/internal/conf"
+	"github.com/yeqown/cassem/internal/persistence"
 	"github.com/yeqown/cassem/internal/persistence/mysql"
 
 	"github.com/urfave/cli/v2"
 	"github.com/yeqown/log"
 )
 
+func getRepository(ctx *cli.Context) (persistence.Repository, error) {
+	c, err := getConfig(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	repo, err := mysql.New(c.Persistence.Mysql)
+	if err != nil {
+		return nil, err
+	}
+
+	return repo, nil
+}
+
 func getInitCommand() *cli.Command {
 	return &cli.Command{
 		Name:  "init",
 		Usage: "init",
 		Action: func(ctx *cli.Context) error {
-			cfg, err := conf.Load(ctx.String("conf"))
-			if err != nil {
-				return err
-			}
-
-			repo, err := mysql.New(cfg.Persistence.Mysql)
+			repo, err := getRepository(ctx)
 			if err != nil {
 				return err
 			}
@@ -27,7 +36,7 @@ func getInitCommand() *cli.Command {
 				log.Warn("failed to migrate repo persistence, try again")
 			}
 
-			auth, err := authorizer.New(cfg.Persistence.Mysql)
+			auth, err := getAuthorizer(ctx)
 			if err != nil {
 				return err
 			}
@@ -53,14 +62,14 @@ func getGenConfCommand() *cli.Command {
 
 func getResourceCtlCommands() *cli.Command {
 	return &cli.Command{
+		Name:  "resource",
+		Usage: "resource",
 		Subcommands: func() cli.Commands {
 			return cli.Commands{
 				addUserCommand(),
+				resetUserPasswordCommand(),
+				//listUserPolicyCommand(),
 			}
 		}(),
 	}
-}
-
-func addUserCommand() *cli.Command {
-	return &cli.Command{}
 }

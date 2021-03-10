@@ -2,6 +2,9 @@ package main
 
 import (
 	"os"
+	"sync"
+
+	"github.com/yeqown/cassem/internal/conf"
 
 	"github.com/urfave/cli/v2"
 	"github.com/yeqown/log"
@@ -47,4 +50,21 @@ var _cliGlobalFlags = []cli.Flag{
 		Usage:       "choose which `path/to/file` to load",
 		Required:    false,
 	},
+}
+
+var (
+	// _config DO NOT use this directly !!! should only access it by getConfig.
+	_config *conf.Config
+	_err    error
+
+	_once sync.Once
+)
+
+// getConfig will be called multiple times but only execute once.
+func getConfig(ctx *cli.Context) (*conf.Config, error) {
+	_once.Do(func() {
+		_config, _err = conf.Load(ctx.String("conf"))
+	})
+
+	return _config, _err
 }
