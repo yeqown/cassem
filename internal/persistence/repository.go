@@ -71,6 +71,8 @@ type UserRepository interface {
 	QueryUser(account string) (*UserDO, error)
 
 	PagingUsers(filter *PagingUsersFilter) ([]*UserDO, int, error)
+
+	Migrate() error
 }
 
 type PagingUsersFilter struct {

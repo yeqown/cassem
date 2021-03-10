@@ -80,6 +80,8 @@ func (t Token) Subject() string {
 
 // IAuthorizeManager manages user, roles.
 type IAuthorizeManager interface {
+	Migrate() error
+
 	// user permissions manage API
 	ListSubjectPolicies(subject string) []Policy
 	UpdateSubjectPolicies(subject string, policies []Policy) error

@@ -4,14 +4,22 @@ import (
 	"testing"
 
 	"github.com/yeqown/cassem/internal/authorizer"
+	"github.com/yeqown/cassem/internal/conf"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
+var _conf = &conf.MySQL{
+	DSN:         "root:@tcp(127.0.0.1:3306)/cassem?charset=utf8mb4&parseTime=true&loc=Local",
+	MaxIdle:     10,
+	MaxOpen:     100,
+	MaxLifeTime: 30,
+	Debug:       true,
+}
+
 func Test_IAuthorizer_Enforce(t *testing.T) {
-	dsn := "root:@tcp(127.0.0.1:3306)/cassem?charset=utf8mb4&parseTime=true&loc=Local"
-	a, err := authorizer.New(dsn)
+	a, err := authorizer.New(_conf)
 	require.Nil(t, err)
 
 	// I have prepared data into DB
@@ -23,8 +31,7 @@ func Test_IAuthorizer_Enforce(t *testing.T) {
 }
 
 func Test_IAuthorizer_AddPolicy(t *testing.T) {
-	dsn := "root:@tcp(127.0.0.1:3306)/cassem?charset=utf8mb4&parseTime=true&loc=Local"
-	a, err := authorizer.New(dsn)
+	a, err := authorizer.New(_conf)
 	require.Nil(t, err)
 
 	err = a.UpdateSubjectPolicies("uid:1", []authorizer.Policy{
@@ -80,8 +87,7 @@ func Test_IAuthorizer_AddPolicy(t *testing.T) {
 }
 
 func Test_IAuthorizer_LoginAndSession(t *testing.T) {
-	dsn := "root:@tcp(127.0.0.1:3306)/cassem?charset=utf8mb4&parseTime=true&loc=Local"
-	a, err := authorizer.New(dsn)
+	a, err := authorizer.New(_conf)
 	require.Nil(t, err)
 
 	tokenString, err := a.Login("root", "123456")
@@ -95,8 +101,7 @@ func Test_IAuthorizer_LoginAndSession(t *testing.T) {
 }
 
 func Test_IAuthorizer_ListPolicy(t *testing.T) {
-	dsn := "root:@tcp(127.0.0.1:3306)/cassem?charset=utf8mb4&parseTime=true&loc=Local"
-	a, err := authorizer.New(dsn)
+	a, err := authorizer.New(_conf)
 	require.Nil(t, err)
 
 	policies := a.ListSubjectPolicies("root")

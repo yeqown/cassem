@@ -2,14 +2,13 @@ package mysql
 
 import (
 	"fmt"
-	"time"
 
+	"github.com/yeqown/cassem/internal/conf"
 	"github.com/yeqown/cassem/internal/persistence"
 	"github.com/yeqown/cassem/pkg/set"
 
 	"github.com/pkg/errors"
 	"github.com/yeqown/log"
-	mysqld "gorm.io/driver/mysql"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -27,51 +26,10 @@ type mysqlRepo struct {
 	converter *mysqlConverter
 }
 
-type ConnectConfig struct {
-	DSN         string `json:"dsn"`
-	MaxIdle     int    `json:"max_idle"`
-	MaxOpen     int    `json:"max_open"`
-	Debug       bool   `json:"debug"`
-	MaxLifeTime int    `json:"max_life_time"`
-}
-
-func New(cfg *ConnectConfig) (persistence.Repository, error) {
-	//cfg := gorm.Config{
-	//	SkipDefaultTransaction:                   false,
-	//	NamingStrategy:                           nil,
-	//	FullSaveAssociations:                     false,
-	//	Logger:                                   nil,
-	//	NowFunc:                                  nil,
-	//	DryRun:                                   false,
-	//	PrepareStmt:                              false,
-	//	DisableAutomaticPing:                     false,
-	//	DisableForeignKeyConstraintWhenMigrating: false,
-	//	DisableNestedTransaction:                 false,
-	//	AllowGlobalUpdate:                        false,
-	//	QueryFields:                              false,
-	//	CreateBatchSize:                          0,
-	//	ClauseBuilders:                           nil,
-	//	ConnPool:                                 nil,
-	//	Dialector:                                nil,
-	//	Plugins:                                  nil,
-	//}
-
-	db, err := gorm.Open(mysqld.Open(cfg.DSN), nil)
+func New(c *conf.MySQL) (persistence.Repository, error) {
+	db, err := Connect(c)
 	if err != nil {
 		return nil, errors.Wrap(err, "msyql.New failed to open DB")
-	}
-
-	sqlDB, err := db.DB()
-	if err != nil {
-		return nil, errors.Wrap(err, "invalid sql.DB")
-	}
-
-	sqlDB.SetMaxIdleConns(cfg.MaxIdle)
-	sqlDB.SetMaxOpenConns(cfg.MaxOpen)
-	sqlDB.SetConnMaxLifetime(time.Duration(cfg.MaxLifeTime) * time.Second)
-
-	if cfg.Debug {
-		db = db.Debug()
 	}
 
 	return mysqlRepo{

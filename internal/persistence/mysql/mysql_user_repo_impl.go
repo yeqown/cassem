@@ -65,3 +65,9 @@ func (m mysqlUserRepo) PagingUsers(filter *persistence.PagingUsersFilter) ([]*pe
 
 	return userDOs, int(count), err
 }
+
+func (m mysqlUserRepo) Migrate() error {
+	return m.db.AutoMigrate(
+		&persistence.UserDO{},
+	)
+}
