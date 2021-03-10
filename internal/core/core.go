@@ -233,16 +233,16 @@ func (c Core) watchLeaderChanges() error {
 
 			// broadcast leader itself address to nodes.
 			// DONE(@yeqown): should broadcast to other nodes of leaders
-			msg, _ := newFsmLog(logActionSetLeaderAddr, setLeaderAddrCommand{
+			fsmLog, _ := newFsmLog(logActionSetLeaderAddr, &setLeaderAddrCommand{
 				LeaderAddr: c.config.Server.HTTP.Addr,
 			})
-			if f := c.raft.Apply(msg, 10*time.Second); f.Error() != nil {
+			if err := c.propagateToSlaves(fsmLog); err != nil {
 				log.
 					WithFields(log.Fields{
-						"addr": c.config.Server.HTTP.Addr,
-						"msg":  msg,
+						"addr":   c.config.Server.HTTP.Addr,
+						"fsmLog": fsmLog,
 					}).
-					Errorf("Core.watchLeaderChanges applyTo raft failed: %v", f.Error())
+					Errorf("Core.watchLeaderChanges applyTo raft failed: %v", err)
 			}
 		}
 	}

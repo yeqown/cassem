@@ -1,10 +1,6 @@
 package core
 
 import (
-	"net/http"
-	"time"
-
-	"github.com/yeqown/cassem/internal/cache"
 	"github.com/yeqown/cassem/pkg/datatypes"
 
 	"github.com/yeqown/log"
@@ -17,21 +13,16 @@ func (c Core) genContainerCacheKey(ns, key string, format datatypes.ContainerFor
 func (c Core) getContainerCache(cacheKey string) (hit bool, data []byte) {
 	var err error
 	data, err = c.fsm.get(cacheKey)
-	switch err {
-	case nil:
-		hit = true
+	if err != nil {
 		log.
 			WithField("cacheKey", cacheKey).
-			Debug("Core.getContainerCache hit")
-	case cache.ErrMiss:
-		log.
-			WithField("cacheKey", cacheKey).
-			Warn("Core.getContainerCache missed")
-	default:
-		log.
-			WithField("cacheKey", cacheKey).
-			Warnf("Core.getContainerCache failed: %v", err)
+			Warnf("Core.getContainerCache not hit: %v", err)
 	}
+
+	hit = true
+	log.
+		WithField("cacheKey", cacheKey).
+		Debug("Core.getContainerCache hit")
 
 	return
 }
@@ -59,7 +50,7 @@ func (c Core) setContainerCache(cacheKey string, data []byte) {
 		}).
 		Debug("Core.setContainerCache applyTo raft")
 
-	msg, _ := newFsmLog(logActionSyncCache, setCacheCommand{
+	fsmLog, _ := newFsmLog(logActionSyncCache, &setCacheCommand{
 		NeedSetKey:    cacheKey,
 		NeedSetData:   data,
 		NeedDeleteKey: ss.NeedDeleteKey,
@@ -68,31 +59,22 @@ func (c Core) setContainerCache(cacheKey string, data []byte) {
 	// DONE(@yeqown): following code got error while current node is not Leader.
 	// This must be run on the leader or it will fail.
 	if !c.isLeader() {
-		if err := c.forwardToLeader(&forwardRequest{
-			path:   "/cluster/apply",
-			method: http.MethodPost,
-			form:   nil,
-			body: struct {
-				ApplyData []byte `json:"Data"`
-			}{
-				ApplyData: msg,
-			},
-		}); err != nil {
+		if err := c.forwardToLeaderApply(fsmLog); err != nil {
 			log.
 				Errorf("Core.setContainerCache forwardToLeader failed: %v", err)
 		}
+
 		return
 	}
 
-	if f := c.raft.Apply(msg, 10*time.Second); f.Error() != nil {
+	if err := c.propagateToSlaves(fsmLog); err != nil {
 		log.
 			WithFields(log.Fields{
-				"key": cacheKey,
-				"msg": msg,
+				"key":    cacheKey,
+				"fsmLog": fsmLog,
 			}).
-			Errorf("Core.setContainerCache applyTo raft failed: %v", f.Error())
+			Errorf("Core.setContainerCache propagateToSlaves failed: %v", err)
 	}
-
 }
 
 func (c Core) delContainerCache(cacheKey string) {
@@ -118,7 +100,7 @@ func (c Core) delContainerCache(cacheKey string) {
 		}).
 		Debug("Core.delContainerCache applyTo raft")
 
-	msg, _ := newFsmLog(logActionSyncCache, setCacheCommand{
+	fsmLog, _ := newFsmLog(logActionSyncCache, &setCacheCommand{
 		NeedSetKey:    "",
 		NeedSetData:   nil,
 		NeedDeleteKey: ss.NeedDeleteKey,
@@ -127,28 +109,19 @@ func (c Core) delContainerCache(cacheKey string) {
 	// DONE(@yeqown): following code got error while current node is not Leader.
 	// This must be run on the leader or it will fail.
 	if !c.isLeader() {
-		if err := c.forwardToLeader(&forwardRequest{
-			path:   "/cluster/apply",
-			method: http.MethodPost,
-			form:   nil,
-			body: struct {
-				ApplyData []byte `json:"Data"`
-			}{
-				ApplyData: msg,
-			},
-		}); err != nil {
+		if err := c.forwardToLeaderApply(fsmLog); err != nil {
 			log.
-				Errorf("Core.delContainerCache forwardToLeader failed: %v", err)
+				Errorf("Core.delContainerCache forwardToLeaderApply failed: %v", err)
 		}
 		return
 	}
 
-	if f := c.raft.Apply(msg, 10*time.Second); f.Error() != nil {
+	if err := c.propagateToSlaves(fsmLog); err != nil {
 		log.
 			WithFields(log.Fields{
-				"key": cacheKey,
-				"msg": msg,
+				"key":    cacheKey,
+				"fsmLog": fsmLog,
 			}).
-			Errorf("Core.delContainerCache applyTo raft failed: %v", f.Error())
+			Errorf("Core.delContainerCache propagateToSlaves failed: %v", err)
 	}
 }

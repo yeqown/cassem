@@ -3,7 +3,6 @@ package core
 import (
 	"bytes"
 	"encoding/json"
-	"time"
 
 	coord "github.com/yeqown/cassem/internal/coordinator"
 	"github.com/yeqown/cassem/internal/persistence"
@@ -68,7 +67,7 @@ func (c Core) DownloadContainer(key, ns string, format datatypes.ContainerFormat
 	}
 
 	data = buf.Bytes()
-	// OPTIMISZE(@yeqown) set cache asynchronously, so download response quickly.
+	// OPTIMIZE(@yeqown) set cache asynchronously, so download response quickly.
 	go c.setContainerCache(cacheKey, data)
 
 	return data, nil
@@ -273,23 +272,13 @@ func (c Core) RemoveNode(nodeID string) error {
 }
 
 func (c Core) Apply(msg []byte) (err error) {
-	if !c.isLeader() {
-		log.
-			Warn("Apply request should not be executed by nonleader node")
-
-		return ErrNotLeader
+	fsmLog := new(coreFSMLog)
+	if err = fsmLog.deserialize(msg); err != nil {
+		log.Errorf("core.Apply failed to deserialize: %v", err)
+		return
 	}
 
-	f := c.raft.Apply(msg, 10*time.Second)
-	if err = f.Error(); err != nil {
-		log.
-			WithFields(log.Fields{
-				"msg": msg,
-			}).
-			Errorf("Core.watchLeaderChanges applyTo raft failed: %v", f.Error())
-	}
-
-	return
+	return c.propagateToSlaves(fsmLog)
 }
 
 // watchContainerChanges would load container in detail and recalculate its checksum. If old and new is different
