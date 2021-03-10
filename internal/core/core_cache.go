@@ -17,6 +17,7 @@ func (c Core) getContainerCache(cacheKey string) (hit bool, data []byte) {
 		log.
 			WithField("cacheKey", cacheKey).
 			Warnf("Core.getContainerCache not hit: %v", err)
+		return
 	}
 
 	hit = true

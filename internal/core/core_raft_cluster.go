@@ -40,13 +40,22 @@ func (c *Core) tryJoinCluster() (err error) {
 		c.tryJoinIdx = (c.tryJoinIdx + 1) % count
 	}
 
-	if err = c.forwardToLeaderJoinLeft(base, _actionJoin); err != nil {
-		log.
-			Errorf("Core.tryJoinCluster calling c.forwardToLeader failed: %v", err)
+	log.
+		WithFields(log.Fields{
+			"base":             base,
+			"clusterAddresses": c.config.Server.Raft.ClusterAddresses,
+			"tryJoinIdx":       c.tryJoinIdx,
+		}).
+		Debug("Core.tryJoinCluster called")
 
-		return errors.Wrap(err, "tryJoinCluster failed")
+	if err = c.forwardToLeaderJoinLeft(_actionJoin, base); err != nil {
+		log.
+			Errorf("Core.tryJoinCluster calling c.forwardToLeaderJoinLeft failed: %v", err)
+
+		return errors.Wrap(err, "Core.tryJoinCluster failed")
 	}
 
+	c.fsm.setLeaderAddr(base)
 	c.joinedCluster = true
 
 	return
@@ -54,11 +63,11 @@ func (c *Core) tryJoinCluster() (err error) {
 
 // tryLeaveCluster only called by follower node.
 func (c *Core) tryLeaveCluster() (err error) {
-	if err = c.forwardToLeaderJoinLeft("", _actionLeft); err != nil {
+	if err = c.forwardToLeaderJoinLeft(_actionLeft, ""); err != nil {
 		log.
-			Errorf("Core.tryLeaveCluster calling c.forwardToLeader failed: %v", err)
+			Errorf("Core.tryLeaveCluster calling c.forwardToLeaderJoinLeft failed: %v", err)
 
-		return errors.Wrap(err, "tryLeaveCluster failed")
+		return errors.Wrap(err, "Core.tryLeaveCluster failed")
 	}
 
 	c.joinedCluster = false
@@ -225,9 +234,9 @@ func (c Core) forwardToLeaderJoinLeft(action string, forceBase string) (err erro
 	// DONE(@yeqown): should send request to leader
 	if err = c.forwardToLeader(&req); err != nil {
 		log.
-			Errorf("Core.tryLeaveCluster calling c.forwardToLeader failed: %v", err)
+			Errorf("Core.forwardToLeaderJoinLeft calling c.forwardToLeader failed: %v", err)
 
-		return errors.Wrap(err, "tryLeaveCluster failed")
+		return errors.Wrap(err, "forwardToLeaderJoinLeft failed")
 	}
 
 	return err
