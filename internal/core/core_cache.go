@@ -109,13 +109,16 @@ func (c Core) delContainerCache(cacheKey string) {
 
 	// DONE(@yeqown): following code got error while current node is not Leader.
 	// This must be run on the leader or it will fail.
-	if !c.isLeader() {
-		if err := c.forwardToLeaderApply(fsmLog); err != nil {
-			log.
-				Errorf("Core.delContainerCache forwardToLeaderApply failed: %v", err)
-		}
-		return
-	}
+	//
+	// IGNORED this part logic by @yeqown: only leader will trigger delContainerCache.
+	//
+	//if !c.isLeader() {
+	//	if err := c.forwardToLeaderApply(fsmLog); err != nil {
+	//		log.
+	//			Errorf("Core.delContainerCache forwardToLeaderApply failed: %v", err)
+	//	}
+	//	return
+	//}
 
 	if err := c.propagateToSlaves(fsmLog); err != nil {
 		log.

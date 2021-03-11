@@ -17,10 +17,6 @@ import (
 	"github.com/yeqown/log"
 )
 
-var (
-	client = &http.Client{}
-)
-
 const (
 	_formServerId        = "serverId"
 	_formAction          = "action"
@@ -268,7 +264,7 @@ func (c Core) forwardToLeaderApply(fsmLog *coreFSMLog) error {
 }
 
 // propagateToSlaves calls raft.Apply to distribute changes to FSM or propagate signal to all slaves.
-//
+// Importantly, DO NOT call c.raft.Apply directly, all operations those need to be propagated should call this.
 // Only leader should call this.
 func (c Core) propagateToSlaves(fsmLog *coreFSMLog) error {
 	if !c.isLeader() {

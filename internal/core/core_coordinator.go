@@ -6,7 +6,6 @@ import (
 
 	coord "github.com/yeqown/cassem/internal/coordinator"
 	"github.com/yeqown/cassem/internal/persistence"
-	"github.com/yeqown/cassem/internal/watcher"
 	"github.com/yeqown/cassem/pkg/datatypes"
 	"github.com/yeqown/cassem/pkg/hash"
 
@@ -322,41 +321,8 @@ func (c Core) watchContainerChanges(ns, key string) error {
 		return nil
 	}
 
-	// FIXME(@yeqown): how to notify all observers on distributed nodes.
-	// SOLUTION1(used): propagate changes to cluster rather than only local node?
-	//            raft.Log could be executed again while node restart.
-	//
-	// SOLUTION2: or let all clients connect to the leader node?
-
-	// FIXED(@yeqwon) reset cache container cache, A brute force to delete all ns+key+formats(TOML/JSON)
-	go func() {
-		// container in JSON format changes and delete cache
-		c.watcher.ChangeNotify(watcher.Changes{
-			CheckSum:  newCheckSum,
-			Key:       key,
-			Namespace: ns,
-			Format:    datatypes.JSON,
-			Data:      content,
-		})
-
-		// DONE(@yeqown): reset cache
-		cacheKey := c.genContainerCacheKey(ns, key, datatypes.JSON)
-		c.delContainerCache(cacheKey)
-	}()
-
-	go func() {
-		// container in TOML format changes and delete cache
-		c.watcher.ChangeNotify(watcher.Changes{
-			CheckSum:  newCheckSum,
-			Key:       key,
-			Namespace: ns,
-			Format:    datatypes.TOML,
-			Data:      content,
-		})
-
-		cacheKey := c.genContainerCacheKey(ns, key, datatypes.TOML)
-		c.delContainerCache(cacheKey)
-	}()
+	// handle hooks
+	c.handleChangeHooks(container, newCheckSum)
 
 	return nil
 }

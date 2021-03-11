@@ -57,11 +57,20 @@ func (n *nonCache) Del(key string) SetResult {
 	n.Lock()
 	defer n.Unlock()
 
+	_, ok := n.data[key]
+	if !ok {
+		return SetResult{
+			err:           nil,
+			NeedSync:      ok,
+			NeedDeleteKey: key,
+		}
+	}
+
 	delete(n.data, key)
 
 	return SetResult{
 		err:           nil,
-		NeedSync:      true,
+		NeedSync:      ok,
 		NeedDeleteKey: key,
 	}
 }
