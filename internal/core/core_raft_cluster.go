@@ -51,6 +51,8 @@ func (c *Core) tryJoinCluster() (err error) {
 		return errors.Wrap(err, "Core.tryJoinCluster failed")
 	}
 
+	// FIXME(@yeqown): base maybe not leader, should get leader address from raft.
+	// FIXME: or forbid forwarding join request.
 	c.fsm.setLeaderAddr(base)
 	c.joinedCluster = true
 
@@ -274,6 +276,7 @@ func (c Core) propagateToSlaves(fsmLog *coreFSMLog) error {
 		return ErrNotLeader
 	}
 
+	fsmLog.CreatedAt = time.Now().Unix()
 	data, err := fsmLog.serialize()
 	if err != nil {
 		return errors.Wrap(err, "Core.propagateToSlaves failed to serialize log")

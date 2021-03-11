@@ -74,7 +74,11 @@ func (f *fsm) Apply(l *raft.Log) interface{} {
 	}
 
 	log.
-		WithField("fmsLogData", string(fsmLog.Data)).
+		WithFields(log.Fields{
+			"fmsLogData": string(fsmLog.Data),
+			"createdAt":  fsmLog.CreatedAt,
+			"action":     fsmLog.Action,
+		}).
 		Debug("fsm.Apply called")
 
 	switch fsmLog.Action {
@@ -116,7 +120,9 @@ func (f *fsm) Apply(l *raft.Log) interface{} {
 		// send signal with nonblocking case.
 		select {
 		case f.changesCh <- cc.Changes:
+			log.Debug("send to channel")
 		default:
+			log.Debug("send to channel default case")
 		}
 
 	default:

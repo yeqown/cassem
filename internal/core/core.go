@@ -302,6 +302,9 @@ func (c Core) propagateChangesSignal() error {
 	for {
 		select {
 		case changes := <-ch:
+			log.
+				Debug("Core.propagateChangesSignal got a signal")
+
 			// container in TOML format changes and delete cache
 			c.watcher.ChangeNotify(changes)
 		}
