@@ -3,11 +3,9 @@ package core
 import (
 	"bytes"
 	"encoding/json"
-	"time"
 
 	coord "github.com/yeqown/cassem/internal/coordinator"
 	"github.com/yeqown/cassem/internal/persistence"
-	"github.com/yeqown/cassem/internal/watcher"
 	"github.com/yeqown/cassem/pkg/datatypes"
 	"github.com/yeqown/cassem/pkg/hash"
 
@@ -68,7 +66,7 @@ func (c Core) DownloadContainer(key, ns string, format datatypes.ContainerFormat
 	}
 
 	data = buf.Bytes()
-	// OPTIMISZE(@yeqown) set cache asynchronously, so download response quickly.
+	// OPTIMIZE(@yeqown) set cache asynchronously, so download response quickly.
 	go c.setContainerCache(cacheKey, data)
 
 	return data, nil
@@ -273,23 +271,13 @@ func (c Core) RemoveNode(nodeID string) error {
 }
 
 func (c Core) Apply(msg []byte) (err error) {
-	if !c.isLeader() {
-		log.
-			Warn("Apply request should not be executed by nonleader node")
-
-		return ErrNotLeader
+	fsmLog := new(coreFSMLog)
+	if err = fsmLog.deserialize(msg); err != nil {
+		log.Errorf("core.Apply failed to deserialize: %v", err)
+		return
 	}
 
-	f := c.raft.Apply(msg, 10*time.Second)
-	if err = f.Error(); err != nil {
-		log.
-			WithFields(log.Fields{
-				"msg": msg,
-			}).
-			Errorf("Core.watchLeaderChanges applyTo raft failed: %v", f.Error())
-	}
-
-	return
+	return c.propagateToSlaves(fsmLog)
 }
 
 // watchContainerChanges would load container in detail and recalculate its checksum. If old and new is different
@@ -333,35 +321,8 @@ func (c Core) watchContainerChanges(ns, key string) error {
 		return nil
 	}
 
-	// FIXED(@yeqwon) reset cache container cache, A brute force to delete all ns+key+formats(TOML/JSON)
-	go func() {
-		// container in JSON format changes and delete cache
-		c.watcher.ChangeNotify(watcher.Changes{
-			CheckSum:  newCheckSum,
-			Key:       key,
-			Namespace: ns,
-			Format:    datatypes.JSON,
-			Data:      content,
-		})
-
-		// DONE(@yeqown): reset cache
-		cacheKey := c.genContainerCacheKey(ns, key, datatypes.JSON)
-		c.delContainerCache(cacheKey)
-	}()
-
-	go func() {
-		// container in TOML format changes and delete cache
-		c.watcher.ChangeNotify(watcher.Changes{
-			CheckSum:  newCheckSum,
-			Key:       key,
-			Namespace: ns,
-			Format:    datatypes.TOML,
-			Data:      content,
-		})
-
-		cacheKey := c.genContainerCacheKey(ns, key, datatypes.TOML)
-		c.delContainerCache(cacheKey)
-	}()
+	// handle hooks
+	c.handleChangeHooks(container, newCheckSum)
 
 	return nil
 }

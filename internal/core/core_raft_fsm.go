@@ -4,8 +4,10 @@ import (
 	"io"
 	"io/ioutil"
 	"sync/atomic"
+	"time"
 
 	"github.com/yeqown/cassem/internal/cache"
+	"github.com/yeqown/cassem/internal/watcher"
 
 	"github.com/hashicorp/raft"
 	"github.com/pkg/errors"
@@ -36,6 +38,9 @@ type FSMWrapper interface {
 
 	// del proxy DELETE operation to cache.ICache in fsm.
 	del(key string) cache.SetResult
+
+	// changeNotifySignal
+	changeNotifyCh() <-chan watcher.Changes
 }
 
 // fsm implement raft.FSM which means the state machine in RAFT consensus algorithm.
@@ -49,12 +54,16 @@ type fsm struct {
 	// executionSinceLastSnapshot records the count how many times has fsm.Apply been called since
 	// last time fsm.Snapshot called. It helps Core.doSnapshot to judge that should Core trigger snapshot or not.
 	executionSinceLastSnapshot int32
+
+	// changesCh
+	changesCh chan watcher.Changes
 }
 
 func newFSM(c cache.ICache) FSMWrapper {
 	return &fsm{
 		containerCache:             c,
 		executionSinceLastSnapshot: 0,
+		changesCh:                  make(chan watcher.Changes, 8),
 	}
 }
 
@@ -65,7 +74,11 @@ func (f *fsm) Apply(l *raft.Log) interface{} {
 	}
 
 	log.
-		WithField("fmsLogData", string(fsmLog.Data)).
+		WithFields(log.Fields{
+			"fmsLogData": string(fsmLog.Data),
+			"createdAt":  fsmLog.CreatedAt,
+			"action":     fsmLog.Action,
+		}).
 		Debug("fsm.Apply called")
 
 	switch fsmLog.Action {
@@ -83,12 +96,34 @@ func (f *fsm) Apply(l *raft.Log) interface{} {
 		}
 
 	case logActionSetLeaderAddr:
+		if time.Now().Unix()-fsmLog.CreatedAt > 10 {
+			return nil
+		}
+
 		cc := new(setLeaderAddrCommand)
 		if err := cc.deserialize(fsmLog.Data); err != nil {
 			panic("could not unmarshal: " + err.Error())
 		}
 
 		f.setLeaderAddr(cc.LeaderAddr)
+
+	case logActionChangesNotify:
+		if time.Now().Unix()-fsmLog.CreatedAt > 10 {
+			return nil
+		}
+
+		cc := new(changesNotifyCommand)
+		if err := cc.deserialize(fsmLog.Data); err != nil {
+			panic("could not unmarshal: " + err.Error())
+		}
+
+		// send signal with nonblocking case.
+		select {
+		case f.changesCh <- cc.Changes:
+			log.Debug("send to channel")
+		default:
+			log.Debug("send to channel default case")
+		}
 
 	default:
 		return errors.New("invalid action")
@@ -166,4 +201,8 @@ func (f fsm) set(key string, data []byte) cache.SetResult {
 
 func (f fsm) del(key string) cache.SetResult {
 	return f.containerCache.Del(key)
+}
+
+func (f fsm) changeNotifyCh() <-chan watcher.Changes {
+	return f.changesCh
 }

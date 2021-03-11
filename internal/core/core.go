@@ -204,6 +204,9 @@ func (c Core) loop() {
 
 	// snapshot executor
 	go startWithRecover("snapshot-strategy", c.doSnapshot)
+
+	// receive watch changes from raft fsm and notify watcher
+	go startWithRecover("watch-changes", c.propagateChangesSignal)
 }
 
 func (c Core) startGateway() (err error) {
@@ -233,16 +236,16 @@ func (c Core) watchLeaderChanges() error {
 
 			// broadcast leader itself address to nodes.
 			// DONE(@yeqown): should broadcast to other nodes of leaders
-			msg, _ := newFsmLog(logActionSetLeaderAddr, setLeaderAddrCommand{
+			fsmLog, _ := newFsmLog(logActionSetLeaderAddr, &setLeaderAddrCommand{
 				LeaderAddr: c.config.Server.HTTP.Addr,
 			})
-			if f := c.raft.Apply(msg, 10*time.Second); f.Error() != nil {
+			if err := c.propagateToSlaves(fsmLog); err != nil {
 				log.
 					WithFields(log.Fields{
-						"addr": c.config.Server.HTTP.Addr,
-						"msg":  msg,
+						"addr":   c.config.Server.HTTP.Addr,
+						"fsmLog": fsmLog,
 					}).
-					Errorf("Core.watchLeaderChanges applyTo raft failed: %v", f.Error())
+					Errorf("Core.watchLeaderChanges applyTo raft failed: %v", err)
 			}
 		}
 	}
@@ -289,6 +292,21 @@ func (c Core) doSnapshot() error {
 				}
 			}
 			// case done
+		}
+	}
+}
+
+func (c Core) propagateChangesSignal() error {
+	ch := c.fsm.changeNotifyCh()
+
+	for {
+		select {
+		case changes := <-ch:
+			log.
+				Debug("Core.propagateChangesSignal got a signal")
+
+			// container in TOML format changes and delete cache
+			c.watcher.ChangeNotify(changes)
 		}
 	}
 }

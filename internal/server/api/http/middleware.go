@@ -91,7 +91,16 @@ func authorize(auth authorizer.IAuthorizer) gin.HandlerFunc {
 		panic("could not initialize with nil authorizer")
 	}
 
+	var skip bool
+	if os.Getenv("IGNORE_AUTH") != "" {
+		skip = true
+	}
+
 	return func(c *gin.Context) {
+		if skip {
+			return
+		}
+
 		// DONE(@yeqown): get resource mapping related to c.FullPath()
 		p := c.FullPath()
 		m, ok := _actionMappingURI[p+"#"+c.Request.Method]

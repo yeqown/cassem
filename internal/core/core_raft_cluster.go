@@ -1,27 +1,20 @@
 package core
 
 import (
-	"bytes"
-	"encoding/json"
 	"net"
 	"net/http"
-	"net/url"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
 
 	"github.com/yeqown/cassem/internal/cache"
+	"github.com/yeqown/cassem/pkg/httpc"
 
 	"github.com/hashicorp/raft"
 	raftboltdb "github.com/hashicorp/raft-boltdb"
 	"github.com/pkg/errors"
 	"github.com/yeqown/log"
-)
-
-var (
-	client = &http.Client{}
 )
 
 const (
@@ -43,25 +36,24 @@ func (c *Core) tryJoinCluster() (err error) {
 		c.tryJoinIdx = (c.tryJoinIdx + 1) % count
 	}
 
-	req := forwardRequest{
-		forceBase: base,
-		path:      "/cluster/nodes",
-		method:    http.MethodGet,
-		form: map[string]string{
-			_formServerId:        c.serverId,
-			_formAction:          _actionJoin,
-			_formRaftBindAddress: c.config.Server.Raft.RaftBind,
-		},
-		body: nil,
+	log.
+		WithFields(log.Fields{
+			"base":             base,
+			"clusterAddresses": c.config.Server.Raft.ClusterAddresses,
+			"tryJoinIdx":       c.tryJoinIdx,
+		}).
+		Debug("Core.tryJoinCluster called")
+
+	if err = c.forwardToLeaderJoinLeft(_actionJoin, base); err != nil {
+		log.
+			Errorf("Core.tryJoinCluster calling c.forwardToLeaderJoinLeft failed: %v", err)
+
+		return errors.Wrap(err, "Core.tryJoinCluster failed")
 	}
 
-	// DONE(@yeqown): should send request to leader
-	if err = c.forwardToLeader(&req); err != nil {
-		log.Errorf("Core.tryJoinCluster calling c.forwardToLeader failed: %v", err)
-
-		return errors.Wrap(err, "tryJoinCluster failed")
-	}
-
+	// FIXME(@yeqown): base maybe not leader, should get leader address from raft.
+	// FIXME: or forbid forwarding join request.
+	c.fsm.setLeaderAddr(base)
 	c.joinedCluster = true
 
 	return
@@ -69,21 +61,11 @@ func (c *Core) tryJoinCluster() (err error) {
 
 // tryLeaveCluster only called by follower node.
 func (c *Core) tryLeaveCluster() (err error) {
-	req := forwardRequest{
-		path:   "/cluster/nodes",
-		method: http.MethodGet,
-		form: map[string]string{
-			_formServerId: c.serverId,
-			_formAction:   _actionLeft,
-		},
-		body: nil,
-	}
+	if err = c.forwardToLeaderJoinLeft(_actionLeft, ""); err != nil {
+		log.
+			Errorf("Core.tryLeaveCluster calling c.forwardToLeaderJoinLeft failed: %v", err)
 
-	// DONE(@yeqown): should send request to leader
-	if err = c.forwardToLeader(&req); err != nil {
-		log.Errorf("Core.tryLeaveCluster calling c.forwardToLeader failed: %v", err)
-
-		return errors.Wrap(err, "tryLeaveCluster failed")
+		return errors.Wrap(err, "Core.tryLeaveCluster failed")
 	}
 
 	c.joinedCluster = false
@@ -178,9 +160,18 @@ type forwardRequest struct {
 	body      interface{}
 }
 
+// operateNodeResp is a copy from internal/api/http.commonResponse, only be used to
+// be unmarshalled from response of Core.tryJoinCluster.
+type operateNodeResp struct {
+	ErrCode    int    `json:"errcode"`
+	ErrMessage string `json:"errmsg,omitempty"`
+}
+
 // forwardToLeader only forward operations in core (apply, join, leave).
 // this would send a request(HTTP) to leader contains what operation need to do, of course, it takes
 // necessary external information.
+//
+// Only slaves should call this.
 func (c *Core) forwardToLeader(req *forwardRequest) (err error) {
 	base := c.fsm.getLeaderAddr()
 	if req.forceBase != "" {
@@ -201,78 +192,100 @@ func (c *Core) forwardToLeader(req *forwardRequest) (err error) {
 	}
 	base += req.path
 
+	var resp = new(operateNodeResp)
 	switch req.method {
 	case http.MethodGet:
-		err = handleGET(base, req.form)
+		req.form["clusterSecret"] = "9520059dd167"
+		err = httpc.GET(base, req.form, resp)
 	case http.MethodPost:
-		err = handlePOST(base, req.body)
+		base = base + "?" + "clusterSecret=9520059dd167"
+		err = httpc.POST(base, req.body, resp)
+	}
+
+	if resp != nil && resp.ErrCode != 0 {
+		err = errors.New(resp.ErrMessage)
 	}
 
 	return
 }
 
-// operateNodeResp is a copy from internal/api/http.commonResponse, only be used to
-// be unmarshalled from response of Core.tryJoinCluster.
-type operateNodeResp struct {
-	ErrCode    int         `json:"errcode"`
-	ErrMessage string      `json:"errmsg,omitempty"`
-	Data       interface{} `json:"data,omitempty"`
-}
-
-func handlePOST(base string, body interface{}) error {
-	buf := bytes.NewBuffer(nil)
-	if err := json.NewEncoder(buf).Encode(body); err != nil {
-		return errors.Wrap(err, "could not encode body")
+func (c Core) forwardToLeaderJoinLeft(action string, forceBase string) (err error) {
+	form := map[string]string{
+		_formServerId: c.serverId,
+		_formAction:   action,
 	}
 
-	uri := base + "?" + "clusterSecret=9520059dd167"
-	req, err := http.NewRequest(http.MethodPost, uri, buf)
-	if err != nil {
-		log.Errorf("invalid http.NewRequest: %v", err)
-		return errors.Wrap(err, "invalid http.NewRequest")
-	}
-	req.Header.Set("Content-Type", "application/json")
-
-	return execute(req)
-}
-
-func handleGET(base string, data map[string]string) error {
-	// assemble form parameters
-	form := url.Values{}
-	for k, v := range data {
-		form.Add(k, v)
-	}
-	form.Add("clusterSecret", "9520059dd167")
-
-	uri := base + "?" + form.Encode()
-	req, err := http.NewRequest(http.MethodGet, uri, nil)
-	if err != nil {
-		log.Errorf("invalid http.NewRequest: %v", err)
-		return errors.Wrap(err, "invalid http.NewRequest")
+	switch action {
+	case _actionJoin:
+		form[_formRaftBindAddress] = c.config.Server.Raft.RaftBind
+	case _actionLeft:
 	}
 
-	return execute(req)
-}
-
-func execute(req *http.Request) error {
-	r, err := client.Do(req)
-	if err != nil {
-		log.Errorf("invalid do: %v", err)
-		return err
+	req := forwardRequest{
+		forceBase: forceBase,
+		path:      "/cluster/nodes",
+		method:    http.MethodGet,
+		form:      form,
+		body:      nil,
 	}
 
-	if r.StatusCode != http.StatusOK {
-		err = errors.New("response code:" + strconv.Itoa(r.StatusCode))
+	// DONE(@yeqown): should send request to leader
+	if err = c.forwardToLeader(&req); err != nil {
+		log.
+			Errorf("Core.forwardToLeaderJoinLeft calling c.forwardToLeader failed: %v", err)
 
-		defer r.Body.Close()
-		result := new(operateNodeResp)
-		if err2 := json.NewDecoder(r.Body).Decode(result); err2 != nil {
-			log.Errorf("executeOperateNodeRequest could not parse response: %v", err2)
-			return errors.Wrap(err, err2.Error())
-		}
-
-		err = errors.Wrap(err, result.ErrMessage)
+		return errors.Wrap(err, "forwardToLeaderJoinLeft failed")
 	}
 
 	return err
+}
+
+func (c Core) forwardToLeaderApply(fsmLog *coreFSMLog) error {
+	data, err := fsmLog.serialize()
+	if err != nil {
+		return errors.Wrap(err, "Core.forwardToLeaderApply failed to serialize log")
+	}
+
+	req := &forwardRequest{
+		path:   "/cluster/apply",
+		method: http.MethodPost,
+		form:   nil,
+		body: struct {
+			ApplyData []byte `json:"Data"`
+		}{
+			ApplyData: data,
+		},
+	}
+
+	if err = c.forwardToLeader(req); err != nil {
+		log.
+			Errorf("Core.setContainerCache forwardToLeader failed: %v", err)
+	}
+
+	return err
+}
+
+// propagateToSlaves calls raft.Apply to distribute changes to FSM or propagate signal to all slaves.
+// Importantly, DO NOT call c.raft.Apply directly, all operations those need to be propagated should call this.
+// Only leader should call this.
+func (c Core) propagateToSlaves(fsmLog *coreFSMLog) error {
+	if !c.isLeader() {
+		log.
+			Warn("Core.propagateToSlaves Apply request should not be executed by non leader node")
+
+		return ErrNotLeader
+	}
+
+	fsmLog.CreatedAt = time.Now().Unix()
+	data, err := fsmLog.serialize()
+	if err != nil {
+		return errors.Wrap(err, "Core.propagateToSlaves failed to serialize log")
+	}
+
+	future := c.raft.Apply(data, 10*time.Second)
+	if err = future.Error(); err != nil {
+		return err
+	}
+
+	return nil
 }
