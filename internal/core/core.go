@@ -13,6 +13,7 @@ import (
 	"github.com/yeqown/cassem/internal/persistence/mysql"
 	"github.com/yeqown/cassem/internal/server/api"
 	"github.com/yeqown/cassem/internal/watcher"
+	"github.com/yeqown/cassem/pkg/runtime"
 
 	"github.com/hashicorp/raft"
 	"github.com/pkg/errors"
@@ -197,16 +198,16 @@ func (c *Core) Heartbeat() {
 
 func (c Core) loop() {
 	// start apiGate
-	go startWithRecover("api-gate", c.startGateway)
+	go runtime.GoFunc("api-gate", c.startGateway)
 
 	// leadership changes
-	go startWithRecover("leadership-changes", c.watchLeaderChanges)
+	go runtime.GoFunc("leadership-changes", c.watchLeaderChanges)
 
 	// snapshot executor
-	go startWithRecover("snapshot-strategy", c.doSnapshot)
+	go runtime.GoFunc("snapshot-strategy", c.doSnapshot)
 
 	// receive watch changes from raft fsm and notify watcher
-	go startWithRecover("watch-changes", c.propagateChangesSignal)
+	go runtime.GoFunc("watch-changes", c.propagateChangesSignal)
 }
 
 func (c Core) startGateway() (err error) {

@@ -15,13 +15,14 @@ var (
 	_SECRET_ = []byte("cassem")
 )
 
-// TODO(@yeqown): any default permissions to a new user?
-func (c casbinAuthorities) AddUser(account, password, name string) error {
-	return c.userRepo.Create(&persistence.UserDO{
+func (c casbinAuthorities) AddUser(account, password, name string) (*persistence.UserDO, error) {
+	u := &persistence.UserDO{
 		Account:          account,
 		PasswordWithSalt: hash.WithSalt(password, "cassem"),
 		Name:             name,
-	})
+	}
+
+	return u, c.userRepo.Create(u)
 }
 
 func (c casbinAuthorities) Login(account, password string) (*persistence.UserDO, string, error) {
@@ -45,9 +46,7 @@ func (c casbinAuthorities) Session(tokenString string) (*Token, error) {
 		return nil, err
 	}
 
-	return &Token{
-		UserId: uid,
-	}, nil
+	return NewToken(uid), nil
 }
 
 // DONE(@yeqown): extract secret from code to global.

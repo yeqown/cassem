@@ -54,7 +54,7 @@ func (srv Server) CreateUser(c *gin.Context) {
 		return
 	}
 
-	err := srv.auth.AddUser(req.Account, req.Password, req.Name)
+	_, err := srv.auth.AddUser(req.Account, req.Password, req.Name)
 	if err != nil {
 		responseError(c, err)
 		return
@@ -157,7 +157,7 @@ func (srv Server) GetUserPolicies(c *gin.Context) {
 		responseError(c, errors.New("invalid token: not set"))
 		return
 	}
-	token := authorizer.Token{UserId: uid}
+	token := authorizer.NewToken(uid)
 
 	//v, ok := c.Get(_authorizationKey)
 	//if !ok {
@@ -204,7 +204,7 @@ func (srv Server) UpdateUserPolicies(c *gin.Context) {
 		responseError(c, errors.Wrap(err, "invalid uid"))
 		return
 	}
-	token := authorizer.Token{UserId: uid}
+	token := authorizer.NewToken(uid)
 
 	req := new(updateUserPoliciesReq)
 	if err = c.ShouldBind(req); err != nil {

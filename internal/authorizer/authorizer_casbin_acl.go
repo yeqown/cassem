@@ -101,10 +101,16 @@ func (c casbinAuthorities) Migrate() error {
 		return errors.Wrap(err, "failed to migrate user table")
 	}
 
-	// TODO(@yeqown) add root account automatically, and add all permissions to root account.
-	//if err := c.aclEnforcer.Migrate(); err != nil {
-	//	return errors.Wrap(err, "failed to migrate ACL tables")
-	//}
+	// DONE(@yeqown) add root account automatically, and add all permissions to root account.
+	u, err := c.AddUser("admin", "cassem", "admin")
+	if err != nil {
+		return errors.Wrap(err, "failed to create root account")
+	}
+
+	token := NewToken(int(u.ID))
+	if err = c.UpdateSubjectPolicies(token.Subject(), allPolicies); err != nil {
+		return errors.Wrap(err, "failed to assign all policy to root account")
+	}
 
 	return nil
 }
@@ -163,12 +169,20 @@ func (c casbinAuthorities) ListSubjectPolicies(subject string) []Policy {
 	out := c.aclEnforcer.GetFilteredPolicy(0, subject)
 
 	policies := make([]Policy, 0, len(out))
-	for _, v := range out {
-		// FIXME(@yeqown): guard invalid data source.
+	for _, p := range out {
+		// FIXED(@yeqown): guard invalid data source.
+		if len(p) < 3 {
+			log.
+				WithFields(log.Fields{
+					"policy": p,
+				}).
+				Warnf("casbinAuthorities.ListSubjectPolicies could not handle (length is less than 3)")
+		}
+
 		policies = append(policies, Policy{
-			Subject: v[0],
-			Object:  v[1],
-			Action:  v[2],
+			Subject: p[0],
+			Object:  p[1],
+			Action:  p[2],
 		})
 	}
 

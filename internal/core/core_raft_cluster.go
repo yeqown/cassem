@@ -52,7 +52,7 @@ func (c *Core) tryJoinCluster() (err error) {
 	}
 
 	// FIXME(@yeqown): base maybe not leader, should get leader address from raft.
-	// FIXME: or forbid forwarding join request.
+	// or forbid forwarding join request.
 	c.fsm.setLeaderAddr(base)
 	c.joinedCluster = true
 

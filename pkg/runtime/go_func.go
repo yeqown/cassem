@@ -1,23 +1,16 @@
-package core
+package runtime
 
 import (
 	"fmt"
 	"os"
-	"runtime"
 	"time"
 
 	"github.com/pkg/errors"
 )
 
-const size = 64 << 10
-
-func stack() []byte {
-	buf := make([]byte, size)
-	n := runtime.Stack(buf, false)
-	return buf[:n]
-}
-
-func startWithRecover(invokerName string, invoker func() error) {
+// GoFunc runs invoker in a independent goroutine and the goroutine will automatically recover from panic,
+// and restart invoker under control of backoff algorithm.
+func GoFunc(invokerName string, invoker func() error) {
 	var (
 		panicked = true
 		err      error
@@ -25,14 +18,14 @@ func startWithRecover(invokerName string, invoker func() error) {
 
 	defer func() {
 		if v := recover(); v != nil || panicked {
-			formatted := fmt.Sprintf("server panic: %v %s", v, stack())
+			formatted := fmt.Sprintf("server panic: %v %s", v, Stack())
 			// output to stderr
 			_, _ = fmt.Fprint(os.Stderr, formatted)
 			err = recoverFrom(v)
 
-			// TODO(@yeqown): backoff strategy of restart, if the invoker panics too quick.
+			// DONE(@yeqown): strategy: delay time duration of restart, avoid that the invoker panics too quick.
 			time.Sleep(5 * time.Second)
-			go startWithRecover(invokerName, invoker)
+			go GoFunc(invokerName, invoker)
 		}
 	}()
 

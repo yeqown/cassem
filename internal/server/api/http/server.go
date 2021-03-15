@@ -72,8 +72,8 @@ func (srv *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	srv.engi.ServeHTTP(w, req)
 }
 
-// needForwardAndExecute checks current request should be forwarded to leader, if needed
-// forwarding calling would be executed and handle response by needForwardAndExecute itself.
+// needForwardAndExecute checks current request should be forwarded to leader or not, if it's needed to
+// forward, HTTP invocation would be executed, and handle HTTP response by needForwardAndExecute itself.
 func (srv *Server) needForwardAndExecute(c *gin.Context) (shouldForward bool) {
 	var leaderAddr string
 	if shouldForward, leaderAddr = srv.coordinator.ShouldForwardToLeader(); !shouldForward {
