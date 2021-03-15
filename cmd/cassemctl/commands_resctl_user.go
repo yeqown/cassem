@@ -62,7 +62,8 @@ func addUserCommand() *cli.Command {
 				return err
 			}
 
-			return auth.AddUser(md.Account, md.Password, md.Name)
+			_, err = auth.AddUser(md.Account, md.Password, md.Name)
+			return err
 		},
 	}
 }

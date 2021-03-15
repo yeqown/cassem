@@ -23,6 +23,22 @@ const (
 	OBJ_ANY       = "any"
 )
 
+var (
+	allPolicies = []Policy{
+		{Subject: "", Object: OBJ_NAMESPACE, Action: ACTION_ANY},
+		{Subject: "", Object: OBJ_CONTAINER, Action: ACTION_ANY},
+		{Subject: "", Object: OBJ_PAIR, Action: ACTION_ANY},
+		{Subject: "", Object: OBJ_USER, Action: ACTION_ANY},
+		{Subject: "", Object: OBJ_POLICY, Action: ACTION_ANY},
+	}
+
+	defaultPolicies = []Policy{
+		{Subject: "", Object: OBJ_NAMESPACE, Action: ACTION_READ},
+		{Subject: "", Object: OBJ_CONTAINER, Action: ACTION_READ},
+		{Subject: "", Object: OBJ_PAIR, Action: ACTION_READ},
+	}
+)
+
 type EnforceRequest struct {
 	Subject string
 	Object  string
@@ -74,6 +90,10 @@ type Token struct {
 	UserId int
 }
 
+func NewToken(uid int) *Token {
+	return &Token{UserId: uid}
+}
+
 func (t Token) Subject() string {
 	return "uid:" + strconv.Itoa(t.UserId)
 }
@@ -87,7 +107,7 @@ type IAuthorizeManager interface {
 	UpdateSubjectPolicies(subject string, policies []Policy) error
 
 	// user and session manage API
-	AddUser(account, password, name string) error
+	AddUser(account, password, name string) (*persistence.UserDO, error)
 	Login(account, password string) (*persistence.UserDO, string, error)
 	Session(tokenString string) (*Token, error)
 	ResetPassword(account, password string) error
