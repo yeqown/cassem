@@ -8,6 +8,7 @@ import (
 	"github.com/yeqown/cassem/internal/persistence"
 	"github.com/yeqown/cassem/pkg/datatypes"
 	"github.com/yeqown/cassem/pkg/hash"
+	"github.com/yeqown/cassem/pkg/runtime"
 
 	"github.com/hashicorp/raft"
 	"github.com/pelletier/go-toml"
@@ -117,7 +118,7 @@ func (c Core) SaveContainer(container datatypes.IContainer) error {
 
 	// Core.watchContainerChanges would check and update container.checksum
 	// if checksum changed means container changes happened.
-	go startWithRecover("watchContainerChanges", func() error {
+	go runtime.GoFunc("watchContainerChanges", func() error {
 		return c.watchContainerChanges(container.NS(), container.Key())
 	})
 
