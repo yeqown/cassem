@@ -20,6 +20,8 @@ This document describes all Restful APIs in `cassem`.
 
 [Datatypes](#Datatypes)
 
+[Fields Types](#Field-Types)
+
 [Objects](#Objects)
 
 [Actions](#Actions)
@@ -718,6 +720,14 @@ datatype enum|description
 4            |bool
 5            |list
 6            |dict
+
+### Field Types
+
+datatype enum|description
+-------------|-----------
+1            |kv
+2            |list
+3            |dict
 
 
 ### Objects
