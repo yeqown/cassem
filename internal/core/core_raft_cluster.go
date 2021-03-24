@@ -36,6 +36,8 @@ func (c *Core) tryJoinCluster() (err error) {
 		c.tryJoinIdx = (c.tryJoinIdx + 1) % count
 	}
 
+	// TODO(@yeqown): if base is self should skip with no error.
+
 	log.
 		WithFields(log.Fields{
 			"base":             base,

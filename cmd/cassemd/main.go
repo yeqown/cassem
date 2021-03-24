@@ -2,6 +2,7 @@ package main
 
 import (
 	"os"
+	"strings"
 
 	"github.com/yeqown/cassem/internal/conf"
 	"github.com/yeqown/cassem/internal/core"
@@ -40,6 +41,12 @@ func start(ctx *cli.Context) error {
 	// DONE(@yeqown) use CLI args override cfg.Server.Raft
 	cfg.Server.Raft.RaftBase = ctx.String("raft-base")
 	cfg.Server.Raft.RaftBind = ctx.String("bind")
+	arr := strings.Split(cfg.Server.Raft.RaftBind, ":")
+	if arr[0] == "0.0.0.0" || arr[0] == "" {
+		// get from ENV
+		arr[0] = os.Getenv("IP")
+		cfg.Server.Raft.RaftBind = strings.Join(arr, ":")
+	}
 	cfg.Server.Raft.ClusterAddresses = ctx.StringSlice("join")
 	cfg.Server.Raft.ServerId = ctx.String("id")
 	cfg.Server.HTTP.Addr = ctx.String("http-listen")
