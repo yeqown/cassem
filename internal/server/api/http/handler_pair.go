@@ -65,8 +65,8 @@ type getPairReq struct {
 
 type pairVO struct {
 	Key       string             `json:"key" uri:"key"`
-	Value     interface{}        `json:"value"`
-	Datatype  datatypes.Datatype `json:"datatype"`
+	Value     interface{}        `json:"value" binding:"required"`
+	Datatype  datatypes.Datatype `json:"datatype" binding:"required,oneof=1 2 3 4 5 6"`
 	Namespace string             `json:"namespace"`
 }
 
