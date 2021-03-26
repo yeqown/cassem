@@ -102,13 +102,20 @@ func fromFieldVO(ns string, fld fieldVO) (f datatypes.IField, err error) {
 		}
 		f = datatypes.NewKVField(fld.Key, datatypes.NewPair(ns, pairKey, nonData))
 	case datatypes.LIST_FIELD_:
-		v, ok := fld.Value.([]string)
+		v, ok := fld.Value.([]interface{})
 		if !ok {
-			err = errors.New("invalid LIST_FIELD_ value: " + fld.Key + ", string list is expected")
+			err = fmt.Errorf("invalid LIST_FIELD_ value: %s, "+
+				"interface list is expected, got: %T", fld.Key, fld.Value)
 			break
 		}
 		pairs := make([]datatypes.IPair, 0, len(v))
-		for _, pairKey := range v {
+		for idx, pairKeyV := range v {
+			pairKey, ok := pairKeyV.(string)
+			if !ok {
+				err = fmt.Errorf("invalid LIST_FIELD_ value: %s.%d, "+
+					"string is expected, but got: %T", fld.Key, idx, fld.Value)
+				goto END
+			}
 			pairs = append(pairs, datatypes.NewPair(ns, pairKey, nonData))
 		}
 		f = datatypes.NewListField(fld.Key, pairs)
