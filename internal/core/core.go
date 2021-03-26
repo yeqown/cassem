@@ -36,6 +36,9 @@ type Core struct {
 	// coord.ICoordinator interface.
 	repo persistence.Repository
 
+	// convertor helps data conversion between persistence and service logic.
+	convertor persistence.Converter
+
 	// apiGate contains HTTP and gRPC protocol server. HTTP server provides all PUBLIC managing API and
 	// internal cluster API. The duty of gRPC server is serving cassem's clients for watching changes.
 	//

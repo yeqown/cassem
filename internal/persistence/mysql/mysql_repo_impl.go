@@ -436,13 +436,13 @@ func (m mysqlRepo) SaveNamespace(ns string) error {
 		Error
 }
 
-func (m mysqlRepo) Converter() persistence.Converter {
-	if m.converter == nil {
-		(&m).converter = newConverter(m)
-	}
-
-	return m.converter
-}
+//func (m mysqlRepo) Converter() persistence.Converter {
+//	if m.converter == nil {
+//		(&m).converter = newConverter(m)
+//	}
+//
+//	return m.converter
+//}
 
 func (m mysqlRepo) UpdateContainerCheckSum(ns, key, checksum string) error {
 	err := m.db.Model(_containerTbl).

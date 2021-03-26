@@ -5,22 +5,22 @@ import (
 	"encoding/json"
 	"testing"
 
-	mysqld "gorm.io/driver/mysql"
-	"gorm.io/gorm"
-
 	"github.com/yeqown/cassem/internal/conf"
 	"github.com/yeqown/cassem/internal/persistence"
 	"github.com/yeqown/cassem/internal/persistence/mysql"
 	"github.com/yeqown/cassem/pkg/datatypes"
 
 	"github.com/stretchr/testify/suite"
+	mysqld "gorm.io/driver/mysql"
+	"gorm.io/gorm"
 )
 
 type testRepositorySuite struct {
 	suite.Suite
 
-	repo     persistence.Repository
-	userRepo persistence.UserRepository
+	repo      persistence.Repository
+	userRepo  persistence.UserRepository
+	convertor persistence.Converter
 }
 
 func (s testRepositorySuite) TearDownSuite() {
@@ -28,14 +28,14 @@ func (s testRepositorySuite) TearDownSuite() {
 }
 
 func (s testRepositorySuite) Test_Converter() {
-	cv := s.repo.Converter()
+	cv := mysql.NewConverter()
 	s.NotNil(cv)
 }
 
 func (s testRepositorySuite) Test_Pair() {
 	// from pair
 	p := datatypes.NewPair("ns", "kv1", datatypes.WithBool(true))
-	v, err := s.repo.Converter().FromPair(p)
+	v, err := s.convertor.FromPair(p)
 	s.Require().Nil(err)
 	s.Require().NotNil(v)
 	err = s.repo.SavePair(v, false)
@@ -46,21 +46,21 @@ func (s testRepositorySuite) Test_Pair() {
 	s.Require().Nil(err)
 	s.Require().NotNil(v)
 	// to pair
-	pout, err := s.repo.Converter().ToPair(v)
+	pout, err := s.convertor.ToPair(v)
 	s.Require().Nil(err)
 	s.Require().NotNil(v)
 	s.Equal(p, pout)
 
 	// test update
 	p2 := datatypes.NewPair("ns", "kv1", datatypes.WithInt(32222))
-	v2, _ := s.repo.Converter().FromPair(p2)
+	v2, _ := s.convertor.FromPair(p2)
 	err = s.repo.SavePair(v2, true)
 	s.Require().Nil(err)
 	// get and check
 	v2, err = s.repo.GetPair("ns", "kv1")
 	s.Require().Nil(err)
 	s.Require().NotNil(v2)
-	pout2, err := s.repo.Converter().ToPair(v2)
+	pout2, err := s.convertor.ToPair(v2)
 	s.Require().Nil(err)
 	s.Require().NotNil(v)
 	s.Equal(p2, pout2)
@@ -101,23 +101,23 @@ func (s testRepositorySuite) Test_Container() {
 	dictPair := datatypes.NewPair("ns", "dict", d)
 
 	// save pairs
-	p, err := s.repo.Converter().FromPair(s2)
+	p, err := s.convertor.FromPair(s2)
 	s.Require().Nil(err)
 	err = s.repo.SavePair(p, true)
 	s.Require().Nil(err)
-	p, err = s.repo.Converter().FromPair(f)
+	p, err = s.convertor.FromPair(f)
 	s.Require().Nil(err)
 	err = s.repo.SavePair(p, true)
 	s.Require().Nil(err)
-	p, err = s.repo.Converter().FromPair(i)
+	p, err = s.convertor.FromPair(i)
 	s.Require().Nil(err)
 	err = s.repo.SavePair(p, true)
 	s.Require().Nil(err)
-	p, err = s.repo.Converter().FromPair(b)
+	p, err = s.convertor.FromPair(b)
 	s.Require().Nil(err)
 	err = s.repo.SavePair(p, true)
 	s.Require().Nil(err)
-	p, err = s.repo.Converter().FromPair(dictPair)
+	p, err = s.convertor.FromPair(dictPair)
 	s.Require().Nil(err)
 	err = s.repo.SavePair(p, true)
 	s.Require().Nil(err)
@@ -143,13 +143,13 @@ func (s testRepositorySuite) Test_Container() {
 	_, _ = c.SetField(dict)
 
 	// save and read again
-	v, err := s.repo.Converter().FromContainer(c)
+	v, err := s.convertor.FromContainer(c)
 	s.Require().Nil(err)
 	err = s.repo.SaveContainer(v, true)
 	s.Require().Nil(err)
 	v2, err := s.repo.GetContainer("ns", "container-1")
 	s.Require().Nil(err)
-	outc, err := s.repo.Converter().ToContainer(v2)
+	outc, err := s.convertor.ToContainer(v2)
 	s.Require().Nil(err)
 	//s.EqualValues(c.Fields(), outc.Fields())
 	s.True(s.compareContainer(c, outc))
@@ -157,13 +157,13 @@ func (s testRepositorySuite) Test_Container() {
 	// remove field, update get and judge
 	_, err = c.RemoveField("s")
 	s.Require().Nil(err)
-	v3, err := s.repo.Converter().FromContainer(c)
+	v3, err := s.convertor.FromContainer(c)
 	s.Require().Nil(err)
 	err = s.repo.SaveContainer(v3, true)
 	s.Require().Nil(err)
 	v4, err := s.repo.GetContainer("ns", "container-1")
 	s.Require().Nil(err)
-	outc2, err := s.repo.Converter().ToContainer(v4)
+	outc2, err := s.convertor.ToContainer(v4)
 	s.Require().Nil(err)
 	//s.EqualValues(c.Fields(), outc2.Fields())
 	s.True(s.compareContainer(c, outc2))
@@ -217,7 +217,6 @@ func Test_Repo_mysql(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Test_Repo_mysql failed to open DB")
 	}
-	userRepo := mysql.NewUserRepository(db)
 
 	//if err = db.AutoMigrate(
 	//	mysql.PairDO{},w
@@ -230,8 +229,9 @@ func Test_Repo_mysql(t *testing.T) {
 	//}
 
 	s := testRepositorySuite{
-		repo:     repo,
-		userRepo: userRepo,
+		repo:      repo,
+		userRepo:  mysql.NewUserRepositoryWithDB(db),
+		convertor: mysql.NewConverter(),
 	}
 
 	suite.Run(t, &s)

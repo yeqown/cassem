@@ -25,9 +25,6 @@ type Repository interface {
 	PagingNamespace(filter *PagingNamespacesFilter) ([]string, int, error)
 	SaveNamespace(ns string) error
 
-	// Converter
-	Converter() Converter
-
 	Migrate() error
 }
 

@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"strconv"
 
-	"github.com/yeqown/cassem/pkg/set"
-
+	"github.com/yeqown/cassem/internal/persistence"
 	"github.com/yeqown/cassem/pkg/datatypes"
+	"github.com/yeqown/cassem/pkg/set"
 
 	"github.com/pkg/errors"
 	"github.com/yeqown/log"
@@ -23,14 +23,10 @@ var (
 	ErrPairKeyNotExist = errors.New("some pair key is not exists")
 )
 
-type mysqlConverter struct {
-	repo mysqlRepo
-}
+type mysqlConverter struct{}
 
-func newConverter(repo mysqlRepo) *mysqlConverter {
-	return &mysqlConverter{
-		repo: repo,
-	}
+func NewConverter() persistence.Converter {
+	return mysqlConverter{}
 }
 
 // FromPair from pair to PairDO

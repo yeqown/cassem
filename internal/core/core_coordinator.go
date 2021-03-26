@@ -30,7 +30,7 @@ func (c Core) GetContainer(key, ns string) (datatypes.IContainer, error) {
 		return nil, errors.Wrap(err, "Core.GetContainer failed to get container")
 	}
 
-	return c.repo.Converter().ToContainer(v)
+	return c.convertor.ToContainer(v)
 }
 
 // DownloadContainer query formatted container data at first, if not hit or got unexpected error, normal process
@@ -86,7 +86,7 @@ func (c Core) PagingContainers(filter *coord.FilterContainersOption) ([]datatype
 
 	containers := make([]datatypes.IContainer, 0, len(outs))
 	for _, v := range outs {
-		p, err := c.repo.Converter().ToContainer(v)
+		p, err := c.convertor.ToContainer(v)
 		if err != nil {
 			log.
 				WithFields(log.Fields{
@@ -109,7 +109,7 @@ func (c Core) SaveContainer(container datatypes.IContainer) error {
 		return ErrNotLeader
 	}
 
-	v, err := c.repo.Converter().FromContainer(container)
+	v, err := c.convertor.FromContainer(container)
 	if err != nil {
 		return errors.Wrap(err, "Core.SaveContainer failed to convert container")
 	}
@@ -160,7 +160,7 @@ func (c Core) GetPair(key, ns string) (datatypes.IPair, error) {
 		return nil, errors.Wrap(err, "Core.GetPair failed to get pair")
 	}
 
-	return c.repo.Converter().ToPair(v)
+	return c.convertor.ToPair(v)
 }
 
 func (c Core) PagingPairs(filter *coord.FilterPairsOption) ([]datatypes.IPair, int, error) {
@@ -176,7 +176,7 @@ func (c Core) PagingPairs(filter *coord.FilterPairsOption) ([]datatypes.IPair, i
 
 	pairs := make([]datatypes.IPair, 0, len(outs))
 	for _, v := range outs {
-		p, err := c.repo.Converter().ToPair(v)
+		p, err := c.convertor.ToPair(v)
 		if err != nil {
 			log.
 				WithFields(log.Fields{
@@ -196,7 +196,7 @@ func (c Core) SavePair(p datatypes.IPair) error {
 		return ErrNotLeader
 	}
 
-	v, err := c.repo.Converter().FromPair(p)
+	v, err := c.convertor.FromPair(p)
 	if err != nil {
 		return errors.Wrap(err, "Core.SavePair failed to convert pair")
 	}
@@ -293,7 +293,7 @@ func (c Core) watchContainerChanges(ns, key string) error {
 
 	container, err := c.GetContainer(key, ns)
 	if err != nil {
-		return errors.Wrap(err, "Core.watchContainerChanges failed to c.repo.Converter().ToContainer(v)")
+		return errors.Wrap(err, "Core.watchContainerChanges failed to c.convertor.ToContainer(v)")
 	}
 
 	oldCheckSum := container.CheckSum("")
