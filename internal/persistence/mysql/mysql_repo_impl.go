@@ -32,9 +32,11 @@ func New(c *conf.MySQL) (persistence.Repository, error) {
 		return nil, errors.Wrap(err, "msyql.New failed to open DB")
 	}
 
-	return mysqlRepo{
-		db: db,
-	}, nil
+	return NewWithDB(db), nil
+}
+
+func NewWithDB(db *gorm.DB) persistence.Repository {
+	return mysqlRepo{db: db}
 }
 
 func (m mysqlRepo) GetContainer(ns, containerKey string) (interface{}, error) {

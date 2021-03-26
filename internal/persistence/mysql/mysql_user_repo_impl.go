@@ -3,6 +3,9 @@ package mysql
 import (
 	"fmt"
 
+	"github.com/pkg/errors"
+	"github.com/yeqown/cassem/internal/conf"
+
 	"github.com/yeqown/cassem/internal/persistence"
 
 	"gorm.io/gorm"
@@ -16,7 +19,16 @@ type mysqlUserRepo struct {
 	db *gorm.DB
 }
 
-func NewUserRepository(db *gorm.DB) persistence.UserRepository {
+func NewUserRepository(c *conf.MySQL) (persistence.UserRepository, error) {
+	db, err := Connect(c)
+	if err != nil {
+		return nil, errors.Wrap(err, "msyql.New failed to open DB")
+	}
+
+	return NewUserRepositoryWithDB(db), nil
+}
+
+func NewUserRepositoryWithDB(db *gorm.DB) persistence.UserRepository {
 	return mysqlUserRepo{
 		db: db,
 	}

@@ -87,7 +87,7 @@ func New(c *conf.MySQL) (auth IAuthorizer, err error) {
 	})
 
 	auth = casbinAuthorities{
-		userRepo:    mysql.NewUserRepository(db),
+		userRepo:    mysql.NewUserRepositoryWithDB(db),
 		aclEnforcer: e,
 	}
 
