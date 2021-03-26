@@ -1,4 +1,4 @@
-## Deploy in Kubernetes
+## Deploy in Kubernetes（unavailable yet）
 
 `cassem` is a stateful application, so we need use `StatefulSet` deployment type in kubernetes.
 
