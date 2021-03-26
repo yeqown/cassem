@@ -86,9 +86,9 @@ var (
 	}
 )
 
-func authorize(auth authorizer.IAuthorizer) gin.HandlerFunc {
-	if auth == nil {
-		panic("could not initialize with nil authorizer")
+func authorize(enforceFn func(req *authorizer.EnforceRequest) bool) gin.HandlerFunc {
+	if enforceFn == nil {
+		panic("could not initialize with nil enforceFn")
 	}
 
 	var skip bool
@@ -112,14 +112,14 @@ func authorize(auth authorizer.IAuthorizer) gin.HandlerFunc {
 
 		// token required
 		tokenString := c.GetHeader("token")
-		token, err := auth.Session(tokenString)
+		token, err := authorizer.Session(tokenString)
 		if err != nil {
 			log.
 				WithFields(log.Fields{
 					"token":       token,
 					"tokenString": tokenString,
 				}).
-				Errorf("auth.Session failed: %v", err)
+				Errorf("enforceFn.Session failed: %v", err)
 			c.AbortWithStatus(http.StatusForbidden)
 
 			return
@@ -134,12 +134,11 @@ func authorize(auth authorizer.IAuthorizer) gin.HandlerFunc {
 		//	_ = ns
 		//}
 
-		req := authorizer.EnforceRequest{
+		if enforceFn(&authorizer.EnforceRequest{
 			Subject: token.Subject(), // DONE(@yeqown): get subject from token
 			Object:  m.object,
 			Action:  m.action,
-		}
-		if auth.Enforce(&req) {
+		}) {
 			c.Next()
 
 			return

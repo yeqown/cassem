@@ -1,10 +1,6 @@
 package authorizer
 
 import (
-	"strconv"
-
-	"github.com/yeqown/cassem/internal/persistence"
-
 	"github.com/pkg/errors"
 )
 
@@ -51,9 +47,10 @@ type EnforceRequest struct {
 
 // IAuthorizer
 type IAuthorizer interface {
-	IAuthorizeManager
+	IUserAndPolicyManager
+	IEnforcer
 
-	Enforce(req *EnforceRequest) bool
+	Migrate() error
 }
 
 // Policy contains whole data what describes a ACL rule.
@@ -83,33 +80,4 @@ func validPolicy(subject string, p Policy) (err error) {
 	}
 
 	return
-}
-
-// Token is the bridge between authorizer and HTTP API.
-type Token struct {
-	UserId int
-}
-
-func NewToken(uid int) *Token {
-	return &Token{UserId: uid}
-}
-
-func (t Token) Subject() string {
-	return "uid:" + strconv.Itoa(t.UserId)
-}
-
-// IAuthorizeManager manages user, roles.
-type IAuthorizeManager interface {
-	Migrate() error
-
-	// user permissions manage API
-	ListSubjectPolicies(subject string) []Policy
-	UpdateSubjectPolicies(subject string, policies []Policy) error
-
-	// user and session manage API
-	AddUser(account, password, name string) (*persistence.UserDO, error)
-	Login(account, password string) (*persistence.UserDO, string, error)
-	Session(tokenString string) (*Token, error)
-	ResetPassword(account, password string) error
-	PagingUsers(limit, offset int, accountPattern string) ([]*persistence.UserDO, int, error)
 }

@@ -1,19 +1,29 @@
 package authorizer
 
 import (
-	"fmt"
-
 	"github.com/yeqown/cassem/internal/persistence"
 	"github.com/yeqown/cassem/pkg/hash"
 
-	"github.com/dgrijalva/jwt-go"
 	"github.com/pkg/errors"
-	"github.com/yeqown/log"
 )
 
 var (
-	_SECRET_ = []byte("cassem")
+	_ IUserAndPolicyManager = casbinAuthorities{}
 )
+
+// IContainerAndPairManager provides the ability to manage users and policies, basically, it allow you to
+// create, update, read and delete those resources.
+type IUserAndPolicyManager interface {
+	// user permissions manage API
+	ListSubjectPolicies(subject string) []Policy
+	UpdateSubjectPolicies(subject string, policies []Policy) error
+
+	// user and session manage API
+	AddUser(account, password, name string) (*persistence.UserDO, error)
+	Login(account, password string) (*persistence.UserDO, string, error)
+	ResetPassword(account, password string) error
+	PagingUsers(limit, offset int, accountPattern string) ([]*persistence.UserDO, int, error)
+}
 
 func (c casbinAuthorities) AddUser(account, password, name string) (*persistence.UserDO, error) {
 	u := &persistence.UserDO{
@@ -38,57 +48,6 @@ func (c casbinAuthorities) Login(account, password string) (*persistence.UserDO,
 	// DONE(@yeqown): generate jwt token
 	token, err := genToken(u)
 	return u, token, err
-}
-
-func (c casbinAuthorities) Session(tokenString string) (*Token, error) {
-	uid, err := parseToken(tokenString)
-	if err != nil {
-		return nil, err
-	}
-
-	return NewToken(uid), nil
-}
-
-// DONE(@yeqown): extract secret from code to global.
-func genToken(u *persistence.UserDO) (string, error) {
-	atClaims := jwt.MapClaims{}
-	atClaims["authorized"] = true
-	atClaims["user_id"] = u.ID
-	//atClaims["exp"] = time.Now().Add(time.Minute * 15).Unix()
-	at := jwt.NewWithClaims(jwt.SigningMethodHS256, atClaims)
-	token, err := at.SignedString(_SECRET_)
-	if err != nil {
-		return "", errors.Wrap(err, "sign token failed")
-	}
-
-	return token, nil
-}
-
-func parseToken(tokenString string) (int, error) {
-	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-		// Make sure that the token method conform to "SigningMethodHMAC"
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
-		}
-		return _SECRET_, nil
-	})
-	if err != nil {
-		return 0, err
-	}
-
-	at := token.Claims.(jwt.MapClaims)
-	uid, ok := at["user_id"].(float64)
-	log.
-		WithFields(log.Fields{
-			"at":      at,
-			"user_id": at["user_id"],
-		}).
-		Debugf("parseToken with claims: %T", at["user_id"])
-	if !ok {
-		return 0, errors.New("parseToken could not convert user_id into int")
-	}
-
-	return int(uid), nil
 }
 
 func (c casbinAuthorities) ResetPassword(account, password string) error {

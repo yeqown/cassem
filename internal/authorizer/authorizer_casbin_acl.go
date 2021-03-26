@@ -115,6 +115,10 @@ func (c casbinAuthorities) Migrate() error {
 	return nil
 }
 
+type IEnforcer interface {
+	Enforce(req *EnforceRequest) bool
+}
+
 func (c casbinAuthorities) Enforce(req *EnforceRequest) bool {
 	log.
 		WithField("req", req).

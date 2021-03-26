@@ -90,11 +90,11 @@ func Test_IAuthorizer_LoginAndSession(t *testing.T) {
 	a, err := authorizer.New(_conf)
 	require.Nil(t, err)
 
-	tokenString, err := a.Login("root", "123456")
+	_, tokenString, err := a.Login("root", "123456")
 	require.Nil(t, err)
 	t.Log(tokenString)
 
-	token, err := a.Session(tokenString)
+	token, err := authorizer.Session(tokenString)
 	require.Nil(t, err)
 
 	assert.NotEmpty(t, token.UserId)

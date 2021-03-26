@@ -28,7 +28,7 @@ func (srv Server) Login(c *gin.Context) {
 		return
 	}
 
-	u, token, err := srv.auth.Login(req.Account, req.Password)
+	u, token, err := srv.coordinator.Login(req.Account, req.Password)
 	if err != nil {
 		responseError(c, err)
 		return
@@ -54,7 +54,7 @@ func (srv Server) CreateUser(c *gin.Context) {
 		return
 	}
 
-	_, err := srv.auth.AddUser(req.Account, req.Password, req.Name)
+	_, err := srv.coordinator.AddUser(req.Account, req.Password, req.Name)
 	if err != nil {
 		responseError(c, err)
 		return
@@ -98,7 +98,7 @@ func (srv Server) PagingUsers(c *gin.Context) {
 		return
 	}
 
-	out, count, err := srv.auth.PagingUsers(req.Limit, req.Offset, req.AccountPattern)
+	out, count, err := srv.coordinator.PagingUsers(req.Limit, req.Offset, req.AccountPattern)
 	if err != nil {
 		responseError(c, err)
 		return
@@ -127,7 +127,7 @@ func (srv Server) ResetPassword(c *gin.Context) {
 		return
 	}
 
-	err := srv.auth.ResetPassword(req.Account, req.Password)
+	err := srv.coordinator.ResetPassword(req.Account, req.Password)
 	if err != nil {
 		responseError(c, err)
 		return
@@ -171,7 +171,7 @@ func (srv Server) GetUserPolicies(c *gin.Context) {
 	//	return
 	//}
 
-	out := srv.auth.ListSubjectPolicies(token.Subject())
+	out := srv.coordinator.ListSubjectPolicies(token.Subject())
 	policies := make([]policyVO, 0, len(out))
 	for _, p := range out {
 		policies = append(policies, toPolicyVO(p))
@@ -213,7 +213,7 @@ func (srv Server) UpdateUserPolicies(c *gin.Context) {
 	}
 
 	subject := token.Subject()
-	if err = srv.auth.UpdateSubjectPolicies(subject, req.policies(subject)); err != nil {
+	if err = srv.coordinator.UpdateSubjectPolicies(subject, req.policies(subject)); err != nil {
 		responseError(c, err)
 		return
 	}

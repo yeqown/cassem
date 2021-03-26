@@ -8,7 +8,6 @@ import (
 
 	"github.com/yeqown/cassem/internal/authorizer"
 	"github.com/yeqown/cassem/internal/conf"
-	coord "github.com/yeqown/cassem/internal/coordinator"
 	"github.com/yeqown/cassem/internal/persistence"
 	"github.com/yeqown/cassem/internal/persistence/mysql"
 	"github.com/yeqown/cassem/internal/server/api"
@@ -26,7 +25,7 @@ import (
 // Notice that all writes must be operated on master node, salve nodes could execute read operations.
 //
 type Core struct {
-	coord.ICoordinator
+	// coord.ICoordinator
 
 	config *conf.Config
 
@@ -38,6 +37,9 @@ type Core struct {
 
 	// convertor helps data conversion between persistence and service logic.
 	convertor persistence.Converter
+
+	// auth
+	auth authorizer.IAuthorizer
 
 	// apiGate contains HTTP and gRPC protocol server. HTTP server provides all PUBLIC managing API and
 	// internal cluster API. The duty of gRPC server is serving cassem's clients for watching changes.
@@ -103,16 +105,15 @@ func (c *Core) initialize(cfg *conf.Config) (err error) {
 	}
 	log.Info("Core: persistence component loaded")
 
-	_auth, err := authorizer.New(cfg.Persistence.Mysql)
+	c.convertor = mysql.NewConverter()
+
+	c.auth, err = authorizer.New(cfg.Persistence.Mysql)
 	if err != nil {
-		return errors.Wrapf(err, "Core.initialize failed to load authorizer: %v", err)
+		return errors.Wrapf(err, "Core.initialize failed to load auth: %v", err)
 	}
 
-	c.apiGate = api.New(cfg.Server.HTTP, c, _auth)
+	c.apiGate = api.New(cfg.Server.HTTP, c)
 	log.Info("Core: HTTP server loaded")
-
-	//c._containerCache = cache.NewNonCache()
-	//log.Info("Core: cache loaded")
 
 	c.watcher = watcher.NewChannelWatcher(64)
 	log.Info("Core: watcher component loaded")

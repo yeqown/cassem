@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 
+	"github.com/yeqown/cassem/internal/authorizer"
+
 	coord "github.com/yeqown/cassem/internal/coordinator"
 	"github.com/yeqown/cassem/internal/persistence"
 	"github.com/yeqown/cassem/pkg/datatypes"
@@ -335,4 +337,32 @@ func (c Core) isLeader() bool {
 
 func (c Core) ShouldForwardToLeader() (shouldForward bool, leadAddr string) {
 	return !c.isLeader(), c.fsm.getLeaderAddr()
+}
+
+func (c Core) ListSubjectPolicies(subject string) []authorizer.Policy {
+	return c.auth.ListSubjectPolicies(subject)
+}
+
+func (c Core) UpdateSubjectPolicies(subject string, policies []authorizer.Policy) error {
+	return c.auth.UpdateSubjectPolicies(subject, policies)
+}
+
+func (c Core) AddUser(account, password, name string) (*persistence.UserDO, error) {
+	return c.auth.AddUser(account, password, name)
+}
+
+func (c Core) Login(account, password string) (*persistence.UserDO, string, error) {
+	return c.auth.Login(account, password)
+}
+
+func (c Core) ResetPassword(account, password string) error {
+	return c.auth.ResetPassword(account, password)
+}
+
+func (c Core) PagingUsers(limit, offset int, accountPattern string) ([]*persistence.UserDO, int, error) {
+	return c.auth.PagingUsers(limit, offset, accountPattern)
+}
+
+func (c Core) Enforce(req *authorizer.EnforceRequest) bool {
+	return c.auth.Enforce(req)
 }
