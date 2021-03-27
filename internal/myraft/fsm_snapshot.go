@@ -1,4 +1,4 @@
-package core
+package myraft
 
 import (
 	"github.com/hashicorp/raft"

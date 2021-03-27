@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	notifier "github.com/yeqown/cassem/internal/server/api/notifier-grpc"
-	pb "github.com/yeqown/cassem/internal/server/api/notifier-grpc/gen"
+	notifier "github.com/yeqown/cassem/internal/core/api/notifier-grpc"
+	pb "github.com/yeqown/cassem/internal/core/api/notifier-grpc/gen"
 	"github.com/yeqown/cassem/internal/watcher"
 
 	"google.golang.org/grpc"

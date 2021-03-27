@@ -1,6 +1,7 @@
 package core
 
 import (
+	"github.com/yeqown/cassem/internal/myraft"
 	"github.com/yeqown/cassem/pkg/datatypes"
 
 	"github.com/yeqown/log"
@@ -12,7 +13,7 @@ func (c Core) genContainerCacheKey(ns, key string, format datatypes.ContainerFor
 
 func (c Core) getContainerCache(cacheKey string) (hit bool, data []byte) {
 	var err error
-	data, err = c.fsm.get(cacheKey)
+	data, err = c.raft.Get(cacheKey)
 	if err != nil {
 		log.
 			WithField("cacheKey", cacheKey).
@@ -29,7 +30,7 @@ func (c Core) getContainerCache(cacheKey string) (hit bool, data []byte) {
 }
 
 func (c Core) setContainerCache(cacheKey string, data []byte) {
-	ss := c.fsm.set(cacheKey, data)
+	ss := c.raft.Set(cacheKey, data)
 	if ss.Error() != nil {
 		log.
 			WithField("cacheKey", cacheKey).
@@ -51,24 +52,12 @@ func (c Core) setContainerCache(cacheKey string, data []byte) {
 		}).
 		Debug("Core.setContainerCache applyTo raft")
 
-	fsmLog, _ := newFsmLog(logActionSyncCache, &setCacheCommand{
+	fsmLog, _ := myraft.NewFsmLog(myraft.ActionSyncCache, &myraft.SetCacheCommand{
 		NeedSetKey:    cacheKey,
 		NeedSetData:   data,
 		NeedDeleteKey: ss.NeedDeleteKey,
 	})
-
-	// DONE(@yeqown): following code got error while current node is not Leader.
-	// This must be run on the leader or it will fail.
-	if !c.isLeader() {
-		if err := c.forwardToLeaderApply(fsmLog); err != nil {
-			log.
-				Errorf("Core.setContainerCache forwardToLeader failed: %v", err)
-		}
-
-		return
-	}
-
-	if err := c.propagateToSlaves(fsmLog); err != nil {
+	if err := c.raft.ApplyLog(fsmLog); err != nil {
 		log.
 			WithFields(log.Fields{
 				"key":    cacheKey,
@@ -79,7 +68,7 @@ func (c Core) setContainerCache(cacheKey string, data []byte) {
 }
 
 func (c Core) delContainerCache(cacheKey string) {
-	ss := c.fsm.del(cacheKey)
+	ss := c.raft.Del(cacheKey)
 	if ss.Error() != nil {
 		log.
 			WithField("cacheKey", cacheKey).
@@ -101,26 +90,13 @@ func (c Core) delContainerCache(cacheKey string) {
 		}).
 		Debug("Core.delContainerCache applyTo raft")
 
-	fsmLog, _ := newFsmLog(logActionSyncCache, &setCacheCommand{
+	fsmLog, _ := myraft.NewFsmLog(myraft.ActionSyncCache, &myraft.SetCacheCommand{
 		NeedSetKey:    "",
 		NeedSetData:   nil,
 		NeedDeleteKey: ss.NeedDeleteKey,
 	})
 
-	// DONE(@yeqown): following code got error while current node is not Leader.
-	// This must be run on the leader or it will fail.
-	//
-	// IGNORED this part logic by @yeqown: only leader will trigger delContainerCache.
-	//
-	//if !c.isLeader() {
-	//	if err := c.forwardToLeaderApply(fsmLog); err != nil {
-	//		log.
-	//			Errorf("Core.delContainerCache forwardToLeaderApply failed: %v", err)
-	//	}
-	//	return
-	//}
-
-	if err := c.propagateToSlaves(fsmLog); err != nil {
+	if err := c.raft.ApplyLog(fsmLog); err != nil {
 		log.
 			WithFields(log.Fields{
 				"key":    cacheKey,

@@ -16,8 +16,8 @@ import (
 
 	"github.com/yeqown/cassem/internal/conf"
 	coord "github.com/yeqown/cassem/internal/coordinator"
-	apihtp "github.com/yeqown/cassem/internal/server/api/http"
-	"github.com/yeqown/cassem/internal/server/api/notifier-grpc"
+	apihtp "github.com/yeqown/cassem/internal/core/api/http"
+	"github.com/yeqown/cassem/internal/core/api/notifier-grpc"
 
 	"github.com/yeqown/log"
 	"golang.org/x/net/http2"

@@ -5,14 +5,12 @@ import (
 	"encoding/json"
 
 	"github.com/yeqown/cassem/internal/authorizer"
-
 	coord "github.com/yeqown/cassem/internal/coordinator"
 	"github.com/yeqown/cassem/internal/persistence"
 	"github.com/yeqown/cassem/pkg/datatypes"
 	"github.com/yeqown/cassem/pkg/hash"
 	"github.com/yeqown/cassem/pkg/runtime"
 
-	"github.com/hashicorp/raft"
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
 	"github.com/yeqown/log"
@@ -209,78 +207,16 @@ func (c Core) SavePair(p datatypes.IPair) error {
 // AddNode only leader node would receive such request. MAYBE?
 func (c Core) AddNode(serverId, addr string) error {
 	log.Infof("received AddNode request for remote node %s, addr %s", serverId, addr)
-
-	if !c.isLeader() {
-		log.
-			Warn("RemoveNode request should not be executed by nonleader node")
-
-		return ErrNotLeader
-	}
-
-	cf := c.raft.GetConfiguration()
-	if err := cf.Error(); err != nil {
-		log.Errorf("failed to get raft configuration: %v", err)
-		return err
-	}
-
-	for _, server := range cf.Configuration().Servers {
-		if server.ID == raft.ServerID(serverId) {
-			log.Infof("node %s already joinedCluster raft cluster", serverId)
-			return nil
-		}
-	}
-
-	f := c.raft.AddVoter(raft.ServerID(serverId), raft.ServerAddress(addr), 0, 0)
-	if err := f.Error(); err != nil {
-		return err
-	}
-
-	log.Infof("node %s at %s joinedCluster successfully", serverId, addr)
-	return nil
+	return c.raft.AddNode(serverId, addr)
 }
 
 // RemoveNode only leader node would receive such request.
 func (c Core) RemoveNode(nodeID string) error {
-	log.Infof("received RemoveNode request for remote node %s", nodeID)
-
-	if !c.isLeader() {
-		log.
-			Warn("RemoveNode request should not be executed by nonleader node")
-
-		return ErrNotLeader
-	}
-
-	cf := c.raft.GetConfiguration()
-	if err := cf.Error(); err != nil {
-		log.Errorf("failed to get raft configuration: %v", err)
-		return err
-	}
-
-	for _, srv := range cf.Configuration().Servers {
-		if srv.ID == raft.ServerID(nodeID) {
-			f := c.raft.RemoveServer(srv.ID, 0, 0)
-			if err := f.Error(); err != nil {
-				log.Errorf("failed to remove srv %s, err: %v", nodeID, err)
-				return err
-			}
-
-			log.Infof("node %s left successfully", nodeID)
-			return nil
-		}
-	}
-
-	log.Infof("node %s not exists in raft group", nodeID)
-	return nil
+	return c.raft.RemoveNode(nodeID)
 }
 
 func (c Core) Apply(msg []byte) (err error) {
-	fsmLog := new(coreFSMLog)
-	if err = fsmLog.deserialize(msg); err != nil {
-		log.Errorf("core.Apply failed to deserialize: %v", err)
-		return
-	}
-
-	return c.propagateToSlaves(fsmLog)
+	return c.raft.ApplyFromMessage(msg)
 }
 
 // watchContainerChanges would load container in detail and recalculate its checksum. If old and new is different
@@ -332,11 +268,11 @@ func (c Core) watchContainerChanges(ns, key string) error {
 
 // isLeader only return true if current node is leader.
 func (c Core) isLeader() bool {
-	return c.raft.State() == raft.Leader
+	return c.raft.IsLeader()
 }
 
 func (c Core) ShouldForwardToLeader() (shouldForward bool, leadAddr string) {
-	return !c.isLeader(), c.fsm.getLeaderAddr()
+	return !c.isLeader(), c.raft.GetLeaderAddr()
 }
 
 func (c Core) ListSubjectPolicies(subject string) []authorizer.Policy {

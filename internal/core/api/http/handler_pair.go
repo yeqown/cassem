@@ -3,7 +3,6 @@ package http
 import (
 	"errors"
 	"fmt"
-	"reflect"
 
 	coord "github.com/yeqown/cassem/internal/coordinator"
 	"github.com/yeqown/cassem/pkg/datatypes"
@@ -123,7 +122,7 @@ func (srv *Server) UpsertPair(c *gin.Context) {
 
 	log.
 		WithFields(log.Fields{
-			"type":  reflect.TypeOf(req.Value).String(),
+			"type":  fmt.Sprintf("%T", req.Value),
 			"value": req.Value,
 		}).
 		Debug("UpsertPair gets a request")

@@ -4,7 +4,7 @@ import (
 	"net"
 	"sync"
 
-	pb "github.com/yeqown/cassem/internal/server/api/notifier-grpc/gen"
+	pb "github.com/yeqown/cassem/internal/core/api/notifier-grpc/gen"
 	"github.com/yeqown/cassem/internal/watcher"
 
 	"github.com/yeqown/log"

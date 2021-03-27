@@ -1,4 +1,4 @@
-package core
+package myraft
 
 import (
 	"io"
@@ -17,7 +17,7 @@ import (
 // FSMWrapper contains raft.FSM and customized methods to help core.Core use raft distributed power.
 // raft.FSM is mainly implemented to store caches of containers, the key to raft state machine.
 //
-// setLeaderAddrCommand and getLeaderAddr all operate fsm.leaderAddr.
+// SetLeaderAddrCommand and getLeaderAddr all operate fsm.leaderAddr.
 //
 // getExecutionSinceLastSnapshot exposes a way to read fsm.executionSinceLastSnapshot.
 //
@@ -68,8 +68,8 @@ func newFSM(c cache.ICache) FSMWrapper {
 }
 
 func (f *fsm) Apply(l *raft.Log) interface{} {
-	var fsmLog = new(coreFSMLog)
-	if err := fsmLog.deserialize(l.Data); err != nil {
+	var fsmLog = new(CoreFSMLog)
+	if err := fsmLog.Deserialize(l.Data); err != nil {
 		panic("could not unmarshal: " + err.Error())
 	}
 
@@ -82,9 +82,9 @@ func (f *fsm) Apply(l *raft.Log) interface{} {
 		Debug("fsm.Apply called")
 
 	switch fsmLog.Action {
-	case logActionSyncCache:
-		cc := new(setCacheCommand)
-		if err := cc.deserialize(fsmLog.Data); err != nil {
+	case ActionSyncCache:
+		cc := new(SetCacheCommand)
+		if err := cc.Deserialize(fsmLog.Data); err != nil {
 			panic("could not unmarshal: " + err.Error())
 		}
 
@@ -95,25 +95,25 @@ func (f *fsm) Apply(l *raft.Log) interface{} {
 			_ = f.containerCache.Del(cc.NeedDeleteKey)
 		}
 
-	case logActionSetLeaderAddr:
+	case ActionSetLeaderAddr:
 		if time.Now().Unix()-fsmLog.CreatedAt > 10 {
 			return nil
 		}
 
-		cc := new(setLeaderAddrCommand)
-		if err := cc.deserialize(fsmLog.Data); err != nil {
+		cc := new(SetLeaderAddrCommand)
+		if err := cc.Deserialize(fsmLog.Data); err != nil {
 			panic("could not unmarshal: " + err.Error())
 		}
 
 		f.setLeaderAddr(cc.LeaderAddr)
 
-	case logActionChangesNotify:
+	case ActionChangesNotify:
 		if time.Now().Unix()-fsmLog.CreatedAt > 10 {
 			return nil
 		}
 
-		cc := new(changesNotifyCommand)
-		if err := cc.deserialize(fsmLog.Data); err != nil {
+		cc := new(ChangesNotifyCommand)
+		if err := cc.Deserialize(fsmLog.Data); err != nil {
 			panic("could not unmarshal: " + err.Error())
 		}
 
