@@ -11,15 +11,12 @@ import (
 	"github.com/yeqown/cassem/pkg/datatypes"
 
 	"github.com/stretchr/testify/suite"
-	mysqld "gorm.io/driver/mysql"
-	"gorm.io/gorm"
 )
 
 type testRepositorySuite struct {
 	suite.Suite
 
 	repo      persistence.Repository
-	userRepo  persistence.UserRepository
 	convertor persistence.Converter
 }
 
@@ -189,8 +186,8 @@ func (s testRepositorySuite) compareContainer(c1, c2 datatypes.IContainer) (bool
 	return ok, nil
 }
 
-func (s testRepositorySuite) Test_UserRepository() {
-	err := s.userRepo.Create(&persistence.UserDO{
+func (s testRepositorySuite) Test_RepositoryUser() {
+	err := s.repo.CreateUser(&persistence.User{
 		Account: "root",
 		// 123456
 		PasswordWithSalt: "92f9ce613443bfa68e8d511ed579d0e29fe69778de19ab4dda10a35360940882",
@@ -213,24 +210,23 @@ func Test_Repo_mysql(t *testing.T) {
 		t.Fatalf("Test_Repo_mysql failed to open DB")
 	}
 
-	db, err := gorm.Open(mysqld.Open(cfg.DSN), nil)
-	if err != nil {
-		t.Fatalf("Test_Repo_mysql failed to open DB")
-	}
+	//db, err := gorm.Open(mysqld.Open(cfg.DSN), nil)
+	//if err != nil {
+	//	t.Fatalf("Test_Repo_mysql failed to open DB")
+	//}
 
 	//if err = db.AutoMigrate(
-	//	mysql.PairDO{},w
+	//	mysql.pairDO{},w
 	//	mysql.NamespaceDO{},
-	//	mysql.ContainerDO{},
-	//	mysql.FieldDO{},
-	//	persistence.UserDO{},
+	//	mysql.containerDO{},
+	//	mysql.fieldDO{},
+	//	persistence.User{},
 	//); err != nil {
 	//	t.Fatalf("Test_Repo_mysql failed to AutoMigrate mysql DB: %v", err)
 	//}
 
 	s := testRepositorySuite{
 		repo:      repo,
-		userRepo:  mysql.NewUserRepositoryWithDB(db),
 		convertor: mysql.NewConverter(),
 	}
 

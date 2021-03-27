@@ -29,7 +29,7 @@ func NewConverter() persistence.Converter {
 	return mysqlConverter{}
 }
 
-// FromPair from pair to PairDO
+// FromPair from pair to pairDO
 func (m mysqlConverter) FromPair(p datatypes.IPair) (interface{}, error) {
 	if p == nil {
 		return nil, ErrNilPair
@@ -44,7 +44,7 @@ func (m mysqlConverter) FromPair(p datatypes.IPair) (interface{}, error) {
 		return nil, errors.Wrap(err, "mysqlConverter.FromPair failed")
 	}
 
-	pairDO := PairDO{
+	pairDO := pairDO{
 		Key:       p.Key(),
 		Namespace: p.NS(),
 		Datatype:  p.Value().Datatype(),
@@ -55,7 +55,7 @@ func (m mysqlConverter) FromPair(p datatypes.IPair) (interface{}, error) {
 }
 
 func (m mysqlConverter) ToPair(v interface{}) (p datatypes.IPair, err error) {
-	pairDO, ok := v.(*PairDO)
+	pairDO, ok := v.(*pairDO)
 	if !ok || pairDO == nil {
 		return nil, ErrInvalidPairDO
 	}
@@ -117,18 +117,18 @@ func (m mysqlConverter) FromContainer(c datatypes.IContainer) (interface{}, erro
 
 	_fields := c.Fields()
 	parsed := formContainerParsed{
-		c: &ContainerDO{
+		c: &containerDO{
 			Key:       c.Key(),
 			Namespace: c.NS(),
 			// CheckSum:  "", NOTICE: checksum would not be calculate and updated, until it's requested.
 		},
-		fields:          make([]*FieldDO, 0, len(_fields)),
+		fields:          make([]*fieldDO, 0, len(_fields)),
 		uniqueFieldKeys: set.NewStringSet(len(_fields)),
 		uniquePairKeys:  set.NewStringSet(len(_fields) * 4),
 	}
 
 	for _, fld := range _fields {
-		fieldPairs := make(FieldPairs, 16)
+		fieldPairs := make(fieldPairs, 16)
 		// mapping field to pairs, so repository could query or update
 		switch fld.Type() {
 		case datatypes.KV_FIELD_:
@@ -153,7 +153,7 @@ func (m mysqlConverter) FromContainer(c datatypes.IContainer) (interface{}, erro
 		}
 
 		_ = parsed.uniqueFieldKeys.Add(fld.Name())
-		parsed.fields = append(parsed.fields, &FieldDO{
+		parsed.fields = append(parsed.fields, &fieldDO{
 			FieldType: fld.Type(),
 			Key:       fld.Name(),
 			Pairs:     fieldPairs,

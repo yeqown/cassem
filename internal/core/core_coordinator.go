@@ -283,11 +283,11 @@ func (c Core) UpdateSubjectPolicies(subject string, policies []authorizer.Policy
 	return c.auth.UpdateSubjectPolicies(subject, policies)
 }
 
-func (c Core) AddUser(account, password, name string) (*persistence.UserDO, error) {
+func (c Core) AddUser(account, password, name string) (*persistence.User, error) {
 	return c.auth.AddUser(account, password, name)
 }
 
-func (c Core) Login(account, password string) (*persistence.UserDO, string, error) {
+func (c Core) Login(account, password string) (*persistence.User, string, error) {
 	return c.auth.Login(account, password)
 }
 
@@ -295,7 +295,7 @@ func (c Core) ResetPassword(account, password string) error {
 	return c.auth.ResetPassword(account, password)
 }
 
-func (c Core) PagingUsers(limit, offset int, accountPattern string) ([]*persistence.UserDO, int, error) {
+func (c Core) PagingUsers(limit, offset int, accountPattern string) ([]*persistence.User, int, error) {
 	return c.auth.PagingUsers(limit, offset, accountPattern)
 }
 

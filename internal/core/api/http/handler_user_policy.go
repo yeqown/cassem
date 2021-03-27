@@ -76,7 +76,7 @@ type userVO struct {
 	CreatedAt int64  `json:"createdAt"`
 }
 
-func toUserVO(u *persistence.UserDO) userVO {
+func toUserVO(u *persistence.User) userVO {
 	return userVO{
 		UserId:    u.ID,
 		Account:   u.Account,

@@ -7,7 +7,6 @@ import (
 
 	"github.com/casbin/casbin/v2"
 	"github.com/casbin/casbin/v2/model"
-	gormadapter "github.com/casbin/gorm-adapter/v3"
 	"github.com/pkg/errors"
 	"github.com/yeqown/log"
 )
@@ -29,17 +28,15 @@ m = r.sub == p.sub && obj_match(r.obj, p.obj) && act_match(r.act, p.act)
 // casbinAuthorities implement IAuthorizer based on casbin.ACL model.
 type casbinAuthorities struct {
 	aclEnforcer *casbin.Enforcer
-	userRepo    persistence.UserRepository
+	repo        persistence.Repository
 }
 
 func New(c *conf.MySQL) (auth IAuthorizer, err error) {
-	db, err := mysql.Connect(c)
+	repo, err := mysql.New(c)
 	if err != nil {
-		return nil, errors.Wrap(err, "authorizer.New could not connect to DB")
+		return nil, errors.Wrap(err, "authorizer.New could not load persistence")
 	}
-
-	// adapter
-	a, err := gormadapter.NewAdapterByDBUseTableName(db, "cassem", "permission_policy")
+	a, err := repo.PolicyAdapter()
 	if err != nil {
 		return nil, err
 	}
@@ -87,7 +84,7 @@ func New(c *conf.MySQL) (auth IAuthorizer, err error) {
 	})
 
 	auth = casbinAuthorities{
-		userRepo:    mysql.NewUserRepositoryWithDB(db),
+		repo:        repo,
 		aclEnforcer: e,
 	}
 
@@ -97,7 +94,7 @@ func New(c *conf.MySQL) (auth IAuthorizer, err error) {
 // Migrate ...
 // DONE(@yeqown): migrate to init data, only be called cassemctl.
 func (c casbinAuthorities) Migrate() error {
-	if err := c.userRepo.Migrate(); err != nil {
+	if err := c.repo.Migrate(); err != nil {
 		return errors.Wrap(err, "failed to migrate user table")
 	}
 
