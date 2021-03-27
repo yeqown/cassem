@@ -379,7 +379,7 @@ func (m mysqlRepo) PagingPairs(filter *persistence.PagingPairsFilter) ([]interfa
 
 	tx := m.db.Model(_pairTbl)
 	if filter.KeyPattern != "" {
-		tx = tx.Where("key LIKE ?", fmt.Sprintf("%%%s%%", filter.KeyPattern))
+		tx = tx.Where("`key` LIKE ?", fmt.Sprintf("%%%s%%", filter.KeyPattern))
 	}
 	if filter.Namespace != "" {
 		tx = tx.Where("namespace = ?", filter.Namespace)

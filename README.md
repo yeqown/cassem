@@ -11,6 +11,7 @@ config assembler from key-value pairs' container which include basic datatypes, 
 - [x] HTTP Restful API.
 - [x] Export container (config container) into different file format (JSON / TOML).
 - [ ] Manage `CTL` / `UI` support.
+  - [ ] [Web UI](https://github.com/yeqown/cassem-ui) is developing.
 - [x] Master / Slave architecture support based raft (only write on master).
   - [x] Master / Slave architecture and only allow to write on master.
   - [x] Slave need to forward request to master.
