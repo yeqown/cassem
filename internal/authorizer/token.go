@@ -38,7 +38,7 @@ func Session(tokenString string) (*Token, error) {
 }
 
 // DONE(@yeqown): extract secret from code to global.
-func genToken(u *persistence.User) (string, error) {
+func GenToken(u *persistence.User) (string, error) {
 	atClaims := jwt.MapClaims{}
 	atClaims["authorized"] = true
 	atClaims["user_id"] = u.ID

@@ -2,6 +2,7 @@ package coord
 
 import (
 	"github.com/yeqown/cassem/internal/authorizer"
+	"github.com/yeqown/cassem/internal/persistence"
 	"github.com/yeqown/cassem/pkg/datatypes"
 )
 
@@ -19,7 +20,8 @@ type ICoordinator interface {
 
 	IRaftCluster
 
-	authorizer.IUserAndPolicyManager
+	IUserAndPolicyManager
+
 	authorizer.IEnforcer
 }
 
@@ -72,4 +74,18 @@ type IRaftCluster interface {
 	// ShouldForwardToLeader returns shouldForward and current leaderAddr,
 	// shouldForward = !(currentNode == Leader).
 	ShouldForwardToLeader() (shouldForward bool, leaderAddr string)
+}
+
+// IUserAndPolicyManager provides the ability to manage users and policies, basically, it allow you to
+// create, update, read and delete those resources.
+type IUserAndPolicyManager interface {
+	// user permissions manage API
+	ListSubjectPolicies(subject string) []authorizer.Policy
+	UpdateSubjectPolicies(subject string, policies []authorizer.Policy) error
+
+	// user and session manage API
+	AddUser(account, password, name string) (*persistence.User, error)
+	Login(account, password string) (*persistence.User, string, error)
+	ResetPassword(account, password string) error
+	PagingUsers(limit, offset int, accountPattern string) ([]*persistence.User, int, error)
 }

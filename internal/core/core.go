@@ -38,8 +38,8 @@ type Core struct {
 	// convertor helps data conversion between persistence and service logic.
 	convertor persistence.Converter
 
-	// auth
-	auth authorizer.IAuthorizer
+	// enforcer
+	enforcer authorizer.IEnforcer
 
 	// apiGate contains HTTP and gRPC protocol server. HTTP server provides all PUBLIC managing API and
 	// internal cluster API. The duty of gRPC server is serving cassem's clients for watching changes.
@@ -83,9 +83,9 @@ func (c *Core) initialize(cfg *conf.Config) (err error) {
 
 	c.convertor = mysql.NewConverter()
 
-	c.auth, err = authorizer.New(cfg.Persistence.Mysql)
+	c.enforcer, err = authorizer.New(cfg.Persistence.Mysql)
 	if err != nil {
-		return errors.Wrapf(err, "Core.initialize failed to load auth: %v", err)
+		return errors.Wrapf(err, "Core.initialize failed to load enforcer: %v", err)
 	}
 
 	c.apiGate = api.New(cfg.Server.HTTP, c)

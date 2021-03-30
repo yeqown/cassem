@@ -20,7 +20,7 @@ const (
 )
 
 var (
-	allPolicies = []Policy{
+	AllPolicies = []Policy{
 		{Subject: "", Object: OBJ_NAMESPACE, Action: ACTION_ANY},
 		{Subject: "", Object: OBJ_CONTAINER, Action: ACTION_ANY},
 		{Subject: "", Object: OBJ_PAIR, Action: ACTION_ANY},
@@ -35,24 +35,6 @@ var (
 	}
 )
 
-type EnforceRequest struct {
-	Subject string
-	Object  string
-	Action  string
-
-	//Namespace string
-	//Container string
-	//Pair      string
-}
-
-// IAuthorizer
-type IAuthorizer interface {
-	IUserAndPolicyManager
-	IEnforcer
-
-	Migrate() error
-}
-
 // Policy contains whole data what describes a ACL rule.
 type Policy struct {
 	Subject string
@@ -60,7 +42,7 @@ type Policy struct {
 	Action  string
 }
 
-func validPolicy(subject string, p Policy) (err error) {
+func ValidPolicy(subject string, p Policy) (err error) {
 	var errmsg string
 	defer func() {
 		if errmsg != "" {

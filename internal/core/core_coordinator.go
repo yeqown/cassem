@@ -275,30 +275,52 @@ func (c Core) ShouldForwardToLeader() (shouldForward bool, leadAddr string) {
 	return !c.isLeader(), c.raft.GetLeaderAddr()
 }
 
-func (c Core) ListSubjectPolicies(subject string) []authorizer.Policy {
-	return c.auth.ListSubjectPolicies(subject)
-}
-
-func (c Core) UpdateSubjectPolicies(subject string, policies []authorizer.Policy) error {
-	return c.auth.UpdateSubjectPolicies(subject, policies)
-}
-
 func (c Core) AddUser(account, password, name string) (*persistence.User, error) {
-	return c.auth.AddUser(account, password, name)
+	u := &persistence.User{
+		Account:          account,
+		PasswordWithSalt: hash.WithSalt(password, "cassem"),
+		Name:             name,
+	}
+
+	return u, c.repo.CreateUser(u)
 }
 
 func (c Core) Login(account, password string) (*persistence.User, string, error) {
-	return c.auth.Login(account, password)
+	u, err := c.repo.QueryUser(account)
+	if err != nil {
+		return nil, "", err
+	}
+
+	if u.PasswordWithSalt != hash.WithSalt(password, "cassem") {
+		return nil, "", errors.New("account and password could not match")
+	}
+
+	// DONE(@yeqown): generate jwt token
+	token, err := authorizer.GenToken(u)
+	return u, token, err
 }
 
 func (c Core) ResetPassword(account, password string) error {
-	return c.auth.ResetPassword(account, password)
+	return c.repo.ResetPassword(account, hash.WithSalt(password, "cassem"))
 }
 
 func (c Core) PagingUsers(limit, offset int, accountPattern string) ([]*persistence.User, int, error) {
-	return c.auth.PagingUsers(limit, offset, accountPattern)
+	return c.repo.PagingUsers(&persistence.PagingUsersFilter{
+		Limit:          limit,
+		Offset:         offset,
+		AccountPattern: accountPattern,
+	})
 }
 
 func (c Core) Enforce(req *authorizer.EnforceRequest) bool {
-	return c.auth.Enforce(req)
+	return c.enforcer.Enforce(req)
+}
+
+func (c Core) ListSubjectPolicies(subject string) []authorizer.Policy {
+	return c.enforcer.ListSubjectPolicies(subject)
+}
+
+func (c Core) UpdateSubjectPolicies(subject string, policies []authorizer.Policy) error {
+	return c.enforcer.UpdateSubjectPolicies(subject, policies)
+
 }
