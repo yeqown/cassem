@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"strings"
 
 	"github.com/yeqown/log"
 )
@@ -108,22 +109,18 @@ func fromInterface(v interface{}, opts ...RepresentOption) (d IData) {
 		apply(ro)
 	}
 
+	log.
+		WithFields(log.Fields{
+			"typ":   fmt.Sprintf("%T", v),
+			"value": v,
+			"ro":    ro,
+		}).
+		Debug("fromInterface called")
+
 	switch typ := v.(type) {
 	case json.Number:
 		var err error
-		// FIXED:(@yeqown): JSON encoder can distinguish between int64 and float64 with json.Number.
-		switch ro.expectedDatatype {
-		case INT_DATATYPE_:
-			var i int64
-			i, err = v.(json.Number).Int64()
-			d = WithInt(int(i))
-		case FLOAT_DATATYPE_:
-			var f float64
-			f, err = v.(json.Number).Float64()
-			d = WithFloat(f)
-		default:
-			err = fmt.Errorf("invalid datatype to number: %v", ro.expectedDatatype)
-		}
+		d, err = getValueFromJSONNumberWithExpectedDT(v.(json.Number), ro.expectedDatatype)
 		if err != nil {
 			log.
 				WithField("jsonNumber", v).
@@ -162,4 +159,32 @@ func fromInterface(v interface{}, opts ...RepresentOption) (d IData) {
 // FromInterface export fromInterface method, please look up with fromInterface to get more information.
 func FromInterface(v interface{}, opts ...RepresentOption) IData {
 	return fromInterface(v, opts...)
+}
+
+func getValueFromJSONNumberWithExpectedDT(n json.Number, dt Datatype) (d IData, err error) {
+	switch dt {
+	case INT_DATATYPE_:
+		var i int64
+		i, err = n.Int64()
+		d = WithInt(int(i))
+
+	case FLOAT_DATATYPE_:
+
+		var f float64
+		f, err = n.Float64()
+		d = WithFloat(f)
+	default:
+		dt = getJSONNumberDatatype(n)
+		d, err = getValueFromJSONNumberWithExpectedDT(n, dt)
+	}
+
+	return
+}
+
+func getJSONNumberDatatype(n json.Number) Datatype {
+	if strings.Contains(n.String(), ".") {
+		return FLOAT_DATATYPE_
+	}
+
+	return INT_DATATYPE_
 }

@@ -20,6 +20,8 @@ func toUserDO(user *persistence.User) *userDO {
 
 func fromUserDO(u *userDO) *persistence.User {
 	return &persistence.User{
+		ID:               u.ID,
+		CreatedAt:        u.CreatedAt,
 		Account:          u.Account,
 		PasswordWithSalt: u.PasswordWithSalt,
 		Name:             u.Name,

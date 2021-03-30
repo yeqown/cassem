@@ -1,6 +1,8 @@
 package persistence
 
 import (
+	"time"
+
 	"github.com/yeqown/cassem/pkg/datatypes"
 
 	"github.com/casbin/casbin/v2/persist"
@@ -80,6 +82,8 @@ type PagingUsersFilter struct {
 }
 
 type User struct {
+	ID               uint
+	CreatedAt        time.Time
 	Account          string
 	PasswordWithSalt string
 	Name             string

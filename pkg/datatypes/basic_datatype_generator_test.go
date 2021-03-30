@@ -1,6 +1,7 @@
 package datatypes
 
 import (
+	"encoding/json"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -106,6 +107,25 @@ func Test_Construct_List(t *testing.T) {
 	}, d.Data())
 }
 
+func Test_Construct_List_JSON_Number(t *testing.T) {
+	var l2 interface{} = []interface{}{
+		json.Number("1"),
+		json.Number("2"),
+		json.Number("3"),
+		json.Number("4"),
+		json.Number("5"),
+	}
+	d2 := FromInterface(l2)
+	assert.Equal(t, LIST_DATATYPE_, d2.Datatype())
+	assert.EqualValues(t, ListDT{
+		WithInt(1),
+		WithInt(2),
+		WithInt(3),
+		WithInt(4),
+		WithInt(5),
+	}, d2.Data())
+}
+
 func Test_Construct_Dict(t *testing.T) {
 	var dd interface{} = map[string]interface{}{
 		"i": 1,
@@ -121,4 +141,68 @@ func Test_Construct_Dict(t *testing.T) {
 		"i": WithInt(1),
 		"s": WithString("string"),
 	}, d.Data())
+}
+
+func Test_getValueFromJSONNumberWithExpectedDT(t *testing.T) {
+	tests := []struct {
+		name       string
+		n          json.Number
+		expectedDT Datatype
+		want       interface{}
+	}{
+		{
+			name:       "case 0",
+			n:          json.Number("1"),
+			expectedDT: INT_DATATYPE_,
+			want:       1,
+		},
+		{
+			name:       "case 1",
+			n:          json.Number("1"),
+			expectedDT: 0,
+			want:       1,
+		},
+		{
+			name:       "case 2",
+			n:          json.Number("1.2"),
+			expectedDT: FLOAT_DATATYPE_,
+			want:       1.2,
+		},
+		{
+			name:       "case 3",
+			n:          json.Number("1.2"),
+			expectedDT: 0,
+			want:       1.2,
+		},
+	}
+
+	for _, arg := range tests {
+		d, err := getValueFromJSONNumberWithExpectedDT(arg.n, arg.expectedDT)
+		assert.Nil(t, err)
+		assert.EqualValues(t, arg.want, d.Data())
+	}
+}
+
+func Test_getJSONNumberDatatype(t *testing.T) {
+	tests := []struct {
+		name         string
+		n            json.Number
+		wantDatatype Datatype
+	}{
+		{
+			name:         "case 0",
+			n:            json.Number("1"),
+			wantDatatype: INT_DATATYPE_,
+		},
+		{
+			name:         "case 1",
+			n:            json.Number("1.2"),
+			wantDatatype: FLOAT_DATATYPE_,
+		},
+	}
+
+	for _, arg := range tests {
+		dt := getJSONNumberDatatype(arg.n)
+		assert.Equal(t, arg.wantDatatype, dt)
+	}
 }
