@@ -19,24 +19,30 @@ import (
 
 var ErrNotLeader = errors.New("current node is not allow to write, should not be triggered normally")
 
-type IMyRaft interface {
+type ICache interface {
 	Set(key string, value []byte) cache.SetResult
 	Del(key string) cache.SetResult
 	Get(key string) ([]byte, error)
-	GetLeaderAddr() string
-	SetLeaderAddr(leaderAddr string)
+}
 
-	Shutdown() error
+// IMyRaft defines the ability of what raft component should act.
+// TODO(@yeqown): implement a store interface for replication.
+type IMyRaft interface {
+	ICache
 
-	IsLeader() bool
-	JoinedCluster() bool
+	GetLeaderAddr() string           // GetLeaderAddr
+	SetLeaderAddr(leaderAddr string) // SetLeaderAddr
 
-	RemoveNode(serveId string) error
-	AddNode(serveId, addr string) error
+	Shutdown() error                    // Shutdown
+	IsLeader() bool                     // IsLeader
+	JoinedCluster() bool                // JoinedCluster
+	RemoveNode(serveId string) error    // RemoveNode
+	AddNode(serveId, addr string) error // AddNode
+	ApplyFromMessage(msg []byte) error  // ApplyFromMessage
+	ApplyLog(log *CoreFSMLog) error     // ApplyLog
 
-	ApplyFromMessage(msg []byte) error
-	ApplyLog(log *CoreFSMLog) error
-
+	// ChangeNotifyCh returns a watcher.Changes channel which would send data while receive a raft.Log that contains
+	// ChangesNotifyCommand, so that the Core can notify all client who have subscribed related container.
 	ChangeNotifyCh() <-chan watcher.Changes
 }
 

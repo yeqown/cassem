@@ -116,10 +116,6 @@ func New(c *conf.MySQL) (auth IAuthorizer, err error) {
 // Migrate ...
 // DONE(@yeqown): migrate to init data, only be called cassemctl.
 func (c casbinAuthorities) Migrate() error {
-	if err := c.repo.Migrate(); err != nil {
-		return errors.Wrap(err, "failed to migrate user table")
-	}
-
 	// DONE(@yeqown) add root account automatically, and add all permissions to root account.
 	u := &persistence.User{Account: "admin", PasswordWithSalt: "cassem", Name: "admin"}
 	if err := c.repo.CreateUser(u); err != nil {

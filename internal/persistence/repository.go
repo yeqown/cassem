@@ -16,6 +16,9 @@ type Repository interface {
 	IUserPersist
 	IPolicyAdapter
 	IMigrator
+
+	// CannReplicated indicates the persistence supports replication of data or not.
+	CannReplicated() bool
 }
 
 // DONE(@yeqown) design Converter to unbind Repository and logic datatype in repository's logic.

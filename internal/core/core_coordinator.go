@@ -322,5 +322,8 @@ func (c Core) ListSubjectPolicies(subject string) []authorizer.Policy {
 
 func (c Core) UpdateSubjectPolicies(subject string, policies []authorizer.Policy) error {
 	return c.enforcer.UpdateSubjectPolicies(subject, policies)
-
 }
+
+//func (c Core) write(log *myraft.CoreFSMLog) error {
+//	c.raft.ApplyLog(log)
+//}

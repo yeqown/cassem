@@ -41,6 +41,10 @@ func NewWithDB(db *gorm.DB) persistence.Repository {
 	return mysqlRepo{db: db}
 }
 
+func (m mysqlRepo) CannReplicated() bool {
+	return false
+}
+
 func (m mysqlRepo) PolicyAdapter() (persist.Adapter, error) {
 	const (
 		_prefix    = "cassem"
