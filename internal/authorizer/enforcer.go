@@ -7,7 +7,6 @@ import (
 
 	"github.com/casbin/casbin/v2"
 	"github.com/casbin/casbin/v2/model"
-	gormadapter "github.com/casbin/gorm-adapter/v3"
 	"github.com/pkg/errors"
 	"github.com/yeqown/log"
 )
@@ -26,20 +25,40 @@ e = some(where (p.eft == allow))
 m = r.sub == p.sub && obj_match(r.obj, p.obj) && act_match(r.act, p.act)
 `
 
+type IEnforcer interface {
+	Enforce(req *EnforceRequest) bool
+	ListSubjectPolicies(subject string) []Policy
+	UpdateSubjectPolicies(subject string, policies []Policy) error
+}
+
+type IAuthorizer interface {
+	IEnforcer
+
+	Migrate() error
+}
+
+type EnforceRequest struct {
+	Subject string
+	Object  string
+	Action  string
+
+	//Namespace string
+	//Container string
+	//Pair      string
+}
+
 // casbinAuthorities implement IAuthorizer based on casbin.ACL model.
 type casbinAuthorities struct {
 	aclEnforcer *casbin.Enforcer
-	userRepo    persistence.UserRepository
+	repo        persistence.Repository
 }
 
 func New(c *conf.MySQL) (auth IAuthorizer, err error) {
-	db, err := mysql.Connect(c)
+	repo, err := mysql.New(c)
 	if err != nil {
-		return nil, errors.Wrap(err, "authorizer.New could not connect to DB")
+		return nil, errors.Wrap(err, "authorizer.New could not load persistence")
 	}
-
-	// adapter
-	a, err := gormadapter.NewAdapterByDBUseTableName(db, "cassem", "permission_policy")
+	a, err := repo.PolicyAdapter()
 	if err != nil {
 		return nil, err
 	}
@@ -87,7 +106,7 @@ func New(c *conf.MySQL) (auth IAuthorizer, err error) {
 	})
 
 	auth = casbinAuthorities{
-		userRepo:    mysql.NewUserRepository(db),
+		repo:        repo,
 		aclEnforcer: e,
 	}
 
@@ -97,18 +116,14 @@ func New(c *conf.MySQL) (auth IAuthorizer, err error) {
 // Migrate ...
 // DONE(@yeqown): migrate to init data, only be called cassemctl.
 func (c casbinAuthorities) Migrate() error {
-	if err := c.userRepo.Migrate(); err != nil {
-		return errors.Wrap(err, "failed to migrate user table")
-	}
-
 	// DONE(@yeqown) add root account automatically, and add all permissions to root account.
-	u, err := c.AddUser("admin", "cassem", "admin")
-	if err != nil {
+	u := &persistence.User{Account: "admin", PasswordWithSalt: "cassem", Name: "admin"}
+	if err := c.repo.CreateUser(u); err != nil {
 		return errors.Wrap(err, "failed to create root account")
 	}
 
 	token := NewToken(int(u.ID))
-	if err = c.UpdateSubjectPolicies(token.Subject(), allPolicies); err != nil {
+	if err := c.UpdateSubjectPolicies(token.Subject(), AllPolicies); err != nil {
 		return errors.Wrap(err, "failed to assign all policy to root account")
 	}
 
@@ -140,31 +155,6 @@ func (c casbinAuthorities) Enforce(req *EnforceRequest) bool {
 	return allow
 }
 
-func (c casbinAuthorities) UpdateSubjectPolicies(subject string, policies []Policy) error {
-	_, err := c.aclEnforcer.RemoveFilteredPolicy(0, subject)
-	if err != nil {
-		return err
-	}
-
-	in := make([][]string, 0, len(policies))
-	for _, policy := range policies {
-		if err = validPolicy(subject, policy); err != nil {
-			log.WithFields(log.Fields{
-				"subject": subject,
-				"policy":  policy,
-			}).Warnf("policy invalid, skip")
-		}
-		in = append(in, []string{policy.Subject, policy.Object, policy.Action})
-	}
-
-	_, err = c.aclEnforcer.AddPolicies(in)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
 func (c casbinAuthorities) ListSubjectPolicies(subject string) []Policy {
 	out := c.aclEnforcer.GetFilteredPolicy(0, subject)
 
@@ -187,4 +177,29 @@ func (c casbinAuthorities) ListSubjectPolicies(subject string) []Policy {
 	}
 
 	return policies
+}
+
+func (c casbinAuthorities) UpdateSubjectPolicies(subject string, policies []Policy) error {
+	_, err := c.aclEnforcer.RemoveFilteredPolicy(0, subject)
+	if err != nil {
+		return err
+	}
+
+	in := make([][]string, 0, len(policies))
+	for _, policy := range policies {
+		if err = ValidPolicy(subject, policy); err != nil {
+			log.WithFields(log.Fields{
+				"subject": subject,
+				"policy":  policy,
+			}).Warnf("policy invalid, skip")
+		}
+		in = append(in, []string{policy.Subject, policy.Object, policy.Action})
+	}
+
+	_, err = c.aclEnforcer.AddPolicies(in)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

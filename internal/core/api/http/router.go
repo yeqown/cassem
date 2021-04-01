@@ -12,7 +12,7 @@ func (srv *Server) mountRaftClusterInternalAPI() {
 func (srv *Server) mountAPI() {
 	// DONE(@yeqown) authorize middleware is needed.
 	gPub := srv.engi.Group("/api")
-	g := srv.engi.Group("/api", authorize(srv.auth))
+	g := srv.engi.Group("/api", authorize(srv.coordinator.Enforce))
 
 	ns := g.Group("/namespaces")
 	{

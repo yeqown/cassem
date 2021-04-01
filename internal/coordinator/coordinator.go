@@ -1,6 +1,10 @@
 package coord
 
-import "github.com/yeqown/cassem/pkg/datatypes"
+import (
+	"github.com/yeqown/cassem/internal/authorizer"
+	"github.com/yeqown/cassem/internal/persistence"
+	"github.com/yeqown/cassem/pkg/datatypes"
+)
 
 /*
  The coordinator's duty is to coordinate each component in cassem to work in flows. For example:
@@ -12,8 +16,38 @@ import "github.com/yeqown/cassem/pkg/datatypes"
 
 // ICoordinator manage all flow from client to server.
 type ICoordinator interface {
+	IContainerAndPairManager
+
 	IRaftCluster
 
+	IUserAndPolicyManager
+
+	authorizer.IEnforcer
+}
+
+type FilterContainersOption struct {
+	Limit      int
+	Offset     int
+	Namespace  string
+	KeyPattern string
+}
+
+type FilterNamespacesOption struct {
+	Limit            int
+	Offset           int
+	NamespacePattern string
+}
+
+type FilterPairsOption struct {
+	Limit      int
+	Offset     int
+	KeyPattern string
+	Namespace  string
+}
+
+// IContainerAndPairManager provides the ability to manage containers and pairs, basically, it allow you to
+// create, update, read and delete those resources.
+type IContainerAndPairManager interface {
 	GetContainer(key, ns string) (datatypes.IContainer, error)
 	DownloadContainer(key, ns string, format datatypes.ContainerFormat) ([]byte, error)
 	PagingContainers(filter *FilterContainersOption) ([]datatypes.IContainer, int, error)
@@ -42,22 +76,16 @@ type IRaftCluster interface {
 	ShouldForwardToLeader() (shouldForward bool, leaderAddr string)
 }
 
-type FilterContainersOption struct {
-	Limit      int
-	Offset     int
-	Namespace  string
-	KeyPattern string
-}
+// IUserAndPolicyManager provides the ability to manage users and policies, basically, it allow you to
+// create, update, read and delete those resources.
+type IUserAndPolicyManager interface {
+	// user permissions manage API
+	ListSubjectPolicies(subject string) []authorizer.Policy
+	UpdateSubjectPolicies(subject string, policies []authorizer.Policy) error
 
-type FilterNamespacesOption struct {
-	Limit            int
-	Offset           int
-	NamespacePattern string
-}
-
-type FilterPairsOption struct {
-	Limit      int
-	Offset     int
-	KeyPattern string
-	Namespace  string
+	// user and session manage API
+	AddUser(account, password, name string) (*persistence.User, error)
+	Login(account, password string) (*persistence.User, string, error)
+	ResetPassword(account, password string) error
+	PagingUsers(limit, offset int, accountPattern string) ([]*persistence.User, int, error)
 }

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 
+	"github.com/yeqown/cassem/internal/myraft"
 	"github.com/yeqown/cassem/internal/watcher"
 	"github.com/yeqown/cassem/pkg/datatypes"
 
@@ -31,7 +32,7 @@ func (c Core) handleChangeHooks(container datatypes.IContainer, newCheckSum stri
 			return
 		}
 
-		fsmLog, _ := newFsmLog(logActionChangesNotify, &changesNotifyCommand{
+		fsmLog, _ := myraft.NewFsmLog(myraft.ActionChangesNotify, &myraft.ChangesNotifyCommand{
 			Changes: watcher.Changes{
 				CheckSum:  newCheckSum,
 				Key:       container.Key(),
@@ -40,7 +41,7 @@ func (c Core) handleChangeHooks(container datatypes.IContainer, newCheckSum stri
 				Data:      buf.Bytes(),
 			},
 		})
-		if err := c.propagateToSlaves(fsmLog); err != nil {
+		if err := c.raft.ApplyLog(fsmLog); err != nil {
 			log.
 				Errorf("Core.watchContainerChanges failed to propagateToSlaves: %v", err)
 		}
@@ -59,7 +60,7 @@ func (c Core) handleChangeHooks(container datatypes.IContainer, newCheckSum stri
 			return
 		}
 
-		fsmLog, _ := newFsmLog(logActionChangesNotify, &changesNotifyCommand{
+		fsmLog, _ := myraft.NewFsmLog(myraft.ActionChangesNotify, &myraft.ChangesNotifyCommand{
 			Changes: watcher.Changes{
 				CheckSum:  newCheckSum,
 				Key:       container.Key(),
@@ -68,7 +69,7 @@ func (c Core) handleChangeHooks(container datatypes.IContainer, newCheckSum stri
 				Data:      buf.Bytes(),
 			},
 		})
-		if err := c.propagateToSlaves(fsmLog); err != nil {
+		if err := c.raft.ApplyLog(fsmLog); err != nil {
 			log.
 				Errorf("Core.watchContainerChanges failed to propagateToSlaves: %v", err)
 		}

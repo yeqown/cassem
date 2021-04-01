@@ -7,7 +7,6 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"github.com/yeqown/cassem/internal/authorizer"
 	"github.com/yeqown/cassem/internal/conf"
 	coord "github.com/yeqown/cassem/internal/coordinator"
 
@@ -24,13 +23,11 @@ type Server struct {
 
 	_cfg conf.HTTP
 
-	auth authorizer.IAuthorizer
-
 	// coordinator
 	coordinator coord.ICoordinator
 }
 
-func New(c *conf.HTTP, coordinator coord.ICoordinator, auth authorizer.IAuthorizer) *Server {
+func New(c *conf.HTTP, coordinator coord.ICoordinator) *Server {
 	if c.Addr == "" {
 		c.Addr = ":2021"
 	}
@@ -38,7 +35,6 @@ func New(c *conf.HTTP, coordinator coord.ICoordinator, auth authorizer.IAuthoriz
 	srv := &Server{
 		engi:        gin.New(),
 		_cfg:        *c,
-		auth:        auth,
 		coordinator: coordinator,
 	}
 

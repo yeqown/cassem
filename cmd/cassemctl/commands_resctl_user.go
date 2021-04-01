@@ -5,6 +5,10 @@ import (
 
 	"github.com/yeqown/cassem/internal/authorizer"
 
+	"github.com/yeqown/cassem/pkg/hash"
+
+	"github.com/yeqown/cassem/internal/persistence"
+
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
 )
@@ -52,7 +56,7 @@ func addUserCommand() *cli.Command {
 		Category: "user",
 		Flags:    []cli.Flag{_userMetaDataFlag},
 		Action: func(ctx *cli.Context) error {
-			auth, err := getAuthorizer(ctx)
+			repo, err := getRepository(ctx)
 			if err != nil {
 				return err
 			}
@@ -62,7 +66,11 @@ func addUserCommand() *cli.Command {
 				return err
 			}
 
-			_, err = auth.AddUser(md.Account, md.Password, md.Name)
+			err = repo.CreateUser(&persistence.User{
+				Account:          md.Account,
+				PasswordWithSalt: hash.WithSalt(md.Password, "cassem"),
+				Name:             md.Name,
+			})
 			return err
 		},
 	}
@@ -75,7 +83,7 @@ func resetUserPasswordCommand() *cli.Command {
 		Category: "user",
 		Flags:    []cli.Flag{_userMetaDataFlag},
 		Action: func(ctx *cli.Context) error {
-			auth, err := getAuthorizer(ctx)
+			repo, err := getRepository(ctx)
 			if err != nil {
 				return err
 			}
@@ -85,7 +93,7 @@ func resetUserPasswordCommand() *cli.Command {
 				return err
 			}
 
-			return auth.ResetPassword(md.Account, md.Password)
+			return repo.ResetPassword(md.Account, hash.WithSalt(md.Password, "cassem"))
 		},
 	}
 }

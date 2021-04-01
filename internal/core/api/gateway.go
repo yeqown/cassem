@@ -14,11 +14,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/yeqown/cassem/internal/authorizer"
 	"github.com/yeqown/cassem/internal/conf"
 	coord "github.com/yeqown/cassem/internal/coordinator"
-	apihtp "github.com/yeqown/cassem/internal/server/api/http"
-	"github.com/yeqown/cassem/internal/server/api/notifier-grpc"
+	apihtp "github.com/yeqown/cassem/internal/core/api/http"
+	"github.com/yeqown/cassem/internal/core/api/notifier-grpc"
 
 	"github.com/yeqown/log"
 	"golang.org/x/net/http2"
@@ -35,8 +34,8 @@ type Gateway struct {
 	notifyServer *grpc.Server
 }
 
-func New(cfg *conf.HTTP, coordinator coord.ICoordinator, auth authorizer.IAuthorizer) *Gateway {
-	api := apihtp.New(cfg, coordinator, auth)
+func New(cfg *conf.HTTP, coordinator coord.ICoordinator) *Gateway {
+	api := apihtp.New(cfg, coordinator)
 	notifyServer := notifier.New()
 
 	return &Gateway{

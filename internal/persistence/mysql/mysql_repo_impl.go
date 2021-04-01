@@ -7,6 +7,8 @@ import (
 	"github.com/yeqown/cassem/internal/persistence"
 	"github.com/yeqown/cassem/pkg/set"
 
+	"github.com/casbin/casbin/v2/persist"
+	gormadapter "github.com/casbin/gorm-adapter/v3"
 	"github.com/pkg/errors"
 	"github.com/yeqown/log"
 	"gorm.io/gorm"
@@ -14,9 +16,9 @@ import (
 )
 
 var (
-	_pairTbl      = new(PairDO)
-	_containerTbl = new(ContainerDO)
-	_fieldTbl     = new(FieldDO)
+	_pairTbl      = new(pairDO)
+	_containerTbl = new(containerDO)
+	_fieldTbl     = new(fieldDO)
 	_nsTbl        = new(NamespaceDO)
 )
 
@@ -32,13 +34,28 @@ func New(c *conf.MySQL) (persistence.Repository, error) {
 		return nil, errors.Wrap(err, "msyql.New failed to open DB")
 	}
 
-	return mysqlRepo{
-		db: db,
-	}, nil
+	return NewWithDB(db), nil
+}
+
+func NewWithDB(db *gorm.DB) persistence.Repository {
+	return mysqlRepo{db: db}
+}
+
+func (m mysqlRepo) CannReplicated() bool {
+	return false
+}
+
+func (m mysqlRepo) PolicyAdapter() (persist.Adapter, error) {
+	const (
+		_prefix    = "cassem"
+		_tableName = "permission_policy"
+	)
+
+	return gormadapter.NewAdapterByDBUseTableName(m.db, _prefix, _tableName)
 }
 
 func (m mysqlRepo) GetContainer(ns, containerKey string) (interface{}, error) {
-	containerDO := new(ContainerDO)
+	containerDO := new(containerDO)
 
 	err := m.db.Model(_containerTbl).
 		Preload("Fields").
@@ -53,7 +70,7 @@ func (m mysqlRepo) GetContainer(ns, containerKey string) (interface{}, error) {
 		uniquePairKeys.Adds(fld.Pairs.PairKeys())
 	}
 
-	pairsDOs := make([]*PairDO, 0, len(uniquePairKeys))
+	pairsDOs := make([]*pairDO, 0, len(uniquePairKeys))
 	err = m.db.Model(_pairTbl).
 		Where("`key` IN ? AND namespace = ?", uniquePairKeys.Keys(), ns).
 		Find(&pairsDOs).Error
@@ -61,7 +78,7 @@ func (m mysqlRepo) GetContainer(ns, containerKey string) (interface{}, error) {
 		return nil, err
 	}
 
-	pairsMapping := make(map[string]*PairDO, len(pairsDOs))
+	pairsMapping := make(map[string]*pairDO, len(pairsDOs))
 	for idx, pair := range pairsDOs {
 		pairsMapping[pair.Key] = pairsDOs[idx]
 	}
@@ -234,7 +251,7 @@ func (m mysqlRepo) RemoveContainer(ns, containerKey string) (err error) {
 	}()
 
 	// locate container
-	containerDO := new(ContainerDO)
+	containerDO := new(containerDO)
 	if err = tx.Model(_containerTbl).
 		Where("namespace = ? AND `key` = ?", ns, containerKey).
 		First(containerDO).Error; err != nil {
@@ -277,7 +294,7 @@ func (m mysqlRepo) PagingContainers(filter *persistence.PagingContainersFilter) 
 		}
 	}
 
-	containerDOs := make([]*ContainerDO, 0, filter.Limit)
+	containerDOs := make([]*containerDO, 0, filter.Limit)
 	tx := m.db.Model(_containerTbl).Preload("Fields")
 	if filter.KeyPattern != "" {
 		tx = tx.Where("`key` LIKE ?", fmt.Sprintf("%%%s%%", filter.KeyPattern))
@@ -305,7 +322,7 @@ func (m mysqlRepo) PagingContainers(filter *persistence.PagingContainersFilter) 
 }
 
 func (m mysqlRepo) GetPair(ns, key string) (interface{}, error) {
-	pairDO := PairDO{
+	pairDO := pairDO{
 		Namespace: ns,
 		Key:       key,
 	}
@@ -322,7 +339,7 @@ func (m mysqlRepo) GetPair(ns, key string) (interface{}, error) {
 }
 
 func (m mysqlRepo) SavePair(v interface{}, update bool) (err error) {
-	pairDO, ok := v.(*PairDO)
+	pairDO, ok := v.(*pairDO)
 	if !ok || pairDO == nil {
 		return errors.New("invalid value of pair")
 	}
@@ -373,7 +390,7 @@ func (m mysqlRepo) PagingPairs(filter *persistence.PagingPairsFilter) ([]interfa
 	}
 
 	count := int64(0)
-	pairs := make([]*PairDO, 0, filter.Limit)
+	pairs := make([]*pairDO, 0, filter.Limit)
 	err := tx.
 		Order("created_at DESC").
 		Count(&count).
@@ -434,14 +451,6 @@ func (m mysqlRepo) SaveNamespace(ns string) error {
 		Error
 }
 
-func (m mysqlRepo) Converter() persistence.Converter {
-	if m.converter == nil {
-		(&m).converter = newConverter(m)
-	}
-
-	return m.converter
-}
-
 func (m mysqlRepo) UpdateContainerCheckSum(ns, key, checksum string) error {
 	err := m.db.Model(_containerTbl).
 		Where("`key` = ? AND namespace = ?", key, ns).
@@ -456,8 +465,9 @@ func (m mysqlRepo) UpdateContainerCheckSum(ns, key, checksum string) error {
 func (m mysqlRepo) Migrate() error {
 	return m.db.AutoMigrate(
 		&NamespaceDO{},
-		&ContainerDO{},
-		&FieldDO{},
-		&PairDO{},
+		&containerDO{},
+		&fieldDO{},
+		&pairDO{},
+		&persistence.User{},
 	)
 }

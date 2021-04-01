@@ -2,9 +2,9 @@ package authorizer
 
 import (
 	"fmt"
+	"strconv"
 
 	"github.com/yeqown/cassem/internal/persistence"
-	"github.com/yeqown/cassem/pkg/hash"
 
 	"github.com/dgrijalva/jwt-go"
 	"github.com/pkg/errors"
@@ -15,32 +15,20 @@ var (
 	_SECRET_ = []byte("cassem")
 )
 
-func (c casbinAuthorities) AddUser(account, password, name string) (*persistence.UserDO, error) {
-	u := &persistence.UserDO{
-		Account:          account,
-		PasswordWithSalt: hash.WithSalt(password, "cassem"),
-		Name:             name,
-	}
-
-	return u, c.userRepo.Create(u)
+// Token is the bridge between authorizer and HTTP API.
+type Token struct {
+	UserId int
 }
 
-func (c casbinAuthorities) Login(account, password string) (*persistence.UserDO, string, error) {
-	u, err := c.userRepo.QueryUser(account)
-	if err != nil {
-		return nil, "", err
-	}
-
-	if u.PasswordWithSalt != hash.WithSalt(password, "cassem") {
-		return nil, "", errors.New("account and password could not match")
-	}
-
-	// DONE(@yeqown): generate jwt token
-	token, err := genToken(u)
-	return u, token, err
+func NewToken(uid int) *Token {
+	return &Token{UserId: uid}
 }
 
-func (c casbinAuthorities) Session(tokenString string) (*Token, error) {
+func (t Token) Subject() string {
+	return "uid:" + strconv.Itoa(t.UserId)
+}
+
+func Session(tokenString string) (*Token, error) {
 	uid, err := parseToken(tokenString)
 	if err != nil {
 		return nil, err
@@ -50,7 +38,7 @@ func (c casbinAuthorities) Session(tokenString string) (*Token, error) {
 }
 
 // DONE(@yeqown): extract secret from code to global.
-func genToken(u *persistence.UserDO) (string, error) {
+func GenToken(u *persistence.User) (string, error) {
 	atClaims := jwt.MapClaims{}
 	atClaims["authorized"] = true
 	atClaims["user_id"] = u.ID
@@ -89,16 +77,4 @@ func parseToken(tokenString string) (int, error) {
 	}
 
 	return int(uid), nil
-}
-
-func (c casbinAuthorities) ResetPassword(account, password string) error {
-	return c.userRepo.ResetPassword(account, hash.WithSalt(password, "cassem"))
-}
-
-func (c casbinAuthorities) PagingUsers(limit, offset int, accountPattern string) ([]*persistence.UserDO, int, error) {
-	return c.userRepo.PagingUsers(&persistence.PagingUsersFilter{
-		Limit:          limit,
-		Offset:         offset,
-		AccountPattern: accountPattern,
-	})
 }

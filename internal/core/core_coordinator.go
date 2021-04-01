@@ -4,13 +4,13 @@ import (
 	"bytes"
 	"encoding/json"
 
+	"github.com/yeqown/cassem/internal/authorizer"
 	coord "github.com/yeqown/cassem/internal/coordinator"
 	"github.com/yeqown/cassem/internal/persistence"
 	"github.com/yeqown/cassem/pkg/datatypes"
 	"github.com/yeqown/cassem/pkg/hash"
 	"github.com/yeqown/cassem/pkg/runtime"
 
-	"github.com/hashicorp/raft"
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
 	"github.com/yeqown/log"
@@ -30,7 +30,7 @@ func (c Core) GetContainer(key, ns string) (datatypes.IContainer, error) {
 		return nil, errors.Wrap(err, "Core.GetContainer failed to get container")
 	}
 
-	return c.repo.Converter().ToContainer(v)
+	return c.convertor.ToContainer(v)
 }
 
 // DownloadContainer query formatted container data at first, if not hit or got unexpected error, normal process
@@ -86,7 +86,7 @@ func (c Core) PagingContainers(filter *coord.FilterContainersOption) ([]datatype
 
 	containers := make([]datatypes.IContainer, 0, len(outs))
 	for _, v := range outs {
-		p, err := c.repo.Converter().ToContainer(v)
+		p, err := c.convertor.ToContainer(v)
 		if err != nil {
 			log.
 				WithFields(log.Fields{
@@ -109,7 +109,7 @@ func (c Core) SaveContainer(container datatypes.IContainer) error {
 		return ErrNotLeader
 	}
 
-	v, err := c.repo.Converter().FromContainer(container)
+	v, err := c.convertor.FromContainer(container)
 	if err != nil {
 		return errors.Wrap(err, "Core.SaveContainer failed to convert container")
 	}
@@ -160,7 +160,7 @@ func (c Core) GetPair(key, ns string) (datatypes.IPair, error) {
 		return nil, errors.Wrap(err, "Core.GetPair failed to get pair")
 	}
 
-	return c.repo.Converter().ToPair(v)
+	return c.convertor.ToPair(v)
 }
 
 func (c Core) PagingPairs(filter *coord.FilterPairsOption) ([]datatypes.IPair, int, error) {
@@ -176,7 +176,7 @@ func (c Core) PagingPairs(filter *coord.FilterPairsOption) ([]datatypes.IPair, i
 
 	pairs := make([]datatypes.IPair, 0, len(outs))
 	for _, v := range outs {
-		p, err := c.repo.Converter().ToPair(v)
+		p, err := c.convertor.ToPair(v)
 		if err != nil {
 			log.
 				WithFields(log.Fields{
@@ -196,7 +196,7 @@ func (c Core) SavePair(p datatypes.IPair) error {
 		return ErrNotLeader
 	}
 
-	v, err := c.repo.Converter().FromPair(p)
+	v, err := c.convertor.FromPair(p)
 	if err != nil {
 		return errors.Wrap(err, "Core.SavePair failed to convert pair")
 	}
@@ -207,78 +207,16 @@ func (c Core) SavePair(p datatypes.IPair) error {
 // AddNode only leader node would receive such request. MAYBE?
 func (c Core) AddNode(serverId, addr string) error {
 	log.Infof("received AddNode request for remote node %s, addr %s", serverId, addr)
-
-	if !c.isLeader() {
-		log.
-			Warn("RemoveNode request should not be executed by nonleader node")
-
-		return ErrNotLeader
-	}
-
-	cf := c.raft.GetConfiguration()
-	if err := cf.Error(); err != nil {
-		log.Errorf("failed to get raft configuration: %v", err)
-		return err
-	}
-
-	for _, server := range cf.Configuration().Servers {
-		if server.ID == raft.ServerID(serverId) {
-			log.Infof("node %s already joinedCluster raft cluster", serverId)
-			return nil
-		}
-	}
-
-	f := c.raft.AddVoter(raft.ServerID(serverId), raft.ServerAddress(addr), 0, 0)
-	if err := f.Error(); err != nil {
-		return err
-	}
-
-	log.Infof("node %s at %s joinedCluster successfully", serverId, addr)
-	return nil
+	return c.raft.AddNode(serverId, addr)
 }
 
 // RemoveNode only leader node would receive such request.
 func (c Core) RemoveNode(nodeID string) error {
-	log.Infof("received RemoveNode request for remote node %s", nodeID)
-
-	if !c.isLeader() {
-		log.
-			Warn("RemoveNode request should not be executed by nonleader node")
-
-		return ErrNotLeader
-	}
-
-	cf := c.raft.GetConfiguration()
-	if err := cf.Error(); err != nil {
-		log.Errorf("failed to get raft configuration: %v", err)
-		return err
-	}
-
-	for _, srv := range cf.Configuration().Servers {
-		if srv.ID == raft.ServerID(nodeID) {
-			f := c.raft.RemoveServer(srv.ID, 0, 0)
-			if err := f.Error(); err != nil {
-				log.Errorf("failed to remove srv %s, err: %v", nodeID, err)
-				return err
-			}
-
-			log.Infof("node %s left successfully", nodeID)
-			return nil
-		}
-	}
-
-	log.Infof("node %s not exists in raft group", nodeID)
-	return nil
+	return c.raft.RemoveNode(nodeID)
 }
 
 func (c Core) Apply(msg []byte) (err error) {
-	fsmLog := new(coreFSMLog)
-	if err = fsmLog.deserialize(msg); err != nil {
-		log.Errorf("core.Apply failed to deserialize: %v", err)
-		return
-	}
-
-	return c.propagateToSlaves(fsmLog)
+	return c.raft.ApplyFromMessage(msg)
 }
 
 // watchContainerChanges would load container in detail and recalculate its checksum. If old and new is different
@@ -293,7 +231,7 @@ func (c Core) watchContainerChanges(ns, key string) error {
 
 	container, err := c.GetContainer(key, ns)
 	if err != nil {
-		return errors.Wrap(err, "Core.watchContainerChanges failed to c.repo.Converter().ToContainer(v)")
+		return errors.Wrap(err, "Core.watchContainerChanges failed to c.convertor.ToContainer(v)")
 	}
 
 	oldCheckSum := container.CheckSum("")
@@ -330,9 +268,62 @@ func (c Core) watchContainerChanges(ns, key string) error {
 
 // isLeader only return true if current node is leader.
 func (c Core) isLeader() bool {
-	return c.raft.State() == raft.Leader
+	return c.raft.IsLeader()
 }
 
 func (c Core) ShouldForwardToLeader() (shouldForward bool, leadAddr string) {
-	return !c.isLeader(), c.fsm.getLeaderAddr()
+	return !c.isLeader(), c.raft.GetLeaderAddr()
 }
+
+func (c Core) AddUser(account, password, name string) (*persistence.User, error) {
+	u := &persistence.User{
+		Account:          account,
+		PasswordWithSalt: hash.WithSalt(password, "cassem"),
+		Name:             name,
+	}
+
+	return u, c.repo.CreateUser(u)
+}
+
+func (c Core) Login(account, password string) (*persistence.User, string, error) {
+	u, err := c.repo.QueryUser(account)
+	if err != nil {
+		return nil, "", err
+	}
+
+	if u.PasswordWithSalt != hash.WithSalt(password, "cassem") {
+		return nil, "", errors.New("account and password could not match")
+	}
+
+	// DONE(@yeqown): generate jwt token
+	token, err := authorizer.GenToken(u)
+	return u, token, err
+}
+
+func (c Core) ResetPassword(account, password string) error {
+	return c.repo.ResetPassword(account, hash.WithSalt(password, "cassem"))
+}
+
+func (c Core) PagingUsers(limit, offset int, accountPattern string) ([]*persistence.User, int, error) {
+	return c.repo.PagingUsers(&persistence.PagingUsersFilter{
+		Limit:          limit,
+		Offset:         offset,
+		AccountPattern: accountPattern,
+	})
+}
+
+func (c Core) Enforce(req *authorizer.EnforceRequest) bool {
+	return c.enforcer.Enforce(req)
+}
+
+func (c Core) ListSubjectPolicies(subject string) []authorizer.Policy {
+	return c.enforcer.ListSubjectPolicies(subject)
+}
+
+func (c Core) UpdateSubjectPolicies(subject string, policies []authorizer.Policy) error {
+	return c.enforcer.UpdateSubjectPolicies(subject, policies)
+}
+
+//func (c Core) write(log *myraft.CoreFSMLog) error {
+//	c.raft.ApplyLog(log)
+//}
