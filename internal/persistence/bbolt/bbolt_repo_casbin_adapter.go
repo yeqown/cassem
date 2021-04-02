@@ -82,7 +82,7 @@ func loadPolicyLine(line policyRule, model model.Model) {
 func (a *casbinBoltAdapter) LoadPolicy(model model.Model) error {
 	return a.db.View(func(tx *bolt.Tx) error {
 		lines := make([]policyRule, 0)
-		bucket := tx.Bucket([]byte(a.bucketKey))
+		bucket := tx.Bucket(a.bucketKey)
 		policy := bucket.Get([]byte("policy"))
 		if policy == nil {
 			return errEmptyPolicy
@@ -128,45 +128,43 @@ func savePolicyLine(ptype string, rule []string) policyRule {
 
 // SavePolicy saves policy to database.
 func (a *casbinBoltAdapter) SavePolicy(model model.Model) error {
-
-	var lines []policyRule
-
+	var rules []policyRule
 	for ptype, ast := range model["p"] {
 		for _, rule := range ast.Policy {
 			line := savePolicyLine(ptype, rule)
-			lines = append(lines, line)
+			rules = append(rules, line)
 		}
 	}
 
 	for ptype, ast := range model["g"] {
 		for _, rule := range ast.Policy {
 			line := savePolicyLine(ptype, rule)
-			lines = append(lines, line)
+			rules = append(rules, line)
 		}
 	}
 
-	text, err := json.Marshal(lines)
+	text, err := json.Marshal(rules)
 	if err != nil {
 		return err
 	}
 
 	return a.db.Update(func(tx *bolt.Tx) error {
-		bucket := tx.Bucket([]byte(a.bucketKey))
-		return bucket.Put([]byte("policy"), []byte(text))
+		bucket := tx.Bucket(a.bucketKey)
+		return bucket.Put([]byte("policy"), text)
 	})
 }
 
-// AddPolicy adds a policy rule to the storage.
+// AddPolicy adds a policy rule to the storage. [auto save]
 func (a *casbinBoltAdapter) AddPolicy(sec string, ptype string, rule []string) error {
 	return errors.New("not implemented")
 }
 
-// RemovePolicy removes a policy rule from the storage.
+// RemovePolicy removes a policy rule from the storage. [auto save]
 func (a *casbinBoltAdapter) RemovePolicy(sec string, ptype string, rule []string) error {
 	return errors.New("not implemented")
 }
 
-// RemoveFilteredPolicy removes policy rules that match the filter from the storage.
+// RemoveFilteredPolicy removes policy rules that match the filter from the storage. [auto save]
 func (a *casbinBoltAdapter) RemoveFilteredPolicy(sec string, ptype string, fieldIndex int, fieldValues ...string) error {
 	return errors.New("not implemented")
 }

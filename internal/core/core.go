@@ -95,7 +95,7 @@ func (c *Core) initialize(cfg *conf.Config) (err error) {
 		c.convertor = mysql.NewConverter()
 	}
 
-	c.enforcer, err = authorizer.New(cfg.Persistence.Mysql)
+	c.enforcer, err = authorizer.New(c.repo)
 	if err != nil {
 		return errors.Wrapf(err, "Core.initialize failed to load enforcer: %v", err)
 	}

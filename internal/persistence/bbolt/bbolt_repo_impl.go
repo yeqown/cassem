@@ -48,18 +48,8 @@ func NewWithDB(db *bolt.DB) persistence.Repository {
 }
 
 func (b bboltRepoImpl) Migrate() (err error) {
-	var (
-		tx *bolt.Tx
-	)
-
-	tx, err = b.db.Begin(true)
-	defer func() {
-		if err != nil {
-			tx.Rollback()
-		}
-	}()
-
-	return tx.Commit()
+	// there is no migration to do.
+	return nil
 }
 
 func (b bboltRepoImpl) CannReplicated() bool {
@@ -298,10 +288,6 @@ func (b bboltRepoImpl) SaveNamespace(ns string) error {
 		}
 
 		if _, err = bu.CreateBucketIfNotExists(_containerBucket); err != nil {
-			return err
-		}
-
-		if _, err = bu.CreateBucketIfNotExists(_userBucket); err != nil {
 			return err
 		}
 
