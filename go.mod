@@ -17,6 +17,7 @@ require (
 	github.com/stretchr/testify v1.7.0
 	github.com/urfave/cli/v2 v2.3.0
 	github.com/yeqown/log v1.0.5
+	go.etcd.io/bbolt v1.3.5
 	golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9
 	golang.org/x/net v0.0.0-20190813141303-74dc4d7220e7
 	google.golang.org/grpc v1.24.0

@@ -28,11 +28,17 @@ type MySQL struct {
 	Debug       bool   `toml:"-"`
 }
 
+type BBolt struct {
+	Dir string `toml:"dir"`
+	DB  string `toml:"db"`
+}
+
 type Config struct {
 	Debug bool `toml:"debug"`
 
 	Persistence struct {
 		Mysql *MySQL `toml:"mysql"`
+		BBolt *BBolt `toml:"bbolt"`
 	} `toml:"persistence"`
 
 	Server struct {
@@ -76,12 +82,17 @@ var defaultConf = &Config{
 	Debug: false,
 	Persistence: struct {
 		Mysql *MySQL `toml:"mysql"`
+		BBolt *BBolt `toml:"bbolt"`
 	}{
 		Mysql: &MySQL{
 			DSN:         "YOUR_MYSQL_DSN",
 			MaxIdle:     10,
 			MaxOpen:     100,
 			MaxLifeTime: 30,
+		},
+		BBolt: &BBolt{
+			Dir: "./bolt",
+			DB:  "cassem.db",
 		},
 	},
 	Server: struct {
