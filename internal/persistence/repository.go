@@ -85,7 +85,6 @@ type PagingUsersFilter struct {
 }
 
 type User struct {
-	ID               uint
 	CreatedAt        time.Time
 	Account          string
 	PasswordWithSalt string

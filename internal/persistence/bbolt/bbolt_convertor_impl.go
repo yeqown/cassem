@@ -23,7 +23,7 @@ var (
 	ErrNilContainer           = errors.New("nil container")
 	ErrInvalidContainerDO     = errors.New("invalid container DO data")
 
-	ErrPairKeyNotExist = errors.New("some pair key is not exists")
+	ErrPairKeyNotExist = errors.New("some pair bucketKey is not exists")
 )
 
 type bboltConvertorImpl struct{}
@@ -46,14 +46,12 @@ func (b bboltConvertorImpl) FromPair(p datatypes.IPair) (interface{}, error) {
 		return nil, errors.Wrap(err, "bboltConvertorImpl.FromPair failed")
 	}
 
-	pd := pairDO{
+	return &pairDO{
 		Key:       p.Key(),
 		Namespace: p.NS(),
 		Datatype:  p.Value().Datatype(),
 		Value:     v,
-	}
-
-	return &pd, nil
+	}, nil
 }
 
 func (b bboltConvertorImpl) ToPair(v interface{}) (p datatypes.IPair, err error) {
@@ -168,7 +166,7 @@ func (b bboltConvertorImpl) ToContainer(v interface{}) (datatypes.IContainer, er
 			"v":   v,
 			"ok":  ok,
 			"toc": toc,
-		}).Debug("bboltConvertorImpl.ToContainer invalid containerDO")
+		}).Warn("bboltConvertorImpl.ToContainer invalid containerDO")
 
 		return nil, ErrInvalidContainerDO
 	}

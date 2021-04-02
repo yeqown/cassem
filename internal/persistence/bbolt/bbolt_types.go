@@ -9,21 +9,22 @@ import (
 )
 
 var (
-	_ boltValuer = namespace{}
+	_ boltValuer = namespaceDO{}
 	_ boltValuer = pairDO{}
 	_ boltValuer = containerDO{}
+	_ boltValuer = userDO{}
 )
 
-type namespace struct {
+type namespaceDO struct {
 	Key         string
 	Description string
 }
 
-func (m namespace) value() []byte {
+func (m namespaceDO) value() []byte {
 	return runtime.ToBytes(m.Key)
 }
 
-func (m namespace) key() []byte {
+func (m namespaceDO) key() []byte {
 	v, _ := json.Marshal(m)
 	return v
 }
@@ -75,7 +76,7 @@ type field struct {
 
 // fieldPairs contains all pairs of fieldDO.
 // KV_FIELD_ contains like: {"KV": "pairKey"}, "KV" is a const mark of KV field.
-// LIST_FIELD_ contains like: {"0": "pairKey", "1": "pairKey"}, the `key` of fieldPairs is index of pairKey.
+// LIST_FIELD_ contains like: {"0": "pairKey", "1": "pairKey"}, the `bucketKey` of fieldPairs is index of pairKey.
 // DICT_FIELD_ contains like: {"dictKey": "pairKey"}
 type fieldPairs map[string]string
 
@@ -114,4 +115,19 @@ type toContainerWithPairs struct {
 
 	// pairs means map[pairKey]*pairDO dictionary.
 	pairs map[string]*pairDO
+}
+
+type userDO struct {
+	Account  string
+	Password string
+	Name     string
+}
+
+func (u userDO) key() []byte {
+	return runtime.ToBytes(u.Account)
+}
+
+func (u userDO) value() []byte {
+	v, _ := json.Marshal(u)
+	return v
 }

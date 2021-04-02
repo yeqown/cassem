@@ -1,8 +1,6 @@
 package http
 
 import (
-	"strconv"
-
 	"github.com/yeqown/cassem/internal/authorizer"
 	"github.com/yeqown/cassem/internal/persistence"
 
@@ -70,18 +68,17 @@ type pagingUsersRequest struct {
 }
 
 type userVO struct {
-	UserId    uint   `json:"userId"`
-	Account   string `json:"account"`
-	Name      string `json:"name"`
-	CreatedAt int64  `json:"createdAt"`
+	//UserId  uint   `json:"userId"`
+	Account string `json:"account"`
+	Name    string `json:"name"`
+	//CreatedAt int64  `json:"createdAt"`
 }
 
 func toUserVO(u *persistence.User) userVO {
 	return userVO{
-		UserId:    u.ID,
-		Account:   u.Account,
-		Name:      u.Name,
-		CreatedAt: u.CreatedAt.Unix(),
+		Account: u.Account,
+		Name:    u.Name,
+		//CreatedAt: u.CreatedAt.Unix(),
 	}
 }
 
@@ -151,13 +148,12 @@ func toPolicyVO(p authorizer.Policy) policyVO {
 }
 
 func (srv Server) GetUserPolicies(c *gin.Context) {
-	s := c.Params.ByName("userid")
-	uid, err := strconv.Atoi(s)
-	if err != nil {
+	account := c.Params.ByName("account")
+	if account == "" {
 		responseError(c, errors.New("invalid token: not set"))
 		return
 	}
-	token := authorizer.NewToken(uid)
+	token := authorizer.NewToken(account)
 
 	//v, ok := c.Get(_authorizationKey)
 	//if !ok {
@@ -198,22 +194,21 @@ func (req updateUserPoliciesReq) policies(subject string) []authorizer.Policy {
 }
 
 func (srv Server) UpdateUserPolicies(c *gin.Context) {
-	s := c.Params.ByName("userid")
-	uid, err := strconv.Atoi(s)
-	if err != nil {
-		responseError(c, errors.Wrap(err, "invalid uid"))
+	account := c.Params.ByName("account")
+	if account == "" {
+		responseError(c, errors.New("invalid token: not set"))
 		return
 	}
-	token := authorizer.NewToken(uid)
+	token := authorizer.NewToken(account)
 
 	req := new(updateUserPoliciesReq)
-	if err = c.ShouldBind(req); err != nil {
+	if err := c.ShouldBind(req); err != nil {
 		responseError(c, err)
 		return
 	}
 
 	subject := token.Subject()
-	if err = srv.coordinator.UpdateSubjectPolicies(subject, req.policies(subject)); err != nil {
+	if err := srv.coordinator.UpdateSubjectPolicies(subject, req.policies(subject)); err != nil {
 		responseError(c, err)
 		return
 	}

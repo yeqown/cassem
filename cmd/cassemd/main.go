@@ -2,6 +2,7 @@ package main
 
 import (
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/yeqown/cassem/internal/conf"
@@ -50,6 +51,16 @@ func start(ctx *cli.Context) error {
 	cfg.Server.Raft.ClusterAddresses = ctx.StringSlice("join")
 	cfg.Server.Raft.ServerId = ctx.String("id")
 	cfg.Server.HTTP.Addr = ctx.String("http-listen")
+
+	if v := os.Getenv("USE_PERSIST"); v == "" {
+		cfg.UsePersistence = 1
+	} else {
+		i, err := strconv.Atoi(v)
+		if err != nil {
+			panic(err)
+		}
+		cfg.UsePersistence = uint(i)
+	}
 
 	log.Debugf("config %+v", cfg.Server.Raft)
 

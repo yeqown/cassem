@@ -8,6 +8,7 @@ package bbolt
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"path"
 
 	"github.com/yeqown/cassem/internal/conf"
@@ -23,6 +24,8 @@ import (
 var (
 	_pairBucket      = []byte("pair")
 	_containerBucket = []byte("container")
+
+	ErrNotFound = errors.New("record not found")
 )
 
 type bboltRepoImpl struct {
@@ -72,7 +75,7 @@ func (b bboltRepoImpl) GetContainer(ns, containerKey string) (interface{}, error
 		bu := getContainerBucketByNamespace(tx, ns)
 		v := bu.Get(runtime.ToBytes(containerKey))
 		if v == nil {
-			return errors.New("could not found")
+			return ErrNotFound
 		}
 
 		c = new(containerDO)
@@ -144,11 +147,22 @@ func (b bboltRepoImpl) PagingContainers(filter *persistence.PagingContainersFilt
 		}
 
 		for _, item := range kvs {
-			p := new(containerDO)
-			if err2 := json.Unmarshal(item.value, p); err2 != nil {
+			c := new(containerDO)
+			if err2 := json.Unmarshal(item.value, c); err2 != nil {
+				log.
+					WithFields(log.Fields{
+						"value":     item.value,
+						"bucketKey": item.key,
+						"error":     err2,
+					}).
+					Warn("bboltRepoImpl.PagingContainers could not unmarshal container")
+
 				continue
 			}
-			out = append(out, p)
+			out = append(out, &toContainerWithPairs{
+				origin: toOriginPaging,
+				c:      c,
+			})
 		}
 
 		return nil
@@ -162,7 +176,7 @@ func (b bboltRepoImpl) RemoveContainer(ns, containerKey string) error {
 		bu := getContainerBucketByNamespace(tx, ns)
 		v := bu.Delete(runtime.ToBytes(containerKey))
 		if v == nil {
-			return errors.New("could not found")
+			return ErrNotFound
 		}
 
 		return nil
@@ -174,7 +188,7 @@ func (b bboltRepoImpl) UpdateContainerCheckSum(ns, key, checksum string) error {
 		bu := getContainerBucketByNamespace(tx, ns)
 		v := bu.Get(runtime.ToBytes(key))
 		if v == nil {
-			return errors.New("not found container")
+			return ErrNotFound
 		}
 
 		c := new(containerDO)
@@ -193,7 +207,7 @@ func (b bboltRepoImpl) GetPair(ns, key string) (interface{}, error) {
 		bu := getPairBucketByNamespace(tx, ns)
 		v := bu.Get(runtime.ToBytes(key))
 		if v == nil {
-			return errors.New("could not found")
+			return ErrNotFound
 		}
 
 		p = new(pairDO)
@@ -206,7 +220,7 @@ func (b bboltRepoImpl) GetPair(ns, key string) (interface{}, error) {
 func (b bboltRepoImpl) SavePair(v interface{}, update bool) error {
 	p, ok := v.(*pairDO)
 	if !ok || p == nil {
-		return errors.New("invalid value of pair")
+		return fmt.Errorf("invalid value of pairDO, ok: %v, p==nil: %v", ok, p == nil)
 	}
 
 	return b.db.Update(func(tx *bolt.Tx) error {
@@ -229,6 +243,14 @@ func (b bboltRepoImpl) PagingPairs(filter *persistence.PagingPairsFilter) ([]int
 		for _, item := range kvs {
 			p := new(pairDO)
 			if err2 := json.Unmarshal(item.value, p); err2 != nil {
+				log.
+					WithFields(log.Fields{
+						"value":     item.value,
+						"bucketKey": item.key,
+						"error":     err2,
+					}).
+					Warn("bboltRepoImpl.PagingContainers could not unmarshal container")
+
 				continue
 			}
 			out = append(out, p)
@@ -276,6 +298,10 @@ func (b bboltRepoImpl) SaveNamespace(ns string) error {
 		}
 
 		if _, err = bu.CreateBucketIfNotExists(_containerBucket); err != nil {
+			return err
+		}
+
+		if _, err = bu.CreateBucketIfNotExists(_userBucket); err != nil {
 			return err
 		}
 

@@ -122,7 +122,7 @@ func (c casbinAuthorities) Migrate() error {
 		return errors.Wrap(err, "failed to create root account")
 	}
 
-	token := NewToken(int(u.ID))
+	token := NewToken(u.Account)
 	if err := c.UpdateSubjectPolicies(token.Subject(), AllPolicies); err != nil {
 		return errors.Wrap(err, "failed to assign all policy to root account")
 	}
