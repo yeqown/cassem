@@ -2,7 +2,7 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/yeqown/cassem)](https://goreportcard.com/report/github.com/yeqown/cassem) [![go.de
 │ v reference](https://img.shields.io/badge/go.dev-reference-007d9c?logo=go&logoColor=white&style=flat-square)](https://pkg.go.dev/github.com/yeqown/cassem)
 
-config assembler from key-value pairs' container which include basic datatypes, such as int, string, float, bool, list, dict
+<del>config assembler from key-value pairs' container which include basic datatypes, such as int, string, float, bool, list, dict</del> This should not be so import. `CASSEM` is a config center which SHOULD focus on handling configs management and keeping available while edge problems happend.  
 
 <img src="./assets/intro.svg" width="100%"/>
 
