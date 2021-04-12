@@ -1,9 +1,7 @@
 package authorizer
 
 import (
-	"github.com/yeqown/cassem/internal/conf"
 	"github.com/yeqown/cassem/internal/persistence"
-	"github.com/yeqown/cassem/internal/persistence/mysql"
 
 	"github.com/casbin/casbin/v2"
 	"github.com/casbin/casbin/v2/model"
@@ -53,11 +51,11 @@ type casbinAuthorities struct {
 	repo        persistence.Repository
 }
 
-func New(c *conf.MySQL) (auth IAuthorizer, err error) {
-	repo, err := mysql.New(c)
-	if err != nil {
-		return nil, errors.Wrap(err, "authorizer.New could not load persistence")
-	}
+func New(repo persistence.Repository) (auth IAuthorizer, err error) {
+	//repo, err := mysql.New(c)
+	//if err != nil {
+	//	return nil, errors.Wrap(err, "authorizer.New could not load persistence")
+	//}
 	a, err := repo.PolicyAdapter()
 	if err != nil {
 		return nil, err
@@ -122,7 +120,7 @@ func (c casbinAuthorities) Migrate() error {
 		return errors.Wrap(err, "failed to create root account")
 	}
 
-	token := NewToken(int(u.ID))
+	token := NewToken(u.Account)
 	if err := c.UpdateSubjectPolicies(token.Subject(), AllPolicies); err != nil {
 		return errors.Wrap(err, "failed to assign all policy to root account")
 	}

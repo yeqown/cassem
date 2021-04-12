@@ -5,6 +5,9 @@ debug = false
         max_idle        = 10
         max_open        = 100
         max_life_time   = 30
+    [persistence.bbolt]
+            dir       = "./debugdata"
+            db        = "cassem.db"
 
 [server]
     [server.http]

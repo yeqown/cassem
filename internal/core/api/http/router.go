@@ -46,7 +46,7 @@ func (srv *Server) mountAPI() {
 		user.POST("/reset-password", srv.ResetPassword)
 	}
 
-	policy := user.Group("/:userid/policies")
+	policy := user.Group("/:account/policies")
 	{
 		policy.GET("", srv.GetUserPolicies)
 		policy.PUT("/policy", srv.UpdateUserPolicies)

@@ -2,7 +2,6 @@ package authorizer
 
 import (
 	"fmt"
-	"strconv"
 
 	"github.com/yeqown/cassem/internal/persistence"
 
@@ -17,31 +16,31 @@ var (
 
 // Token is the bridge between authorizer and HTTP API.
 type Token struct {
-	UserId int
+	Account string
 }
 
-func NewToken(uid int) *Token {
-	return &Token{UserId: uid}
+func NewToken(account string) *Token {
+	return &Token{Account: account}
 }
 
 func (t Token) Subject() string {
-	return "uid:" + strconv.Itoa(t.UserId)
+	return "uid:" + t.Account
 }
 
 func Session(tokenString string) (*Token, error) {
-	uid, err := parseToken(tokenString)
+	account, err := parseToken(tokenString)
 	if err != nil {
 		return nil, err
 	}
 
-	return NewToken(uid), nil
+	return NewToken(account), nil
 }
 
 // DONE(@yeqown): extract secret from code to global.
 func GenToken(u *persistence.User) (string, error) {
 	atClaims := jwt.MapClaims{}
 	atClaims["authorized"] = true
-	atClaims["user_id"] = u.ID
+	atClaims["account"] = u.Account
 	//atClaims["exp"] = time.Now().Add(time.Minute * 15).Unix()
 	at := jwt.NewWithClaims(jwt.SigningMethodHS256, atClaims)
 	token, err := at.SignedString(_SECRET_)
@@ -52,7 +51,7 @@ func GenToken(u *persistence.User) (string, error) {
 	return token, nil
 }
 
-func parseToken(tokenString string) (int, error) {
+func parseToken(tokenString string) (string, error) {
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 		// Make sure that the token method conform to "SigningMethodHMAC"
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
@@ -61,20 +60,20 @@ func parseToken(tokenString string) (int, error) {
 		return _SECRET_, nil
 	})
 	if err != nil {
-		return 0, err
+		return "", err
 	}
 
 	at := token.Claims.(jwt.MapClaims)
-	uid, ok := at["user_id"].(float64)
+	account, ok := at["account"].(string)
 	log.
 		WithFields(log.Fields{
 			"at":      at,
-			"user_id": at["user_id"],
+			"account": at["account"],
 		}).
-		Debugf("parseToken with claims: %T", at["user_id"])
+		Debugf("parseToken with claims: %T", at["account"])
 	if !ok {
-		return 0, errors.New("parseToken could not convert user_id into int")
+		return "", errors.New("parseToken could not convert user_id into int")
 	}
 
-	return int(uid), nil
+	return account, nil
 }

@@ -11,6 +11,7 @@ import (
 	"github.com/yeqown/cassem/internal/core/api"
 	"github.com/yeqown/cassem/internal/myraft"
 	"github.com/yeqown/cassem/internal/persistence"
+	"github.com/yeqown/cassem/internal/persistence/bbolt"
 	"github.com/yeqown/cassem/internal/persistence/mysql"
 	"github.com/yeqown/cassem/internal/watcher"
 	"github.com/yeqown/cassem/pkg/runtime"
@@ -75,15 +76,26 @@ func New(cfg *conf.Config) (*Core, error) {
 func (c *Core) initialize(cfg *conf.Config) (err error) {
 	c.config = cfg
 
-	c.repo, err = mysql.New(cfg.Persistence.Mysql)
-	if err != nil {
-		return errors.Wrapf(err, "Core.initialize failed to load persistence: %v", err)
+	switch cfg.UsePersistence {
+	case 2:
+		c.repo, err = bbolt.New(cfg.Persistence.BBolt)
+		if err != nil {
+			return errors.Wrapf(err, "Core.initialize failed to load persistence: %v", err)
+		}
+		log.Info("Core: persistence component loaded")
+		c.convertor = bbolt.NewConverter()
+	case 1:
+		fallthrough
+	default:
+		c.repo, err = mysql.New(cfg.Persistence.Mysql)
+		if err != nil {
+			return errors.Wrapf(err, "Core.initialize failed to load persistence: %v", err)
+		}
+		log.Info("Core: persistence component loaded")
+		c.convertor = mysql.NewConverter()
 	}
-	log.Info("Core: persistence component loaded")
 
-	c.convertor = mysql.NewConverter()
-
-	c.enforcer, err = authorizer.New(cfg.Persistence.Mysql)
+	c.enforcer, err = authorizer.New(c.repo)
 	if err != nil {
 		return errors.Wrapf(err, "Core.initialize failed to load enforcer: %v", err)
 	}
