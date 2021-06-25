@@ -29,7 +29,7 @@ type IWatcher interface {
 
 // IObserver describes all actions those the IWatcher's client should have.
 type IObserver interface {
-	// Identity must keep unique in cassemd server.
+	// Identity must keep unique in cassemagent server.
 	Identity() string
 
 	// Topics describes all topic="NAMESPACE#CONTAINER_KEY#FORMAT" those IObserver cares about.

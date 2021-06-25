@@ -24,7 +24,7 @@ func prepare() watcher.IWatcher {
 	return w
 }
 
-// ensure calling this after you started cassemd.
+// ensure calling this after you started cassemagent.
 func Test_Notifier_Watch(t *testing.T) {
 	// start watcher and notifier
 	w := prepare()
@@ -91,7 +91,7 @@ func Test_Notifier_Watch(t *testing.T) {
 	time.Sleep(2 * time.Second)
 }
 
-// ensure calling this after you started cassemd.
+// ensure calling this after you started cassemagent.
 func Test_CASSEM(t *testing.T) {
 	// boot client
 	//timeoutCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)

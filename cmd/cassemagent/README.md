@@ -14,34 +14,34 @@ Now, you can start the `cassemd` server as following command:
 
 ```sh
 # @yeqown@gmail.com
-# @cassemd
+# @cassemagent
 
-./cassemd \
-	-c ./configs/cassem.example.toml \		# config file path
-	--id="2e422fdf" \ 						# nodeID of cassemd which is unique
+./cassemagent \
+	-c ./configs/cassemadm.example.toml \		# config file path
+	--id="2e422fdf" \ 						# nodeID of cassemagent which is unique
 	--raft-base="./debugdata/2e422fdf"  \ 	# raft base directory to store
-	--http-listen="127.0.0.1:2021" \		# cassemd restful HTTP address
+	--http-listen="127.0.0.1:2021" \		# cassemagent restful HTTP address
 	--bind="127.0.0.1:3021" \				# address for raft protocol to communicate to each other
 	--join=""								# addresses to send join cluster request
 ```
 
 ```sh
-./cassemd \
-	-c ./configs/cassem.example.toml \
+./cassemagent \
+	-c ./configs/cassemadm.example.toml \
 	--id=2e422fdf \
 	--raft-base="./debugdata/2e422fdf"  \
 	--http-listen="127.0.0.1:2021" \
 	--bind="127.0.0.1:3021" \
 	--join=""
 
-./cassemd -c ./configs/cassem.example.toml \
+./cassemagent -c ./configs/cassemadm.example.toml \
 	--id=b6a77ac2 \
 	--raft-base="./debugdata/b6a77ac2" \
 	--http-listen="127.0.0.1:2022" \
 	--bind="127.0.0.1:3022" \
 	--join="127.0.0.1:2021"
 
-./cassemd -c ./configs/cassem.example.toml \
+./cassemagent -c ./configs/cassemadm.example.toml \
 	--id=a035b428 \
 	--raft-base="./debugdata/a035b428" \
 	--http-listen="127.0.0.1:2023" \

@@ -1,0 +1,14 @@
+debug = false
+[persistence]
+    [persistence.mysql]
+        dsn             = "root:@tcp(127.0.0.1:3306)/cassem?charset=utf8mb4&parseTime=true&loc=Local"
+        max_idle        = 10
+        max_open        = 100
+        max_life_time   = 30
+    [persistence.bbolt]
+            dir       = "./debugdata"
+            db        = "cassem.db"
+
+[server]
+    [server.http]
+        addr    = ":2021"

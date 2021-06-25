@@ -15,7 +15,7 @@ import (
 func main() {
 	app := cli.NewApp()
 	app.EnableBashCompletion = true
-	app.Name = "cassemd"
+	app.Name = "cassemagent"
 	app.Usage = "cassem daemon server"
 	app.Authors = []*cli.Author{
 		{
@@ -78,8 +78,8 @@ var _cliGlobalFlags = []cli.Flag{
 	&cli.StringFlag{
 		Name:        "conf",
 		Aliases:     []string{"c"},
-		Value:       "./configs/cassem.example.toml",
-		DefaultText: "./configs/cassem.example.toml",
+		Value:       "./configs/cassemadm.example.toml",
+		DefaultText: "./configs/cassemadm.example.toml",
 		Usage:       "choose which `path/to/file` to load",
 		Required:    false,
 	},

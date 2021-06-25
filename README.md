@@ -30,7 +30,7 @@
 
 ### - [cassemctl](./cmd/cassemctl/README.md)
 
-### - [cassemd](./cmd/cassemd/README.md)
+### - [cassemd](cmd/cassemagent/README.md)
 
 ## Benchmark
 

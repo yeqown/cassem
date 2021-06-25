@@ -20,8 +20,8 @@ import (
 	"github.com/yeqown/log"
 )
 
-// Core is the cassemd server that would guards api server running and alas controls other components.
-// Especially, raft protocol which supports the architecture of cassemd (master-slave).
+// Core is the cassemagent server that would guards api server running and alas controls other components.
+// Especially, raft protocol which supports the architecture of cassemagent (master-slave).
 //
 // Notice that all writes must be operated on master node, salve nodes could execute read operations.
 //
