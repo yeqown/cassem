@@ -16,5 +16,6 @@
 
 .idea/
 debugdata/
-cassemd
-cassemctl
+cassemdb
+cassemagent
+cassemadm

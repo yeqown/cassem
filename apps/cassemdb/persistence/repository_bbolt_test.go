@@ -3,17 +3,17 @@ package persistence_test
 import (
 	"testing"
 
-	"github.com/yeqown/cassem/internal/conf"
-	"github.com/yeqown/cassem/internal/persistence"
-	"github.com/yeqown/cassem/internal/persistence/bbolt"
-
 	"github.com/stretchr/testify/suite"
+
+	persistence2 "github.com/yeqown/cassem/apps/cassemdb/persistence"
+	bbolt2 "github.com/yeqown/cassem/apps/cassemdb/persistence/bbolt"
+	"github.com/yeqown/cassem/internal/conf"
 )
 
 type testRepositoryBBoltSuite struct {
 	suite.Suite
 
-	repo persistence.Repository
+	repo persistence2.Repository
 }
 
 func (s testRepositoryBBoltSuite) TearDownSuite() {
@@ -37,7 +37,7 @@ func Test_Repo_BBolt_mysql(t *testing.T) {
 		DB:  "cassem.db",
 	}
 
-	repo, err := bbolt.New(&cfg)
+	repo, err := bbolt2.New(&cfg)
 	if err != nil {
 		t.Fatalf("Test_Repo_BBolt_mysql failed to open DB: %v", err)
 	}

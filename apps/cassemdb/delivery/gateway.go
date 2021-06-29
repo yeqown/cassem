@@ -1,4 +1,4 @@
-// Package api container two main API module: HTTP and gRPC. The reason for designing a Gateway to
+// Package delivery container two main API module: HTTP and gRPC. The reason for designing a Gateway to
 // serve request both HTTP and gRPC is that DO NOT want to listen on another TCP port so that client
 // could build connections to only one server address.
 //
@@ -7,22 +7,22 @@
 //
 // I hope them can help you too.
 //
-package api
+package delivery
 
 import (
 	"net/http"
 	"strings"
 	"time"
 
-	"github.com/yeqown/cassem/internal/conf"
-	coord "github.com/yeqown/cassem/internal/coordinator"
-	apihtp "github.com/yeqown/cassem/internal/core/api/http"
-	"github.com/yeqown/cassem/internal/core/api/notifier-grpc"
-
 	"github.com/yeqown/log"
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
 	"google.golang.org/grpc"
+
+	"github.com/yeqown/cassem/apps/cassemdb/coord"
+	apihtp "github.com/yeqown/cassem/apps/cassemdb/delivery/http"
+
+	"github.com/yeqown/cassem/internal/conf"
 )
 
 // Gateway is the gate to all cassem API. It provides both HTTP and gRPC protocol applications at once.
@@ -34,14 +34,14 @@ type Gateway struct {
 	notifyServer *grpc.Server
 }
 
-func New(cfg *conf.HTTP, coordinator coord.ICoordinator) *Gateway {
-	api := apihtp.New(cfg, coordinator)
-	notifyServer := notifier.New()
+func New(cfg *conf.HTTP, coord coord.ICoordinator) *Gateway {
+	api := apihtp.New(cfg, coord)
+	// notifyServer := notifier.New()
 
 	return &Gateway{
-		addr:         cfg.Addr,
-		api:          api,
-		notifyServer: notifyServer,
+		addr: cfg.Addr,
+		api:  api,
+		// notifyServer: notifyServer,
 	}
 }
 

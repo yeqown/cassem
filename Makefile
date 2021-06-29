@@ -1,13 +1,21 @@
-GOCMD=CGO_ENABLED=0 GOARCH=amd64 GOOS=linux go
+GOCMD=CGO_ENABLED=0 GOARCH=amd64 GOOS=darwin go
 
-build-cassemd:
-	${GOCMD} build -o cassemd ./cmd/cassemd
+build-cassemdb:
+	${GOCMD} build -o cassemdb ./cmd/cassemdb
 
-build-cassemctl:
-	${GOCMD} build -o cassemctl ./cmd/cassemctl
+run-cassemdb: build-cassemdb
+	./cassemdb \
+		--raft-base="./debugdata/d1" \
+		--id="d1" \
+		--http-listen="127.0.0.1:2021" \
+		--bind="127.0.0.1:3021" \
+		--join=""
 
-image: build-cassemd build-cassemctl
-	docker build -t yeqown/cassem .
+build-cassemadm:
+	${GOCMD} build -o cassemadm ./cmd/cassemadm
+
+build-cassemagent:
+	${GOCMD} build -o cassemagent ./cmd/cassemagent
 
 clear:
-	@ rm ./cassemd || rm ./cassemctl
+	@ rm ./cassemdb || rm ./cassemadm || rm ./cassemagent

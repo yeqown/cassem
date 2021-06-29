@@ -11,6 +11,9 @@ type Repository interface {
 
 	// Set save key and value
 	Set(key string, value []byte) error
+
+	// Unset save key and value
+	Unset(key string) error
 }
 
 func KeySplitter(s string) (nodes []string, leaf string) {

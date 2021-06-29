@@ -26,12 +26,12 @@ func (srv *Server) OperateNode(c *gin.Context) {
 	switch req.Action {
 	case "join":
 		if req.Bind != "" {
-			err = srv.coordinator.AddNode(req.ServerID, req.Bind)
+			err = srv.coord.AddNode(req.ServerID, req.Bind)
 		} else {
 			err = errors.New("bind could not be empty")
 		}
 	case "left":
-		err = srv.coordinator.RemoveNode(req.ServerID)
+		err = srv.coord.RemoveNode(req.ServerID)
 	default:
 		err = errors.New("unknown action")
 	}
@@ -55,7 +55,7 @@ func (srv *Server) Apply(c *gin.Context) {
 		return
 	}
 
-	if err := srv.coordinator.Apply(req.Data); err != nil {
+	if err := srv.coord.Apply(req.Data); err != nil {
 		responseError(c, err)
 		return
 	}

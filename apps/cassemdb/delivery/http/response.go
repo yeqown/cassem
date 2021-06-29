@@ -43,21 +43,3 @@ func responseJSON(c *gin.Context, data interface{}) {
 		Data:       data,
 	})
 }
-
-type contentType string
-
-func (c contentType) String() string {
-	return string(c)
-}
-
-const (
-	jsonContentType contentType = "application/json"
-	tomlContentType contentType = "application/toml"
-)
-
-func responseFile(c *gin.Context, filename string, t contentType, content []byte) {
-	contentDisposition := "attachment;filename=\"" + filename + "\""
-	c.Header("Content-Type", t.String()) // 这里是压缩文件类型 .zip
-	c.Header("Content-Disposition", contentDisposition)
-	c.Data(http.StatusOK, t.String(), content)
-}

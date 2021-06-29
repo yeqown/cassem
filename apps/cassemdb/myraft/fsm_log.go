@@ -2,16 +2,13 @@ package myraft
 
 import (
 	"encoding/json"
-
-	"github.com/yeqown/cassem/internal/watcher"
 )
 
 type _fsmLogAction uint8
 
 const (
-	ActionSyncCache _fsmLogAction = iota + 1
+	ActionSet _fsmLogAction = iota + 1
 	ActionSetLeaderAddr
-	ActionChangesNotify
 )
 
 type CoreFSMLog struct {
@@ -57,19 +54,19 @@ type SetLeaderAddrCommand struct {
 func (cc SetLeaderAddrCommand) Serialize() ([]byte, error)     { return json.Marshal(cc) }
 func (cc *SetLeaderAddrCommand) Deserialize(data []byte) error { return json.Unmarshal(data, cc) }
 
-type SetCacheCommand struct {
-	NeedDeleteKey string
-	NeedSetKey    string
-	NeedSetData   []byte
+type SetCommand struct {
+	DeleteKey   string
+	SetKey      string
+	NeedSetData []byte
 }
 
-func (cc SetCacheCommand) Serialize() ([]byte, error)     { return json.Marshal(cc) }
-func (cc *SetCacheCommand) Deserialize(data []byte) error { return json.Unmarshal(data, cc) }
+func (cc SetCommand) Serialize() ([]byte, error)     { return json.Marshal(cc) }
+func (cc *SetCommand) Deserialize(data []byte) error { return json.Unmarshal(data, cc) }
 
-// ChangesNotifyCommand for changes notify.
-type ChangesNotifyCommand struct {
-	watcher.Changes
-}
-
-func (cc ChangesNotifyCommand) Serialize() ([]byte, error)     { return json.Marshal(cc) }
-func (cc *ChangesNotifyCommand) Deserialize(data []byte) error { return json.Unmarshal(data, cc) }
+//// ChangesNotifyCommand for changes notify.
+//type ChangesNotifyCommand struct {
+//	watcher.Changes
+//}
+//
+//func (cc ChangesNotifyCommand) Serialize() ([]byte, error)     { return json.Marshal(cc) }
+//func (cc *ChangesNotifyCommand) Deserialize(data []byte) error { return json.Unmarshal(data, cc) }

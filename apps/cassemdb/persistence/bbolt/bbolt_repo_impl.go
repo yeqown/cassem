@@ -10,8 +10,8 @@ import (
 	"github.com/pkg/errors"
 	bolt "go.etcd.io/bbolt"
 
+	persistence2 "github.com/yeqown/cassem/apps/cassemdb/persistence"
 	"github.com/yeqown/cassem/internal/conf"
-	"github.com/yeqown/cassem/internal/persistence"
 	"github.com/yeqown/cassem/pkg/runtime"
 )
 
@@ -67,8 +67,8 @@ func (b bboltRepoImpl) locateBucket(
 }
 
 func (b bboltRepoImpl) Get(key string) (val []byte, err error) {
-	nodes, leaf := persistence.KeySplitter(key)
-	if persistence.IsEmptyLeaf(leaf) {
+	nodes, leaf := persistence2.KeySplitter(key)
+	if persistence2.IsEmptyLeaf(leaf) {
 		return nil, ErrEmptyLeaf
 	}
 
@@ -89,8 +89,8 @@ func (b bboltRepoImpl) Get(key string) (val []byte, err error) {
 }
 
 func (b bboltRepoImpl) Set(key string, value []byte) (err error) {
-	nodes, leaf := persistence.KeySplitter(key)
-	if persistence.IsEmptyLeaf(leaf) {
+	nodes, leaf := persistence2.KeySplitter(key)
+	if persistence2.IsEmptyLeaf(leaf) {
 		return ErrEmptyLeaf
 	}
 
@@ -106,7 +106,25 @@ func (b bboltRepoImpl) Set(key string, value []byte) (err error) {
 	return
 }
 
-func New(c *conf.BBolt) (persistence.Repository, error) {
+func (b bboltRepoImpl) Unset(key string) (err error) {
+	nodes, leaf := persistence2.KeySplitter(key)
+	if persistence2.IsEmptyLeaf(leaf) {
+		return ErrEmptyLeaf
+	}
+
+	err = b.db.Update(func(tx *bolt.Tx) error {
+		bucket, err := b.locateBucket(tx, nodes, true)
+		if err != nil {
+			return err
+		}
+
+		return bucket.Delete(runtime.ToBytes(leaf))
+	})
+
+	return
+}
+
+func New(c *conf.BBolt) (persistence2.Repository, error) {
 	db, err := bolt.Open(path.Join(c.Dir, c.DB), 0600, nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "open bolt.DB failed")
@@ -115,7 +133,7 @@ func New(c *conf.BBolt) (persistence.Repository, error) {
 	return NewWithDB(db), nil
 }
 
-func NewWithDB(db *bolt.DB) persistence.Repository {
+func NewWithDB(db *bolt.DB) persistence2.Repository {
 	return bboltRepoImpl{
 		db: db,
 	}
@@ -183,7 +201,7 @@ func NewWithDB(db *bolt.DB) persistence.Repository {
 //	}
 //
 //	return b.db.Update(func(tx *bolt.Tx) error {
-//		bu := getContainerBucketByNamespace(tx, from.c.Namespace)
+//		bu := getContainerBucketByNamespace(tx, from.c.Key)
 //		return bu.Put(from.c.key(), from.c.value())
 //	})
 //}
@@ -192,7 +210,7 @@ func NewWithDB(db *bolt.DB) persistence.Repository {
 //	out := make([]interface{}, 0, filter.Limit)
 //
 //	err := b.db.View(func(tx *bolt.Tx) error {
-//		bu := getContainerBucketByNamespace(tx, filter.Namespace)
+//		bu := getContainerBucketByNamespace(tx, filter.Key)
 //
 //		var kvs []kv
 //		if filter.KeyPattern == "" {
@@ -279,14 +297,14 @@ func NewWithDB(db *bolt.DB) persistence.Repository {
 //	}
 //
 //	return b.db.Update(func(tx *bolt.Tx) error {
-//		return getPairBucketByNamespace(tx, p.Namespace).Put(p.key(), p.value())
+//		return getPairBucketByNamespace(tx, p.Key).Put(p.key(), p.value())
 //	})
 //}
 //
 //func (b bboltRepoImpl) PagingPairs(filter *persistence.PagingPairsFilter) ([]interface{}, int, error) {
 //	out := make([]interface{}, 0, filter.Limit)
 //	err := b.db.View(func(tx *bolt.Tx) error {
-//		bu := getPairBucketByNamespace(tx, filter.Namespace)
+//		bu := getPairBucketByNamespace(tx, filter.Key)
 //		var kvs []kv
 //
 //		if filter.KeyPattern == "" {

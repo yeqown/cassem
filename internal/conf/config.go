@@ -20,13 +20,13 @@ type HTTP struct {
 	Debug bool   `toml:"-"`
 }
 
-type MySQL struct {
-	DSN         string `toml:"dsn"`
-	MaxIdle     int    `toml:"max_idle"`
-	MaxOpen     int    `toml:"max_open"`
-	MaxLifeTime int    `toml:"max_life_time"`
-	Debug       bool   `toml:"-"`
-}
+//type MySQL struct {
+//	DSN         string `toml:"dsn"`
+//	MaxIdle     int    `toml:"max_idle"`
+//	MaxOpen     int    `toml:"max_open"`
+//	MaxLifeTime int    `toml:"max_life_time"`
+//	Debug       bool   `toml:"-"`
+//}
 
 type BBolt struct {
 	Dir string `toml:"dir"`
@@ -39,7 +39,6 @@ type Config struct {
 	UsePersistence uint `toml:"use_persist"`
 
 	Persistence struct {
-		Mysql *MySQL `toml:"mysql"`
 		BBolt *BBolt `toml:"bbolt"`
 	} `toml:"persistence"`
 
@@ -60,7 +59,6 @@ func Load(path string) (*Config, error) {
 	}
 
 	c := new(Config)
-	c.Persistence.Mysql = new(MySQL)
 	c.Server.HTTP = new(HTTP)
 	c.Server.Raft = new(Raft)
 
@@ -75,7 +73,6 @@ func Load(path string) (*Config, error) {
 
 	// keep debug mode consistent
 	c.Server.HTTP.Debug = c.Debug
-	c.Persistence.Mysql.Debug = c.Debug
 
 	return c, nil
 }
@@ -84,15 +81,8 @@ var defaultConf = &Config{
 	Debug:          false,
 	UsePersistence: 1,
 	Persistence: struct {
-		Mysql *MySQL `toml:"mysql"`
 		BBolt *BBolt `toml:"bbolt"`
 	}{
-		Mysql: &MySQL{
-			DSN:         "YOUR_MYSQL_DSN",
-			MaxIdle:     10,
-			MaxOpen:     100,
-			MaxLifeTime: 30,
-		},
 		BBolt: &BBolt{
 			Dir: "./bolt",
 			DB:  "cassem.db",

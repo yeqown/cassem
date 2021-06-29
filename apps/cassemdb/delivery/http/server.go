@@ -7,8 +7,8 @@ import (
 	"strings"
 	"sync/atomic"
 
+	"github.com/yeqown/cassem/apps/cassemdb/coord"
 	"github.com/yeqown/cassem/internal/conf"
-	coord "github.com/yeqown/cassem/internal/coordinator"
 
 	"github.com/gin-contrib/pprof"
 	"github.com/gin-gonic/gin"
@@ -20,22 +20,20 @@ import (
 // stay in handler_cluster.go and register in Server.mountRaftClusterInternalAPI.
 type Server struct {
 	engi *gin.Engine
-
 	_cfg conf.HTTP
 
-	// coordinator
-	coordinator coord.ICoordinator
+	coord coord.ICoordinator
 }
 
-func New(c *conf.HTTP, coordinator coord.ICoordinator) *Server {
+func New(c *conf.HTTP, coord coord.ICoordinator) *Server {
 	if c.Addr == "" {
 		c.Addr = ":2021"
 	}
 
 	srv := &Server{
-		engi:        gin.New(),
-		_cfg:        *c,
-		coordinator: coordinator,
+		coord: coord,
+		engi:  gin.New(),
+		_cfg:  *c,
 	}
 
 	srv.initialize()
@@ -72,7 +70,7 @@ func (srv *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 // forward, HTTP invocation would be executed, and handle HTTP response by needForwardAndExecute itself.
 func (srv *Server) needForwardAndExecute(c *gin.Context) (shouldForward bool) {
 	var leaderAddr string
-	if shouldForward, leaderAddr = srv.coordinator.ShouldForwardToLeader(); !shouldForward {
+	if shouldForward, leaderAddr = srv.coord.ShouldForwardToLeader(); !shouldForward {
 		return
 	}
 

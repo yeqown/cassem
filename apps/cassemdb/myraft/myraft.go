@@ -6,9 +6,8 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/yeqown/cassem/internal/cache"
+	"github.com/yeqown/cassem/apps/cassemdb/persistence"
 	"github.com/yeqown/cassem/internal/conf"
-	"github.com/yeqown/cassem/internal/watcher"
 	"github.com/yeqown/cassem/pkg/runtime"
 
 	"github.com/hashicorp/raft"
@@ -19,17 +18,9 @@ import (
 
 var ErrNotLeader = errors.New("current node is not allow to write, should not be triggered normally")
 
-type ICache interface {
-	Set(key string, value []byte) cache.SetResult
-	Del(key string) cache.SetResult
-	Get(key string) ([]byte, error)
-}
-
 // IMyRaft defines the ability of what raft component should act.
 // TODO(@yeqown): implement a store interface for replication.
 type IMyRaft interface {
-	ICache
-
 	GetLeaderAddr() string           // GetLeaderAddr
 	SetLeaderAddr(leaderAddr string) // SetLeaderAddr
 
@@ -38,17 +29,18 @@ type IMyRaft interface {
 	JoinedCluster() bool                // JoinedCluster
 	RemoveNode(serveId string) error    // RemoveNode
 	AddNode(serveId, addr string) error // AddNode
-	ApplyFromMessage(msg []byte) error  // ApplyFromMessage
-	ApplyLog(log *CoreFSMLog) error     // ApplyLog
 
-	// ChangeNotifyCh returns a watcher.Changes channel which would send data while receive a raft.Log that contains
-	// ChangesNotifyCommand, so that the Core can notify all client who have subscribed related container.
-	ChangeNotifyCh() <-chan watcher.Changes
+	SetKV(key string, val []byte) error
+	UnsetKV(key string) error
+	GetKV(key string) ([]byte, error)
+
+	ApplyRaw(data []byte) error
 }
 
 type Conf struct {
 	HTTP *conf.HTTP
 	Raft *conf.Raft
+	Repo persistence.Repository
 }
 
 type myraft struct {
@@ -56,13 +48,15 @@ type myraft struct {
 
 	conf *Conf
 
+	repo persistence.Repository
+
 	// fsm is the state machine to be used in raft.RAFT. In cassem, it's mainly used to store
 	// caches those encoded bytes to containers who are requested and should be cached.
 	//
 	// It also be used to store and apply leaderAddr which indicates the address of the leader.
 	// While a leadership changes happened, leader node calls raft.Apply() to commit a log that
 	// will update slave nodes' leaderAddr. please checkout FSMWrapper for more information.
-	fsm FSMWrapper
+	fsm myFSM
 
 	// The following properties are all about raft consensus algorithm.
 	//
@@ -84,6 +78,8 @@ type myraft struct {
 func New(conf *Conf) (IMyRaft, error) {
 	r := &myraft{
 		conf: conf,
+		repo: conf.Repo,
+		fsm:  newFSM(conf.Repo),
 	}
 
 	err := r.bootstrap()
@@ -93,7 +89,7 @@ func New(conf *Conf) (IMyRaft, error) {
 		go runtime.GoFunc("leadership-changes", r.watchLeaderChanges)
 
 		// snapshot executor
-		go runtime.GoFunc("snapshot-strategy", r.doSnapshot)
+		//go runtime.GoFunc("snapshot-strategy", r.doSnapshot)
 	}
 
 	return r, err
@@ -141,7 +137,6 @@ func (r *myraft) bootstrap() (err error) {
 	config.LocalID = raft.ServerID(r.serverId)
 	config.SnapshotThreshold = 1024
 
-	r.fsm = newFSM(cache.NewNonCache())
 	if r.Raft, err = raft.NewRaft(config, r.fsm, boltDB, boltDB, snapshotStore, transport); err != nil {
 		return errors.Wrap(err, "raft.NewRaft failed")
 	}
@@ -224,48 +219,45 @@ const (
 	_SIZE_EXECUTIONS = 100
 )
 
-// DoSnapshot to execute snapshot of state machine with specified strategy:
 //
-// 1. just do snapshot periodically.
-// 2. if state machine has executed logs more than specified size.
+//// DoSnapshot to execute snapshot of state machine with specified strategy:
+////
+//// 1. just do snapshot periodically.
+//// 2. if state machine has executed logs more than specified size.
+////
+//func (r myraft) doSnapshot() error {
+//	ticker := time.NewTicker(30 * time.Minute)
+//	sizeTicker := time.NewTicker(10 * time.Second)
 //
-func (r myraft) doSnapshot() error {
-	ticker := time.NewTicker(30 * time.Minute)
-	sizeTicker := time.NewTicker(10 * time.Second)
-
-	for {
-		needSnapshot := false
-		select {
-		case <-ticker.C:
-			needSnapshot = true
-
-		case <-sizeTicker.C:
-			if !r.IsLeader() {
-				continue
-			}
-			if r.fsm.getExecutionSinceLastSnapshot() > _SIZE_EXECUTIONS {
-				// if the state machine has received log over than 10
-				// after last snapshot.
-				needSnapshot = true
-			}
-
-			log.
-				WithField("needSnapshot", needSnapshot).
-				Debug("myraft.doSnapshot called")
-
-			if needSnapshot {
-				if err := r.Snapshot().Error(); err != nil {
-					log.Errorf("myraft.doSnapshot failed to snapshot: %v", err)
-				}
-			}
-			// case done
-		}
-	}
-}
-
-func (r myraft) ChangeNotifyCh() <-chan watcher.Changes {
-	return r.fsm.changeNotifyCh()
-}
+//	for {
+//		needSnapshot := false
+//		select {
+//		case <-ticker.C:
+//			needSnapshot = true
+//
+//		case <-sizeTicker.C:
+//			if !r.IsLeader() {
+//				continue
+//			}
+//			if r.fsm.getExecutionSinceLastSnapshot() > _SIZE_EXECUTIONS {
+//				// if the state machine has received log over than 10
+//				// after last snapshot.
+//				needSnapshot = true
+//			}
+//
+//			log.
+//				WithField("needSnapshot", needSnapshot).
+//				Debug("myraft.doSnapshot called")
+//
+//			if needSnapshot {
+//				if err := r.Snapshot().Error(); err != nil {
+//					log.Errorf("myraft.doSnapshot failed to snapshot: %v", err)
+//				}
+//			}
+//			// case done
+//		}
+//	}
+//}
 
 func (r myraft) IsLeader() bool {
 	return r.State() == raft.Leader
@@ -423,17 +415,35 @@ func (r myraft) AddNode(serverId, addr string) error {
 	return nil
 }
 
-func (r myraft) ApplyFromMessage(msg []byte) (err error) {
-	fsmLog := new(CoreFSMLog)
-	if err = fsmLog.Deserialize(msg); err != nil {
-		log.Errorf("myraft.Apply failed to Deserialize: %v", err)
-		return
+func (r *myraft) SetKV(key string, val []byte) error {
+	l, err := NewFsmLog(
+		ActionSet,
+		&SetCommand{SetKey: key, DeleteKey: "", NeedSetData: val},
+	)
+	if err != nil {
+		return errors.Wrap(err, "myraft.NewFsmLog failed")
 	}
 
-	return r.ApplyLog(fsmLog)
+	return r.applyLog(l)
 }
 
-func (r myraft) ApplyLog(fsmLog *CoreFSMLog) (err error) {
+func (r *myraft) UnsetKV(key string) error {
+	l, err := NewFsmLog(
+		ActionSet,
+		&SetCommand{SetKey: "", DeleteKey: key, NeedSetData: nil},
+	)
+	if err != nil {
+		return errors.Wrap(err, "myraft.NewFsmLog failed")
+	}
+
+	return r.applyLog(l)
+}
+
+func (r *myraft) GetKV(key string) ([]byte, error) {
+	return r.repo.Get(key)
+}
+
+func (r myraft) applyLog(fsmLog *CoreFSMLog) (err error) {
 	err = r.propagateToSlaves(fsmLog)
 	if err != nil {
 		log.
@@ -443,6 +453,11 @@ func (r myraft) ApplyLog(fsmLog *CoreFSMLog) (err error) {
 			Errorf("myraft.delContainerCache propagateToSlaves failed: %v", err)
 	}
 	return
+}
+
+func (r myraft) ApplyRaw(data []byte) error {
+	future := r.Apply(data, 10*time.Second)
+	return future.Error()
 }
 
 // propagateToSlaves calls raft.Apply to distribute changes to FSM or propagate signal to all slaves.
@@ -477,16 +492,4 @@ func (r myraft) GetLeaderAddr() string {
 
 func (r myraft) SetLeaderAddr(addr string) {
 	r.fsm.setLeaderAddr(addr)
-}
-
-func (r myraft) Set(key string, value []byte) cache.SetResult {
-	return r.fsm.set(key, value)
-}
-
-func (r myraft) Del(key string) cache.SetResult {
-	return r.fsm.del(key)
-}
-
-func (r myraft) Get(key string) ([]byte, error) {
-	return r.fsm.get(key)
 }
