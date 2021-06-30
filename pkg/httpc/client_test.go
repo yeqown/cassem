@@ -11,7 +11,7 @@ import (
 func Test_GET(t *testing.T) {
 	resp := make(map[string]interface{})
 	form := map[string]string{}
-	err := httpc.GET("http://172.16.30.18:2022/api/namespaces", form, &resp)
+	err := httpc.GET("http://172.16.30.18:2022/http/namespaces", form, &resp)
 	assert.Nil(t, err)
 	t.Logf("%+v", resp)
 }

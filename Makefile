@@ -1,10 +1,20 @@
 GOCMD=CGO_ENABLED=0 GOARCH=amd64 GOOS=darwin go
 
-build-cassemdb:
+cassemdb.build:
 	${GOCMD} build -o cassemdb ./cmd/cassemdb
 
-run-cassemdb: build-cassemdb
-	./cassemdb --conf=./debugdata/cassemdb1.toml
+cassemdb.run: cassemdb.build
+	DEBUG=1 ./cassemdb --conf=./debugdata/cassemdb1.toml > ./debugdata/d1/cassemdb.log &
+	sleep 5
+	DEBUG=1 ./cassemdb --conf=./debugdata/cassemdb2.toml > ./debugdata/d2/cassemdb.log &
+	DEBUG=1 ./cassemdb --conf=./debugdata/cassemdb3.toml > ./debugdata/d3/cassemdb.log &
+
+cassemdb.kill:
+	kill -9 $(ps -ef | grep cassemdb | awk '{print $2}')
+
+cassemdb.clear:
+	@ rm -fr ./debugdata/d{1,2,3}/raft.db
+	@ rm -fr ./debugdata/d{1,2,3}/snapshots
 
 build-cassemadm:
 	${GOCMD} build -o cassemadm ./cmd/cassemadm

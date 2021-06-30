@@ -1,0 +1,56 @@
+syntax = "proto3";
+
+package cassem.cassemdb;
+
+enum ChangeOp {
+  Invalid = 0;
+  Set     = 1;
+  Unset   = 2;
+}
+
+message Entity {
+  string fingerprint = 1;
+  string key         = 2;
+  bytes  val         = 3;
+  int64  created_at  = 4;
+  int64  updated_at  = 5;
+};
+
+message change {
+  ChangeOp op      = 1;
+  string   key     = 2;
+  Entity   last    = 3;
+  Entity   current = 4;
+};
+
+message empty {};
+
+message getKVReq {
+  string key = 1;
+};
+
+message getKVResp {
+  Entity entity = 1;
+};
+
+message setKVReq {
+  string key = 1;
+  Entity entity = 2;
+};
+
+message unsetKVReq {
+  string key = 1;
+};
+
+message watchReq {
+  repeated string keys = 2;
+};
+
+service api {
+  rpc GetKV(getKVReq) returns(getKVResp) {};
+  rpc SetKV(setKVReq) returns(empty) {};
+  rpc UnsetKV(unsetKVReq) returns(empty) {};
+
+  // Watch will rev a stream response in client.
+  rpc Watch(watchReq) returns (stream change) {};
+}

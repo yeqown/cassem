@@ -6,13 +6,16 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"time"
 
 	"github.com/pkg/errors"
 	"github.com/yeqown/log"
 )
 
 var (
-	client = &http.Client{}
+	client = &http.Client{
+		Timeout: 30 * time.Second,
+	}
 )
 
 func POST(base string, body interface{}, resp interface{}) error {

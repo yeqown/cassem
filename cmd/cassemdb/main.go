@@ -3,12 +3,23 @@ package main
 import (
 	"os"
 
-	"github.com/yeqown/cassem/apps/cassemdb"
-	"github.com/yeqown/cassem/internal/conf"
+	cassemdb "github.com/yeqown/cassem/internal/cassemdb/api"
+	"github.com/yeqown/cassem/pkg/conf"
+	"github.com/yeqown/cassem/pkg/runtime"
 
 	"github.com/urfave/cli/v2"
 	"github.com/yeqown/log"
 )
+
+func init() {
+	log.SetLogLevel(log.LevelInfo)
+
+	if runtime.IsDebug() {
+		log.SetCallerReporter(true)
+		log.SetLogLevel(log.LevelDebug)
+	}
+
+}
 
 func main() {
 	app := cli.NewApp()
@@ -40,14 +51,7 @@ func start(ctx *cli.Context) error {
 	log.Debugf("loaded from CONF file: %+v", cfg)
 	log.Debugf("server.raft: %+v", cfg.Server.Raft)
 
-	d, err := cassemdb.New(cfg)
-	if err != nil {
-		return err
-	}
-
-	// run as daemon
-	d.Heartbeat()
-
+	cassemdb.Run(cfg)
 	return nil
 }
 
