@@ -4,12 +4,7 @@ build-cassemdb:
 	${GOCMD} build -o cassemdb ./cmd/cassemdb
 
 run-cassemdb: build-cassemdb
-	./cassemdb \
-		--raft-base="./debugdata/d1" \
-		--id="d1" \
-		--http-listen="127.0.0.1:2021" \
-		--bind="127.0.0.1:3021" \
-		--join=""
+	./cassemdb --conf=./debugdata/cassemdb1.toml
 
 build-cassemadm:
 	${GOCMD} build -o cassemadm ./cmd/cassemadm

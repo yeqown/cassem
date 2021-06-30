@@ -1,0 +1,14 @@
+debug = false
+[persistence]
+    [persistence.bbolt]
+            dir       = "./debugdata/d1"
+            db        = "cassem.db"
+
+[server]
+    [server.http]
+        addr    = ":2021"
+    [server.raft]
+        base = "./debugdata/d1"
+        bind = "127.0.0.1:3021"
+        serverId = "d1"
+        join = [""]

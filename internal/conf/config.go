@@ -35,8 +35,6 @@ type BBolt struct {
 
 type Config struct {
 	Debug bool `toml:"debug"`
-	// UsePersistence 1 means mysql 2 means bbolt
-	UsePersistence uint `toml:"use_persist"`
 
 	Persistence struct {
 		BBolt *BBolt `toml:"bbolt"`
@@ -78,8 +76,7 @@ func Load(path string) (*Config, error) {
 }
 
 var defaultConf = &Config{
-	Debug:          false,
-	UsePersistence: 1,
+	Debug: false,
 	Persistence: struct {
 		BBolt *BBolt `toml:"bbolt"`
 	}{
