@@ -27,3 +27,6 @@ cassemadm
 !cassemdb/
 !cassemagent/
 !cassemadm/
+!debugdata/cassemdb1.toml
+!debugdata/cassemdb2.toml
+!debugdata/cassemdb3.toml

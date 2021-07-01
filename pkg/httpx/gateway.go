@@ -1,4 +1,4 @@
-// Package httpc gateway.go contains two main API module: HTTP and gRPC. The reason for designing a gateway to
+// Package httpx gateway.go contains two main API module: HTTP and gRPC. The reason for designing a gateway to
 // serve request both HTTP and gRPC is that DO NOT want to listen on another TCP port so that client
 // could build connections to only one server address.
 //
@@ -7,7 +7,7 @@
 //
 // I hope them can help you too.
 //
-package httpc
+package httpx
 
 import (
 	"net/http"

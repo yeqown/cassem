@@ -3,9 +3,12 @@ package infras
 import (
 	"net/http"
 	"strings"
+	"sync"
+	"time"
 
-	"github.com/yeqown/cassem/pkg/httpc"
+	"github.com/yeqown/cassem/pkg/httpx"
 
+	"github.com/go-resty/resty/v2"
 	"github.com/pkg/errors"
 	"github.com/yeqown/log"
 )
@@ -18,11 +21,25 @@ type forwardRequest struct {
 	body      interface{}
 }
 
-// operateNodeResp is a copy from internal/api/http.commonResponse, only be used to
-// be unmarshalled from response of myraft.tryJoinCluster.
-type operateNodeResp struct {
-	ErrCode    int    `json:"errcode"`
-	ErrMessage string `json:"errmsg,omitempty"`
+//// operateNodeResp is a copy from internal/api/http.commonResponse, only be used to
+//// be unmarshalled from response of myraft.tryJoinCluster.
+//type operateNodeResp struct {
+//	ErrCode    int    `json:"errcode"`
+//	ErrMessage string `json:"errmsg,omitempty"`
+//}
+
+var (
+	getRestyOnce = sync.Once{}
+	_resty       *resty.Client
+)
+
+func getResty() *resty.Client {
+	getRestyOnce.Do(func() {
+		_resty = resty.New().
+			SetTimeout(10 * time.Second)
+	})
+
+	return _resty
 }
 
 // forwardToLeader only forward operations in core (apply, join, leave).
@@ -50,14 +67,14 @@ func (r *myraft) forwardToLeader(req *forwardRequest) (err error) {
 	}
 	base += req.path
 
-	var resp = new(operateNodeResp)
+	resp := new(httpx.CommonResponse)
+	rr := getResty().R().SetQueryParam("clusterSecret", "9520059dd167").SetResult(resp)
+
 	switch req.method {
 	case http.MethodGet:
-		req.form["clusterSecret"] = "9520059dd167"
-		err = httpc.GET(base, req.form, resp)
+		_, err = rr.SetQueryParams(req.form).Get(base)
 	case http.MethodPost:
-		base = base + "?" + "clusterSecret=9520059dd167"
-		err = httpc.POST(base, req.body, resp)
+		_, err = rr.SetBody(req.body).Post(base)
 	}
 
 	if resp.ErrCode != 0 {
@@ -92,22 +109,21 @@ func (r myraft) forwardToLeaderJoinLeft(action string, forceBase string) (err er
 		log.
 			Errorf("myraft.forwardToLeaderJoinLeft calling r.forwardToLeader failed: %v", err)
 
-		return errors.Wrap(err, "forwardToLeaderJoinLeft failed")
+		return errors.Wrap(err, "myraft.forwardToLeaderJoinLeft failed")
 	}
 
-	return err
+	return nil
 }
 
 func (r myraft) forwardToLeaderApply(fsmLog *fsmLog) error {
 	data, err := fsmLog.Serialize()
 	if err != nil {
-		return errors.Wrap(err, "myraft.forwardToLeaderApply failed to serialize log")
+		return errors.Wrap(err, "myraft.forwardToLeaderApply failed to fsmLog.serialize")
 	}
 
-	req := &forwardRequest{
+	req := forwardRequest{
 		path:   "/cluster/apply",
 		method: http.MethodPost,
-		form:   nil,
 		body: struct {
 			ApplyData []byte `json:"Data"`
 		}{
@@ -115,10 +131,12 @@ func (r myraft) forwardToLeaderApply(fsmLog *fsmLog) error {
 		},
 	}
 
-	if err = r.forwardToLeader(req); err != nil {
+	if err = r.forwardToLeader(&req); err != nil {
 		log.
-			Errorf("myraft.setContainerCache forwardToLeader failed: %v", err)
+			Errorf("myraft.forwardToLeaderApply calling r.forwardToLeader failed: %v", err)
+
+		return errors.Wrap(err, "myraft.forwardToLeaderApply failed")
 	}
 
-	return err
+	return nil
 }

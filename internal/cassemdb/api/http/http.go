@@ -8,6 +8,7 @@ import (
 	"sync/atomic"
 
 	"github.com/yeqown/cassem/internal/cassemdb/app"
+	"github.com/yeqown/cassem/pkg/httpx"
 	"github.com/yeqown/cassem/pkg/runtime"
 
 	"github.com/gin-contrib/pprof"
@@ -42,7 +43,7 @@ func (srv *httpServer) initialize() {
 
 	// mount middlewares
 	// DONE(@yeqown): replace Recovery middleware so that we response error messages.
-	srv.engi.Use(recovery())
+	srv.engi.Use(httpx.Recovery())
 	srv.engi.Use(gin.Logger())
 
 	if runtime.IsDebug() {
@@ -57,7 +58,7 @@ func (srv *httpServer) initialize() {
 
 func (srv *httpServer) mountRaftClusterInternalAPI() {
 	// DONE(@yeqown): cluster need authorize too to reject request from cluster outside.
-	cluster := srv.engi.Group("/cluster", clusterAuthorizeSimple())
+	cluster := srv.engi.Group("/cluster", httpx.ClusterAuthorizeSimple())
 	{
 		cluster.GET("/nodes", srv.OperateNode)
 		cluster.POST("/apply", srv.Apply)
@@ -92,7 +93,7 @@ func (srv *httpServer) needForwardAndExecute(c *gin.Context) (shouldForward bool
 
 	// execute forward calling
 	if err := forwardToLeader(c, leaderAddr); err != nil {
-		responseError(c, err)
+		httpx.ResponseError(c, err)
 		return
 	}
 

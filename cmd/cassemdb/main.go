@@ -43,15 +43,21 @@ func main() {
 }
 
 func start(ctx *cli.Context) error {
-	cfg, err := conf.Load(ctx.String("conf"))
-	if err != nil {
+	c := new(conf.CassemdbConfig)
+	if err := conf.Load(ctx.String("conf"), c); err != nil {
 		return err
 	}
 
-	log.Debugf("loaded from CONF file: %+v", cfg)
-	log.Debugf("server.raft: %+v", cfg.Server.Raft)
+	log.
+		WithFields(log.Fields{
+			"conf":             c,
+			"conf.raft":        c.Server.Raft,
+			"conf.persistence": c.Persistence,
+		}).
+		Debugf("loaded from CONF file: %+v", c)
 
-	cassemdb.Run(cfg)
+	cassemdb.Run(c)
+
 	return nil
 }
 

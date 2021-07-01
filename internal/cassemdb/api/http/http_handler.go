@@ -1,7 +1,6 @@
 package http
 
 import (
-	"net/http"
 	"time"
 
 	"github.com/yeqown/log"
@@ -9,6 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
 
+	"github.com/yeqown/cassem/pkg/httpx"
 	"github.com/yeqown/cassem/pkg/runtime"
 	"github.com/yeqown/cassem/pkg/types"
 	"github.com/yeqown/cassem/pkg/watcher"
@@ -27,7 +27,7 @@ func (srv *httpServer) OperateNode(c *gin.Context) {
 
 	req := new(operateNodeReq)
 	if err := c.ShouldBind(req); err != nil {
-		responseError(c, err)
+		httpx.ResponseError(c, err)
 		return
 	}
 
@@ -53,11 +53,11 @@ func (srv *httpServer) OperateNode(c *gin.Context) {
 			}).
 			Error("httpServer.OperateNode failed")
 
-		responseError(c, err)
+		httpx.ResponseError(c, err)
 		return
 	}
 
-	responseJSON(c, nil)
+	httpx.ResponseJSON(c, nil)
 }
 
 type applyReq struct {
@@ -67,16 +67,16 @@ type applyReq struct {
 func (srv *httpServer) Apply(c *gin.Context) {
 	req := new(applyReq)
 	if err := c.ShouldBind(req); err != nil {
-		responseError(c, err)
+		httpx.ResponseError(c, err)
 		return
 	}
 
 	if err := srv.coord.Apply(req.Data); err != nil {
-		responseError(c, err)
+		httpx.ResponseError(c, err)
 		return
 	}
 
-	responseJSON(c, nil)
+	httpx.ResponseJSON(c, nil)
 }
 
 type getKVReq struct {
@@ -111,17 +111,17 @@ func (srv *httpServer) GetKV(c *gin.Context) {
 	// TODO(@yeqown): pool getKVReq object
 	req := new(getKVReq)
 	if err := c.ShouldBind(req); err != nil {
-		responseError(c, err)
+		httpx.ResponseError(c, err)
 		return
 	}
 
 	out, err := srv.coord.GetKV(req.Key)
 	if err != nil {
-		responseError(c, err)
+		httpx.ResponseError(c, err)
 		return
 	}
 
-	responseJSON(c, newStoreVO(out))
+	httpx.ResponseJSON(c, newStoreVO(out))
 }
 
 type setKVReq struct {
@@ -136,17 +136,17 @@ func (srv *httpServer) SetKV(c *gin.Context) {
 
 	req := new(setKVReq)
 	if err := c.ShouldBind(req); err != nil {
-		responseError(c, err)
+		httpx.ResponseError(c, err)
 		return
 	}
 
 	err := srv.coord.SetKV(req.Key, req.Value)
 	if err != nil {
-		responseError(c, err)
+		httpx.ResponseError(c, err)
 		return
 	}
 
-	responseJSON(c, nil)
+	httpx.ResponseJSON(c, nil)
 }
 
 type deleteKVReq struct {
@@ -160,17 +160,17 @@ func (srv *httpServer) DeleteKV(c *gin.Context) {
 
 	req := new(deleteKVReq)
 	if err := c.ShouldBind(req); err != nil {
-		responseError(c, err)
+		httpx.ResponseError(c, err)
 		return
 	}
 
 	err := srv.coord.UnsetKV(req.Key)
 	if err != nil {
-		responseError(c, err)
+		httpx.ResponseError(c, err)
 		return
 	}
 
-	responseJSON(c, nil)
+	httpx.ResponseJSON(c, nil)
 }
 
 type watchKVReq struct {
@@ -186,7 +186,7 @@ func (srv *httpServer) Watch(c *gin.Context) {
 
 	req := new(watchKVReq)
 	if err := c.ShouldBind(req); err != nil {
-		responseError(c, err)
+		httpx.ResponseError(c, err)
 		return
 	}
 
@@ -206,43 +206,5 @@ func (srv *httpServer) Watch(c *gin.Context) {
 		log.Debugf("httpServer.Watch timeout")
 	}
 
-	responseJSON(c, change)
-}
-
-type _errorCode int
-
-const (
-	FAILED       _errorCode = -1
-	InvalidParam _errorCode = -2
-	OK           _errorCode = 0
-)
-
-type commonResponse struct {
-	ErrCode    _errorCode  `json:"errcode"`
-	ErrMessage string      `json:"errmsg,omitempty"`
-	Data       interface{} `json:"data,omitempty"`
-}
-
-func responseError(c *gin.Context, err error) {
-	if err == nil {
-		c.JSON(http.StatusInternalServerError, commonResponse{
-			ErrCode:    FAILED,
-			ErrMessage: "NIL ERROR, CHECK CODE PLZ",
-		})
-
-		return
-	}
-
-	c.JSON(http.StatusBadRequest, commonResponse{
-		ErrCode:    FAILED,
-		ErrMessage: err.Error(),
-	})
-}
-
-func responseJSON(c *gin.Context, data interface{}) {
-	c.JSON(http.StatusOK, commonResponse{
-		ErrCode:    OK,
-		ErrMessage: "success",
-		Data:       data,
-	})
+	httpx.ResponseJSON(c, change)
 }

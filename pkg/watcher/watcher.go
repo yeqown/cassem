@@ -23,7 +23,7 @@ type IObserver interface {
 	// Identity must keep unique in the server.
 	Identity() string
 
-	// Topics describes all topic="NAMESPACE#CONTAINER_KEY#FORMAT" those IObserver cares about.
+	// Topics describes all topics those IObserver want to subscribe.
 	Topics() []string
 
 	// Inbound will receive all changes about topics.

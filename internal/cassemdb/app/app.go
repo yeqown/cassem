@@ -31,9 +31,6 @@ type app struct {
 
 	// raft is a customized raft node for cassem.
 	raft infras.IMyRaft
-
-	// quit channel
-	quit chan struct{}
 }
 
 func New(cfg *conf.CassemdbConfig) (*app, error) {
@@ -85,7 +82,7 @@ func (d *app) Heartbeat() {
 					"isLeader":      d.isLeader(),
 					"joinedCluster": d.raft.JoinedCluster(),
 				}).
-				Info("app is running")
+				Info("app heartbeat")
 		case <-quit:
 			log.Info("app quit, start release resources...")
 			// DONE(@yeqown): graceful shutdown components, snapshot something.

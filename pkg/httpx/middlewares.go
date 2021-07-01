@@ -1,4 +1,4 @@
-package http
+package httpx
 
 import (
 	"fmt"
@@ -6,10 +6,10 @@ import (
 	"net/http/httputil"
 	"os"
 
-	"github.com/yeqown/cassem/pkg/runtime"
-
 	"github.com/gin-gonic/gin"
 	"github.com/yeqown/log"
+
+	"github.com/yeqown/cassem/pkg/runtime"
 )
 
 //
@@ -148,8 +148,7 @@ import (
 //	}
 //}
 
-func clusterAuthorizeSimple() gin.HandlerFunc {
-
+func ClusterAuthorizeSimple() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if c.Query("clusterSecret") == "9520059dd167" {
 			c.Next()
@@ -161,7 +160,7 @@ func clusterAuthorizeSimple() gin.HandlerFunc {
 	}
 }
 
-func recovery() gin.HandlerFunc {
+func Recovery() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		panicked := true
 		defer func() {
@@ -171,7 +170,7 @@ func recovery() gin.HandlerFunc {
 				_, _ = fmt.Fprint(os.Stderr, formatted)
 				err := runtime.RecoverFrom(v)
 				log.Errorf("server panic: %v", err)
-				c.AbortWithStatusJSON(http.StatusInternalServerError, commonResponse{
+				c.AbortWithStatusJSON(http.StatusInternalServerError, CommonResponse{
 					ErrCode:    FAILED,
 					ErrMessage: err.Error(),
 				})
