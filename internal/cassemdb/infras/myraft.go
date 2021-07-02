@@ -29,7 +29,7 @@ type IMyRaft interface {
 	// SetKV save key and value
 	SetKV(key string, value []byte) error
 	// UnsetKV save key and value
-	UnsetKV(key string) error
+	UnsetKV(key string, isDir bool) error
 
 	GetLeaderAddr() string // GetLeaderAddr
 
@@ -503,9 +503,8 @@ func (r *myraft) SetKV(key string, val []byte) (err error) {
 
 	k, v := types.NewStoreKV(key, val)
 	l, err := newFsmLog(actionSetKV, &setKVCommand{
-		SetKey:    k,
-		DeleteKey: "",
-		Data:      &v,
+		SetKey: k,
+		Data:   &v,
 	})
 	if err != nil {
 		err = errors.Wrap(err, "myraft.newFsmLog failed")
@@ -533,10 +532,11 @@ func (r *myraft) SetKV(key string, val []byte) (err error) {
 	return nil
 }
 
-func (r *myraft) UnsetKV(key string) error {
+func (r *myraft) UnsetKV(key string, isDir bool) error {
 	l, err := newFsmLog(actionSetKV, &setKVCommand{
 		SetKey:    "",
 		DeleteKey: types.StoreKey(key),
+		IsDir:     isDir,
 		Data:      nil,
 	})
 	if err != nil {

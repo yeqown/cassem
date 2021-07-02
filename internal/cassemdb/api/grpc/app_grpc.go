@@ -58,7 +58,7 @@ func (s grpcServer) SetKV(ctx context.Context, req *pb.SetKVReq) (*pb.Empty, err
 var _empty = new(pb.Empty)
 
 func (s grpcServer) UnsetKV(ctx context.Context, req *pb.UnsetKVReq) (*pb.Empty, error) {
-	err := s.coord.UnsetKV(req.GetKey())
+	err := s.coord.UnsetKV(req.GetKey(), req.GetIsDir())
 	return _empty, err
 }
 

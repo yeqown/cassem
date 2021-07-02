@@ -117,7 +117,7 @@ func (b bboltRepoImpl) SetKV(key types.StoreKey, val types.StoreValue) (err erro
 	return
 }
 
-func (b bboltRepoImpl) UnsetKV(key types.StoreKey) (err error) {
+func (b bboltRepoImpl) UnsetKV(key types.StoreKey, isDir bool) (err error) {
 	nodes, leaf := KeySplitter(key)
 	if IsEmptyLeaf(leaf) {
 		return ErrEmptyLeaf
@@ -127,6 +127,10 @@ func (b bboltRepoImpl) UnsetKV(key types.StoreKey) (err error) {
 		bucket, err := b.locateBucket(tx, nodes, true)
 		if err != nil {
 			return err
+		}
+
+		if isDir {
+			return bucket.DeleteBucket(runtime.ToBytes(leaf))
 		}
 
 		return bucket.Delete(runtime.ToBytes(leaf))

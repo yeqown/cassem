@@ -182,8 +182,8 @@ func (d *app) SetKV(key string, val []byte) (err error) {
 	return d.raft.SetKV(key, val)
 }
 
-func (d *app) UnsetKV(key string) error {
-	return d.raft.UnsetKV(key)
+func (d *app) UnsetKV(key string, isDir bool) error {
+	return d.raft.UnsetKV(key, isDir)
 }
 
 func (d *app) Watch(keys ...string) (ob watcher.IObserver, cancelFn func()) {

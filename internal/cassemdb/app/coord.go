@@ -8,7 +8,7 @@ import (
 type ICoordinator interface {
 	GetKV(key string) (*types.StoreValue, error)
 	SetKV(key string, val []byte) error
-	UnsetKV(key string) error
+	UnsetKV(key string, isDir bool) error
 	Watch(keys ...string) (watcher.IObserver, func())
 
 	ShouldForwardToLeader() (bool, string)

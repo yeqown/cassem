@@ -150,7 +150,8 @@ func (srv *httpServer) SetKV(c *gin.Context) {
 }
 
 type deleteKVReq struct {
-	Key string `form:"key" binding:"required"`
+	Key   string `form:"key" binding:"required"`
+	IsDir bool   `form:"isDir"`
 }
 
 func (srv *httpServer) DeleteKV(c *gin.Context) {
@@ -164,7 +165,7 @@ func (srv *httpServer) DeleteKV(c *gin.Context) {
 		return
 	}
 
-	err := srv.coord.UnsetKV(req.Key)
+	err := srv.coord.UnsetKV(req.Key, req.IsDir)
 	if err != nil {
 		httpx.ResponseError(c, err)
 		return
@@ -177,8 +178,11 @@ type watchKVReq struct {
 	Keys []string `form:"key" binding:"required"`
 }
 
+var watchTimeout = map[string]string{
+	"messages": "watch timeout",
+}
+
 // Watch
-// TODO(@yeqown) all API implemented by grpc
 func (srv *httpServer) Watch(c *gin.Context) {
 	//if srv.needForwardAndExecute(c) {
 	//	return
@@ -204,6 +208,8 @@ func (srv *httpServer) Watch(c *gin.Context) {
 			Info("httpServer.Watch got a change")
 	case <-time.NewTimer(30 * time.Second).C:
 		log.Debugf("httpServer.Watch timeout")
+		httpx.ResponseJSON(c, watchTimeout)
+		return
 	}
 
 	httpx.ResponseJSON(c, change)

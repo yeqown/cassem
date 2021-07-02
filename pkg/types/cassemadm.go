@@ -1,5 +1,7 @@
 package types
 
+import "encoding/json"
+
 //go:generate stringer -type=EltContentType
 type EltContentType uint8
 
@@ -18,10 +20,26 @@ type EltMetadataDO struct {
 	Env               string
 }
 
+func (e *EltMetadataDO) Unmarshal(bytes []byte) error {
+	return json.Unmarshal(bytes, e)
+}
+
+func (e EltMetadataDO) Marshal() ([]byte, error) {
+	return json.Marshal(e)
+}
+
 type VersionedEltDO struct {
-	Metadata EltMetadataDO
+	Metadata *EltMetadataDO `json:"-"`
 	Version  int
 	Raw      []byte
+}
+
+func (e *VersionedEltDO) Unmarshal(bytes []byte) error {
+	return json.Unmarshal(bytes, e)
+}
+
+func (e VersionedEltDO) Marshal() ([]byte, error) {
+	return json.Marshal(e)
 }
 
 //type Elt struct {

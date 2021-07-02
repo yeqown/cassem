@@ -87,6 +87,7 @@ func applyActionSetLeader(f *fsm, l *fsmLog) error {
 
 type setKVCommand struct {
 	DeleteKey types.StoreKey
+	IsDir     bool
 	SetKey    types.StoreKey
 	Data      *types.StoreValue
 }
@@ -110,7 +111,7 @@ func applyActionSetKV(f *fsm, l *fsmLog) (err error) {
 		err = f.repo.SetKV(cc.SetKey, *cc.Data)
 	}
 	if cc.DeleteKey != "" {
-		err = f.repo.UnsetKV(cc.DeleteKey)
+		err = f.repo.UnsetKV(cc.DeleteKey, cc.IsDir)
 	}
 
 	if err != nil {

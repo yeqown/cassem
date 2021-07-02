@@ -17,7 +17,7 @@ type Repository interface {
 	SetKV(key types.StoreKey, value types.StoreValue) error
 
 	// UnsetKV save key and value
-	UnsetKV(key types.StoreKey) error
+	UnsetKV(key types.StoreKey, isDir bool) error
 }
 
 func KeySplitter(s types.StoreKey) (nodes []string, leaf string) {
