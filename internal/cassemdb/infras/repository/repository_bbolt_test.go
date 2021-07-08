@@ -1,4 +1,4 @@
-package infras
+package repository
 
 import (
 	"testing"
@@ -40,12 +40,12 @@ func (s testRepositoryBBoltSuite) TestGet() {
 }
 
 func Test_Repo_BBolt_mysql(t *testing.T) {
-	cfg := conf.BBolt{
+	cfg := conf.Bolt{
 		Dir: "./debugdata",
 		DB:  "cassem.db",
 	}
 
-	repo, err := newRepository(&cfg)
+	repo, err := NewRepository(&cfg)
 	if err != nil {
 		t.Fatalf("Test_Repo_BBolt_mysql failed to open DB: %v", err)
 	}

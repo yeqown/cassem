@@ -14,6 +14,7 @@ message Entity {
   bytes  val         = 3;
   int64  created_at  = 4;
   int64  updated_at  = 5;
+  uint32 ttl         = 6;
 };
 
 message change {
@@ -34,8 +35,12 @@ message getKVResp {
 };
 
 message setKVReq {
-  string key    = 1;
-  Entity entity = 2;
+  string key       = 1;
+  bool   is_dir    = 2;
+  // ttl is Time to Live (n seconds)
+  uint32 ttl       = 3;
+  bytes  val       = 4;
+  bool   overwrite = 5;
 };
 
 message unsetKVReq {
@@ -47,11 +52,31 @@ message watchReq {
   repeated string keys = 2;
 };
 
-service api {
+message ttlReq {
+  string key = 1;
+};
+
+message ttlResp {
+  uint32 ttl = 1;
+}
+
+message expireReq {
+  string key = 1;
+};
+
+message rangeReq {
+  string key = 1;
+};
+
+service KV {
   rpc GetKV(getKVReq) returns(getKVResp) {};
   rpc SetKV(setKVReq) returns(empty) {};
   rpc UnsetKV(unsetKVReq) returns(empty) {};
 
   // Watch will rev a stream response in client.
   rpc Watch(watchReq) returns (stream change) {};
+
+  rpc TTL(ttlReq) returns (ttlResp) {};
+  rpc Expire(expireReq) returns (empty) {};
+  rpc Range(rangeReq) returns (empty) {};
 }

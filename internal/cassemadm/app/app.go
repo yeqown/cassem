@@ -3,9 +3,9 @@ package app
 import (
 	"context"
 
-	pb "github.com/yeqown/cassem/internal/cassemdb/api/grpc/gen"
+	"github.com/yeqown/cassem/internal/cassemdb/api"
+	cassem_cassemdb "github.com/yeqown/cassem/internal/cassemdb/api/gen"
 	"github.com/yeqown/cassem/pkg/conf"
-	"github.com/yeqown/cassem/pkg/grpcx"
 	"github.com/yeqown/cassem/pkg/hash"
 	"github.com/yeqown/cassem/pkg/types"
 )
@@ -34,17 +34,17 @@ var (
 )
 
 type app struct {
-	cassemdb pb.ApiClient
+	cassemdb cassem_cassemdb.ApiClient
 }
 
 func New(config *conf.CassemAdminConfig) (*app, error) {
-	cc, err := grpcx.DialCassemDB(config.CassemDBCluster)
+	cc, err := api.Dial(config.CassemDBCluster)
 	if err != nil {
 		return nil, err
 	}
 
 	return &app{
-		cassemdb: pb.NewApiClient(cc),
+		cassemdb: cassem_cassemdb.NewApiClient(cc),
 	}, nil
 }
 
@@ -52,7 +52,7 @@ func (d app) GetElement(
 	ctx context.Context, app, env, eltKey string, version int) (*types.VersionedEltDO, error) {
 	// get metadata
 	k := genEltKey(app, env, eltKey)
-	r, err := d.cassemdb.GetKV(ctx, &pb.GetKVReq{Key: withMetadataSuffix(k)})
+	r, err := d.cassemdb.GetKV(ctx, &cassem_cassemdb.GetKVReq{Key: withMetadataSuffix(k)})
 	if err != nil {
 		return nil, err
 	}
@@ -65,7 +65,7 @@ func (d app) GetElement(
 		version = md.LatestVersion
 	}
 	// get element with specified version
-	r2, err2 := d.cassemdb.GetKV(ctx, &pb.GetKVReq{Key: withVersion(k, version)})
+	r2, err2 := d.cassemdb.GetKV(ctx, &cassem_cassemdb.GetKVReq{Key: withVersion(k, version)})
 	if err2 != nil {
 		return nil, err
 	}
@@ -96,9 +96,9 @@ func (d app) CreateElement(ctx context.Context, app, env, eltKey string, raw []b
 		return err
 	}
 
-	if _, err = d.cassemdb.SetKV(ctx, &pb.SetKVReq{
+	if _, err = d.cassemdb.SetKV(ctx, &cassem_cassemdb.SetKVReq{
 		Key: mdKey,
-		Entity: &pb.Entity{
+		Entity: &cassem_cassemdb.Entity{
 			Val: bytes,
 		},
 	}); err != nil {
@@ -114,9 +114,9 @@ func (d app) CreateElement(ctx context.Context, app, env, eltKey string, raw []b
 		return err
 	}
 	// set element with specified version
-	if _, err = d.cassemdb.SetKV(ctx, &pb.SetKVReq{
+	if _, err = d.cassemdb.SetKV(ctx, &cassem_cassemdb.SetKVReq{
 		Key: withVersion(k, version),
-		Entity: &pb.Entity{
+		Entity: &cassem_cassemdb.Entity{
 			Val: bytes,
 		},
 	}); err != nil {
@@ -133,7 +133,7 @@ func (d app) CreateElement(ctx context.Context, app, env, eltKey string, raw []b
 func (d app) UpdateElement(ctx context.Context, app, env, eltKey string, raw []byte) error {
 	// get metadata
 	k := genEltKey(app, env, eltKey)
-	r, err := d.cassemdb.GetKV(ctx, &pb.GetKVReq{Key: withMetadataSuffix(k)})
+	r, err := d.cassemdb.GetKV(ctx, &cassem_cassemdb.GetKVReq{Key: withMetadataSuffix(k)})
 	if err != nil {
 		return err
 	}
@@ -156,9 +156,9 @@ func (d app) UpdateElement(ctx context.Context, app, env, eltKey string, raw []b
 		return err
 	}
 	// set element with specified version
-	if _, err = d.cassemdb.SetKV(ctx, &pb.SetKVReq{
+	if _, err = d.cassemdb.SetKV(ctx, &cassem_cassemdb.SetKVReq{
 		Key: withVersion(k, version),
-		Entity: &pb.Entity{
+		Entity: &cassem_cassemdb.Entity{
 			Val: bytes,
 		},
 	}); err != nil {
@@ -168,9 +168,9 @@ func (d app) UpdateElement(ctx context.Context, app, env, eltKey string, raw []b
 	// update metadata
 	bytes, _ = md.Marshal()
 	// set element with specified version
-	_, err = d.cassemdb.SetKV(ctx, &pb.SetKVReq{
+	_, err = d.cassemdb.SetKV(ctx, &cassem_cassemdb.SetKVReq{
 		Key: withMetadataSuffix(k),
-		Entity: &pb.Entity{
+		Entity: &cassem_cassemdb.Entity{
 			Val: bytes,
 		},
 	})
@@ -180,7 +180,7 @@ func (d app) UpdateElement(ctx context.Context, app, env, eltKey string, raw []b
 
 func (d app) DeleteElement(ctx context.Context, app, env, eltKey string) error {
 	k := genEltKey(app, env, eltKey)
-	_, err := d.cassemdb.UnsetKV(ctx, &pb.UnsetKVReq{
+	_, err := d.cassemdb.UnsetKV(ctx, &cassem_cassemdb.UnsetKVReq{
 		Key:   k,
 		IsDir: true,
 	})

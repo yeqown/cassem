@@ -1,4 +1,4 @@
-package infras
+package repository
 
 import (
 	"strings"
@@ -11,10 +11,10 @@ import (
 // NOTE(@yeqown): how to delete resource or mark it as deprecated, now only support container deletion.
 type Repository interface {
 	// GetKV get value of key
-	GetKV(key types.StoreKey) (*types.StoreValue, error)
+	GetKV(key types.StoreKey, isDir bool) (*types.StoreValue, error)
 
 	// SetKV save key and value
-	SetKV(key types.StoreKey, value types.StoreValue) error
+	SetKV(key types.StoreKey, value types.StoreValue, isDir bool) error
 
 	// UnsetKV save key and value
 	UnsetKV(key types.StoreKey, isDir bool) error

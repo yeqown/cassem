@@ -9,17 +9,17 @@ import (
 )
 
 type Raft struct {
-	RaftBase         string   `toml:"base"`
-	RaftBind         string   `toml:"bind"`
-	ClusterAddresses []string `toml:"join"`
-	ServerId         string   `toml:"serverId"`
+	Base             string   `toml:"base"`
+	Bind             string   `toml:"bind"`
+	ClusterAddresses []string `toml:"clusterAddresses"`
+	BootstrapCluster bool     `toml:"bootstrapCluster"`
 }
 
 type HTTP struct {
 	Addr string `toml:"addr"`
 }
 
-type BBolt struct {
+type Bolt struct {
 	Dir string `toml:"dir"`
 	DB  string `toml:"db"`
 }

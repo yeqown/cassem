@@ -1,14 +1,12 @@
 ## API 
 
-
 ### Watching and Notifying 
+
 Notifier actually is a watch mechanism, normally implement it in following ways:
 1. HTTP polling
 2. HTTP long polling
 3. Long link
 4. Multiplexing over one TCP connection.
-
-Here I choose the 4th way to implement.
 
 ### References
 

@@ -1,4 +1,4 @@
-package grpc
+package app
 
 import (
 	"context"
@@ -84,6 +84,7 @@ func serverLogger() grpc.UnaryServerInterceptor {
 			"method": info.FullMethod,
 			"req":    req,
 		}
+		logger.WithFields(fields).Infof("recv one request")
 
 		resp, err = handler(ctx, req)
 

@@ -1,4 +1,4 @@
-package infras
+package domain
 
 import (
 	"encoding/json"
@@ -15,7 +15,7 @@ type action uint8
 
 const (
 	actionSetKV action = iota + 1
-	actionSetLeader
+	// actionSetLeader
 	actionChange
 
 	// _LOG_EXPIRED_TS means 10s
@@ -37,8 +37,8 @@ type fsmLog struct {
 	CreatedAt int64
 }
 
-func newFsmLog(action action, cmd command) (*fsmLog, error) {
-	data, err := cmd.Serialize()
+func newLog(action action, c command) (*fsmLog, error) {
+	data, err := c.Serialize()
 	if err != nil {
 		return nil, err
 	}
@@ -54,36 +54,13 @@ func (l *fsmLog) Deserialize(data []byte) error { return json.Unmarshal(data, l)
 
 // TODO(@yeqown): use proto rather than json with benchmark tests.
 type command interface {
+	action() action
+
 	Serialize() ([]byte, error)
 	Deserialize(data []byte) error
 }
 
 type actionApplyFunc func(f *fsm, log *fsmLog) error
-
-type setLeaderCommand struct{ LeaderAddr string }
-
-func (cc setLeaderCommand) Serialize() ([]byte, error)     { return json.Marshal(cc) }
-func (cc *setLeaderCommand) Deserialize(data []byte) error { return json.Unmarshal(data, cc) }
-
-func applyActionSetLeader(f *fsm, l *fsmLog) error {
-	if now := time.Now().Unix(); now-l.CreatedAt > _LOG_EXPIRED_TS {
-		return nil
-	}
-
-	cc := new(setLeaderCommand)
-	if err := cc.Deserialize(l.Data); err != nil {
-		panic("could not unmarshal: " + err.Error())
-	}
-
-	log.
-		WithFields(log.Fields{
-			"command": cc,
-		}).
-		Debug("applyActionSetLeader called")
-
-	f.setLeaderAddr(cc.LeaderAddr)
-	return nil
-}
 
 type setKVCommand struct {
 	DeleteKey types.StoreKey
@@ -92,6 +69,7 @@ type setKVCommand struct {
 	Data      *types.StoreValue
 }
 
+func (cc setKVCommand) action() action                 { return actionSetKV }
 func (cc setKVCommand) Serialize() ([]byte, error)     { return json.Marshal(cc) }
 func (cc *setKVCommand) Deserialize(data []byte) error { return json.Unmarshal(data, cc) }
 
@@ -102,13 +80,11 @@ func applyActionSetKV(f *fsm, l *fsmLog) (err error) {
 	}
 
 	log.
-		WithFields(log.Fields{
-			"command": cc,
-		}).
+		WithFields(log.Fields{"command": cc}).
 		Debug("applyActionSetKV called")
 
 	if cc.SetKey != "" {
-		err = f.repo.SetKV(cc.SetKey, *cc.Data)
+		err = f.repo.SetKV(cc.SetKey, *cc.Data, cc.IsDir)
 	}
 	if cc.DeleteKey != "" {
 		err = f.repo.UnsetKV(cc.DeleteKey, cc.IsDir)
@@ -125,6 +101,7 @@ type changeCommand struct {
 	*types.Change
 }
 
+func (cc changeCommand) action() action                 { return actionChange }
 func (cc changeCommand) Serialize() ([]byte, error)     { return json.Marshal(cc) }
 func (cc *changeCommand) Deserialize(data []byte) error { return json.Unmarshal(data, cc) }
 

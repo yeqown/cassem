@@ -9,12 +9,13 @@ import (
 	"github.com/pkg/errors"
 	"github.com/yeqown/log"
 
-	"github.com/yeqown/cassem/internal/cassemdb/infras"
-	"github.com/yeqown/cassem/pkg/runtime"
-	"github.com/yeqown/cassem/pkg/watcher"
-
+	"github.com/yeqown/cassem/internal/cassemdb/domain"
+	raftleader "github.com/yeqown/cassem/internal/cassemdb/infras/raft-leader-grpc"
 	"github.com/yeqown/cassem/pkg/conf"
+	"github.com/yeqown/cassem/pkg/httpx"
+	"github.com/yeqown/cassem/pkg/runtime"
 	"github.com/yeqown/cassem/pkg/types"
+	"github.com/yeqown/cassem/pkg/watcher"
 )
 
 // app is the storage server that would guards api server running and alas controls other components.
@@ -30,7 +31,7 @@ type app struct {
 	watcher watcher.IWatcher
 
 	// raft is a customized raft node for cassem.
-	raft infras.IMyRaft
+	raft domain.IMyRaft
 }
 
 func New(cfg *conf.CassemdbConfig) (*app, error) {
@@ -45,11 +46,7 @@ func New(cfg *conf.CassemdbConfig) (*app, error) {
 func (d *app) bootstrap(cfg *conf.CassemdbConfig) (err error) {
 	d.config = cfg
 	d.watcher = watcher.NewChannelWatcher(100)
-	d.raft, err = infras.NewMyRaft(&infras.Conf{
-		Raft:        cfg.Server.Raft,
-		HTTP:        cfg.Server.HTTP,
-		Persistence: cfg.Persistence.BBolt,
-	})
+	d.raft, err = domain.NewMyRaft(cfg)
 	if err != nil {
 		return errors.Wrapf(err, "app.bootstrap failed to load raft")
 	}
@@ -60,7 +57,7 @@ func (d *app) bootstrap(cfg *conf.CassemdbConfig) (err error) {
 	return nil
 }
 
-// Heartbeat start a ticker to print log and check healthy of each component in core.app.
+// Run start a ticker to print log and check healthy of each component in core.app.
 // The second purpose is to watch the QUIT / KILL signal to release resources of core.app, the most important work is to
 // let current node leave raft cluster. If current node is leader just quit, otherwise current node should tell the leader
 // about the fact there is a node is shutting down.
@@ -69,7 +66,7 @@ func (d *app) bootstrap(cfg *conf.CassemdbConfig) (err error) {
 // it could not be removed, it will still be elected as leader. (Situation: count of cluster nodes is less than 2).
 //
 // NOTE: could leader call removeNode by it self? (leader could call removeNode only when cluster has more than 1 node)
-func (d *app) Heartbeat() {
+func (d *app) Run() {
 	tick := time.NewTicker(10 * time.Second)
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, os.Interrupt, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
@@ -79,8 +76,7 @@ func (d *app) Heartbeat() {
 		case <-tick.C:
 			log.
 				WithFields(log.Fields{
-					"isLeader":      d.isLeader(),
-					"joinedCluster": d.raft.JoinedCluster(),
+					"isLeader": d.raft.IsLeader(),
 				}).
 				Info("app heartbeat")
 		case <-quit:
@@ -90,17 +86,16 @@ func (d *app) Heartbeat() {
 
 		retryLeave:
 			if failedCount <= 0 {
-				// limit maximum failed count
+				// maximum failed count limit overflow
 				log.
 					Warn("failed to quit more than 3 times, just quit.")
 
 				return
 			}
-
 			if err := d.raft.Shutdown(); err != nil {
-				time.Sleep(5 * time.Second)
+				time.Sleep(3 * time.Second)
 				log.
-					Errorf("app.Heartbeat could not remove from cluster: %v", err)
+					Errorf("app.Run could not remove from cluster: %v", err)
 				failedCount--
 				goto retryLeave
 			}
@@ -114,6 +109,9 @@ func (d *app) Heartbeat() {
 func (d *app) startRoutines() {
 	// receive watch changes from raft fsm and notify watcher
 	runtime.GoFunc("watch-changes", d.propagateChangesSignal)
+
+	// gRPC serving
+	runtime.GoFunc("serving-grpc-api", d.servingAPI)
 }
 
 func (d app) propagateChangesSignal() error {
@@ -130,39 +128,32 @@ func (d app) propagateChangesSignal() error {
 	return nil
 }
 
-//var (
-//	ErrNotLeader = errors.New("current node is not allow to write, should not be triggered normally")
-//)
+func (d *app) servingAPI() error {
+	s := gRPC(d)
+	raftleader.Setup(d.raft.RAFT(), s, d.config.Raft.ClusterAddresses)
 
-func (d app) Apply(data []byte) error {
-	return d.raft.ApplyRaw(data)
+	if runtime.IsDebug() {
+		g := httpx.NewGateway(d.config.Addr, debugHTTP(d), s)
+		return g.ListenAndServe()
+	}
+
+	return serve(s, d.config.Addr)
 }
 
-// AddNode only leader node would receive such request. MAYBE?
-func (d app) AddNode(serverId, addr string) error {
-	log.Infof("received AddNode request for remote node %s, addr %s", serverId, addr)
-	return d.raft.AddNode(serverId, addr)
+// addNode only leader node would receive such request. MAYBE?
+func (d app) addNode(serverId, addr string) error {
+	log.Infof("received addNode request for remote node %s, addr %s", serverId, addr)
+	// return d.raft.addNode(serverId, addr)
+	panic("TODO")
 }
 
-// RemoveNode only leader node would receive such request.
-func (d app) RemoveNode(nodeID string) error {
-	return d.raft.RemoveNode(nodeID)
+// removeNode only leader node would receive such request.
+func (d app) removeNode(nodeID string) error {
+	// return d.raft.removeNode(nodeID)
+	panic("TODO")
 }
 
-//func (c app) Apply(msg []byte) (err error) {
-//	return c.raft.ApplyFromMessage(msg)
-//}
-
-// isLeader only return true if current node is leader.
-func (d app) isLeader() bool {
-	return d.raft.IsLeader()
-}
-
-func (d app) ShouldForwardToLeader() (shouldForward bool, leadAddr string) {
-	return !d.isLeader(), d.raft.GetLeaderAddr()
-}
-
-func (d *app) GetKV(key string) (*types.StoreValue, error) {
+func (d *app) getKV(key string) (*types.StoreValue, error) {
 	val, err := d.raft.GetKV(key)
 	if err != nil {
 		return nil, err
@@ -171,51 +162,58 @@ func (d *app) GetKV(key string) (*types.StoreValue, error) {
 	return val, nil
 }
 
-func (d *app) SetKV(key string, val []byte) (err error) {
+const (
+	// MAX_TTL 2d
+	MAX_TTL = 2 * 24 * 3600
+)
+
+func (d *app) setKV(param *setKVParam) (err error) {
+	if param.ttl > MAX_TTL {
+		return errors.New("ttl overflow: maximum is 172800(2*24*3600)")
+	}
+
 	log.
 		WithFields(log.Fields{
-			"key": key,
-			"val": runtime.ToString(val),
+			"param": param,
 		}).
-		Debug("app.SetKV called")
+		Debug("app.setKV called")
 
-	return d.raft.SetKV(key, val)
+	return d.raft.SetKV(param.key, param.val, param.isDir, param.overwrite, param.ttl)
 }
 
-func (d *app) UnsetKV(key string, isDir bool) error {
-	return d.raft.UnsetKV(key, isDir)
+func (d *app) unsetKV(param *unsetKVParam) error {
+	log.
+		WithFields(log.Fields{
+			"param": param,
+		}).
+		Debug("app.unsetKV called")
+
+	return d.raft.UnsetKV(param.key, param.isDir)
 }
 
-func (d *app) Watch(keys ...string) (ob watcher.IObserver, cancelFn func()) {
+func (d *app) watch(keys ...string) (ob watcher.IObserver, cancelFn func()) {
 	ch := make(chan watcher.IChange, 2)
 	closeFn := func() {
 		log.Debug("observer closeFn called")
 		close(ch)
 	}
-	ob = NewTopicObserver(ch, closeFn, keys)
+	ob = newTopicObserver(ch, closeFn, keys)
 	d.watcher.Subscribe(ob)
 
 	return ob, func() {
 		d.watcher.Unsubscribe(ob)
 	}
+}
 
-	//timeout := time.NewTimer(30 * time.Second)
-	//select {
-	//case change := <-ch:
-	//	log.
-	//		WithFields(log.Fields{
-	//			"keys":      keys,
-	//			"changeKey": change.Topic(),
-	//			"change":    change,
-	//		}).
-	//		Info("app.Watch received one change")
-	//case <-timeout.C:
-	//	log.
-	//		WithFields(log.Fields{
-	//			"keys": keys,
-	//		}).
-	//		Debug("app.Watch timeout")
-	//}
-	//
-	//return
+// TODO(@yeqown): finish these functions
+
+func (d *app) iter(key string) error   { return nil }
+func (d *app) expire(key string) error { return nil }
+func (d *app) ttl(key string) (uint32, error) {
+	v, err := d.getKV(key)
+	if err != nil {
+		return 0, err
+	}
+
+	return v.RecalculateTTL(), nil
 }

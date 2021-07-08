@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	cassemdb "github.com/yeqown/cassem/internal/cassemdb/api"
+	cassemdb "github.com/yeqown/cassem/internal/cassemdb/app"
 	"github.com/yeqown/cassem/pkg/conf"
 	"github.com/yeqown/cassem/pkg/runtime"
 
@@ -56,7 +56,12 @@ func start(ctx *cli.Context) error {
 		}).
 		Debugf("loaded from CONF file: %+v", c)
 
-	cassemdb.Run(c)
+	d, err := cassemdb.New(c)
+	if err != nil {
+		return err
+	}
+
+	d.Run()
 
 	return nil
 }

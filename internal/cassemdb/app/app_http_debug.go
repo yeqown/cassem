@@ -1,12 +1,13 @@
-package http
+package app
 
 import (
+	"net/http"
 	"time"
 
 	"github.com/yeqown/log"
 
+	"github.com/gin-contrib/pprof"
 	"github.com/gin-gonic/gin"
-	"github.com/pkg/errors"
 
 	"github.com/yeqown/cassem/pkg/httpx"
 	"github.com/yeqown/cassem/pkg/runtime"
@@ -14,69 +15,59 @@ import (
 	"github.com/yeqown/cassem/pkg/watcher"
 )
 
-type operateNodeReq struct {
-	ServerID string `form:"serverId" binding:"required"`
-	Bind     string `form:"bind"`
-	Action   string `form:"action" binding:"required,oneof=join left"`
+// httpServer provides both RESTFul API for client also provides part of API for internal cluster, all internal APIs
+// stay in handler_cluster.go and register in httpServer.mountRaftClusterInternalAPI.
+type httpServer struct {
+	engi  *gin.Engine
+	coord ICoordinator
 }
 
-func (srv *httpServer) OperateNode(c *gin.Context) {
-	if srv.needForwardAndExecute(c) {
-		return
+func debugHTTP(coord ICoordinator) *httpServer {
+	srv := &httpServer{
+		coord: coord,
+		engi:  gin.New(),
 	}
 
-	req := new(operateNodeReq)
-	if err := c.ShouldBind(req); err != nil {
-		httpx.ResponseError(c, err)
-		return
-	}
+	srv.initialize()
 
-	var err error
-	switch req.Action {
-	case "join":
-		if req.Bind != "" {
-			err = srv.coord.AddNode(req.ServerID, req.Bind)
-		} else {
-			err = errors.New("bind could not be empty")
-		}
-	case "left":
-		err = srv.coord.RemoveNode(req.ServerID)
-	default:
-		err = errors.New("unknown action")
-	}
-
-	if err != nil {
-		log.
-			WithFields(log.Fields{
-				"form":  req,
-				"error": err,
-			}).
-			Error("httpServer.OperateNode failed")
-
-		httpx.ResponseError(c, err)
-		return
-	}
-
-	httpx.ResponseJSON(c, nil)
+	return srv
 }
 
-type applyReq struct {
-	Data []byte `json:"Data" binding:"required"`
+func (srv *httpServer) initialize() {
+	gin.EnableJsonDecoderUseNumber()
+	if !runtime.IsDebug() {
+		gin.SetMode(gin.ReleaseMode)
+	}
+
+	// mount middlewares
+	// DONE(@yeqown): replace Recovery middleware so that we response error messages.
+	srv.engi.Use(httpx.Recovery())
+	srv.engi.Use(gin.Logger())
+
+	if runtime.IsDebug() {
+		pprof.Register(srv.engi, "/debug/pprof")
+	}
+
+	// mount API
+	srv.mountAPI()
 }
 
-func (srv *httpServer) Apply(c *gin.Context) {
-	req := new(applyReq)
-	if err := c.ShouldBind(req); err != nil {
-		httpx.ResponseError(c, err)
-		return
-	}
+func (srv *httpServer) mountAPI() {
+	// DONE(@yeqown) authorize middleware is needed.
+	g := srv.engi.Group("/api")
 
-	if err := srv.coord.Apply(req.Data); err != nil {
-		httpx.ResponseError(c, err)
-		return
-	}
+	ns := g.Group("/kv")
+	{
+		ns.GET("", srv.GetKV)
+		ns.POST("", srv.SetKV)
+		ns.DELETE("", srv.DeleteKV)
 
-	httpx.ResponseJSON(c, nil)
+		ns.GET("/watch", srv.Watch)
+	}
+}
+
+func (srv *httpServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	srv.engi.ServeHTTP(w, req)
 }
 
 type getKVReq struct {
@@ -90,6 +81,7 @@ type storeVO struct {
 	Size        int64  `json:"size"`
 	CreatedAt   int64  `json:"createdAt"`
 	UpdatedAt   int64  `json:"updatedAt"`
+	TTL         uint32 `json:"ttl"`
 }
 
 func newStoreVO(v *types.StoreValue) *storeVO {
@@ -104,18 +96,18 @@ func newStoreVO(v *types.StoreValue) *storeVO {
 		Size:        v.Size,
 		CreatedAt:   v.CreatedAt,
 		UpdatedAt:   v.UpdatedAt,
+		TTL:         v.TTL,
 	}
 }
 
 func (srv *httpServer) GetKV(c *gin.Context) {
-	// TODO(@yeqown): pool getKVReq object
 	req := new(getKVReq)
 	if err := c.ShouldBind(req); err != nil {
 		httpx.ResponseError(c, err)
 		return
 	}
 
-	out, err := srv.coord.GetKV(req.Key)
+	out, err := srv.coord.getKV(req.Key)
 	if err != nil {
 		httpx.ResponseError(c, err)
 		return
@@ -125,22 +117,27 @@ func (srv *httpServer) GetKV(c *gin.Context) {
 }
 
 type setKVReq struct {
-	Key   string `json:"key" binding:"required"`
-	Value []byte `json:"value" binding:"required"`
+	Key       string `json:"key" binding:"required"`
+	Value     []byte `json:"value" binding:"required"`
+	IsDir     bool   `json:"isDir"`
+	Overwrite bool   `json:"overwrite"`
+	TTL       uint32 `json:"ttl"`
 }
 
 func (srv *httpServer) SetKV(c *gin.Context) {
-	if srv.needForwardAndExecute(c) {
-		return
-	}
-
 	req := new(setKVReq)
 	if err := c.ShouldBind(req); err != nil {
 		httpx.ResponseError(c, err)
 		return
 	}
 
-	err := srv.coord.SetKV(req.Key, req.Value)
+	err := srv.coord.setKV(&setKVParam{
+		key:       req.Key,
+		val:       req.Value,
+		isDir:     req.IsDir,
+		overwrite: req.Overwrite,
+		ttl:       req.TTL,
+	})
 	if err != nil {
 		httpx.ResponseError(c, err)
 		return
@@ -155,17 +152,16 @@ type deleteKVReq struct {
 }
 
 func (srv *httpServer) DeleteKV(c *gin.Context) {
-	if srv.needForwardAndExecute(c) {
-		return
-	}
-
 	req := new(deleteKVReq)
 	if err := c.ShouldBind(req); err != nil {
 		httpx.ResponseError(c, err)
 		return
 	}
 
-	err := srv.coord.UnsetKV(req.Key, req.IsDir)
+	err := srv.coord.unsetKV(&unsetKVParam{
+		key:   req.Key,
+		isDir: req.IsDir,
+	})
 	if err != nil {
 		httpx.ResponseError(c, err)
 		return
@@ -178,11 +174,8 @@ type watchKVReq struct {
 	Keys []string `form:"key" binding:"required"`
 }
 
-var watchTimeout = map[string]string{
-	"messages": "watch timeout",
-}
-
 // Watch
+// TODO(@yeqown) all API implemented by grpc
 func (srv *httpServer) Watch(c *gin.Context) {
 	//if srv.needForwardAndExecute(c) {
 	//	return
@@ -194,7 +187,7 @@ func (srv *httpServer) Watch(c *gin.Context) {
 		return
 	}
 
-	ob, cancel := srv.coord.Watch(req.Keys...)
+	ob, cancel := srv.coord.watch(req.Keys...)
 	defer cancel()
 
 	var change watcher.IChange
@@ -208,8 +201,6 @@ func (srv *httpServer) Watch(c *gin.Context) {
 			Info("httpServer.Watch got a change")
 	case <-time.NewTimer(30 * time.Second).C:
 		log.Debugf("httpServer.Watch timeout")
-		httpx.ResponseJSON(c, watchTimeout)
-		return
 	}
 
 	httpx.ResponseJSON(c, change)

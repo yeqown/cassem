@@ -22,6 +22,24 @@ type StoreValue struct {
 	Size        int64    `json:"size"`
 	CreatedAt   int64    `json:"createdAt"`
 	UpdatedAt   int64    `json:"updatedAt"`
+	TTL         uint32   `json:"ttl"`
+}
+
+func (s StoreValue) Expired() bool {
+	if s.TTL <= 0 {
+		return false
+	}
+
+	return uint32(time.Now().Unix()-s.UpdatedAt) >= s.TTL
+}
+
+func (s *StoreValue) RecalculateTTL() uint32 {
+	if s.TTL <= 0 {
+		return 0
+	}
+
+	s.TTL = s.TTL - uint32(time.Now().Unix()-s.UpdatedAt)
+	return s.TTL
 }
 
 func (s *StoreValue) Unmarshal(bytes []byte) error {
@@ -32,18 +50,19 @@ func (s StoreValue) Marshal() ([]byte, error) {
 	return json.Marshal(s)
 }
 
-// NewStoreKV construct a StoreKey, StoreValue pair from raw data.
-func NewStoreKV(key string, val []byte) (StoreKey, StoreValue) {
-	return NewStoreKVWith(key, val, time.Now().Unix())
-}
+//// NewKV construct a StoreKey, StoreValue pair from raw data.
+//func NewKV(key string, val []byte, ttl uint32) (StoreKey, StoreValue) {
+//	return NewKVWithCreatedAt(key, val, ttl, time.Now().Unix())
+//}
 
-func NewStoreKVWith(key string, val []byte, created int64) (StoreKey, StoreValue) {
+func NewKVWithCreatedAt(key string, val []byte, ttl uint32, created int64) (StoreKey, StoreValue) {
 	k := StoreKey(key)
 	v := StoreValue{
 		Fingerprint: hash.MD5(val),
 		Key:         k,
 		Val:         val,
 		Size:        int64(len(val)),
+		TTL:         ttl,
 		CreatedAt:   created,
 		UpdatedAt:   time.Now().Unix(),
 	}

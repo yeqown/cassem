@@ -14,8 +14,7 @@ cassemdb.kill:
 	kill -9 `ps -ef | grep cassemdb | awk '{print $2}'`
 
 cassemdb.clear:
-	- rm -fr ./debugdata/d{1,2,3}/{raft.db,cassemdb.kv,cassemdb.log}
-	- rm -fr ./debugdata/d{1,2,3}/snapshots
+	- rm -fr ./debugdata/d{1,2,3}/{raft.db,cassemdb.log,cassemdb.kv,snapshots}
 
 build-cassemadm:
 	${GOCMD} build -o cassemadm ./cmd/cassemadm

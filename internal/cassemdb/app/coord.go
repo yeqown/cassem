@@ -6,16 +6,24 @@ import (
 )
 
 type ICoordinator interface {
-	GetKV(key string) (*types.StoreValue, error)
-	SetKV(key string, val []byte) error
-	UnsetKV(key string, isDir bool) error
-	Watch(keys ...string) (watcher.IObserver, func())
+	getKV(key string) (*types.StoreValue, error)
+	setKV(*setKVParam) error
+	unsetKV(param *unsetKVParam) error
+	watch(keys ...string) (watcher.IObserver, func())
+	ttl(key string) (uint32, error)
+	expire(key string) error
+	iter(key string) error
+}
 
-	ShouldForwardToLeader() (bool, string)
+type setKVParam struct {
+	key       string
+	val       []byte
+	isDir     bool
+	overwrite bool
+	ttl       uint32
+}
 
-	RemoveNode(serveId string) error    // RemoveNode
-	AddNode(serveId, addr string) error // AddNode
-	Apply(data []byte) error            // Apply
-
-	Heartbeat()
+type unsetKVParam struct {
+	key   string
+	isDir bool
 }

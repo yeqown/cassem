@@ -1,4 +1,4 @@
-package grpcx
+package api
 
 import (
 	"strings"
@@ -41,7 +41,14 @@ func (c cassemdbResolverBuilder) Build(
 		})
 	}
 
-	sc, _ := serviceconfig.Parse(_SERVICE_CONFIG_JSON)
+	scPlain := _SERVICE_CONFIG_JSON_WITH_HEALTH
+	switch target.Authority {
+	case "all":
+		scPlain = _SERVICE_CONFIG_JSON_WITHOUT_HEALTH
+	default:
+	}
+
+	sc, _ := serviceconfig.Parse(scPlain)
 	log.
 		WithFields(log.Fields{
 			"sc": sc,
@@ -57,9 +64,9 @@ func (c cassemdbResolverBuilder) Build(
 }
 
 var (
-
 	// _SERVICE_CONFIG_JSON https://github.com/grpc/grpc/blob/master/doc/service_config.md
-	_SERVICE_CONFIG_JSON = `{"loadBalancingConfig":[{"round_robin":{}}]}`
+	_SERVICE_CONFIG_JSON_WITH_HEALTH    = `{"healthCheckConfig":{"serviceName": "cassemdb.RaftLeader"},"loadBalancingConfig":[{"round_robin":{}}]}`
+	_SERVICE_CONFIG_JSON_WITHOUT_HEALTH = `{"loadBalancingConfig":[{"round_robin":{}}]}`
 )
 
 func (c cassemdbResolverBuilder) Scheme() string {

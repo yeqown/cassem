@@ -1,4 +1,4 @@
-package infras
+package repository
 
 import (
 	"testing"
