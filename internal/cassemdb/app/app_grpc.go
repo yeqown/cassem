@@ -5,14 +5,12 @@ import (
 	"net"
 
 	pb "github.com/yeqown/cassem/internal/cassemdb/api/gen"
-	"github.com/yeqown/cassem/pkg/types"
+	"github.com/yeqown/cassem/internal/cassemdb/infras/repository"
 	"github.com/yeqown/cassem/pkg/watcher"
 
 	"github.com/yeqown/log"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/reflection"
-	"google.golang.org/grpc/status"
 )
 
 type grpcServer struct {
@@ -87,7 +85,7 @@ func (s grpcServer) Watch(req *pb.WatchReq, stream pb.KV_WatchServer) (err error
 				WithField("change", v).
 				Debug("grpcServer.watch will be send to client")
 
-			c, ok := v.(*types.Change)
+			c, ok := v.(*repository.Change)
 			if !ok {
 				log.Debug("grpcServer.watch skip the change, not the type(*types.Change)")
 				continue
@@ -121,12 +119,32 @@ func (s grpcServer) Expire(ctx context.Context, req *pb.ExpireReq) (*pb.Empty, e
 	return _empty, err
 }
 
-func (s grpcServer) Range(ctx context.Context, req *pb.RangeReq) (*pb.Empty, error) {
-	err := s.coord.iter(req.GetKey())
-	return _empty, err
+func (s grpcServer) Range(ctx context.Context, req *pb.RangeReq) (*pb.RangeResp, error) {
+	result, err := s.coord.iter(&rangeParam{
+		key:   req.GetKey(),
+		seek:  req.GetSeek(),
+		limit: int(req.GetLimit()),
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	entities := make([]*pb.Entity, 0, len(result.Items))
+	for _, item := range result.Items {
+		entities = append(entities, convertStoreValue(&item))
+	}
+
+	r := &pb.RangeResp{
+		Entities:    entities,
+		HasMore:     result.HasMore,
+		NextSeekKey: result.NextSeekKey,
+	}
+
+	return r, nil
 }
 
-func convertStoreValue(v *types.StoreValue) *pb.Entity {
+func convertStoreValue(v *repository.StoreValue) *pb.Entity {
 	if v == nil {
 		return nil
 	}
@@ -138,27 +156,28 @@ func convertStoreValue(v *types.StoreValue) *pb.Entity {
 		CreatedAt:   v.CreatedAt,
 		UpdatedAt:   v.UpdatedAt,
 		Ttl:         v.TTL,
+		Typ:         v.Type(),
 	}
 }
 
-func convertChange(c *types.Change) *pb.Change {
+func convertChange(c *repository.Change) *pb.Change {
 	if c == nil {
 		return nil
 	}
 
 	return &pb.Change{
-		Op:      pb.ChangeOp(c.Op),
+		Op:      pb.Change_ChangeOp(c.Op),
 		Key:     c.Key.String(),
 		Last:    convertStoreValue(c.Last),
 		Current: convertStoreValue(c.Current),
 	}
 }
 
-// isClientClosed check whether the error contains any code which indicates client is offline.
-// These codes includes: codes.Unavailable
-func isClientClosed(err error) bool {
-	return status.Convert(err).Code() == codes.Unavailable
-}
+//// isClientClosed check whether the error contains any code which indicates client is offline.
+//// These codes includes: codes.Unavailable
+//func isClientClosed(err error) bool {
+//	return status.Convert(err).Code() == codes.Unavailable
+//}
 
 func serve(s *grpc.Server, addr string) error {
 	lis, err := net.Listen("tcp", addr)

@@ -11,10 +11,10 @@ import (
 
 	"github.com/yeqown/cassem/internal/cassemdb/domain"
 	raftleader "github.com/yeqown/cassem/internal/cassemdb/infras/raft-leader-grpc"
+	"github.com/yeqown/cassem/internal/cassemdb/infras/repository"
 	"github.com/yeqown/cassem/pkg/conf"
 	"github.com/yeqown/cassem/pkg/httpx"
 	"github.com/yeqown/cassem/pkg/runtime"
-	"github.com/yeqown/cassem/pkg/types"
 	"github.com/yeqown/cassem/pkg/watcher"
 )
 
@@ -153,7 +153,7 @@ func (d app) removeNode(nodeID string) error {
 	panic("TODO")
 }
 
-func (d *app) getKV(key string) (*types.StoreValue, error) {
+func (d *app) getKV(key string) (*repository.StoreValue, error) {
 	val, err := d.raft.GetKV(key)
 	if err != nil {
 		return nil, err
@@ -205,10 +205,17 @@ func (d *app) watch(keys ...string) (ob watcher.IObserver, cancelFn func()) {
 	}
 }
 
-// TODO(@yeqown): finish these functions
+func (d *app) iter(param *rangeParam) (*repository.RangeResult, error) {
+	return d.raft.Range(param.key, param.seek, param.limit)
+}
 
-func (d *app) iter(key string) error   { return nil }
-func (d *app) expire(key string) error { return nil }
+func (d *app) expire(key string) error {
+	return d.unsetKV(&unsetKVParam{
+		key:   key,
+		isDir: false,
+	})
+}
+
 func (d *app) ttl(key string) (uint32, error) {
 	v, err := d.getKV(key)
 	if err != nil {

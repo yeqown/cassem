@@ -1,10 +1,10 @@
 debug = false
 addr    = ":2022"
-[bbolt]
-dir       = "./debugdata/d2"
-db        = "cassemdb.kv"
+[bolt]
+    dir       = "./debugdata/d2"
+    db        = "cassemdb.kv"
 [raft]
-base = "./debugdata/d2"
-bind = "127.0.0.1:3022"
-clusterAddresses = ["127.0.0.1:3021", "127.0.0.1:3022", "127.0.0.1:3023"]
-bootstrapCluster = false
+    base = "./debugdata/d2"
+    bind = "127.0.0.1:3022"
+    clusterAddresses = ["127.0.0.1:3021", "127.0.0.1:3022", "127.0.0.1:3023"]
+    bootstrapCluster = false

@@ -1,18 +1,18 @@
 package app
 
 import (
-	"github.com/yeqown/cassem/pkg/types"
+	"github.com/yeqown/cassem/internal/cassemdb/infras/repository"
 	"github.com/yeqown/cassem/pkg/watcher"
 )
 
 type ICoordinator interface {
-	getKV(key string) (*types.StoreValue, error)
+	getKV(key string) (*repository.StoreValue, error)
 	setKV(*setKVParam) error
-	unsetKV(param *unsetKVParam) error
+	unsetKV(*unsetKVParam) error
 	watch(keys ...string) (watcher.IObserver, func())
 	ttl(key string) (uint32, error)
 	expire(key string) error
-	iter(key string) error
+	iter(*rangeParam) (*repository.RangeResult, error)
 }
 
 type setKVParam struct {
@@ -26,4 +26,10 @@ type setKVParam struct {
 type unsetKVParam struct {
 	key   string
 	isDir bool
+}
+
+type rangeParam struct {
+	key   string
+	seek  string
+	limit int
 }

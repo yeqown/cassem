@@ -1,4 +1,4 @@
-package types
+package infras
 
 import "encoding/json"
 

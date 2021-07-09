@@ -1,23 +1,30 @@
 syntax = "proto3";
 
-package cassem.cassemdb;
+package cassem.db;
 
-enum ChangeOp {
-  Invalid = 0;
-  Set     = 1;
-  Unset   = 2;
+enum EntityType {
+  UNKNOWN = 0;
+  ELT     = 1; // element
+  DIR     = 2; // directory
 }
 
 message Entity {
-  string fingerprint = 1;
-  string key         = 2;
-  bytes  val         = 3;
-  int64  created_at  = 4;
-  int64  updated_at  = 5;
-  uint32 ttl         = 6;
+  string     fingerprint = 1;
+  string     key         = 2;
+  bytes      val         = 3;
+  int64      created_at  = 4;
+  int64      updated_at  = 5;
+  uint32     ttl         = 6;
+  EntityType typ         = 7;
 };
 
 message change {
+  enum ChangeOp {
+    Invalid = 0;
+    Set     = 1;
+    Unset   = 2;
+  }
+
   ChangeOp op      = 1;
   string   key     = 2;
   Entity   last    = 3;
@@ -37,8 +44,7 @@ message getKVResp {
 message setKVReq {
   string key       = 1;
   bool   is_dir    = 2;
-  // ttl is Time to Live (n seconds)
-  uint32 ttl       = 3;
+  uint32 ttl       = 3; // ttl is Time to Live (n seconds)
   bytes  val       = 4;
   bool   overwrite = 5;
 };
@@ -65,8 +71,16 @@ message expireReq {
 };
 
 message rangeReq {
-  string key = 1;
+  string key   = 1;
+  string seek  = 2;
+  int32  limit = 3;
 };
+
+message rangeResp {
+  repeated Entity entities      = 1;
+  bool            has_more      = 2;
+  string          next_seek_key = 3;
+}
 
 service KV {
   rpc GetKV(getKVReq) returns(getKVResp) {};
@@ -78,5 +92,5 @@ service KV {
 
   rpc TTL(ttlReq) returns (ttlResp) {};
   rpc Expire(expireReq) returns (empty) {};
-  rpc Range(rangeReq) returns (empty) {};
+  rpc Range(rangeReq) returns (rangeResp) {};
 }

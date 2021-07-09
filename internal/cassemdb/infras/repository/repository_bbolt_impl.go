@@ -4,32 +4,59 @@ import (
 	"path"
 	"strings"
 
+	"github.com/yeqown/log"
+
 	"github.com/pkg/errors"
 	bolt "go.etcd.io/bbolt"
 
 	"github.com/yeqown/cassem/pkg/conf"
 	"github.com/yeqown/cassem/pkg/runtime"
-	"github.com/yeqown/cassem/pkg/types"
 )
 
 var (
 	ErrNotFound     = errors.New("record not found")
-	ErrExists       = errors.New("key exists")
+	ErrExists       = errors.New("key/bucket exists")
 	ErrEmptyNode    = errors.New("empty node")
 	ErrEmptyLeaf    = errors.New("empty leaf")
 	ErrNoSuchBucket = errors.New("no such bucket")
 )
 
-type bboltRepoImpl struct {
+type boltRepoImpl struct {
 	db *bolt.DB
 }
 
-func (b bboltRepoImpl) locateBucket(
-	tx *bolt.Tx, nodes []string, createBucketNotFound bool) (buk *bolt.Bucket, err error) {
+func NewRepository(c *conf.Bolt) (KV, error) {
+	db, err := bolt.Open(path.Join(c.Dir, c.DB), 0600, nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "open bolt.DB failed")
+	}
+
+	return newRepositoryWithDB(db), nil
+}
+
+func newRepositoryWithDB(db *bolt.DB) KV {
+	return boltRepoImpl{
+		db: db,
+	}
+}
+
+// locateBucket locate bucket which parameters specified.
+// key is the path to bucket or key which can distinguish by isDir,
+// createBucketNotFound means create bucket if bucket on key path does not exist.
+func (b boltRepoImpl) locateBucket(
+	tx *bolt.Tx, key StoreKey, isDir, createBucketNotFound bool) (buk *bolt.Bucket, leaf string, err error) {
+	nodes, leaf := keySplitter(key)
+	if isEmptyLeaf(leaf) {
+		return nil, leaf, ErrEmptyLeaf
+	}
+
+	if isDir {
+		nodes = append(nodes, leaf)
+	}
 
 	for idx, node := range nodes {
 		if strings.Compare(node, "") == 0 {
-			return nil, ErrEmptyNode
+			return nil, leaf, ErrEmptyNode
 		}
 
 		name := runtime.ToBytes(node)
@@ -56,34 +83,33 @@ func (b bboltRepoImpl) locateBucket(
 	}
 
 	if err != nil {
-		return nil, err
+		return nil, leaf, err
 	}
 
 	if buk == nil {
-		return nil, ErrNoSuchBucket
+		return nil, leaf, ErrNoSuchBucket
 	}
 
-	return buk, nil
+	return buk, leaf, nil
 }
 
-func (b bboltRepoImpl) GetKV(key types.StoreKey, isDir bool) (val *types.StoreValue, err error) {
-	nodes, leaf := KeySplitter(key)
-	if !isDir && IsEmptyLeaf(leaf) {
-		return nil, ErrEmptyLeaf
-	}
-
+func (b boltRepoImpl) GetKV(key StoreKey, isDir bool) (val *StoreValue, err error) {
 	var d []byte
 	err = b.db.View(func(tx *bolt.Tx) error {
-		bucket, err := b.locateBucket(tx, nodes, false)
+		buk, leaf, err := b.locateBucket(tx, key, isDir, false)
 		if err != nil {
 			return err
 		}
 
 		if isDir {
-			return nil
+			if buk = buk.Bucket(runtime.ToBytes(leaf)); buk != nil {
+				return nil
+			}
+
+			return ErrNotFound
 		}
 
-		if d = bucket.Get(runtime.ToBytes(leaf)); d == nil {
+		if d = buk.Get(runtime.ToBytes(leaf)); d == nil {
 			return ErrNotFound
 		}
 
@@ -94,28 +120,18 @@ func (b bboltRepoImpl) GetKV(key types.StoreKey, isDir bool) (val *types.StoreVa
 	}
 
 	if isDir {
-		return &types.StoreValue{Key: key}, nil
+		return &StoreValue{Key: key}, nil
 	}
 
-	val = new(types.StoreValue)
+	val = new(StoreValue)
 	err = val.Unmarshal(d)
 
 	return val, err
 }
 
-func (b bboltRepoImpl) SetKV(key types.StoreKey, val types.StoreValue, isDir bool) (err error) {
-	nodes, leaf := KeySplitter(key)
-	if IsEmptyLeaf(leaf) {
-		return ErrEmptyLeaf
-	}
-
-	d, err := val.Marshal()
-	if err != nil {
-		return err
-	}
-
+func (b boltRepoImpl) SetKV(key StoreKey, val *StoreValue, isDir bool) (err error) {
 	err = b.db.Update(func(tx *bolt.Tx) error {
-		bucket, err := b.locateBucket(tx, nodes, true)
+		bucket, leaf, err := b.locateBucket(tx, key, isDir, true)
 		if err != nil {
 			return err
 		}
@@ -124,20 +140,20 @@ func (b bboltRepoImpl) SetKV(key types.StoreKey, val types.StoreValue, isDir boo
 			return nil
 		}
 
+		d, err := val.Marshal()
+		if err != nil {
+			return err
+		}
+
 		return bucket.Put(runtime.ToBytes(leaf), d)
 	})
 
 	return
 }
 
-func (b bboltRepoImpl) UnsetKV(key types.StoreKey, isDir bool) (err error) {
-	nodes, leaf := KeySplitter(key)
-	if IsEmptyLeaf(leaf) {
-		return ErrEmptyLeaf
-	}
-
+func (b boltRepoImpl) UnsetKV(key StoreKey, isDir bool) (err error) {
 	err = b.db.Update(func(tx *bolt.Tx) error {
-		bucket, err := b.locateBucket(tx, nodes, true)
+		bucket, leaf, err := b.locateBucket(tx, key, isDir, true)
 		if err != nil {
 			return err
 		}
@@ -152,17 +168,62 @@ func (b bboltRepoImpl) UnsetKV(key types.StoreKey, isDir bool) (err error) {
 	return
 }
 
-func NewRepository(c *conf.Bolt) (Repository, error) {
-	db, err := bolt.Open(path.Join(c.Dir, c.DB), 0600, nil)
+func (b boltRepoImpl) Range(key StoreKey, seek string, limit int) (result *RangeResult, err error) {
+	err = b.db.View(func(tx *bolt.Tx) error {
+		bucket, _, err := b.locateBucket(tx, key, true, false)
+		if err != nil {
+			return err
+		}
+
+		var (
+			cur   = bucket.Cursor()
+			count = 0
+		)
+
+		k, v := cur.First()
+		result = &RangeResult{
+			Items:       make([]StoreValue, 0, limit),
+			HasMore:     false,
+			NextSeekKey: "",
+		}
+		if len(seek) != 0 {
+			k, v = cur.Seek(runtime.ToBytes(seek))
+		}
+
+		for ; k != nil && count < limit; k, v = cur.Next() {
+			//typ := ItemType_KV
+			//if v == nil {
+			//	typ = ItemType_DIR
+			//}
+			sv := StoreValue{
+				Key:  StoreKey(k),
+				Val:  nil,
+				Size: 0,
+			}
+			if v != nil {
+				if err = sv.Unmarshal(v); err != nil {
+					log.
+						WithFields(log.Fields{"error": err, "raw": string(v)}).
+						Error("could not be unmarshaled")
+				}
+			}
+
+			result.Items = append(result.Items, sv)
+			count++
+		}
+
+		// k, v = cur.Next()
+		if k != nil {
+			result.HasMore = true
+			result.NextSeekKey = runtime.ToString(k)
+		}
+
+		return nil
+	})
+
 	if err != nil {
-		return nil, errors.Wrap(err, "open bolt.DB failed")
+		return nil, err
 	}
 
-	return newRepositoryWithDB(db), nil
-}
-
-func newRepositoryWithDB(db *bolt.DB) Repository {
-	return bboltRepoImpl{
-		db: db,
-	}
+	return
 }

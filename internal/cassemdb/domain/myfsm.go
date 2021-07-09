@@ -19,16 +19,13 @@ type myFSM interface {
 }
 
 // fsm implement raft.FSM which means the state machine in RAFT consensus algorithm.
-// Here, fsm is a state machine to support distributed cache in cassem.
 type fsm struct {
-	repo repository.Repository
-
+	repo  repository.KV
 	hooks map[action]actionApplyFunc
-
-	ch chan<- watcher.IChange
+	ch    chan<- watcher.IChange
 }
 
-func newFSM(repo repository.Repository, ch chan<- watcher.IChange) myFSM {
+func newFSM(repo repository.KV, ch chan<- watcher.IChange) myFSM {
 	return &fsm{
 		repo: repo,
 		hooks: map[action]actionApplyFunc{
@@ -58,11 +55,7 @@ func (f *fsm) Apply(l *raft.Log) interface{} {
 		return errors.New("invalid action")
 	}
 	if err := apply(f, fsmlog); err != nil {
-		log.
-			WithFields(log.Fields{
-				"log":   fsmlog,
-				"error": err,
-			}).
+		log.WithFields(log.Fields{"log": fsmlog, "error": err}).
 			Error("fsm.Apply failed")
 	}
 
@@ -87,8 +80,7 @@ func (f fsm) Restore(closer io.ReadCloser) error {
 		return errors.Wrapf(err, "fsm.Restore failed to read from io.ReadCloser")
 	}
 
-	log.
-		WithField("data", string(buf)).
+	log.WithField("data", string(buf)).
 		Debug("fsm.Restore got persistence")
 
 	return nil

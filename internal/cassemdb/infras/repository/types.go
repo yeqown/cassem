@@ -1,4 +1,4 @@
-package types
+package repository
 
 import (
 	"encoding/json"
@@ -6,6 +6,7 @@ import (
 
 	"github.com/yeqown/log"
 
+	pb "github.com/yeqown/cassem/internal/cassemdb/api/gen"
 	"github.com/yeqown/cassem/pkg/hash"
 )
 
@@ -23,6 +24,14 @@ type StoreValue struct {
 	CreatedAt   int64    `json:"createdAt"`
 	UpdatedAt   int64    `json:"updatedAt"`
 	TTL         uint32   `json:"ttl"`
+}
+
+func (s StoreValue) Type() pb.EntityType {
+	if s.Val == nil && s.Size == 0 {
+		return pb.EntityType_DIR
+	}
+
+	return pb.EntityType_ELT
 }
 
 func (s StoreValue) Expired() bool {
@@ -110,4 +119,10 @@ func (c *Change) Data() []byte {
 	}
 
 	return c.data
+}
+
+type RangeResult struct {
+	Items       []StoreValue
+	HasMore     bool
+	NextSeekKey string
 }

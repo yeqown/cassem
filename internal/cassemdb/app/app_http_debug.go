@@ -4,19 +4,17 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/yeqown/log"
-
 	"github.com/gin-contrib/pprof"
 	"github.com/gin-gonic/gin"
+	"github.com/yeqown/log"
 
+	"github.com/yeqown/cassem/internal/cassemdb/infras/repository"
 	"github.com/yeqown/cassem/pkg/httpx"
 	"github.com/yeqown/cassem/pkg/runtime"
-	"github.com/yeqown/cassem/pkg/types"
 	"github.com/yeqown/cassem/pkg/watcher"
 )
 
-// httpServer provides both RESTFul API for client also provides part of API for internal cluster, all internal APIs
-// stay in handler_cluster.go and register in httpServer.mountRaftClusterInternalAPI.
+// httpServer provides both RESTFul API for client, ONLY FOR debug.
 type httpServer struct {
 	engi  *gin.Engine
 	coord ICoordinator
@@ -56,13 +54,13 @@ func (srv *httpServer) mountAPI() {
 	// DONE(@yeqown) authorize middleware is needed.
 	g := srv.engi.Group("/api")
 
-	ns := g.Group("/kv")
+	kv := g.Group("/kv")
 	{
-		ns.GET("", srv.GetKV)
-		ns.POST("", srv.SetKV)
-		ns.DELETE("", srv.DeleteKV)
-
-		ns.GET("/watch", srv.Watch)
+		kv.GET("", srv.GetKV)
+		kv.POST("", srv.SetKV)
+		kv.DELETE("", srv.DeleteKV)
+		kv.GET("/watch", srv.Watch)
+		kv.GET("/range", srv.Range)
 	}
 }
 
@@ -84,7 +82,7 @@ type storeVO struct {
 	TTL         uint32 `json:"ttl"`
 }
 
-func newStoreVO(v *types.StoreValue) *storeVO {
+func newStoreVO(v *repository.StoreValue) *storeVO {
 	if v == nil {
 		return nil
 	}
@@ -177,10 +175,6 @@ type watchKVReq struct {
 // Watch
 // TODO(@yeqown) all API implemented by grpc
 func (srv *httpServer) Watch(c *gin.Context) {
-	//if srv.needForwardAndExecute(c) {
-	//	return
-	//}
-
 	req := new(watchKVReq)
 	if err := c.ShouldBind(req); err != nil {
 		httpx.ResponseError(c, err)
@@ -204,4 +198,30 @@ func (srv *httpServer) Watch(c *gin.Context) {
 	}
 
 	httpx.ResponseJSON(c, change)
+}
+
+type rangeReq struct {
+	Key   string `form:"key" binding:"required"`
+	Seek  string `form:"seek"`
+	Limit int    `form:"limit,default=10" binding:"gte=1"`
+}
+
+func (srv *httpServer) Range(c *gin.Context) {
+	req := new(rangeReq)
+	if err := c.ShouldBind(req); err != nil {
+		httpx.ResponseError(c, err)
+		return
+	}
+
+	result, err := srv.coord.iter(&rangeParam{
+		key:   req.Key,
+		seek:  req.Seek,
+		limit: req.Limit,
+	})
+	if err != nil {
+		httpx.ResponseError(c, err)
+		return
+	}
+
+	httpx.ResponseJSON(c, result)
 }

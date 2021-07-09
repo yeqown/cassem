@@ -6,7 +6,7 @@ import (
 
 	"github.com/yeqown/log"
 
-	"github.com/yeqown/cassem/pkg/types"
+	"github.com/yeqown/cassem/internal/cassemdb/infras/repository"
 )
 
 // action indicates the operation of fsmLog
@@ -63,10 +63,10 @@ type command interface {
 type actionApplyFunc func(f *fsm, log *fsmLog) error
 
 type setKVCommand struct {
-	DeleteKey types.StoreKey
+	DeleteKey repository.StoreKey
 	IsDir     bool
-	SetKey    types.StoreKey
-	Data      *types.StoreValue
+	SetKey    repository.StoreKey
+	Data      *repository.StoreValue
 }
 
 func (cc setKVCommand) action() action                 { return actionSetKV }
@@ -84,7 +84,7 @@ func applyActionSetKV(f *fsm, l *fsmLog) (err error) {
 		Debug("applyActionSetKV called")
 
 	if cc.SetKey != "" {
-		err = f.repo.SetKV(cc.SetKey, *cc.Data, cc.IsDir)
+		err = f.repo.SetKV(cc.SetKey, cc.Data, cc.IsDir)
 	}
 	if cc.DeleteKey != "" {
 		err = f.repo.UnsetKV(cc.DeleteKey, cc.IsDir)
@@ -98,7 +98,7 @@ func applyActionSetKV(f *fsm, l *fsmLog) (err error) {
 }
 
 type changeCommand struct {
-	*types.Change
+	*repository.Change
 }
 
 func (cc changeCommand) action() action                 { return actionChange }

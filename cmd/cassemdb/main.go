@@ -50,9 +50,9 @@ func start(ctx *cli.Context) error {
 
 	log.
 		WithFields(log.Fields{
-			"conf":             c,
-			"conf.raft":        c.Server.Raft,
-			"conf.persistence": c.Persistence,
+			"conf":      c,
+			"conf.raft": c.Raft,
+			"conf.bolt": c.Bolt,
 		}).
 		Debugf("loaded from CONF file: %+v", c)
 

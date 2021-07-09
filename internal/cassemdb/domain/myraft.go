@@ -12,7 +12,6 @@ import (
 	"github.com/yeqown/cassem/pkg/conf"
 	"github.com/yeqown/cassem/pkg/hash"
 	"github.com/yeqown/cassem/pkg/runtime"
-	"github.com/yeqown/cassem/pkg/types"
 	"github.com/yeqown/cassem/pkg/watcher"
 
 	"github.com/hashicorp/raft"
@@ -24,9 +23,11 @@ import (
 // IMyRaft defines the ability of what raft component should act.
 // TODO(@yeqown): design master and slave write read operation.
 type IMyRaft interface {
-	GetKV(key string) (*types.StoreValue, error)                             // GetKV get value of key
+	GetKV(key string) (*repository.StoreValue, error)                        // GetKV get value of key
 	SetKV(key string, value []byte, isDir, overwrite bool, ttl uint32) error // SetKV save key and value
 	UnsetKV(key string, isDir bool) error                                    // UnsetKV save key and value
+	Range(key, seek string, limit int) (*repository.RangeResult, error)
+
 	ChangeNotifyCh() <-chan watcher.IChange
 
 	// IsLeader
@@ -49,7 +50,7 @@ type myraft struct {
 
 	conf *conf.CassemdbConfig
 
-	repo repository.Repository
+	repo repository.KV
 
 	// fsm is the state machine to be used in raft.RAFT. In cassem, it's mainly used to store
 	// caches those encoded bytes to containers who are requested and should be cached.

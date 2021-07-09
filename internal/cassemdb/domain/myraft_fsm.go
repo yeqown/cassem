@@ -9,7 +9,6 @@ import (
 
 	"github.com/yeqown/cassem/internal/cassemdb/infras/repository"
 	"github.com/yeqown/cassem/pkg/runtime"
-	"github.com/yeqown/cassem/pkg/types"
 )
 
 // SetKV set a KV or directory into db storage with other parameters.
@@ -28,7 +27,7 @@ func (r *myraft) SetKV(key string, val []byte, isDir, overwrite bool, ttl uint32
 		Debug("myraft.setKV called")
 
 	// get preview value
-	last, err := r.repo.GetKV(types.StoreKey(key), isDir)
+	last, err := r.repo.GetKV(repository.StoreKey(key), isDir)
 	if err != nil {
 		log.
 			WithFields(log.Fields{
@@ -51,7 +50,7 @@ func (r *myraft) SetKV(key string, val []byte, isDir, overwrite bool, ttl uint32
 	if last != nil && !last.Expired() {
 		createdAt = last.CreatedAt
 	}
-	k, v := types.NewKVWithCreatedAt(key, val, ttl, createdAt)
+	k, v := repository.NewKVWithCreatedAt(key, val, ttl, createdAt)
 	if err := r.propagateCommand(&setKVCommand{
 		SetKey: k,
 		Data:   &v,
@@ -60,13 +59,13 @@ func (r *myraft) SetKV(key string, val []byte, isDir, overwrite bool, ttl uint32
 	}
 
 	// touch off change signal to cassemdb cluster.
-	r.triggerWatchingMechanism(types.OpSet, key, last, &v)
+	r.triggerWatchingMechanism(repository.OpSet, key, last, &v)
 
 	return nil
 }
 
 func (r *myraft) UnsetKV(key string, isDir bool) error {
-	last, err := r.repo.GetKV(types.StoreKey(key), isDir)
+	last, err := r.repo.GetKV(repository.StoreKey(key), isDir)
 	if err != nil {
 		log.
 			WithFields(log.Fields{
@@ -78,7 +77,7 @@ func (r *myraft) UnsetKV(key string, isDir bool) error {
 
 	if err = r.propagateCommand(&setKVCommand{
 		SetKey:    "",
-		DeleteKey: types.StoreKey(key),
+		DeleteKey: repository.StoreKey(key),
 		IsDir:     isDir,
 		Data:      nil,
 	}); err != nil {
@@ -86,7 +85,7 @@ func (r *myraft) UnsetKV(key string, isDir bool) error {
 	}
 
 	// touch off change signal to cassemdb cluster.
-	r.triggerWatchingMechanism(types.OpUnset, key, last, nil)
+	r.triggerWatchingMechanism(repository.OpUnset, key, last, nil)
 
 	return nil
 }
@@ -95,7 +94,7 @@ func (r *myraft) UnsetKV(key string, isDir bool) error {
 // 1. delete a kv.
 // 2. really update a existed kv.
 //
-func (r myraft) triggerWatchingMechanism(op types.ChangeOp, key string, last, newVal *types.StoreValue) {
+func (r myraft) triggerWatchingMechanism(op repository.ChangeOp, key string, last, newVal *repository.StoreValue) {
 	if last == nil || last.Expired() {
 		// last == nil means that the key is new, there's no observer;
 		return
@@ -112,9 +111,9 @@ func (r myraft) triggerWatchingMechanism(op types.ChangeOp, key string, last, ne
 			Debug("myraft.triggerWatchingMechanism called")
 
 		if err := r.propagateCommand(&changeCommand{
-			Change: &types.Change{
+			Change: &repository.Change{
 				Op:      op,
-				Key:     types.StoreKey(key),
+				Key:     repository.StoreKey(key),
 				Last:    last,
 				Current: newVal,
 			}}); err != nil {
@@ -126,8 +125,8 @@ func (r myraft) triggerWatchingMechanism(op types.ChangeOp, key string, last, ne
 	}()
 }
 
-func (r *myraft) GetKV(key string) (*types.StoreValue, error) {
-	val, err := r.repo.GetKV(types.StoreKey(key), false)
+func (r *myraft) GetKV(key string) (*repository.StoreValue, error) {
+	val, err := r.repo.GetKV(repository.StoreKey(key), false)
 	if err != nil {
 		log.
 			WithFields(log.Fields{
@@ -148,7 +147,7 @@ func (r *myraft) GetKV(key string) (*types.StoreValue, error) {
 }
 
 // removeExpiredValue returns true while val.Expired() is true.
-func (r *myraft) removeExpiredValue(val *types.StoreValue) bool {
+func (r *myraft) removeExpiredValue(val *repository.StoreValue) bool {
 	if val == nil {
 		return false
 	}
@@ -163,4 +162,8 @@ func (r *myraft) removeExpiredValue(val *types.StoreValue) bool {
 	}
 
 	return false
+}
+
+func (r myraft) Range(key, seek string, limit int) (*repository.RangeResult, error) {
+	return r.repo.Range(repository.StoreKey(key), seek, limit)
 }
