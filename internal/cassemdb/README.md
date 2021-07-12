@@ -13,11 +13,11 @@ provide my RAFT and Repository API and implementation.
 
 ## Features
 
-- [ ] distributed system based single-raft.
-- [ ] TTL
-- [ ] lock operation based distributed system
-- [ ] watching mechanism (directory or key)
-- [ ] support operations set (key, dir) / unset (key / dir) / get (key) / range (dir)
+- [x] distributed system based single-raft.
+- [x] TTL
+- [x] lock operation based distributed system
+- [x] watching mechanism (directory or key)
+- [x] support operations set (key, dir) / unset (key / dir) / get (key) / range (dir)
 - [ ] dynamic add or remove node API.
 
 ### Operations prototype
