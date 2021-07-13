@@ -5,9 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/suite"
-
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/suite"
 
 	"github.com/yeqown/cassem/pkg/conf"
 )
@@ -89,6 +88,11 @@ func (s testRepositoryBBoltSuite) TearDownSuite() {
 	// clear testdata
 }
 
+func (s testRepositoryBBoltSuite) Test_locateBucket() {
+	impl := s.repo.(*boltRepoImpl)
+	_ = impl
+}
+
 var _setkv = &StoreValue{
 	Fingerprint: "1231231",
 	Key:         "a/b",
@@ -99,31 +103,60 @@ var _setkv = &StoreValue{
 	TTL:         123,
 }
 
-func (s testRepositoryBBoltSuite) Test_SetKV() {
-	err := s.repo.SetKV("a/b", _setkv, false)
+func (s testRepositoryBBoltSuite) Test_STest_Set_Get_Unset_DIR() {
+	var dirVal *StoreValue
+	err := s.repo.SetKV("dir/b", dirVal, true)
 	s.NoError(err)
+
+	val, err := s.repo.GetKV("dir/b", true)
+	s.Require().NoError(err)
+	s.NotNil(val)
+	s.Equal("dir/b", val.Key.String())
+
+	err = s.repo.UnsetKV("dir/b", true)
+	s.Require().NoError(err)
+
+	val, err = s.repo.GetKV("dir/b", true)
+	s.T().Logf("%+v", val)
+	s.Error(err)
+	s.Equal(ErrNoSuchBucket, err)
 }
 
-func (s testRepositoryBBoltSuite) Test_GetKV() {
-	val, err := s.repo.GetKV("a/b", false)
+func (s testRepositoryBBoltSuite) Test_Set_Get_Unset_KV() {
+	err := s.repo.SetKV("kv/b", _setkv, false)
+	s.NoError(err)
+
+	val, err := s.repo.GetKV("kv/b", false)
 	s.NoError(err)
 	s.Equal(_setkv, val)
+
+	err = s.repo.UnsetKV("kv/b", false)
+	s.NoError(err)
+
+	val, err = s.repo.GetKV("kv/b", false)
+	s.Error(err)
+	s.Equal(ErrNotFound, err)
 }
 
 func (s testRepositoryBBoltSuite) Test_Range() {
+	err := s.repo.UnsetKV("range/dir", true)
+	s.Require().NoError(err)
+
+	// write kv under range/dir bucket
 	for i := 0; i < 10; i++ {
-		k, v := NewKVWithCreatedAt("range/"+strconv.Itoa(i), []byte("range value"), 0, time.Now().Unix())
+		k, v := NewKVWithCreatedAt("range/dir/"+strconv.Itoa(i), []byte("range value"), 0, time.Now().Unix())
 		err := s.repo.SetKV(k, &v, false)
 		s.NoError(err)
 	}
 
+	// write dir under range/dir
 	for i := 0; i < 2; i++ {
-		k := StoreKey("range/dir" + strconv.Itoa(i))
+		k := StoreKey("range/dir/d" + strconv.Itoa(i))
 		err := s.repo.SetKV(k, nil, true)
 		s.NoError(err)
 	}
 
-	result, err := s.repo.Range("range", "", 6)
+	result, err := s.repo.Range("range/dir", "", 6)
 	s.Require().NoError(err)
 	s.T().Logf("%+v", result)
 	s.Require().Equal(6, len(result.Items))
@@ -131,7 +164,7 @@ func (s testRepositoryBBoltSuite) Test_Range() {
 	s.Require().NotEmpty(result.NextSeekKey)
 	s.Require().Equal("6", result.NextSeekKey)
 
-	result, err = s.repo.Range("range", result.NextSeekKey, 6)
+	result, err = s.repo.Range("range/dir", result.NextSeekKey, 6)
 	s.Require().NoError(err)
 	s.T().Logf("%+v", result)
 	s.Require().Equal(6, len(result.Items))
@@ -139,7 +172,7 @@ func (s testRepositoryBBoltSuite) Test_Range() {
 	s.Require().Empty(result.NextSeekKey)
 
 	// Range empty dir
-	result2, err2 := s.repo.Range("range/dir0", "", 100)
+	result2, err2 := s.repo.Range("range/dir/d0", "", 100)
 	s.Require().NoError(err2)
 	s.Require().Equal(0, len(result2.Items))
 	s.Require().False(result2.HasMore)

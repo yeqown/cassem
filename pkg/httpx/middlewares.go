@@ -1,10 +1,14 @@
 package httpx
 
 import (
+	"bytes"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"net/http/httputil"
 	"os"
+	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/yeqown/log"
@@ -32,4 +36,51 @@ func Recovery() gin.HandlerFunc {
 		c.Next()
 		panicked = false
 	}
+}
+
+//type respBodyWriter struct {
+//	gin.ResponseWriter
+//	body *bytes.Buffer
+//}
+//
+//func (w respBodyWriter) Write(b []byte) (int, error) {
+//	w.body.Write(b)
+//	return w.ResponseWriter.Write(b)
+//}
+
+func Logger() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		//rbw := &respBodyWriter{
+		//	body:           bytes.NewBufferString(""),
+		//	ResponseWriter: c.Writer,
+		//}
+		//c.Writer = rbw
+		body, err := c.GetRawData()
+		if err == nil && len(body) != 0 {
+			c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(body))
+		}
+
+		start := time.Now()
+
+		c.Next()
+
+		latency := time.Since(start)
+		fields := log.Fields{
+			"clientIP": c.ClientIP(),
+		}
+
+		log.
+			WithFields(fields).
+			Infof("[%3d] [%v] %s '%s' [Body]: %s", c.Writer.Status(), latency,
+				c.Request.Method, c.Request.URL, body)
+	}
+}
+
+func formatHeader(header http.Header) string {
+	buf := bytes.NewBuffer(nil)
+	for k, v := range header {
+		buf.WriteString(k + ":" + strings.Join(v, ";") + " ")
+	}
+
+	return buf.String()
 }

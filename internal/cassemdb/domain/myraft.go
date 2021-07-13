@@ -55,7 +55,7 @@ type myraft struct {
 	// fsm is the state machine to be used in raft.RAFT. In cassem, it's mainly used to store
 	// caches those encoded bytes to containers who are requested and should be cached.
 	//
-	// It also be used to store and apply leaderAddr which indicates the address of the leader.
+	// It also be used to store an"github.com/yeqown/cassem/pkg/types"ly leaderAddr which indicates the address of the leader.
 	// While a leadership changes happened, leader node calls raft.Apply() to commit a log that
 	// will update slave nodes' leaderAddr. please checkout FSMWrapper for more information.
 	fsm myFSM

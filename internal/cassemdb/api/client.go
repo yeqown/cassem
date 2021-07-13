@@ -2,7 +2,12 @@ package api
 
 import (
 	"context"
+	"strings"
 	"time"
+
+	"github.com/pkg/errors"
+
+	"github.com/yeqown/log"
 
 	_ "google.golang.org/grpc/health"
 
@@ -10,21 +15,48 @@ import (
 	"google.golang.org/grpc/resolver"
 )
 
-// Dial support multiple backend server and load balance while request
+// Mode indicates the way that gRPC client communicate with cassemdb cluster.
+type Mode uint8
+
+const (
+	// Mode_R means read only
+	Mode_R Mode = iota + 1
+	// Mode_X means read / write, but only communicate with leader node.
+	Mode_X
+)
+
+// DialWithMode support multiple backend server and load balance while request
 // backend servers in round-robin.
 //
-// use target = "cassemdb:///0.0.0.0:2021,1.1.1.1:2021" can only communicate to leader,
+// target = "cassemdb:///0.0.0.0:2021,1.1.1.1:2021" can only communicate to leader,
 // target = "cassemdb:/all//0.0.0.0:2021,1.1.1.1:2021" can communicate to other nodes,
 // but note that the client can only execute READ operations.
-func Dial(target string) (*grpc.ClientConn, error) {
+func DialWithMode(endpoints []string, mode Mode) (*grpc.ClientConn, error) {
+	var target = "cassemdb:/"
+	switch mode {
+	case Mode_R:
+		target += "all//"
+	case Mode_X:
+		target += "//"
+	}
+	target += strings.Join(endpoints, ",")
+
+	log.
+		WithFields(log.Fields{
+			"endpoints": endpoints,
+			"mode":      mode,
+			"target":    target,
+		}).
+		Debug("DialWithMode calling")
+
 	timeout, cancel := context.WithTimeout(context.TODO(), 10*time.Second)
 	defer cancel()
 	cc, err := grpc.DialContext(timeout, target,
 		grpc.WithInsecure(),
-		// grpc.WithBlock(),
+		grpc.WithBlock(),
 	)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "DialWithMode failed")
 	}
 
 	return cc, nil

@@ -11,8 +11,7 @@ import (
 )
 
 func TestDialCassemDB(t *testing.T) {
-	target := "cassemdb://all/127.0.0.1:2021,127.0.0.1:2022,127.0.0.1:2023"
-	conn, err := Dial(target)
+	conn, err := DialWithMode([]string{"127.0.0.1:2021", "127.0.0.1:2022", "127.0.0.1:2023"}, Mode_R)
 	require.NoError(t, err)
 	assert.NotNil(t, conn)
 

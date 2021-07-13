@@ -46,6 +46,23 @@ func (s grpcServer) GetKV(ctx context.Context, req *pb.GetKVReq) (*pb.GetKVResp,
 	return resp, nil
 }
 
+func (s grpcServer) GetKVs(ctx context.Context, req *pb.GetKVsReq) (*pb.GetKVsResp, error) {
+	entities := make([]*pb.Entity, 0, len(req.GetKeys()))
+	for _, k := range req.GetKeys() {
+		v, err := s.coord.getKV(k)
+		if err != nil {
+			continue
+		}
+
+		entities = append(entities, convertStoreValue(v))
+	}
+
+	resp := &pb.GetKVsResp{
+		Entities: entities,
+	}
+	return resp, nil
+}
+
 func (s grpcServer) SetKV(ctx context.Context, req *pb.SetKVReq) (*pb.Empty, error) {
 	err := s.coord.setKV(&setKVParam{
 		key:       req.GetKey(),

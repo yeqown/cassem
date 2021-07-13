@@ -11,15 +11,18 @@ cassemdb.run: cassemdb.build
 	DEBUG=1 ./cassemdb --conf=./debugdata/cassemdb3.toml > ./debugdata/d3/cassemdb.log &
 
 cassemdb.kill:
-	kill -9 `ps -ef | grep cassemdb | awk '{print $2}'`
+	kill -9 $(ps -ef | grep cassemdb | awk '{print $2}')
 
 cassemdb.clear:
 	- rm -fr ./debugdata/d{1,2,3}/{raft.db,cassemdb.log,cassemdb.kv,snapshots}
 
-build-cassemadm:
+cassemadm.build:
 	${GOCMD} build -o cassemadm ./cmd/cassemadm
 
-build-cassemagent:
+cassemadm.run: cassemadm.build
+	DEBUG=1 ./cassemadm --conf=./debugdata/cassemadm.toml
+
+cassemagent.build:
 	${GOCMD} build -o cassemagent ./cmd/cassemagent
 
 clear:

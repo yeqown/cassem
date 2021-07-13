@@ -11,8 +11,7 @@ import (
 )
 
 func Test_lock(t *testing.T) {
-	target := "cassemdb:///127.0.0.1:2021,127.0.0.1:2022,127.0.0.1:2023"
-	conn, err := Dial(target)
+	conn, err := DialWithMode([]string{"127.0.0.1:2021", "127.0.0.1:2022", "127.0.0.1:2023"}, Mode_X)
 	assert.NoError(t, err)
 
 	kv := pb.NewKVClient(conn)
