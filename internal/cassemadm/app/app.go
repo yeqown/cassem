@@ -12,7 +12,8 @@ import (
 
 // ICoordinator describes all methods should storage component should support.
 type ICoordinator interface {
-	GetElement(ctx context.Context, app, env, eltKey string, version int) (*infras.VersionedEltDO, error)
+	GetElementWithVersion(ctx context.Context, app, env, eltKey string, version int) (*infras.VersionedEltDO, error)
+	GetElements(ctx context.Context, app, env string, eltKeys []string) ([]*infras.VersionedEltDO, error)
 	CreateElement(ctx context.Context, app, env, eltKey string, raw []byte) error
 	UpdateElement(ctx context.Context, app, env, eltKey string, raw []byte) error
 	DeleteElement(ctx context.Context, app, env, eltKey string) error
@@ -48,7 +49,7 @@ func New(config *conf.CassemAdminConfig) (*app, error) {
 	}, nil
 }
 
-func (d app) GetElement(
+func (d app) GetElementWithVersion(
 	ctx context.Context, app, env, eltKey string, version int) (*infras.VersionedEltDO, error) {
 	// get metadata
 	k := genEltKey(app, env, eltKey)
@@ -76,6 +77,62 @@ func (d app) GetElement(
 	elt.Metadata = md
 
 	return elt, nil
+}
+
+// GetElements query elements by app, env and eltKeys but only get the latest version in one app and same env.
+func (d app) GetElements(
+	ctx context.Context, app, env string, eltKeys []string) ([]*infras.VersionedEltDO, error) {
+
+	// load all metadatas
+	metadataKeys := make([]string, 0, len(eltKeys))
+	for _, eltKey := range eltKeys {
+		k := genEltKey(app, env, eltKey)
+		metadataKeys = append(metadataKeys, withMetadataSuffix(k))
+	}
+	resp, err := d.cassemdb.GetKVs(ctx, &cassemdb_pb.GetKVsReq{
+		Keys: metadataKeys,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	eltVersionKeys := make([]string, 0, len(eltKeys))
+	// map[k]*EltMetadataDO
+	metadataMapping := make(map[string]*infras.EltMetadataDO, len(eltKeys))
+	for _, entity := range resp.GetEntities() {
+		k := trimMetadata(entity.GetKey())
+		md := new(infras.EltMetadataDO)
+		if err := md.Unmarshal(entity.GetVal()); err != nil {
+			continue
+		}
+
+		metadataMapping[k] = md
+		eltVersionKeys = append(eltVersionKeys, withVersion(k, md.LatestVersion))
+	}
+
+	resp2, err2 := d.cassemdb.GetKVs(ctx, &cassemdb_pb.GetKVsReq{
+		Keys: eltVersionKeys,
+	})
+	if err2 != nil {
+		return nil, err2
+	}
+
+	out := make([]*infras.VersionedEltDO, 0, len(eltKeys))
+	for _, entity := range resp2.GetEntities() {
+		elt := &infras.VersionedEltDO{
+			Metadata: new(infras.EltMetadataDO),
+			Version:  0,
+			Raw:      nil,
+		}
+		if err := elt.Unmarshal(entity.GetVal()); err != nil {
+			continue
+		}
+		k := trimVersion(entity.GetKey())
+		elt.Metadata = metadataMapping[k]
+		out = append(out, elt)
+	}
+
+	return out, nil
 }
 
 func (d app) CreateElement(ctx context.Context, app, env, eltKey string, raw []byte) error {

@@ -41,8 +41,8 @@ func (a appTestSuite) Test_CreateElement() {
 	a.NoError(err)
 }
 
-func (a appTestSuite) Test_GetElement() {
-	elt, err := a.coord.GetElement(
+func (a appTestSuite) Test_GetElementWithVersion() {
+	elt, err := a.coord.GetElementWithVersion(
 		a.ctx,
 		"app",
 		"env",

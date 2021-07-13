@@ -41,6 +41,15 @@ message getKVResp {
   Entity entity = 1;
 };
 
+message getKVsReq {
+  repeated string keys = 1;
+};
+
+message getKVsResp {
+  repeated Entity entities = 1;
+};
+
+
 message setKVReq {
   string key       = 1;
   bool   is_dir    = 2;
@@ -84,6 +93,7 @@ message rangeResp {
 
 service KV {
   rpc GetKV(getKVReq) returns(getKVResp) {};
+  rpc GetKVs(getKVsReq) returns(getKVsResp) {};
   rpc SetKV(setKVReq) returns(empty) {};
   rpc UnsetKV(unsetKVReq) returns(empty) {};
 
