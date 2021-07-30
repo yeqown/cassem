@@ -15,7 +15,7 @@ type readOnly struct {
 }
 
 // NewReader with endpoints these endpoints of cassemdb.
-func NewReader(endpoints []string) (ReadOnly, error) {
+func NewReader(endpoints []string) (KVReadOnly, error) {
 	cc, err := apicassemdb.DialWithMode(endpoints, apicassemdb.Mode_R)
 	if err != nil {
 		return nil, errors.Wrap(err, "NewWriter")

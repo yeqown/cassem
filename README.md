@@ -15,6 +15,7 @@ same time, it's deployed by `Go` which gives it platform-cross ability and fast-
   - [x] Multi-version management.
   - [ ] Operation log, each operation to config elements will be recorded.
   - [ ] Permission control.
+  - [ ] Client instance management.
   - [ ] `CTL` / `UI` tool support these are constructing on `cassemadm` RESTful API.
     - [ ] [Web UI](https://github.com/yeqown/cassem-ui) is developing.
     - [ ] [CTL](#) tool to debug and manage config from terminal. 

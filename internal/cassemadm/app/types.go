@@ -3,7 +3,7 @@ package app
 import (
 	"encoding/json"
 
-	"github.com/yeqown/cassem/internal/cassemadm/concept"
+	"github.com/yeqown/cassem/internal/concept"
 )
 
 type commonAppEnvRequest struct {

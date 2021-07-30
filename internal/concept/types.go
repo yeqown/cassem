@@ -67,16 +67,6 @@ func (e AppMetadataDO) Marshal() ([]byte, error) {
 	return json.Marshal(e)
 }
 
-//type Env struct {
-//	Metadata EnvMetadataDO
-//	Elements []Elt
-//}
-//
-//type App struct {
-//	Id  string
-//	Env []Env
-//}
-
 // Operation indicates the element operation in cassemadm.
 //go:generate stringer -type=Operation
 type Operation uint8
@@ -96,4 +86,18 @@ type EltOperateLog struct {
 	BeforeVersion int
 	AfterVersion  int
 	Remark        string
+}
+
+// Instance describes a client connect to agent, this information is saved into cassemdb and displayed on cassemadm
+// dashboard, helps cassemadm to achieve config push ability.
+type Instance struct {
+	// ClientID was a unique ID in cassem which can be set by client SDK. A random string merges client IP will be
+	// used while client SDK doesn't set it.
+	ClientID          string
+	Ip                string
+	AppId             string
+	Env               string
+	WatchKeys         []string
+	LastJoinTimestamp int64
+	LastGetTimestamp  int64
 }

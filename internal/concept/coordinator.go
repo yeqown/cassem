@@ -1,0 +1,68 @@
+package concept
+
+import "context"
+
+// Hybrid describes all methods should storage component should support.
+type Hybrid interface {
+	KVReadOnly
+	KVWriteOnly
+}
+
+type KVReadOnly interface {
+	GetElementWithVersion(ctx context.Context, app, env, key string, version int) (*VersionedEltDO, error)
+	GetElements(ctx context.Context, app, env string, seek string, limit int) (*getElementsResult, error)
+	GetElementsByKeys(ctx context.Context, app, env string, keys []string) (*getElementsResult, error)
+	GetElementOperations(
+		ctx context.Context, app, env, key string, start int) (ops []*EltOperateLog, next int, err error)
+
+	GetApp(ctx context.Context, app string) (*AppMetadataDO, error)
+	GetApps(ctx context.Context, seek string, limit int) (*getAppsResult, error)
+
+	GetEnvironments(ctx context.Context, app, seek string, limit int) (*getAppEnvsResult, error)
+}
+
+type KVWriteOnly interface {
+	CreateElement(ctx context.Context, app, env, key string, raw []byte, contentTyp RawContentType) error
+	UpdateElement(ctx context.Context, app, env, key string, raw []byte) error
+	DeleteElement(ctx context.Context, app, env, key string) error
+
+	CreateApp(ctx context.Context, md *AppMetadataDO) error
+	DeleteApp(ctx context.Context, appId string) error
+
+	CreateEnvironment(ctx context.Context, md *AppMetadataDO) error
+	DeleteEnvironment(ctx context.Context, env string) error
+}
+
+// InstanceHybrid describes all methods to manages instance information.
+type InstanceHybrid interface {
+	// GetElementInstances get all instance those watching this app/env/key.
+	GetElementInstances(ctx context.Context, app, env, key string) ([]*Instance, error)
+	// GetInstance describes instance detail by insId.
+	GetInstance(ctx context.Context, insId string) ([]*Instance, error)
+
+	CreateInstance(ctx context.Context, ins *Instance) error
+	DestroyInstance(ctx context.Context, ins *Instance) error
+}
+
+type commonPager struct {
+	HasMore  bool   `json:"has_more"`
+	NextSeek string `json:"next_seek"`
+}
+
+type getAppsResult struct {
+	commonPager
+
+	Apps []*AppMetadataDO `json:"apps"`
+}
+
+type getAppEnvsResult struct {
+	commonPager
+
+	Environments []string `json:"envs"`
+}
+
+type getElementsResult struct {
+	commonPager
+
+	Elements []*VersionedEltDO `json:"elements"`
+}
