@@ -2,10 +2,11 @@ package concept
 
 import "context"
 
-// Hybrid describes all methods should storage component should support.
-type Hybrid interface {
+// AdmAggregate describes all methods should storage component should support.
+type AdmAggregate interface {
 	KVReadOnly
 	KVWriteOnly
+	InstanceHybrid
 }
 
 type KVReadOnly interface {
@@ -28,9 +29,6 @@ type KVWriteOnly interface {
 
 	CreateApp(ctx context.Context, md *AppMetadataDO) error
 	DeleteApp(ctx context.Context, appId string) error
-
-	CreateEnvironment(ctx context.Context, md *AppMetadataDO) error
-	DeleteEnvironment(ctx context.Context, env string) error
 }
 
 // InstanceHybrid describes all methods to manages instance information.
@@ -38,10 +36,11 @@ type InstanceHybrid interface {
 	// GetElementInstances get all instance those watching this app/env/key.
 	GetElementInstances(ctx context.Context, app, env, key string) ([]*Instance, error)
 	// GetInstance describes instance detail by insId.
-	GetInstance(ctx context.Context, insId string) ([]*Instance, error)
+	GetInstance(ctx context.Context, insId string) (*Instance, error)
 
-	CreateInstance(ctx context.Context, ins *Instance) error
-	DestroyInstance(ctx context.Context, ins *Instance) error
+	RegisterInstance(ctx context.Context, ins *Instance) error
+	RenewInstance(ctx context.Context, ins *Instance) error
+	UnregisterInstance(ctx context.Context, insId string) error
 }
 
 type commonPager struct {

@@ -10,31 +10,26 @@ import (
 	"github.com/yeqown/cassem/pkg/hash"
 )
 
-var _ Hybrid = hybrid{}
+var _ KVWriteOnly = kvWriteOnly{}
 
-// hybrid can read and write to cassemdb.
-type hybrid struct {
-	readOnly
-
+// kvWriteOnly can read and write to cassemdb.
+type kvWriteOnly struct {
 	cassemdb pbcassemdb.KVClient
 }
 
-// NewHybrid with endpoints these endpoints of cassemdb.
-func NewHybrid(endpoints []string) (Hybrid, error) {
+// NewKVHybrid with endpoints these endpoints of cassemdb.
+func NewKVHybrid(endpoints []string) (KVWriteOnly, error) {
 	cc, err := apicassemdb.DialWithMode(endpoints, apicassemdb.Mode_X)
 	if err != nil {
 		return nil, errors.Wrap(err, "NewWriter")
 	}
 
-	return hybrid{
-		readOnly: readOnly{
-			cassemdb: pbcassemdb.NewKVClient(cc),
-		},
+	return kvWriteOnly{
 		cassemdb: pbcassemdb.NewKVClient(cc),
 	}, nil
 }
 
-func (_h hybrid) CreateElement(ctx context.Context,
+func (_h kvWriteOnly) CreateElement(ctx context.Context,
 	app, env, eltKey string, raw []byte, contentTyp RawContentType) error {
 	k := genElementKey(app, env, eltKey)
 	mdKey := withMetadataSuffix(k)
@@ -89,7 +84,7 @@ func (_h hybrid) CreateElement(ctx context.Context,
 // 1. get metadata
 // 2. lock element W operations to prevent concurrent writing operation.
 // 3. create a VersionedEltDO
-func (_h hybrid) UpdateElement(ctx context.Context, app, env, eltKey string, raw []byte) error {
+func (_h kvWriteOnly) UpdateElement(ctx context.Context, app, env, eltKey string, raw []byte) error {
 	// get metadata
 	k := genElementKey(app, env, eltKey)
 	r, err := _h.cassemdb.GetKV(ctx, &pbcassemdb.GetKVReq{Key: withMetadataSuffix(k)})
@@ -138,7 +133,7 @@ func (_h hybrid) UpdateElement(ctx context.Context, app, env, eltKey string, raw
 	return err
 }
 
-func (_h hybrid) DeleteElement(ctx context.Context, app, env, eltKey string) error {
+func (_h kvWriteOnly) DeleteElement(ctx context.Context, app, env, eltKey string) error {
 	k := genElementKey(app, env, eltKey)
 	_, err := _h.cassemdb.UnsetKV(ctx, &pbcassemdb.UnsetKVReq{
 		Key:   k,
@@ -148,7 +143,7 @@ func (_h hybrid) DeleteElement(ctx context.Context, app, env, eltKey string) err
 	return err
 }
 
-func (_h hybrid) CreateApp(ctx context.Context, md *AppMetadataDO) error {
+func (_h kvWriteOnly) CreateApp(ctx context.Context, md *AppMetadataDO) error {
 	k := genAppKey(md.Id)
 	bytes, _ := md.Marshal()
 	_, err := _h.cassemdb.SetKV(ctx, &pbcassemdb.SetKVReq{
@@ -161,7 +156,7 @@ func (_h hybrid) CreateApp(ctx context.Context, md *AppMetadataDO) error {
 	return err
 }
 
-func (_h hybrid) DeleteApp(ctx context.Context, appId string) error {
+func (_h kvWriteOnly) DeleteApp(ctx context.Context, appId string) error {
 	k := genAppKey(appId)
 	eleKey := genAppElementKey(appId)
 
@@ -181,12 +176,4 @@ func (_h hybrid) DeleteApp(ctx context.Context, appId string) error {
 	}
 
 	return nil
-}
-
-func (_h hybrid) CreateEnvironment(ctx context.Context, md *AppMetadataDO) error {
-	panic("implement me")
-}
-
-func (_h hybrid) DeleteEnvironment(ctx context.Context, envId string) error {
-	panic("implement me")
 }

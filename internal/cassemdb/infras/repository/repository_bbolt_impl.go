@@ -214,10 +214,6 @@ func (b boltRepoImpl) Range(key StoreKey, seek string, limit int) (*RangeResult,
 		}
 
 		for ; k != nil && count < limit; k, v = cur.Next() {
-			//typ := ItemType_KV
-			//if v == nil {
-			//	typ = ItemType_DIR
-			//}
 			sv := StoreValue{
 				Key:  StoreKey(k),
 				Val:  nil,
@@ -229,6 +225,12 @@ func (b boltRepoImpl) Range(key StoreKey, seek string, limit int) (*RangeResult,
 						WithFields(log.Fields{"error": err2, "raw": string(v)}).
 						Error("could not be unmarshalled")
 				}
+			}
+
+			// FIXED: shielding expired data in range
+			if sv.RecalculateTTL(); sv.Expired() {
+				// TODO(@yeqown): asynchronize delete expired key
+				continue
 			}
 
 			result.Items = append(result.Items, sv)

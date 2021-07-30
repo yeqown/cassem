@@ -3,20 +3,19 @@ package app
 import (
 	"log"
 
-	"github.com/pkg/errors"
-
 	"github.com/gin-contrib/pprof"
 	"github.com/gin-gonic/gin"
+	"github.com/pkg/errors"
 
 	"github.com/yeqown/cassem/internal/cassemadm/infras"
-	concept2 "github.com/yeqown/cassem/internal/concept"
+	"github.com/yeqown/cassem/internal/concept"
 	"github.com/yeqown/cassem/pkg/conf"
 	"github.com/yeqown/cassem/pkg/httpx"
 	"github.com/yeqown/cassem/pkg/runtime"
 )
 
 type app struct {
-	aggregate concept2.Hybrid
+	aggregate concept.AdmAggregate
 
 	repo infras.Repository
 
@@ -28,7 +27,7 @@ func New(c *conf.CassemAdminConfig) (*app, error) {
 		return nil, errors.Wrap(err, "cassemadm.New failed")
 	}
 
-	agg, err := concept2.NewHybrid(c.CassemDBEndpoints)
+	agg, err := concept.NewAdmAggregate(c.CassemDBEndpoints)
 	if err != nil {
 		return nil, errors.Wrap(err, "cassemadm.New")
 	}
@@ -87,5 +86,11 @@ func (d app) initialHTTP(engi *gin.Engine) {
 				elt.DELETE("/:key", d.DeleteAppEnvElement)
 			}
 		}
+	}
+
+	instances := g.Group("/instances")
+	{
+		instances.GET("/:insId", d.GetInstance)
+		instances.GET("", d.GetElementInstance)
 	}
 }

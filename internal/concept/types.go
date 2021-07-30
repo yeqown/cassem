@@ -101,3 +101,19 @@ type Instance struct {
 	LastJoinTimestamp int64
 	LastGetTimestamp  int64
 }
+
+func (i Instance) Id() string {
+	if i.ClientID == "" {
+		return "cassem" + "@" + i.Ip
+	}
+
+	return i.ClientID + "@" + i.Ip
+}
+
+func (i *Instance) Unmarshal(bytes []byte) error {
+	return json.Unmarshal(bytes, i)
+}
+
+func (i *Instance) Marshal() ([]byte, error) {
+	return json.Marshal(i)
+}

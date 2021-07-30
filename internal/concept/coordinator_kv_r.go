@@ -9,24 +9,24 @@ import (
 	pbcassemdb "github.com/yeqown/cassem/internal/cassemdb/api/gen"
 )
 
-// readOnly manages all read operation from cassemdb, it is allowed to read only.
-type readOnly struct {
+// kvReadOnly manages all read operation from cassemdb, it is allowed to read only.
+type kvReadOnly struct {
 	cassemdb pbcassemdb.KVClient
 }
 
-// NewReader with endpoints these endpoints of cassemdb.
-func NewReader(endpoints []string) (KVReadOnly, error) {
+// NewKVReader with endpoints these endpoints of cassemdb.
+func NewKVReader(endpoints []string) (KVReadOnly, error) {
 	cc, err := apicassemdb.DialWithMode(endpoints, apicassemdb.Mode_R)
 	if err != nil {
 		return nil, errors.Wrap(err, "NewWriter")
 	}
 
-	return readOnly{
+	return kvReadOnly{
 		cassemdb: pbcassemdb.NewKVClient(cc),
 	}, nil
 }
 
-func (_r readOnly) GetElementWithVersion(
+func (_r kvReadOnly) GetElementWithVersion(
 	ctx context.Context, app, env, key string, version int) (*VersionedEltDO, error) {
 	// get metadata
 	k := genElementKey(app, env, key)
@@ -58,7 +58,7 @@ func (_r readOnly) GetElementWithVersion(
 }
 
 // GetElements paging elements under app and env bucket.
-func (_r readOnly) GetElements(
+func (_r kvReadOnly) GetElements(
 	ctx context.Context, app, env string, seek string, limit int) (*getElementsResult, error) {
 	k := genAppElementEnvKey(app, env)
 	r, err := _r.cassemdb.Range(ctx, &pbcassemdb.RangeReq{
@@ -86,7 +86,7 @@ func (_r readOnly) GetElements(
 	return result, err
 }
 
-func (_r readOnly) GetElementsByKeys(
+func (_r kvReadOnly) GetElementsByKeys(
 	ctx context.Context, app, env string, keys []string) (result *getElementsResult, err error) {
 	result = &getElementsResult{
 		commonPager: commonPager{},
@@ -96,7 +96,7 @@ func (_r readOnly) GetElementsByKeys(
 	return
 }
 
-func (_r readOnly) getElementsByKeys(ctx context.Context, app, env string, keys []string) ([]*VersionedEltDO, error) {
+func (_r kvReadOnly) getElementsByKeys(ctx context.Context, app, env string, keys []string) ([]*VersionedEltDO, error) {
 	mdKeys := make([]string, 0, len(keys))
 	for _, key := range keys {
 		k := genElementKey(app, env, key)
@@ -106,7 +106,7 @@ func (_r readOnly) getElementsByKeys(ctx context.Context, app, env string, keys 
 		Keys: mdKeys,
 	})
 	if err != nil {
-		return nil, errors.Wrap(err, "readOnly.getElementsByKeys")
+		return nil, errors.Wrap(err, "kvReadOnly.getElementsByKeys")
 	}
 
 	eleVersionKeys := make([]string, 0, len(keys))
@@ -126,7 +126,7 @@ func (_r readOnly) getElementsByKeys(ctx context.Context, app, env string, keys 
 		Keys: eleVersionKeys,
 	})
 	if err2 != nil {
-		return nil, errors.Wrap(err, "readOnly.getElementsByKeys")
+		return nil, errors.Wrap(err, "kvReadOnly.getElementsByKeys")
 	}
 
 	out := make([]*VersionedEltDO, 0, len(keys))
@@ -147,12 +147,12 @@ func (_r readOnly) getElementsByKeys(ctx context.Context, app, env string, keys 
 	return out, nil
 }
 
-func (_r readOnly) GetElementOperations(
+func (_r kvReadOnly) GetElementOperations(
 	ctx context.Context, app, env, eltKey string, start int) (ops []*EltOperateLog, next int, err error) {
 	panic("implement me")
 }
 
-func (_r readOnly) GetApp(ctx context.Context, app string) (*AppMetadataDO, error) {
+func (_r kvReadOnly) GetApp(ctx context.Context, app string) (*AppMetadataDO, error) {
 	k := genAppKey(app)
 	r, err := _r.cassemdb.GetKV(ctx, &pbcassemdb.GetKVReq{
 		Key: k,
@@ -166,7 +166,7 @@ func (_r readOnly) GetApp(ctx context.Context, app string) (*AppMetadataDO, erro
 	return md, err
 }
 
-func (_r readOnly) GetApps(ctx context.Context, seek string, limit int) (*getAppsResult, error) {
+func (_r kvReadOnly) GetApps(ctx context.Context, seek string, limit int) (*getAppsResult, error) {
 	r, err := _r.cassemdb.Range(ctx, &pbcassemdb.RangeReq{
 		Key:   _APP_PREFIX,
 		Seek:  seek,
@@ -193,7 +193,7 @@ func (_r readOnly) GetApps(ctx context.Context, seek string, limit int) (*getApp
 	return result, nil
 }
 
-func (_r readOnly) GetEnvironments(ctx context.Context, app, seek string, limit int) (*getAppEnvsResult, error) {
+func (_r kvReadOnly) GetEnvironments(ctx context.Context, app, seek string, limit int) (*getAppEnvsResult, error) {
 	k := genAppElementKey(app)
 	r, err := _r.cassemdb.Range(ctx, &pbcassemdb.RangeReq{
 		Key:   k,

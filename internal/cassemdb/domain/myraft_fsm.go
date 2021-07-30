@@ -92,7 +92,7 @@ func (r *myraft) UnsetKV(key string, isDir bool) error {
 
 // triggerWatchingMechanism only trigger a change notification while:
 // 1. delete a kv.
-// 2. really update a existed kv.
+// 2. really update an existed kv.
 //
 func (r myraft) triggerWatchingMechanism(op repository.ChangeOp, key string, last, newVal *repository.StoreValue) {
 	if last == nil || last.Expired() {
@@ -137,17 +137,15 @@ func (r *myraft) GetKV(key string) (*repository.StoreValue, error) {
 		return nil, err
 	}
 
-	if r.removeExpiredValue(val) {
+	if val.RecalculateTTL(); r.removeExpiredValue(val) {
 		return nil, repository.ErrNotFound
 	}
-
-	val.TTL = val.RecalculateTTL()
 
 	return val, nil
 }
 
 // removeExpiredValue returns true while val.Expired() is true.
-func (r *myraft) removeExpiredValue(val *repository.StoreValue) bool {
+func (r *myraft) removeExpiredValue(val *repository.StoreValue) (removed bool) {
 	if val == nil {
 		return false
 	}

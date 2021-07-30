@@ -7,25 +7,25 @@ import (
 	"github.com/stretchr/testify/suite"
 )
 
-type appTestSuite struct {
+type coordinatorTestSuite struct {
 	suite.Suite
 
-	hybrid Hybrid
-	ctx    context.Context
+	agg AdmAggregate
+	ctx context.Context
 }
 
-func (a *appTestSuite) SetupSuite() {
+func (a *coordinatorTestSuite) SetupSuite() {
 	var err error
-	a.hybrid, err = NewHybrid([]string{"127.0.0.1:2021", "127.0.0.1:2022", "127.0.0.1:2023"})
+	a.ctx = context.TODO()
+	endpoints := []string{"127.0.0.1:2021", "127.0.0.1:2022", "127.0.0.1:2023"}
+	a.agg, err = NewAdmAggregate(endpoints)
 	if err != nil {
 		panic(err)
 	}
-	a.ctx = context.TODO()
-
 }
 
-func (a appTestSuite) Test_CreateElement() {
-	err := a.hybrid.CreateElement(
+func (a coordinatorTestSuite) Test_CreateElement() {
+	err := a.agg.CreateElement(
 		a.ctx,
 		"app",
 		"env",
@@ -36,8 +36,8 @@ func (a appTestSuite) Test_CreateElement() {
 	a.NoError(err)
 }
 
-func (a appTestSuite) Test_UpdateElement() {
-	err := a.hybrid.UpdateElement(
+func (a coordinatorTestSuite) Test_UpdateElement() {
+	err := a.agg.UpdateElement(
 		a.ctx,
 		"app",
 		"env",
@@ -47,8 +47,8 @@ func (a appTestSuite) Test_UpdateElement() {
 	a.NoError(err)
 }
 
-func (a appTestSuite) Test_GetElementLatest() {
-	elt, err := a.hybrid.GetElementWithVersion(
+func (a coordinatorTestSuite) Test_GetElementLatest() {
+	elt, err := a.agg.GetElementWithVersion(
 		a.ctx,
 		"app",
 		"env",
@@ -61,8 +61,8 @@ func (a appTestSuite) Test_GetElementLatest() {
 	a.T().Logf("%v", elt.Raw)
 }
 
-func (a appTestSuite) Test_GetElementWithVersion() {
-	elt, err := a.hybrid.GetElementWithVersion(
+func (a coordinatorTestSuite) Test_GetElementWithVersion() {
+	elt, err := a.agg.GetElementWithVersion(
 		a.ctx,
 		"app",
 		"env",
@@ -75,8 +75,8 @@ func (a appTestSuite) Test_GetElementWithVersion() {
 	a.T().Logf("%v", elt.Raw)
 }
 
-func (a appTestSuite) Test_GetElement_NotExists() {
-	elt, err := a.hybrid.GetElementWithVersion(
+func (a coordinatorTestSuite) Test_GetElement_NotExists() {
+	elt, err := a.agg.GetElementWithVersion(
 		a.ctx,
 		"app",
 		"env",
@@ -88,8 +88,8 @@ func (a appTestSuite) Test_GetElement_NotExists() {
 	a.Nil(elt)
 }
 
-func (a appTestSuite) Test_DeleteElement() {
-	err := a.hybrid.DeleteElement(
+func (a coordinatorTestSuite) Test_DeleteElement() {
+	err := a.agg.DeleteElement(
 		a.ctx,
 		"app",
 		"env",
@@ -98,6 +98,33 @@ func (a appTestSuite) Test_DeleteElement() {
 	a.NoError(err)
 }
 
+func (a coordinatorTestSuite) Test_CreateInstance() {
+	err := a.agg.RegisterInstance(a.ctx, &Instance{
+		ClientID:          "clientId",
+		Ip:                "172.168.1.1",
+		AppId:             "app",
+		Env:               "env",
+		WatchKeys:         []string{"k1", "k2", "k3"},
+		LastJoinTimestamp: 0,
+		LastGetTimestamp:  0,
+	})
+	a.NoError(err)
+}
+
+func (a coordinatorTestSuite) Test_UnregisterInstance() {
+	ins := &Instance{
+		ClientID:          "clientId",
+		Ip:                "172.168.1.1",
+		AppId:             "app",
+		Env:               "env",
+		WatchKeys:         []string{"k1", "k2", "k3"},
+		LastJoinTimestamp: 0,
+		LastGetTimestamp:  0,
+	}
+	err := a.agg.UnregisterInstance(a.ctx, ins.Id())
+	a.NoError(err)
+}
+
 func Test_App(t *testing.T) {
-	suite.Run(t, new(appTestSuite))
+	suite.Run(t, new(coordinatorTestSuite))
 }

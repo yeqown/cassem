@@ -1,14 +1,14 @@
 debug = false
-[persistence]
-    [persistence.bbolt]
-            dir       = "./debugdata/d2"
-            db        = "cassem.db"
-
-[server]
-    [server.http]
-        addr    = ":2022"
-    [server.raft]
-        base = "./debugdata/d2"
-        bind = "127.0.0.1:3022"
-        serverId = "d2"
-        join = ["127.0.0.1:2021"]
+addr    = ":2022"
+[bolt]
+        dir       = "./debugdata/d2"
+        db        = "cassemdb.kv"
+[raft]
+    base = "./debugdata/d2"
+    bind = "127.0.0.1:3022"
+    clusterAddresses = [
+        "127.0.0.1:3021",
+        "127.0.0.1:3022",
+        "127.0.0.1:3023"
+    ]
+    bootstrapCluster = false

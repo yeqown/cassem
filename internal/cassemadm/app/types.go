@@ -12,9 +12,9 @@ type commonAppEnvRequest struct {
 }
 
 type commonAppEnvEltRequest struct {
-	AppId      string `uri:"appId" binding:"required"`
-	Env        string `uri:"env" binding:"required"`
-	ElementKey string `uri:"key" binding:"required"`
+	AppId      string `uri:"appId" form:"app" binding:"required"`
+	Env        string `uri:"env" form:"env" binding:"required"`
+	ElementKey string `uri:"key" form:"key" binding:"required"`
 }
 
 type commonPagingRequest struct {
@@ -74,4 +74,12 @@ type getAppEnvsReq struct {
 	commonPagingRequest
 
 	App string `uri:"appId" binding:"required"`
+}
+
+type getInstanceReq struct {
+	InsId string `uri:"insId" binding:"required"`
+}
+
+type getEleInstancesReq struct {
+	commonAppEnvEltRequest
 }

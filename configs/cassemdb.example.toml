@@ -1,9 +1,0 @@
-debug = false
-[persistence]
-    [persistence.bbolt]
-            dir       = "./debugdata"
-            db        = "cassem.db"
-
-[server]
-    [server.http]
-        addr    = ":2021"

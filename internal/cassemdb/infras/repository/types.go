@@ -36,7 +36,7 @@ func (s StoreValue) Type() pb.EntityType {
 
 func (s StoreValue) Expired() bool {
 	if s.TTL <= 0 {
-		return false
+		return true
 	}
 
 	return uint32(time.Now().Unix()-s.UpdatedAt) >= s.TTL
@@ -47,7 +47,12 @@ func (s *StoreValue) RecalculateTTL() uint32 {
 		return 0
 	}
 
-	s.TTL = s.TTL - uint32(time.Now().Unix()-s.UpdatedAt)
+	if less := int64(s.TTL) - (time.Now().Unix() - s.UpdatedAt); less < 0 {
+		s.TTL = 0
+	} else {
+		s.TTL = uint32(less)
+	}
+
 	return s.TTL
 }
 
