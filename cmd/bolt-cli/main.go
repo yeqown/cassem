@@ -124,10 +124,28 @@ func getKey(cmd string) {
 	}
 }
 
+func locateBucket(tx *bolt.Tx, bucketName string) (b *bolt.Bucket) {
+	arr := strings.Split(bucketName, ".")
+	for index, bu := range arr {
+		if index == 0 {
+			b = tx.Bucket([]byte(bu))
+			continue
+		}
+
+		if b == nil {
+			break
+		}
+
+		b = b.Bucket([]byte(bu))
+	}
+
+	return
+}
+
 func queryKeys(keyName string) []string {
 	var keys []string
 	db.View(func(tx *bolt.Tx) error {
-		b := tx.Bucket([]byte(*bucketName))
+		b := locateBucket(tx, *bucketName)
 		if b == nil {
 			fmt.Println("> Bucket does not exist or no bucket selected.")
 			return nil
@@ -145,7 +163,13 @@ func queryKeys(keyName string) []string {
 
 func queryKeyValue(keyName string) {
 	db.View(func(tx *bolt.Tx) error {
-		v := tx.Bucket([]byte(*bucketName)).Get([]byte(keyName))
+		b := locateBucket(tx, *bucketName)
+		if b == nil {
+			fmt.Println("> Bucket does not exist or no bucket selected.")
+			return nil
+		}
+
+		v := b.Get([]byte(keyName))
 		if v == nil {
 			fmt.Println("> Key does not exist or key is a nested bucket.")
 			return nil
