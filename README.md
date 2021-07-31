@@ -15,7 +15,7 @@ same time, it's deployed by `Go` which gives it platform-cross ability and fast-
   - [x] Multi-version management.
   - [ ] Operation log, each operation to config elements will be recorded.
   - [ ] Permission control.
-  - [ ] Client instance management.
+  - [x] Client instance management.
   - [ ] `CTL` / `UI` tool support these are constructing on `cassemadm` RESTful API.
     - [ ] [Web UI](https://github.com/yeqown/cassem-ui) is developing.
     - [ ] [CTL](#) tool to debug and manage config from terminal. 
@@ -24,6 +24,8 @@ same time, it's deployed by `Go` which gives it platform-cross ability and fast-
   - [x] Slave node can only respond to read request.
   - [x] Use `gRPC` protocol to communicate.
   - [x] `Watch` `TTL` features support.
+  - [ ] `Lazy Deletion` the expired KV. There is a deleting working thread to delete KV from queue, the queue's data is from
+  two part, one is `operation check`, another is `timer check`.
 - [ ] Stateless agent component `cassemagent` to improve client's usability.
   - [ ] Cache config elements, and using `LRU-K` replacing algorithm.
   - [ ] Language independent support `HTTP` and `gRPC` protocol.
