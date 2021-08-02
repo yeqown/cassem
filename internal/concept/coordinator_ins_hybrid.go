@@ -50,12 +50,23 @@ func (i instanceHybrid) GetElementInstances(ctx context.Context, app, env, key s
 		return nil, errors.Wrap(err, "instanceHybrid.GetElementInstances")
 	}
 
-	// TODO(@yeqown): Get instance detail information
-	instances := make([]*Instance, 0, len(r.GetEntities()))
+	insIds := make([]string, 0, len(r.GetEntities()))
 	for _, v := range r.GetEntities() {
+		insId := genInstanceNormalKey(runtime.ToString(v.GetVal()))
+		insIds = append(insIds, insId)
+	}
+
+	// get all instance detail information.
+	r2, err2 := i.cassemdb.GetKVs(ctx, &pbcassemdb.GetKVsReq{
+		Keys: insIds,
+	})
+	if err2 != nil {
+		return nil, errors.Wrap(err, "instanceHybrid.GetElementInstances")
+	}
+	instances := make([]*Instance, 0, len(r2.GetEntities()))
+	for _, v := range r2.GetEntities() {
 		ins := new(Instance)
 		_ = ins.Unmarshal(v.GetVal())
-		ins.ClientID = runtime.ToString(v.GetVal())
 		instances = append(instances, ins)
 	}
 
@@ -79,16 +90,14 @@ func (i instanceHybrid) GetInstance(ctx context.Context, insId string) (*Instanc
 // RegisterInstance
 // TODO(@yeqown): retry strategy
 func (i instanceHybrid) RegisterInstance(ctx context.Context, ins *Instance) (err error) {
-	insId := ins.Id()
-	//ins, err := i.GetInstance(ctx, insId)
-	//if err != nil {
-	//	return errors.Wrap(err, "instanceHybrid.GetInstance")
-	//}
-	//if ins != nil {
-	//	return errors.New("instance exists: " + ins.Id())
-	//}
+	if ins == nil {
+		log.
+			Warn("InstanceHybrid.RegisterInstance get nil instance, skipped")
+		return
+	}
 
-	// TODO(@yeqown): if instance is not nil, return error
+	insId := ins.Id()
+	// TODO(@yeqown): should keep insId be unique in cluster?
 	// save normalized kv
 	k := genInstanceNormalKey(insId)
 	log.
@@ -102,7 +111,7 @@ func (i instanceHybrid) RegisterInstance(ctx context.Context, ins *Instance) (er
 	_, err = i.cassemdb.SetKV(ctx, &pbcassemdb.SetKVReq{
 		Key:       k,
 		IsDir:     false,
-		Ttl:       120, // TODO(@yeqown): set a TTL
+		Ttl:       120,
 		Val:       bytes,
 		Overwrite: true,
 	})
@@ -116,7 +125,7 @@ func (i instanceHybrid) RegisterInstance(ctx context.Context, ins *Instance) (er
 		_, err = i.cassemdb.SetKV(ctx, &pbcassemdb.SetKVReq{
 			Key:       k2,
 			IsDir:     false,
-			Ttl:       120, // TODO(@yeqown) set a TTL
+			Ttl:       120,
 			Val:       runtime.ToBytes(insId),
 			Overwrite: true,
 		})
