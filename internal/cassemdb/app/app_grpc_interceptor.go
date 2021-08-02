@@ -2,19 +2,13 @@ package app
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
+	"github.com/yeqown/cassem/pkg/errorx"
 	"github.com/yeqown/cassem/pkg/runtime"
 
 	"github.com/yeqown/log"
 	"google.golang.org/grpc"
-)
-
-var (
-	logger                 = log.WithField("caller", "notifier")
-	errUninitializedLogger = errors.New("logger is not initialized, " +
-		"you should call `grpcwrapper.SetLogger` at first")
 )
 
 // chainUnaryServer creates a single interceptor out of a chain of many interceptors.
@@ -45,10 +39,6 @@ func chainUnaryServer(
 }
 
 func serverRecovery() grpc.UnaryServerInterceptor {
-	if logger == nil {
-		panic(errUninitializedLogger)
-	}
-
 	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo,
 		handler grpc.UnaryHandler) (resp interface{}, err error) {
 
@@ -56,7 +46,7 @@ func serverRecovery() grpc.UnaryServerInterceptor {
 		defer func() {
 			if v := recover(); v != nil || panicked {
 				formatted := fmt.Sprintf("server panic: %v %v", req, v)
-				logger.Errorf(formatted)
+				log.Errorf(formatted)
 				fmt.Println(runtime.Stack())
 				err = runtime.RecoverFrom(v)
 			}
@@ -70,31 +60,42 @@ func serverRecovery() grpc.UnaryServerInterceptor {
 }
 
 func serverLogger() grpc.UnaryServerInterceptor {
-	if logger == nil {
-		panic(errUninitializedLogger)
-	}
-
-	return func(
-		ctx context.Context,
-		req interface{},
-		info *grpc.UnaryServerInfo,
-		handler grpc.UnaryHandler) (resp interface{}, err error) {
+	return func(ctx context.Context, req interface{},
+		info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
 
 		fields := log.Fields{
 			"method": info.FullMethod,
 			"req":    req,
 		}
-		logger.WithFields(fields).Infof("recv one request")
+		log.
+			WithFields(fields).
+			Infof("one request coming")
 
 		resp, err = handler(ctx, req)
 
 		if err != nil {
 			fields["error"] = err
-			logger.WithFields(fields).Error("request failed")
+			log.
+				WithFields(fields).
+				Error("request failed")
 			return
 		}
 
-		logger.WithFields(fields).Infof("request successful")
+		log.
+			WithFields(fields).
+			Infof("request successful")
+		return
+	}
+}
+
+func sevrerErrorx() grpc.UnaryServerInterceptor {
+	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo,
+		handler grpc.UnaryHandler) (resp interface{}, err error) {
+		resp, err = handler(ctx, req)
+		if err != nil {
+			err = errorx.ToStatus(err)
+		}
+
 		return
 	}
 }

@@ -4,22 +4,22 @@ import (
 	"path"
 	"strings"
 
-	"github.com/yeqown/log"
-
 	"github.com/pkg/errors"
+	"github.com/yeqown/log"
 	bolt "go.etcd.io/bbolt"
 
 	"github.com/yeqown/cassem/pkg/conf"
+	"github.com/yeqown/cassem/pkg/errorx"
 	"github.com/yeqown/cassem/pkg/runtime"
 )
 
 var (
-	ErrNotFound       = errors.New("record not found")
-	ErrExists         = errors.New("key/bucket exists")
-	ErrEmptyNode      = errors.New("empty node")
-	ErrEmptyLeaf      = errors.New("empty leaf")
-	ErrNoSuchBucket   = errors.New("no such bucket")
-	ErrNoParentBucket = errors.New("no parent bucket")
+	ErrNotFound       = errorx.New(errorx.Code_NOT_FOUND, "record not found")
+	ErrExists         = errorx.New(errorx.Code_ALREADY_EXISTS, "key/bucket exists")
+	ErrEmptyNode      = errorx.New(errorx.Code_INVALID_ARGUMENT, "empty node")
+	ErrEmptyLeaf      = errorx.New(errorx.Code_INVALID_ARGUMENT, "empty leaf")
+	ErrNoSuchBucket   = errorx.New(errorx.Code_NOT_FOUND, "no such bucket")
+	ErrNoParentBucket = errorx.New(errorx.Code_INVALID_ARGUMENT, "no parent bucket")
 )
 
 type boltRepoImpl struct {
