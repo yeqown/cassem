@@ -40,10 +40,15 @@ same time, it's deployed by `Go` which gives it platform-cross ability and fast-
 
 ### - [cassemdb](./cmd/cassemdb/README.md)
 
+The KV storage component in cassem, provide gRPC API.
+
 ### - [cassemadm](cmd/cassemadm/README.md)
+
+The manager in cassem, provide RESTful API to communicate. It is serving for CTL and Dashboard UI.
 
 ### - [cassemagent](cmd/cassemagent/README.md)
 
+Agent is serving for user's client, agent SDK, actually. Of course, agent is stateless server.
 
 ## [Benchmark](./benchmark)
 
