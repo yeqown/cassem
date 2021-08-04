@@ -23,8 +23,14 @@ type StoreValue struct {
 	Size        int64    `json:"size"`
 	CreatedAt   int64    `json:"createdAt"`
 	UpdatedAt   int64    `json:"updatedAt"`
-	TTL         uint32   `json:"ttl"`
+	// TTL means Time to Live. -1: expired, -2: never expired. 0+ means normal time to live.
+	TTL int32 `json:"ttl"`
 }
+
+const (
+	NEVER_EXPIRED = -2
+	EXPIRED       = -1
+)
 
 func (s StoreValue) Type() pb.EntityType {
 	if s.Val == nil && s.Size == 0 {
@@ -34,23 +40,25 @@ func (s StoreValue) Type() pb.EntityType {
 	return pb.EntityType_ELT
 }
 
-func (s StoreValue) Expired() bool {
-	if s.TTL <= 0 {
+func (s *StoreValue) Expired() bool {
+	switch s.TTL {
+	case NEVER_EXPIRED:
+		return false
+	case EXPIRED:
 		return true
 	}
 
-	return uint32(time.Now().Unix()-s.UpdatedAt) >= s.TTL
+	return s.recalculateTTL() == EXPIRED
 }
 
-func (s *StoreValue) RecalculateTTL() uint32 {
-	if s.TTL <= 0 {
-		return 0
+func (s *StoreValue) recalculateTTL() int32 {
+	if s.TTL == NEVER_EXPIRED {
+		return NEVER_EXPIRED
 	}
 
-	if less := int64(s.TTL) - (time.Now().Unix() - s.UpdatedAt); less < 0 {
-		s.TTL = 0
-	} else {
-		s.TTL = uint32(less)
+	s.TTL -= int32(time.Now().Unix() - s.UpdatedAt)
+	if s.TTL <= 0 {
+		s.TTL = EXPIRED
 	}
 
 	return s.TTL
@@ -71,17 +79,26 @@ func (s StoreValue) Marshal() ([]byte, error) {
 
 func NewKVWithCreatedAt(key string, val []byte, ttl uint32, created int64) (StoreKey, StoreValue) {
 	k := StoreKey(key)
+
 	v := StoreValue{
 		Fingerprint: hash.MD5(val),
 		Key:         k,
 		Val:         val,
 		Size:        int64(len(val)),
-		TTL:         ttl,
+		TTL:         calculateTTL(ttl),
 		CreatedAt:   created,
 		UpdatedAt:   time.Now().Unix(),
 	}
 
 	return k, v
+}
+
+func calculateTTL(ttl uint32) int32 {
+	if ttl == 0 {
+		return NEVER_EXPIRED
+	}
+
+	return int32(ttl)
 }
 
 //go:generate stringer -type=Op
@@ -130,4 +147,5 @@ type RangeResult struct {
 	Items       []StoreValue
 	HasMore     bool
 	NextSeekKey string
+	ExpiredKeys []string
 }

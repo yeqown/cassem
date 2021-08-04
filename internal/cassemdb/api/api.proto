@@ -14,7 +14,7 @@ message Entity {
   bytes      val         = 3;
   int64      created_at  = 4;
   int64      updated_at  = 5;
-  uint32     ttl         = 6;
+  int32      ttl         = 6;
   EntityType typ         = 7;
 };
 
@@ -72,7 +72,7 @@ message ttlReq {
 };
 
 message ttlResp {
-  uint32 ttl = 1;
+  int32 ttl = 1;
 }
 
 message expireReq {

@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/pkg/errors"
+	"github.com/yeqown/log"
 
 	apicassemdb "github.com/yeqown/cassem/internal/cassemdb/api"
 	pbcassemdb "github.com/yeqown/cassem/internal/cassemdb/api/gen"
@@ -61,6 +62,16 @@ func (_r kvReadOnly) GetElementWithVersion(
 func (_r kvReadOnly) GetElements(
 	ctx context.Context, app, env string, seek string, limit int) (*getElementsResult, error) {
 	k := genAppElementEnvKey(app, env)
+
+	log.
+		WithFields(log.Fields{
+			"app":   app,
+			"env":   env,
+			"seek":  seek,
+			"limit": limit,
+			"k":     k,
+		}).
+		Debug("kvReadOnly.GetElements enter")
 	r, err := _r.cassemdb.Range(ctx, &pbcassemdb.RangeReq{
 		Key:   k,
 		Seek:  seek,

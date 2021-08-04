@@ -1,6 +1,9 @@
 package concept
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"time"
+)
 
 //go:generate stringer -type=EltContentType
 type RawContentType string
@@ -93,13 +96,13 @@ type EltOperateLog struct {
 type Instance struct {
 	// ClientID was a unique ID in cassem which can be set by client SDK. A random string merges client IP will be
 	// used while client SDK doesn't set it.
-	ClientID          string   `json:"client_id"`
-	Ip                string   `json:"ip"`
-	AppId             string   `json:"app_id"`
-	Env               string   `json:"env"`
-	WatchKeys         []string `json:"watch_keys"`
-	LastJoinTimestamp int64    `json:"last_join_timestamp"`
-	LastGetTimestamp  int64    `json:"last_get_timestamp"`
+	ClientID          string    `json:"client_id"`
+	Ip                string    `json:"ip"`
+	AppId             string    `json:"app_id"`
+	Env               string    `json:"env"`
+	WatchKeys         []string  `json:"watch_keys"`
+	LastJoinTimestamp time.Time `json:"last_join_timestamp"`
+	LastGetTimestamp  time.Time `json:"last_get_timestamp"`
 }
 
 func (i Instance) Id() string {

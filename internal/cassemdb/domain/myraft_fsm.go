@@ -38,7 +38,7 @@ func (r *myraft) SetKV(key string, val []byte, isDir, overwrite bool, ttl uint32
 	}
 
 	// remove expired value automatically.
-	if r.removeExpiredValue(last) {
+	if r.probeRemoveExpired(last) {
 		last = nil
 	}
 
@@ -51,7 +51,7 @@ func (r *myraft) SetKV(key string, val []byte, isDir, overwrite bool, ttl uint32
 		createdAt = last.CreatedAt
 	}
 	k, v := repository.NewKVWithCreatedAt(key, val, ttl, createdAt)
-	if err := r.propagateCommand(&setKVCommand{
+	if err = r.propagateCommand(&setKVCommand{
 		SetKey: k,
 		Data:   &v,
 	}); err != nil {
@@ -137,15 +137,15 @@ func (r *myraft) GetKV(key string) (*repository.StoreValue, error) {
 		return nil, err
 	}
 
-	if val.RecalculateTTL(); r.removeExpiredValue(val) {
+	if r.probeRemoveExpired(val) {
 		return nil, repository.ErrNotFound
 	}
 
 	return val, nil
 }
 
-// removeExpiredValue returns true while val.Expired() is true.
-func (r *myraft) removeExpiredValue(val *repository.StoreValue) (removed bool) {
+// probeRemoveExpired returns true while val.Expired() is true.
+func (r *myraft) probeRemoveExpired(val *repository.StoreValue) (removed bool) {
 	if val == nil {
 		return false
 	}
@@ -163,5 +163,6 @@ func (r *myraft) removeExpiredValue(val *repository.StoreValue) (removed bool) {
 }
 
 func (r myraft) Range(key, seek string, limit int) (*repository.RangeResult, error) {
+	// TODO(@yeqown): return expired keys and trigger probeRemoveExpired methods
 	return r.repo.Range(repository.StoreKey(key), seek, limit)
 }

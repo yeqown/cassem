@@ -18,7 +18,7 @@ import (
 	"github.com/yeqown/cassem/pkg/watcher"
 )
 
-// app is the storage server that would guards api server running and alas controls other components.
+// app is the storage server that would guard api server running and alas controls other components.
 // Especially, raft protocol which supports the architecture of cassemdb (master-slave).
 //
 // Notice that all writes must be operated on master node, salve nodes could execute read operations.
@@ -205,7 +205,7 @@ func (d *app) watch(keys ...string) (ob watcher.IObserver, cancelFn func()) {
 	}
 }
 
-func (d *app) iter(param *rangeParam) (*repository.RangeResult, error) {
+func (d *app) iterate(param *rangeParam) (*repository.RangeResult, error) {
 	return d.raft.Range(param.key, param.seek, param.limit)
 }
 
@@ -216,11 +216,11 @@ func (d *app) expire(key string) error {
 	})
 }
 
-func (d *app) ttl(key string) (uint32, error) {
+func (d *app) ttl(key string) (int32, error) {
 	v, err := d.getKV(key)
 	if err != nil {
 		return 0, err
 	}
 
-	return v.RecalculateTTL(), nil
+	return v.TTL, nil
 }

@@ -10,9 +10,9 @@ type ICoordinator interface {
 	setKV(*setKVParam) error
 	unsetKV(*unsetKVParam) error
 	watch(keys ...string) (watcher.IObserver, func())
-	ttl(key string) (uint32, error)
+	ttl(key string) (int32, error)
 	expire(key string) error
-	iter(*rangeParam) (*repository.RangeResult, error)
+	iterate(*rangeParam) (*repository.RangeResult, error)
 }
 
 type setKVParam struct {

@@ -4,6 +4,8 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+
+	"github.com/yeqown/cassem/pkg/errorx"
 )
 
 type ErrorCode int
@@ -30,8 +32,13 @@ func ResponseError(c *gin.Context, err error) {
 		return
 	}
 
+	var code = FAILED
+	if e, ok := errorx.FromError(err); ok {
+		code = ErrorCode(e.Code)
+	}
+
 	c.JSON(http.StatusBadRequest, CommonResponse{
-		ErrCode:    FAILED,
+		ErrCode:    code,
 		ErrMessage: err.Error(),
 	})
 }

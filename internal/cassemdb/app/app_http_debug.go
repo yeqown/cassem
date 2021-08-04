@@ -79,7 +79,7 @@ type storeVO struct {
 	Size        int64  `json:"size"`
 	CreatedAt   int64  `json:"createdAt"`
 	UpdatedAt   int64  `json:"updatedAt"`
-	TTL         uint32 `json:"ttl"`
+	TTL         int32  `json:"ttl"`
 }
 
 func newStoreVO(v *repository.StoreValue) *storeVO {
@@ -213,7 +213,7 @@ func (srv *httpServer) Range(c *gin.Context) {
 		return
 	}
 
-	result, err := srv.coord.iter(&rangeParam{
+	result, err := srv.coord.iterate(&rangeParam{
 		key:   req.Key,
 		seek:  req.Seek,
 		limit: req.Limit,

@@ -3,7 +3,7 @@
 # go tool pprof -http=:8888 -seconds=25 http://localhost:2021/debug/pprof/profile
 
 # create kv
-for i in {1..10}
+for i in {1..100}
 do
   val="{\"raw\": \"my value is: $i\", \"content_type\": \"application/plaintext\"}"
   #echo $val

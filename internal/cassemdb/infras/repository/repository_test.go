@@ -89,7 +89,7 @@ func (s testRepositoryBBoltSuite) TearDownSuite() {
 }
 
 func (s testRepositoryBBoltSuite) Test_locateBucket() {
-	impl := s.repo.(*boltRepoImpl)
+	impl := s.repo.(boltRepoImpl)
 	_ = impl
 }
 

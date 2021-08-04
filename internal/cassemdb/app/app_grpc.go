@@ -137,15 +137,34 @@ func (s grpcServer) Expire(ctx context.Context, req *pb.ExpireReq) (*pb.Empty, e
 }
 
 func (s grpcServer) Range(ctx context.Context, req *pb.RangeReq) (*pb.RangeResp, error) {
-	result, err := s.coord.iter(&rangeParam{
+	result, err := s.coord.iterate(&rangeParam{
 		key:   req.GetKey(),
 		seek:  req.GetSeek(),
 		limit: int(req.GetLimit()),
 	})
 
 	if err != nil {
+		log.
+			WithFields(log.Fields{
+				"req":   req,
+				"error": err,
+			}).
+			Error("grpcServer.Range failed")
 		return nil, err
 	}
+
+	// remove keys
+	go func() {
+		log.
+			WithContext(ctx).
+			WithFields(log.Fields{
+				"keys": result.ExpiredKeys,
+			}).
+			Debug("grpcServer.Range trigger remove expired keys")
+		for _, k := range result.ExpiredKeys {
+			_ = s.coord.unsetKV(&unsetKVParam{key: k, isDir: false})
+		}
+	}()
 
 	entities := make([]*pb.Entity, 0, len(result.Items))
 	for _, item := range result.Items {

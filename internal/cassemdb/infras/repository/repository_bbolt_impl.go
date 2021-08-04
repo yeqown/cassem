@@ -14,12 +14,12 @@ import (
 )
 
 var (
-	ErrNotFound       = errorx.New(errorx.Code_NOT_FOUND, "record not found")
-	ErrExists         = errorx.New(errorx.Code_ALREADY_EXISTS, "key/bucket exists")
-	ErrEmptyNode      = errorx.New(errorx.Code_INVALID_ARGUMENT, "empty node")
-	ErrEmptyLeaf      = errorx.New(errorx.Code_INVALID_ARGUMENT, "empty leaf")
-	ErrNoSuchBucket   = errorx.New(errorx.Code_NOT_FOUND, "no such bucket")
-	ErrNoParentBucket = errorx.New(errorx.Code_INVALID_ARGUMENT, "no parent bucket")
+	ErrNotFound       = errors.Wrap(errorx.Err_NOT_FOUND, "record not found")
+	ErrExists         = errors.Wrap(errorx.Err_ALREADY_EXISTS, "key/bucket exists")
+	ErrEmptyNode      = errors.Wrap(errorx.Err_INVALID_ARGUMENT, "empty node")
+	ErrEmptyLeaf      = errors.Wrap(errorx.Err_INVALID_ARGUMENT, "empty leaf")
+	ErrNoSuchBucket   = errors.Wrap(errorx.Err_NOT_FOUND, "no such bucket")
+	ErrNoParentBucket = errors.Wrap(errorx.Err_INVALID_ARGUMENT, "no parent bucket")
 )
 
 type boltRepoImpl struct {
@@ -139,6 +139,14 @@ func (b boltRepoImpl) GetKV(key StoreKey, dir bool) (val *StoreValue, err error)
 }
 
 func (b boltRepoImpl) SetKV(key StoreKey, val *StoreValue, dir bool) (err error) {
+	log.
+		WithFields(log.Fields{
+			"key": key,
+			"val": val,
+			"dir": dir,
+		}).
+		Debug("boltRepoImpl.SetKV called")
+
 	err = b.db.Update(func(tx *bolt.Tx) error {
 		bucket, leaf, err2 := b.locateBucket(tx, key, true)
 		if err2 != nil {
@@ -225,12 +233,13 @@ func (b boltRepoImpl) Range(key StoreKey, seek string, limit int) (*RangeResult,
 						WithFields(log.Fields{"error": err2, "raw": string(v)}).
 						Error("could not be unmarshalled")
 				}
-			}
 
-			// FIXED: shielding expired data in range
-			if sv.RecalculateTTL(); sv.Expired() {
-				// TODO(@yeqown): asynchronize delete expired key
-				continue
+				// FIXED: shielding expired data in range
+				if err2 == nil && sv.Expired() {
+					// TODO(@yeqown): asynchronize delete expired key
+					result.ExpiredKeys = append(result.ExpiredKeys, sv.Key.String())
+					continue
+				}
 			}
 
 			result.Items = append(result.Items, sv)

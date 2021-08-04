@@ -2,12 +2,14 @@ package concept
 
 import (
 	"context"
+	"time"
 
 	"github.com/pkg/errors"
 	"github.com/yeqown/log"
 
 	apicassemdb "github.com/yeqown/cassem/internal/cassemdb/api"
 	pbcassemdb "github.com/yeqown/cassem/internal/cassemdb/api/gen"
+	"github.com/yeqown/cassem/pkg/errorx"
 	"github.com/yeqown/cassem/pkg/runtime"
 )
 
@@ -87,15 +89,35 @@ func (i instanceHybrid) GetInstance(ctx context.Context, insId string) (*Instanc
 	return ins, err
 }
 
-// RegisterInstance
-// TODO(@yeqown): retry strategy
+// RegisterInstance registers a new instance.
 func (i instanceHybrid) RegisterInstance(ctx context.Context, ins *Instance) (err error) {
+	// check duplicate instance
+	insId := ins.Id()
+	k := genInstanceNormalKey(insId)
+
+	r, err := i.cassemdb.GetKV(ctx, &pbcassemdb.GetKVReq{
+		Key: k,
+	})
+	if err != nil && !errors.Is(err, errorx.Err_NOT_FOUND) {
+		return err
+	}
+	if r.GetEntity() != nil {
+		return errorx.New(errorx.Code_ALREADY_EXISTS, "instance has already been registered")
+	}
+
+	if ins.LastJoinTimestamp.IsZero() {
+		ins.LastJoinTimestamp = time.Now()
+	}
+
+	return i.setInstanceInfo(ctx, ins)
+}
+
+func (i instanceHybrid) setInstanceInfo(ctx context.Context, ins *Instance) (err error) {
 	if ins == nil {
 		log.
 			Warn("InstanceHybrid.RegisterInstance get nil instance, skipped")
 		return
 	}
-
 	insId := ins.Id()
 	// TODO(@yeqown): should keep insId be unique in cluster?
 	// save normalized kv
@@ -143,7 +165,19 @@ func (i instanceHybrid) RegisterInstance(ctx context.Context, ins *Instance) (er
 }
 
 func (i instanceHybrid) RenewInstance(ctx context.Context, ins *Instance) error {
-	return i.RegisterInstance(ctx, ins)
+	// check duplicate instance
+	//insId := ins.Id()
+	//k := genInstanceNormalKey(insId)
+	//r, _ := i.cassemdb.GetKV(ctx, &pbcassemdb.GetKVReq{
+	//	Key: k,
+	//})
+	//if r.GetEntity() != nil {
+	//	if ins.LastJoinTimestamp.IsZero() {
+	//		ins.LastJoinTimestamp = r.GetEntity().Get
+	//	}
+	//}
+
+	return i.setInstanceInfo(ctx, ins)
 }
 
 func (i instanceHybrid) UnregisterInstance(ctx context.Context, insId string) error {
@@ -155,11 +189,15 @@ func (i instanceHybrid) UnregisterInstance(ctx context.Context, insId string) er
 		}).
 		Debug("instanceHybrid.UnregisterInstance")
 
+	// try to get instance detail
 	r, err := i.cassemdb.GetKV(ctx, &pbcassemdb.GetKVReq{
 		Key: k,
 	})
-	// FIXME(@yeqown): if not found, just return
 	if err != nil {
+		if errors.Is(err, errorx.Err_NOT_FOUND) {
+			return nil
+		}
+
 		return errors.Wrap(err, "instanceHybrid.UnregisterInstance")
 	}
 
