@@ -30,20 +30,19 @@ func NewKVHybrid(endpoints []string) (KVWriteOnly, error) {
 }
 
 func (_h kvWriteOnly) CreateElement(ctx context.Context,
-	app, env, eltKey string, raw []byte, contentTyp RawContentType) error {
+	app, env, eltKey string, raw []byte, contentTyp ContentType) error {
 	k := genElementKey(app, env, eltKey)
 	mdKey := withMetadataSuffix(k)
 	version := 1
-	md := EltMetadataDO{
-		LatestVersion:     version,
+	// set metadata of element
+	bytes, err := MarshalProto(&ElementMetadata{
+		LatestVersion:     int32(version),
 		LatestFingerprint: hash.MD5(raw),
 		Key:               mdKey,
 		ContentType:       contentTyp,
 		App:               app,
 		Env:               env,
-	}
-	// set metadata of element
-	bytes, err := md.Marshal()
+	})
 	if err != nil {
 		return err
 	}
@@ -58,11 +57,7 @@ func (_h kvWriteOnly) CreateElement(ctx context.Context,
 		return err
 	}
 
-	versionedEltDo := VersionedEltDO{
-		Version: version,
-		Raw:     raw,
-	}
-	bytes, err = versionedEltDo.Marshal()
+	bytes, err = MarshalProto(&Element{Version: int32(version), Raw: raw})
 	if err != nil {
 		return err
 	}
@@ -83,7 +78,7 @@ func (_h kvWriteOnly) CreateElement(ctx context.Context,
 // UpdateElement add a new version to element, and update element's metadata info.
 // 1. get metadata
 // 2. lock element W operations to prevent concurrent writing operation.
-// 3. create a VersionedEltDO
+// 3. create a Element
 func (_h kvWriteOnly) UpdateElement(ctx context.Context, app, env, eltKey string, raw []byte) error {
 	// get metadata
 	k := genElementKey(app, env, eltKey)
@@ -91,27 +86,23 @@ func (_h kvWriteOnly) UpdateElement(ctx context.Context, app, env, eltKey string
 	if err != nil {
 		return err
 	}
-	md := new(EltMetadataDO)
-	if err = md.Unmarshal(r.GetEntity().GetVal()); err != nil {
+	md := new(ElementMetadata)
+	if err = UnmarshalProto(r.GetEntity().GetVal(), md); err != nil {
 		return err
 	}
 
 	// version auto increased
 	version := md.LatestVersion + 1
 	md.LatestVersion = version
-	elt := VersionedEltDO{
-		Version: version,
-		Raw:     raw,
-	}
 
 	// save new element version.
-	bytes, err := elt.Marshal()
+	bytes, err := MarshalProto(&Element{Version: version, Raw: raw})
 	if err != nil {
 		return err
 	}
 	// set element with specified version
 	if _, err = _h.cassemdb.SetKV(ctx, &pbcassemdb.SetKVReq{
-		Key:       withVersion(k, version),
+		Key:       withVersion(k, int(version)),
 		Val:       bytes,
 		IsDir:     false,
 		Overwrite: true,
@@ -120,7 +111,7 @@ func (_h kvWriteOnly) UpdateElement(ctx context.Context, app, env, eltKey string
 		return err
 	}
 
-	bytes, _ = md.Marshal()
+	bytes, _ = MarshalProto(md)
 	// set element with specified version
 	_, err = _h.cassemdb.SetKV(ctx, &pbcassemdb.SetKVReq{
 		Key:       withMetadataSuffix(k),
@@ -143,9 +134,9 @@ func (_h kvWriteOnly) DeleteElement(ctx context.Context, app, env, eltKey string
 	return err
 }
 
-func (_h kvWriteOnly) CreateApp(ctx context.Context, md *AppMetadataDO) error {
+func (_h kvWriteOnly) CreateApp(ctx context.Context, md *AppMetadata) error {
 	k := genAppKey(md.Id)
-	bytes, _ := md.Marshal()
+	bytes, _ := MarshalProto(md)
 	_, err := _h.cassemdb.SetKV(ctx, &pbcassemdb.SetKVReq{
 		Key:       k,
 		IsDir:     false,

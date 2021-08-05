@@ -1,6 +1,8 @@
 package app
 
 import (
+	"time"
+
 	"github.com/gin-gonic/gin"
 
 	"github.com/yeqown/cassem/internal/concept"
@@ -48,10 +50,12 @@ func (d app) CreateApp(c *gin.Context) {
 		return
 	}
 
-	md := &concept.AppMetadataDO{
+	md := &concept.AppMetadata{
 		Id:          req.App,
-		Name:        req.Name,
 		Description: req.Description,
+		CreatedAt:   time.Now().Unix(),
+		Creator:     "todo(@yeqown)",
+		Owner:       "todo(@yeqown)",
 	}
 	err := d.aggregate.CreateApp(c.Request.Context(), md)
 	if err != nil {

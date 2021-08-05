@@ -28,29 +28,29 @@ func NewKVReader(endpoints []string) (KVReadOnly, error) {
 }
 
 func (_r kvReadOnly) GetElementWithVersion(
-	ctx context.Context, app, env, key string, version int) (*VersionedEltDO, error) {
+	ctx context.Context, app, env, key string, version int) (*Element, error) {
 	// get metadata
 	k := genElementKey(app, env, key)
 	r1, err := _r.cassemdb.GetKV(ctx, &pbcassemdb.GetKVReq{Key: withMetadataSuffix(k)})
 	if err != nil {
 		return nil, err
 	}
-	md := new(EltMetadataDO)
-	if err = md.Unmarshal(r1.GetEntity().GetVal()); err != nil {
+	md := new(ElementMetadata)
+	if err = UnmarshalProto(r1.GetEntity().GetVal(), md); err != nil {
 		return nil, err
 	}
 
 	md.Key = key
 	if version <= 0 {
-		version = md.LatestVersion
+		version = int(md.LatestVersion)
 	}
 	// get element with specified version
 	r2, err2 := _r.cassemdb.GetKV(ctx, &pbcassemdb.GetKVReq{Key: withVersion(k, version)})
 	if err2 != nil {
 		return nil, err
 	}
-	elt := new(VersionedEltDO)
-	if err2 = elt.Unmarshal(r2.GetEntity().GetVal()); err2 != nil {
+	elt := new(Element)
+	if err2 = UnmarshalProto(r2.GetEntity().GetVal(), elt); err2 != nil {
 		return nil, err2
 	}
 	elt.Metadata = md
@@ -86,7 +86,7 @@ func (_r kvReadOnly) GetElements(
 			HasMore:  r.GetHasMore(),
 			NextSeek: r.GetNextSeekKey(),
 		},
-		Elements: make([]*VersionedEltDO, 0, len(r.GetEntities())),
+		Elements: make([]*Element, 0, len(r.GetEntities())),
 	}
 	keys := make([]string, 0, len(r.GetEntities()))
 	for _, v := range r.GetEntities() {
@@ -107,7 +107,7 @@ func (_r kvReadOnly) GetElementsByKeys(
 	return
 }
 
-func (_r kvReadOnly) getElementsByKeys(ctx context.Context, app, env string, keys []string) ([]*VersionedEltDO, error) {
+func (_r kvReadOnly) getElementsByKeys(ctx context.Context, app, env string, keys []string) ([]*Element, error) {
 	mdKeys := make([]string, 0, len(keys))
 	for _, key := range keys {
 		k := genElementKey(app, env, key)
@@ -121,16 +121,16 @@ func (_r kvReadOnly) getElementsByKeys(ctx context.Context, app, env string, key
 	}
 
 	eleVersionKeys := make([]string, 0, len(keys))
-	metadataMapping := make(map[string]*EltMetadataDO, len(keys))
+	metadataMapping := make(map[string]*ElementMetadata, len(keys))
 	for _, entity := range r.GetEntities() {
 		k := trimMetadata(entity.GetKey())
-		md := new(EltMetadataDO)
-		if err = md.Unmarshal(entity.GetVal()); err != nil {
+		md := new(ElementMetadata)
+		if err = UnmarshalProto(entity.GetVal(), md); err != nil {
 			continue
 		}
 		md.Key = extractPureKey(k)
 		metadataMapping[k] = md
-		eleVersionKeys = append(eleVersionKeys, withVersion(k, md.LatestVersion))
+		eleVersionKeys = append(eleVersionKeys, withVersion(k, int(md.LatestVersion)))
 	}
 
 	r2, err2 := _r.cassemdb.GetKVs(ctx, &pbcassemdb.GetKVsReq{
@@ -140,14 +140,14 @@ func (_r kvReadOnly) getElementsByKeys(ctx context.Context, app, env string, key
 		return nil, errors.Wrap(err, "kvReadOnly.getElementsByKeys")
 	}
 
-	out := make([]*VersionedEltDO, 0, len(keys))
+	out := make([]*Element, 0, len(keys))
 	for _, entity := range r2.GetEntities() {
-		elt := &VersionedEltDO{
-			Metadata: new(EltMetadataDO),
+		elt := &Element{
+			Metadata: new(ElementMetadata),
 			Version:  0,
 			Raw:      nil,
 		}
-		if err = elt.Unmarshal(entity.GetVal()); err != nil {
+		if err = UnmarshalProto(entity.GetVal(), elt); err != nil {
 			continue
 		}
 		k := trimVersion(entity.GetKey())
@@ -159,11 +159,11 @@ func (_r kvReadOnly) getElementsByKeys(ctx context.Context, app, env string, key
 }
 
 func (_r kvReadOnly) GetElementOperations(
-	ctx context.Context, app, env, eltKey string, start int) (ops []*EltOperateLog, next int, err error) {
+	ctx context.Context, app, env, eltKey string, start int) (ops []*ElementOperation, next int, err error) {
 	panic("implement me")
 }
 
-func (_r kvReadOnly) GetApp(ctx context.Context, app string) (*AppMetadataDO, error) {
+func (_r kvReadOnly) GetApp(ctx context.Context, app string) (*AppMetadata, error) {
 	k := genAppKey(app)
 	r, err := _r.cassemdb.GetKV(ctx, &pbcassemdb.GetKVReq{
 		Key: k,
@@ -172,8 +172,8 @@ func (_r kvReadOnly) GetApp(ctx context.Context, app string) (*AppMetadataDO, er
 		return nil, err
 	}
 
-	md := new(AppMetadataDO)
-	err = md.Unmarshal(r.GetEntity().GetVal())
+	md := new(AppMetadata)
+	err = UnmarshalProto(r.GetEntity().GetVal(), md)
 	return md, err
 }
 
@@ -192,13 +192,13 @@ func (_r kvReadOnly) GetApps(ctx context.Context, seek string, limit int) (*getA
 			HasMore:  r.GetHasMore(),
 			NextSeek: r.GetNextSeekKey(),
 		},
-		Apps: make([]*AppMetadataDO, 0, len(r.GetEntities())),
+		Apps: make([]*AppMetadata, 0, len(r.GetEntities())),
 	}
 
 	for _, v := range r.GetEntities() {
-		app := new(AppMetadataDO)
-		_ = app.Unmarshal(v.Val)
-		result.Apps = append(result.Apps, app)
+		md := new(AppMetadata)
+		_ = UnmarshalProto(v.Val, md)
+		result.Apps = append(result.Apps, md)
 	}
 
 	return result, nil

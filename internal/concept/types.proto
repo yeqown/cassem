@@ -1,0 +1,63 @@
+syntax = "proto3";
+
+package cassem.concept;
+option go_package = "concept";
+
+message Element {
+  ElementMetadata metadata = 1;
+  bytes           raw      = 2;
+  int32           version  = 3;
+};
+
+enum ContentType {
+  UNKNOWN   = 0;
+  JSON      = 1;
+  TOML      = 2;
+  INI       = 3;
+  PLAINTEXT = 4;
+}
+
+message ElementMetadata {
+  string      key                = 1;
+  string      app                = 2;
+  string      env                = 3;
+  int32       latest_version     = 4;
+  string      latest_fingerprint = 5;
+  ContentType content_type       = 6;
+}
+
+message AppMetadata {
+  string id          = 1;
+  string description = 2;
+  int64  created_at  = 3;
+  string creator     = 4;
+  string owner       = 5;
+}
+
+enum Operation {
+  INVALID = 0;
+  SET     = 1;
+  UNSET   = 2;
+  PUBLISH = 3;
+}
+
+message ElementOperation {
+  string    operator        = 1;
+  int64     operated_at     = 2;
+  string    operated_key    = 3;
+  Operation op              = 4;
+  int32     last_version    = 5;
+  int32     current_version = 6;
+  string    remark          = 7;
+}
+
+message Instance {
+  string          client_id           = 1;
+  string          agent_id            = 2;
+  string          ip                  = 3;
+  string          app                 = 4;
+  string          env                 = 5;
+  repeated string watch_keys          = 6;
+  int64           last_join_timestamp = 7;
+}
+

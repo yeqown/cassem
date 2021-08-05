@@ -3,7 +3,6 @@ package concept
 import (
 	"context"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/suite"
 )
@@ -32,7 +31,7 @@ func (a coordinatorTestSuite) Test_CreateElement() {
 		"env",
 		"Test_CreateElement",
 		[]byte("this is a text"),
-		RawContentType_PLAINTEXT,
+		ContentType_PLAINTEXT,
 	)
 	a.NoError(err)
 }
@@ -101,39 +100,36 @@ func (a coordinatorTestSuite) Test_DeleteElement() {
 
 func (a coordinatorTestSuite) Test_RegisterInstance() {
 	err := a.agg.RegisterInstance(a.ctx, &Instance{
-		ClientID:          "clientId",
+		ClientId:          "clientId",
 		Ip:                "172.168.1.1",
-		AppId:             "app",
+		App:               "app",
 		Env:               "env",
 		WatchKeys:         []string{"k1", "k2", "k3"},
-		LastJoinTimestamp: time.Time{},
-		LastGetTimestamp:  time.Time{},
+		LastJoinTimestamp: 0,
 	})
 	a.NoError(err)
 }
 
 func (a coordinatorTestSuite) Test_RenewInstance() {
 	err := a.agg.RenewInstance(a.ctx, &Instance{
-		ClientID:          "clientId",
+		ClientId:          "clientId",
 		Ip:                "172.168.1.1",
-		AppId:             "app",
+		App:               "app",
 		Env:               "env",
 		WatchKeys:         []string{"k1", "k2", "k3"},
-		LastJoinTimestamp: time.Time{},
-		LastGetTimestamp:  time.Time{},
+		LastJoinTimestamp: 0,
 	})
 	a.NoError(err)
 }
 
 func (a coordinatorTestSuite) Test_UnregisterInstance() {
 	ins := &Instance{
-		ClientID:          "clientId",
+		ClientId:          "clientId",
 		Ip:                "172.168.1.1",
-		AppId:             "app",
+		App:               "app",
 		Env:               "env",
 		WatchKeys:         []string{"k1", "k2", "k3"},
-		LastJoinTimestamp: time.Time{},
-		LastGetTimestamp:  time.Time{},
+		LastJoinTimestamp: 0,
 	}
 	err := a.agg.UnregisterInstance(a.ctx, ins.Id())
 	a.NoError(err)

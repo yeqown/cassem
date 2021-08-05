@@ -32,8 +32,8 @@ type getAppEnvElementsReq struct {
 type createAppEnvElementReq struct {
 	commonAppEnvEltRequest
 
-	Raw         json.RawMessage        `json:"raw" binding:"required"`
-	ContentType concept.RawContentType `json:"content_type" binding:"required,oneof=application/json application/toml application/ini application/plaintext"`
+	Raw         json.RawMessage     `json:"raw" binding:"required"`
+	ContentType concept.ContentType `json:"content_type" binding:"required,oneof=1 2 3 4"`
 }
 
 type updateAppEnvElementReq struct {

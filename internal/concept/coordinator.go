@@ -10,24 +10,24 @@ type AdmAggregate interface {
 }
 
 type KVReadOnly interface {
-	GetElementWithVersion(ctx context.Context, app, env, key string, version int) (*VersionedEltDO, error)
+	GetElementWithVersion(ctx context.Context, app, env, key string, version int) (*Element, error)
 	GetElements(ctx context.Context, app, env string, seek string, limit int) (*getElementsResult, error)
 	GetElementsByKeys(ctx context.Context, app, env string, keys []string) (*getElementsResult, error)
 	GetElementOperations(
-		ctx context.Context, app, env, key string, start int) (ops []*EltOperateLog, next int, err error)
+		ctx context.Context, app, env, key string, start int) (ops []*ElementOperation, next int, err error)
 
-	GetApp(ctx context.Context, app string) (*AppMetadataDO, error)
+	GetApp(ctx context.Context, app string) (*AppMetadata, error)
 	GetApps(ctx context.Context, seek string, limit int) (*getAppsResult, error)
 
 	GetEnvironments(ctx context.Context, app, seek string, limit int) (*getAppEnvsResult, error)
 }
 
 type KVWriteOnly interface {
-	CreateElement(ctx context.Context, app, env, key string, raw []byte, contentTyp RawContentType) error
+	CreateElement(ctx context.Context, app, env, key string, raw []byte, contentTyp ContentType) error
 	UpdateElement(ctx context.Context, app, env, key string, raw []byte) error
 	DeleteElement(ctx context.Context, app, env, key string) error
 
-	CreateApp(ctx context.Context, md *AppMetadataDO) error
+	CreateApp(ctx context.Context, md *AppMetadata) error
 	DeleteApp(ctx context.Context, appId string) error
 }
 
@@ -51,7 +51,7 @@ type commonPager struct {
 type getAppsResult struct {
 	commonPager
 
-	Apps []*AppMetadataDO `json:"apps"`
+	Apps []*AppMetadata `json:"apps"`
 }
 
 type getAppEnvsResult struct {
@@ -63,5 +63,5 @@ type getAppEnvsResult struct {
 type getElementsResult struct {
 	commonPager
 
-	Elements []*VersionedEltDO `json:"elements"`
+	Elements []*Element `json:"elements"`
 }

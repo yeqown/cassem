@@ -110,6 +110,7 @@ func (d app) UpdateAppEnvElement(c *gin.Context) {
 
 func (d app) DeleteAppEnvElement(c *gin.Context) {
 	req := new(deleteAppEnvElementsReq)
+	_ = c.ShouldBindUri(req)
 	if err := c.ShouldBind(req); err != nil {
 		httpx.ResponseError(c, err)
 		return

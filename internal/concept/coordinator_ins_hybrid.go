@@ -68,7 +68,7 @@ func (i instanceHybrid) GetElementInstances(ctx context.Context, app, env, key s
 	instances := make([]*Instance, 0, len(r2.GetEntities()))
 	for _, v := range r2.GetEntities() {
 		ins := new(Instance)
-		_ = ins.Unmarshal(v.GetVal())
+		_ = UnmarshalProto(v.GetVal(), ins)
 		instances = append(instances, ins)
 	}
 
@@ -85,7 +85,7 @@ func (i instanceHybrid) GetInstance(ctx context.Context, insId string) (*Instanc
 	}
 
 	ins := new(Instance)
-	err = ins.Unmarshal(r.GetEntity().GetVal())
+	err = UnmarshalProto(r.GetEntity().GetVal(), ins)
 	return ins, err
 }
 
@@ -105,8 +105,8 @@ func (i instanceHybrid) RegisterInstance(ctx context.Context, ins *Instance) (er
 		return errorx.New(errorx.Code_ALREADY_EXISTS, "instance has already been registered")
 	}
 
-	if ins.LastJoinTimestamp.IsZero() {
-		ins.LastJoinTimestamp = time.Now()
+	if t := time.Unix(ins.LastJoinTimestamp, 0); t.IsZero() {
+		ins.LastJoinTimestamp = time.Now().Unix()
 	}
 
 	return i.setInstanceInfo(ctx, ins)
@@ -129,7 +129,7 @@ func (i instanceHybrid) setInstanceInfo(ctx context.Context, ins *Instance) (err
 		}).
 		Debug("instanceHybrid.UnregisterInstance")
 
-	bytes, _ := ins.Marshal()
+	bytes, _ := MarshalProto(ins)
 	_, err = i.cassemdb.SetKV(ctx, &pbcassemdb.SetKVReq{
 		Key:       k,
 		IsDir:     false,
@@ -143,7 +143,7 @@ func (i instanceHybrid) setInstanceInfo(ctx context.Context, ins *Instance) (err
 
 	// save reversed kv
 	for _, key := range ins.WatchKeys {
-		k2 := genInstanceReversedKeyWithInsid(ins.AppId, ins.Env, key, insId)
+		k2 := genInstanceReversedKeyWithInsid(ins.App, ins.Env, key, insId)
 		_, err = i.cassemdb.SetKV(ctx, &pbcassemdb.SetKVReq{
 			Key:       k2,
 			IsDir:     false,
@@ -202,7 +202,7 @@ func (i instanceHybrid) UnregisterInstance(ctx context.Context, insId string) er
 	}
 
 	ins := new(Instance)
-	if err = ins.Unmarshal(r.GetEntity().GetVal()); err != nil {
+	if err = UnmarshalProto(r.GetEntity().GetVal(), ins); err != nil {
 		return errors.Wrap(err, "instanceHybrid.UnregisterInstance")
 	}
 
@@ -214,7 +214,7 @@ func (i instanceHybrid) UnregisterInstance(ctx context.Context, insId string) er
 
 	// unset reversed kv
 	for _, key := range ins.WatchKeys {
-		k2 := genInstanceReversedKeyWithInsid(ins.AppId, ins.Env, key, insId)
+		k2 := genInstanceReversedKeyWithInsid(ins.App, ins.Env, key, insId)
 		_, err = i.cassemdb.UnsetKV(ctx, &pbcassemdb.UnsetKVReq{
 			Key: k2,
 		})
