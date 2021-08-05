@@ -82,6 +82,7 @@ func (d app) initialHTTP(engi *gin.Engine) {
 			{
 				elt.GET("", d.GetAppEnvElements)
 				elt.GET("/:key", d.GetAppEnvElement)
+				elt.GET("/:key/versions", d.GetAppEnvElementAllVersions)
 				elt.POST("/:key", d.CreateAppEnvElement)
 				elt.DELETE("/:key", d.DeleteAppEnvElement)
 			}

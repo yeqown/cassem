@@ -97,6 +97,7 @@ type Instance struct {
 	// ClientID was a unique ID in cassem which can be set by client SDK. A random string merges client IP will be
 	// used while client SDK doesn't set it.
 	ClientID          string    `json:"client_id"`
+	AgentID           string    `json:"agent_id"`
 	Ip                string    `json:"ip"`
 	AppId             string    `json:"app_id"`
 	Env               string    `json:"env"`

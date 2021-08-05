@@ -52,6 +52,26 @@ func (d app) GetAppEnvElement(c *gin.Context) {
 	httpx.ResponseJSON(c, element)
 }
 
+func (d app) GetAppEnvElementAllVersions(c *gin.Context) {
+	req := new(getAppEnvElementReq)
+
+	_ = c.ShouldBindUri(req)
+	if err := c.ShouldBind(req); err != nil {
+		httpx.ResponseError(c, err)
+		return
+	}
+
+	// TODO(@yeqown): get all versions to element
+	element, err := d.aggregate.GetElementWithVersion(
+		c.Request.Context(), req.AppId, req.Env, req.ElementKey, int(req.Version))
+	if err != nil {
+		httpx.ResponseError(c, err)
+		return
+	}
+
+	httpx.ResponseJSON(c, element)
+}
+
 func (d app) CreateAppEnvElement(c *gin.Context) {
 	req := new(createAppEnvElementReq)
 	_ = c.ShouldBindUri(req)

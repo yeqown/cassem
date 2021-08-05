@@ -6,19 +6,10 @@ Admin server to manage all data in cassem.
 ### Features
 
 - [x] Config CURD and API
+- [x] Config multi-versions management
 - [ ] Operation Logs 
 - [ ] Multiple Content Type support plugin mode (JSON / TOML / Plain Text / INI)
-- [ ] gray released
-- [ ] 
-
-
-***ContentType Plugin***
-```go
-type ContentTypePlugin interface {
-	// ContentType return an unique identifier string for plugin
-	// For example: JSON => content-type:json
-	ContentType() string
-	Encode(v interface{}) ([]bytes, error)
-	Decode(data []bytes, v *Element) error
-}
-```
+- [ ] Gray released
+- [ ] Permission control
+- [ ] Publish config: means push and published
+- [ ] Metrics and dashboard
