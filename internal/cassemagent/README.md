@@ -3,10 +3,16 @@
 The agent of cassem's clients.
 
 
+### features
+
+- [ ] Read config 
+- [ ] Gray release support
+- [ ] Publish release support
+- [ ] Cache config while cassemdb is unavailable or other situations those don't need to request again.
+
 ### client presudo code
 
 ```go
-
 // initialize
 c = NewClient({clientId, clientIp, app, env})
 c.WatchKeys({keys})

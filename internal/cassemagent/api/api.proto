@@ -1,0 +1,59 @@
+syntax = "proto3";
+
+import "concept/types.proto";
+
+package cassem.agent;
+option go_package = "api";
+
+message getConfigReq {
+  string          app = 1;
+  string          env = 2;
+  repeated string keys = 3;
+}
+
+message getConfigResp {
+  repeated cassem.concept.Element elems = 1;
+}
+
+//// registerReq send req to agent so that agent can register this client to cassemdb.
+//message registerReq {
+//  string client_id = 1;
+//  string ip = 2;
+//  string app = 3;
+//  string env = 4;
+//  repeated string keys = 5;
+//}
+
+message unregisterReq {
+  string clientId = 1;
+  string clientIp = 2;
+  string app = 3;
+  string env = 4;
+}
+
+message renewReq {
+  string clientId = 1;
+  string ip = 2;
+  string app = 3;
+  string env = 4;
+}
+
+message emptyResp {}
+
+message regAndWaitReq {
+  string app = 1;
+  string env = 2;
+  repeated string watchingKeys = 3;
+  string clientId = 4;
+  string clientIp = 5;
+}
+message waitResp {
+  cassem.concept.Element elem = 1;
+}
+
+service agent {
+  rpc GetConfig(getConfigReq) returns  (getConfigResp){};
+  rpc Unregister(unregisterReq) returns (emptyResp){};
+  rpc Renew(renewReq) returns (emptyResp) {};
+  rpc RegisterAndWait(regAndWaitReq) returns (stream waitResp) {};
+}

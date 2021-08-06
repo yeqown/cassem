@@ -9,6 +9,11 @@ type AdmAggregate interface {
 	InstanceHybrid
 }
 
+type AgentAggregate interface {
+	KVReadOnly
+	InstanceHybrid
+}
+
 type KVReadOnly interface {
 	GetElementWithVersion(ctx context.Context, app, env, key string, version int) (*Element, error)
 	GetElements(ctx context.Context, app, env string, seek string, limit int) (*getElementsResult, error)

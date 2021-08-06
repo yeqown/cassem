@@ -25,5 +25,8 @@ cassemadm.run: cassemadm.build
 cassemagent.build:
 	${GOCMD} build -o cassemagent ./cmd/cassemagent
 
+cassemagent.run: cassemagent.build
+	DEBUG=1 ./cassemagent --conf=./examples/cassemagent/cassemagent.toml
+
 clear:
 	- rm ./cassemdb || rm ./cassemadm || rm ./cassemagent
