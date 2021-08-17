@@ -81,54 +81,69 @@ func (cw *clientWrapper) Wait(
 	}
 
 	r := new(WaitResp)
-	// random ticker for renew client itself, random tick interval avoids
-	// too many renew requests are sent to cassemdb at the same time.
-	rt := time.NewTicker(time.Duration(_CLIENT_RENEW_BASE+rand.Intn(_CLIENT_RENEW_RAND)) * time.Second)
+	ctx2, cancel := context.WithCancel(stream.Context())
+	defer cancel()
+
+	go func(ctx context.Context) {
+		// random ticker for renew client itself, random tick interval avoids
+		// too many renew requests are sent to cassemdb at the same time.
+		rt := time.NewTicker(time.Duration(_CLIENT_RENEW_BASE+rand.Intn(_CLIENT_RENEW_RAND)) * time.Second)
+
+		for {
+			select {
+			case <-ctx.Done():
+				log.Debug("clientWrapper renewSelf quit")
+				return
+			case <-rt.C:
+				cw.renewSelf()
+			}
+		}
+	}(ctx2)
 
 waitLoop:
 	for {
 		select {
-		case <-stream.Context().Done():
+		case <-ctx2.Done():
 			// connection quit?
 			break waitLoop
-		case <-rt.C:
-			cw.renewSelf()
 		default:
-		}
+			if err = stream.RecvMsg(r); err != nil {
+				log.
+					WithFields(log.Fields{
+						"app":      app,
+						"env":      env,
+						"clientId": clientId,
+						"clientIp": clientIp,
+						"keys":     keys,
+						"error":    err,
+					}).
+					Error("clientWrapper.Wait failed to receive message")
+				return errors.Wrap(err, "clientWrapper.Wait.RecvMsg")
+			}
 
-		if err = stream.RecvMsg(r); err != nil {
-			log.
-				WithFields(log.Fields{
-					"app":      app,
-					"env":      env,
-					"clientId": clientId,
-					"clientIp": clientIp,
-					"keys":     keys,
-					"error":    err,
-				}).
-				Error("failed to receive message")
-			return errors.Wrap(err, "clientWrapper.Wait.RecvMsg")
-		}
+			if r.GetElem() == nil {
+				continue
+			}
 
-		if r.GetElem() == nil {
-			continue
+			// delivery element to client.
+			fn(r.GetElem())
 		}
-
-		// delivery element to client.
-		fn(r.GetElem())
+		// select end
 	}
 
 	return nil
 }
 
 func (cw clientWrapper) renewSelf() {
+	log.Debug("clientWrapper.renewSelf called")
 	ctx, cancel := context.WithTimeout(context.Background(), _CLIENT_REQ_TIMEOUT)
 	defer cancel()
 	_, err := cw.c.Renew(ctx, &RenewReq{
-		ClientId: cw.clientId,
-		Ip:       cw.clientIp,
-		App:      cw.app,
-		Env:      cw.env,
+		ClientId:     cw.clientId,
+		Ip:           cw.clientIp,
+		App:          cw.app,
+		Env:          cw.env,
+		WatchingKeys: cw.keys,
 	})
 
 	if err != nil {
@@ -137,6 +152,7 @@ func (cw clientWrapper) renewSelf() {
 				"clientId": cw.clientId,
 				"app":      cw.app,
 				"env":      cw.env,
+				"keys":     cw.keys,
 				"clientIp": cw.clientIp,
 			}).
 			Error("clientWrapper.renewSelf failed")

@@ -52,12 +52,12 @@ message ElementOperation {
 }
 
 message Instance {
-  string          client_id           = 1;
-  string          agent_id            = 2;
-  string          ip                  = 3;
-  string          app                 = 4;
-  string          env                 = 5;
-  repeated string watch_keys          = 6;
-  int64           last_join_timestamp = 7;
+  string          client_id            = 1;
+  string          agent_id             = 2;
+  string          ip                   = 3;
+  string          app                  = 4;
+  string          env                  = 5;
+  repeated string watch_keys           = 6;
+  int64           last_renew_timestamp = 7;
 }
 

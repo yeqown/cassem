@@ -6,6 +6,7 @@ import (
 
 	pb "github.com/yeqown/cassem/internal/cassemdb/api/gen"
 	"github.com/yeqown/cassem/internal/cassemdb/infras/repository"
+	"github.com/yeqown/cassem/pkg/grpcx"
 	"github.com/yeqown/cassem/pkg/watcher"
 
 	"github.com/yeqown/log"
@@ -26,7 +27,8 @@ func gRPC(coord ICoordinator) *grpc.Server {
 
 	// DONE(@yeqown): recover and logger interceptor needed
 	s := grpc.NewServer(
-		grpc.UnaryInterceptor(chainUnaryServer(serverRecovery(), serverLogger(), sevrerErrorx())),
+		grpc.UnaryInterceptor(
+			grpcx.ChainUnaryServer(grpcx.ServerRecovery(), grpcx.ServerLogger(), grpcx.SevrerErrorx())),
 	)
 	pb.RegisterKVServer(s, srv)
 	reflection.Register(s)

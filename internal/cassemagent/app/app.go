@@ -13,6 +13,7 @@ import (
 	"github.com/yeqown/cassem/internal/cassemagent/domain"
 	"github.com/yeqown/cassem/internal/concept"
 	"github.com/yeqown/cassem/pkg/conf"
+	"github.com/yeqown/cassem/pkg/grpcx"
 	"github.com/yeqown/cassem/pkg/httpx"
 )
 
@@ -49,7 +50,10 @@ func New(c *conf.CassemAgentConfig) (*app, error) {
 }
 
 func (d app) Run() {
-	s := grpc.NewServer()
+	s := grpc.NewServer(
+		grpc.UnaryInterceptor(grpcx.ChainUnaryServer(
+			grpcx.ServerRecovery(), grpcx.ServerLogger(), grpcx.SevrerErrorx())),
+	)
 	apiagent.RegisterAgentServer(s, d)
 	reflection.Register(s)
 	gate := httpx.NewGateway(d.conf.Server.Addr, nil, s)

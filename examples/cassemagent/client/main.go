@@ -26,7 +26,7 @@ func main() {
 			"ele1", "bench02",
 		)
 		if err != nil {
-			panic(err)
+			fmt.Println(err.Error())
 		}
 	}()
 

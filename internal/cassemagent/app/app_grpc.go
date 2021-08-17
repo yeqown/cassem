@@ -11,7 +11,7 @@ import (
 )
 
 // GetConfig execute query request from clients, and also at the same time, agent app is
-// a cache-layer for cassemdb, so the request would be query from cache firstly, cache is not hit
+// a cache-layer for cassemdb, so the request would be queried from cache firstly, cache is not hit
 // query from cassemdb. It failed only when query from local cache and remote both failed.
 //
 // DONE(@yeqown): get from cache first, if not hit send request to cassemdb component, and then refresh caches.
@@ -108,13 +108,13 @@ wait:
 
 func (d app) register(ctx context.Context, req *apiagent.RegAndWaitReq) (<-chan *concept.Element, error) {
 	ins := &concept.Instance{
-		ClientId:          req.GetClientId(),
-		AgentId:           d.uniqueId,
-		Ip:                req.GetClientIp(),
-		App:               req.GetApp(),
-		Env:               req.GetEnv(),
-		WatchKeys:         req.GetWatchingKeys(),
-		LastJoinTimestamp: time.Now().Unix(),
+		ClientId:           req.GetClientId(),
+		AgentId:            d.uniqueId,
+		Ip:                 req.GetClientIp(),
+		App:                req.GetApp(),
+		Env:                req.GetEnv(),
+		WatchKeys:          req.GetWatchingKeys(),
+		LastRenewTimestamp: time.Now().Unix(),
 	}
 
 	if err := d.aggregate.RegisterInstance(ctx, ins); err != nil {
@@ -141,13 +141,13 @@ func (d app) Unregister(ctx context.Context, req *apiagent.UnregisterReq) (*apia
 
 func (d app) Renew(ctx context.Context, req *apiagent.RenewReq) (*apiagent.EmptyResp, error) {
 	ins := &concept.Instance{
-		ClientId:          req.GetClientId(),
-		AgentId:           d.uniqueId,
-		Ip:                req.GetIp(),
-		App:               req.GetApp(),
-		Env:               req.GetEnv(),
-		WatchKeys:         nil,
-		LastJoinTimestamp: 0,
+		ClientId:           req.GetClientId(),
+		AgentId:            d.uniqueId,
+		Ip:                 req.GetIp(),
+		App:                req.GetApp(),
+		Env:                req.GetEnv(),
+		WatchKeys:          req.GetWatchingKeys(),
+		LastRenewTimestamp: time.Now().Unix(),
 	}
 	err := d.aggregate.RenewInstance(ctx, ins)
 	return _emptyResp, err

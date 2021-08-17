@@ -105,8 +105,8 @@ func (i instanceHybrid) RegisterInstance(ctx context.Context, ins *Instance) (er
 		return errorx.New(errorx.Code_ALREADY_EXISTS, "instance has already been registered")
 	}
 
-	if t := time.Unix(ins.LastJoinTimestamp, 0); t.IsZero() {
-		ins.LastJoinTimestamp = time.Now().Unix()
+	if t := time.Unix(ins.LastRenewTimestamp, 0); t.IsZero() {
+		ins.LastRenewTimestamp = time.Now().Unix()
 	}
 
 	return i.setInstanceInfo(ctx, ins)
@@ -172,8 +172,8 @@ func (i instanceHybrid) RenewInstance(ctx context.Context, ins *Instance) error 
 	//	Key: k,
 	//})
 	//if r.GetEntity() != nil {
-	//	if ins.LastJoinTimestamp.IsZero() {
-	//		ins.LastJoinTimestamp = r.GetEntity().Get
+	//	if ins.LastRenewTimestamp.IsZero() {
+	//		ins.LastRenewTimestamp = r.GetEntity().Get
 	//	}
 	//}
 

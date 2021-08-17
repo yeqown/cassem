@@ -36,6 +36,7 @@ message renewReq {
   string ip = 2;
   string app = 3;
   string env = 4;
+  repeated string watchingKeys = 5;
 }
 
 message emptyResp {}
