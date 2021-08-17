@@ -31,7 +31,7 @@ func main() {
 			Email: "yeqown@gmail.com",
 		},
 	}
-	app.Version = "v1.0.0"
+	app.Version = Version
 	app.Description = `The storage component of cassem.`
 	app.Flags = _cliGlobalFlags
 	app.Action = start
