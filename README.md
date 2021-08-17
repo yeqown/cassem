@@ -26,11 +26,11 @@ same time, it's deployed by `Go` which gives it platform-cross ability and fast-
   - [x] `Watch` `TTL` features support.
   - [ ] `Lazy Deletion` the expired KV. There is a deleting working thread to delete KV from queue, the queue's data is from
   two part, one is `operation check`, another is `timer check`.
-- [ ] Stateless agent component `cassemagent` to improve client's usability.
-  - [ ] Cache config elements, and using `LRU-K` replacing algorithm.
+- [x] Stateless agent component `cassemagent` to improve client's usability.
+  - [x] Cache config elements, and using `LRU-K` replacing algorithm.
   - [ ] Language independent support `HTTP` and `gRPC` protocol.
-  - [ ] Client SDK, easy to use.
-  - [ ] `Change Push` ability, gray released also built on this.
+  - [x] Client SDK, easy to use.
+  - [x] `Change Push` ability, gray released also built on this.
 
 ## [Documentation](./docs/README.md)
 

@@ -3,6 +3,8 @@ package app
 import (
 	"log"
 
+	"github.com/hashicorp/go-uuid"
+
 	"github.com/pkg/errors"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
@@ -15,6 +17,8 @@ import (
 )
 
 type app struct {
+	uniqueId string
+
 	conf *conf.CassemAgentConfig
 
 	aggregate concept.AgentAggregate
@@ -34,6 +38,7 @@ func New(c *conf.CassemAgentConfig) (*app, error) {
 	}
 
 	d := &app{
+		uniqueId:     uniqueId(),
 		conf:         c,
 		aggregate:    agg,
 		cache:        domain.NewCache(1000), // TODO(@yeqown): measure the parameter of 1000
@@ -53,7 +58,17 @@ func (d app) Run() {
 	}
 }
 
-// id returns the unique string of agent.
-func (d app) id() string {
-	return "uniqueId(todo@yeqown)"
+// uniqueId panics if any error encountered during apply unique id.
+func uniqueId() string {
+	buf, err := uuid.GenerateRandomBytes(16)
+	if err != nil {
+		panic(err)
+	}
+
+	uid, err2 := uuid.FormatUUID(buf)
+	if err2 != nil {
+		panic(err2)
+	}
+
+	return uid
 }

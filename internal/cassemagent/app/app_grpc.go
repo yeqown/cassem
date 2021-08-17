@@ -10,19 +10,38 @@ import (
 	"github.com/yeqown/cassem/internal/concept"
 )
 
-// GetConfig
-// TODO(@yeqown): get from cache first, if not hit send request to cassemdb component, and then refresh caches.
+// GetConfig execute query request from clients, and also at the same time, agent app is
+// a cache-layer for cassemdb, so the request would be query from cache firstly, cache is not hit
+// query from cassemdb. It failed only when query from local cache and remote both failed.
+//
+// DONE(@yeqown): get from cache first, if not hit send request to cassemdb component, and then refresh caches.
+//
 func (d app) GetConfig(ctx context.Context, req *apiagent.GetConfigReq) (*apiagent.GetConfigResp, error) {
 	resp := new(apiagent.GetConfigResp)
 	if len(req.GetKeys()) == 0 {
 		return resp, nil
 	}
-	r, err := d.aggregate.GetElementsByKeys(ctx, req.GetApp(), req.GetEnv(), req.GetKeys())
-	if err != nil {
-		return nil, err
+
+	if _, ok := ctx.Deadline(); !ok {
+		// hasn't set a deadline for request.
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, 3*time.Second)
+		defer cancel()
 	}
 
-	resp.Elems = r.Elements
+	cr := d.queryFromCache(req.GetApp(), req.GetEnv(), req.GetKeys()...)
+	resp.Elems = append(resp.Elems, cr.elems...)
+
+	// re-request from cassemdb missed keys from cache.
+	if len(cr.miss) != 0 {
+		r, err := d.aggregate.GetElementsByKeys(ctx, req.GetApp(), req.GetEnv(), cr.miss)
+		if err != nil {
+			return nil, err
+		}
+		resp.Elems = append(resp.Elems, r.Elements...)
+		go d.updateCache(req.GetApp(), req.GetEnv(), r.Elements...)
+	}
+
 	return resp, nil
 }
 
@@ -31,7 +50,7 @@ var (
 )
 
 func (d app) RegisterAndWait(req *apiagent.RegAndWaitReq, server apiagent.Agent_RegisterAndWaitServer) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(server.Context(), 10*time.Second)
 	ch, err := d.register(ctx, req)
 	if err != nil {
 		cancel()
@@ -41,7 +60,7 @@ func (d app) RegisterAndWait(req *apiagent.RegAndWaitReq, server apiagent.Agent_
 
 	// if connection broken, unregister the instance from app.
 	defer func() {
-		ctx2, cancel2 := context.WithTimeout(server.Context(), 10*time.Second)
+		ctx2, cancel2 := context.WithTimeout(context.Background(), 10*time.Second)
 		if _, err2 := d.Unregister(ctx2, &apiagent.UnregisterReq{
 			ClientId: req.GetClientId(),
 			ClientIp: req.GetClientIp(),
@@ -62,7 +81,8 @@ wait:
 	for {
 		select {
 		case elem := <-ch:
-			// TODO(@yeqown): update cache item while new changes pushed to instance.
+			// DONE(@yeqown): update cache item while new changes pushed to instance.
+			go d.updateCache(elem.GetMetadata().GetApp(), elem.GetMetadata().GetEnv(), elem)
 			err = server.Send(&apiagent.WaitResp{
 				Elem: elem,
 			})
@@ -89,7 +109,7 @@ wait:
 func (d app) register(ctx context.Context, req *apiagent.RegAndWaitReq) (<-chan *concept.Element, error) {
 	ins := &concept.Instance{
 		ClientId:          req.GetClientId(),
-		AgentId:           d.id(),
+		AgentId:           d.uniqueId,
 		Ip:                req.GetClientIp(),
 		App:               req.GetApp(),
 		Env:               req.GetEnv(),
@@ -122,7 +142,7 @@ func (d app) Unregister(ctx context.Context, req *apiagent.UnregisterReq) (*apia
 func (d app) Renew(ctx context.Context, req *apiagent.RenewReq) (*apiagent.EmptyResp, error) {
 	ins := &concept.Instance{
 		ClientId:          req.GetClientId(),
-		AgentId:           d.id(),
+		AgentId:           d.uniqueId,
 		Ip:                req.GetIp(),
 		App:               req.GetApp(),
 		Env:               req.GetEnv(),

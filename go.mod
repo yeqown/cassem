@@ -6,6 +6,7 @@ require (
 	github.com/gin-contrib/pprof v1.3.0
 	github.com/gin-gonic/gin v1.6.3
 	github.com/golang/protobuf v1.3.3
+	github.com/hashicorp/go-uuid v1.0.0
 	github.com/hashicorp/raft v1.2.0
 	github.com/hashicorp/raft-boltdb v0.0.0-20171010151810-6e5ba93211ea
 	github.com/pelletier/go-toml v1.8.1
@@ -20,8 +21,6 @@ require (
 )
 
 require (
-	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127 // indirect
-	github.com/kr/pretty v0.2.1 // indirect
 	github.com/armon/go-metrics v0.0.0-20190430140413-ec5e00d3c878 // indirect
 	github.com/boltdb/bolt v1.3.1 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.0-20190314233015-f79a8a8ca69d // indirect
@@ -35,6 +34,7 @@ require (
 	github.com/hashicorp/go-msgpack v0.5.5 // indirect
 	github.com/hashicorp/golang-lru v0.5.0 // indirect
 	github.com/json-iterator/go v1.1.9 // indirect
+	github.com/kr/pretty v0.2.1 // indirect
 	github.com/leodido/go-urn v1.2.0 // indirect
 	github.com/mattn/go-isatty v0.0.12 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180228061459-e0a39a4cb421 // indirect
@@ -46,6 +46,7 @@ require (
 	golang.org/x/sys v0.0.0-20210330210617-4fbd30eecc44 // indirect
 	golang.org/x/text v0.3.3 // indirect
 	google.golang.org/genproto v0.0.0-20180817151627-c66870c02cf8 // indirect
+	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127 // indirect
 	gopkg.in/yaml.v2 v2.2.8 // indirect
 	gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c // indirect
 )
