@@ -12,6 +12,7 @@ import (
 	"google.golang.org/grpc"
 
 	"github.com/yeqown/cassem/internal/concept"
+	"github.com/yeqown/cassem/pkg/grpcx"
 )
 
 var (
@@ -34,7 +35,7 @@ func Dial(addr string) (*clientWrapper, error) {
 	cc, err := grpc.DialContext(timeout, addr,
 		grpc.WithInsecure(),
 		grpc.WithBlock(),
-		grpc.WithChainUnaryInterceptor(), // TODO(@yeqown): fill unary interceptors(recovery/errorx)
+		grpc.WithChainUnaryInterceptor(grpcx.ClientRecovery(), grpcx.ClientErrorx(), grpcx.ClientValidation()),
 	)
 	if err != nil {
 		return nil, errors.Wrap(err, "cassemagent.api.Dial")
@@ -140,7 +141,7 @@ func (cw clientWrapper) renewSelf() {
 	defer cancel()
 	_, err := cw.c.Renew(ctx, &RenewReq{
 		ClientId:     cw.clientId,
-		Ip:           cw.clientIp,
+		ClientIp:     cw.clientIp,
 		App:          cw.app,
 		Env:          cw.env,
 		WatchingKeys: cw.keys,

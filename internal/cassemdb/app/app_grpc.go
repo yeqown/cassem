@@ -28,7 +28,9 @@ func gRPC(coord ICoordinator) *grpc.Server {
 	// DONE(@yeqown): recover and logger interceptor needed
 	s := grpc.NewServer(
 		grpc.UnaryInterceptor(
-			grpcx.ChainUnaryServer(grpcx.ServerRecovery(), grpcx.ServerLogger(), grpcx.SevrerErrorx())),
+			grpcx.ChainUnaryServer(
+				grpcx.ServerRecovery(), grpcx.ServerLogger(), grpcx.SevrerErrorx(), grpcx.ServerValidation()),
+		),
 	)
 	pb.RegisterKVServer(s, srv)
 	reflection.Register(s)

@@ -16,7 +16,7 @@ cassemdb.run: cassemdb.build
 	DEBUG=1 ./cassemdb --conf=./examples/cassemdb/cassemdb3.toml > ./debugdata/d3/cassemdb.log &
 
 cassemdb.kill:
-	kill -9 $(ps -ef | grep cassemdb | awk '{print $2}')
+	kill -9 "$(ps -ef | grep cassemdb | awk '{print $2}')"
 
 cassemdb.clear:
 	- rm -fr ./debugdata/d{1,2,3}/{raft.db,cassemdb.log,cassemdb.kv,snapshots}

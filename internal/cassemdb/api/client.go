@@ -57,7 +57,7 @@ func DialWithMode(endpoints []string, mode Mode) (*grpc.ClientConn, error) {
 	cc, err := grpc.DialContext(timeout, target,
 		grpc.WithInsecure(),
 		grpc.WithBlock(),
-		grpc.WithChainUnaryInterceptor(grpcx.ClientRecovery(), grpcx.ClientErrorx()),
+		grpc.WithChainUnaryInterceptor(grpcx.ClientRecovery(), grpcx.ClientErrorx(), grpcx.ClientValidation()),
 	)
 	if err != nil {
 		return nil, errors.Wrap(err, "DialWithMode failed")

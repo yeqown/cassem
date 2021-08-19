@@ -52,7 +52,7 @@ func New(c *conf.CassemAgentConfig) (*app, error) {
 func (d app) Run() {
 	s := grpc.NewServer(
 		grpc.UnaryInterceptor(grpcx.ChainUnaryServer(
-			grpcx.ServerRecovery(), grpcx.ServerLogger(), grpcx.SevrerErrorx())),
+			grpcx.ServerRecovery(), grpcx.ServerLogger(), grpcx.SevrerErrorx(), grpcx.ServerValidation())),
 	)
 	apiagent.RegisterAgentServer(s, d)
 	reflection.Register(s)

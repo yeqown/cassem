@@ -110,7 +110,7 @@ func (d app) register(ctx context.Context, req *apiagent.RegAndWaitReq) (<-chan 
 	ins := &concept.Instance{
 		ClientId:           req.GetClientId(),
 		AgentId:            d.uniqueId,
-		Ip:                 req.GetClientIp(),
+		ClientIp:           req.GetClientIp(),
 		App:                req.GetApp(),
 		Env:                req.GetEnv(),
 		WatchKeys:          req.GetWatchingKeys(),
@@ -127,7 +127,7 @@ func (d app) register(ctx context.Context, req *apiagent.RegAndWaitReq) (<-chan 
 }
 
 func (d app) Unregister(ctx context.Context, req *apiagent.UnregisterReq) (*apiagent.EmptyResp, error) {
-	insId := (&concept.Instance{ClientId: req.GetClientId(), Ip: req.GetClientIp()}).Id()
+	insId := (&concept.Instance{ClientId: req.GetClientId(), ClientIp: req.GetClientIp()}).Id()
 	// make sure unregister instance from memory, avoid memory leaking.
 	d.instancePool.Unregister(insId)
 
@@ -143,7 +143,7 @@ func (d app) Renew(ctx context.Context, req *apiagent.RenewReq) (*apiagent.Empty
 	ins := &concept.Instance{
 		ClientId:           req.GetClientId(),
 		AgentId:            d.uniqueId,
-		Ip:                 req.GetIp(),
+		ClientIp:           req.GetClientIp(),
 		App:                req.GetApp(),
 		Env:                req.GetEnv(),
 		WatchKeys:          req.GetWatchingKeys(),

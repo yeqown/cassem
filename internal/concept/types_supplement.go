@@ -6,10 +6,10 @@ import (
 
 func (m *Instance) Id() string {
 	if m.ClientId == "" {
-		return "cassem" + "@" + m.Ip
+		return "cassem" + "@" + m.GetClientIp()
 	}
 
-	return m.ClientId + "@" + m.Ip
+	return m.GetClientId() + "@" + m.GetClientIp()
 }
 
 func MarshalProto(v proto.Message) ([]byte, error) {

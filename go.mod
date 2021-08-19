@@ -3,9 +3,10 @@ module github.com/yeqown/cassem
 go 1.17
 
 require (
+	github.com/envoyproxy/protoc-gen-validate v0.6.1
 	github.com/gin-contrib/pprof v1.3.0
 	github.com/gin-gonic/gin v1.6.3
-	github.com/golang/protobuf v1.3.3
+	github.com/golang/protobuf v1.5.2
 	github.com/hashicorp/go-uuid v1.0.0
 	github.com/hashicorp/raft v1.2.0
 	github.com/hashicorp/raft-boltdb v0.0.0-20171010151810-6e5ba93211ea
@@ -18,6 +19,7 @@ require (
 	golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9
 	golang.org/x/net v0.0.0-20210405180319-a5a99cb37ef4
 	google.golang.org/grpc v1.24.0
+	google.golang.org/protobuf v1.27.1
 )
 
 require (

@@ -1,14 +1,15 @@
 syntax = "proto3";
 
 import "concept/types.proto";
+import "envoyproxy-validate/validate.proto";
 
 package cassem.agent;
 option go_package = "api";
 
 message getConfigReq {
-  string          app = 1;
-  string          env = 2;
-  repeated string keys = 3;
+  string          app = 1 [(validate.rules).string = {min_len: 3, max_len: 30}];
+  string          env = 2 [(validate.rules).string = {min_len: 3, max_len: 30}];
+  repeated string keys = 3 [(validate.rules).repeated = {unique: true, min_items: 1, max_items: 100}];
 }
 
 message getConfigResp {
@@ -25,28 +26,28 @@ message getConfigResp {
 //}
 
 message unregisterReq {
-  string clientId = 1;
-  string clientIp = 2;
-  string app = 3;
-  string env = 4;
+  string clientId = 1 [(validate.rules).string = {min_len: 5, max_len: 64}];
+  string clientIp = 2 [(validate.rules).string = {ip: true}];
+  string app = 3 [(validate.rules).string = {min_len: 3, max_len: 30}];
+  string env = 4 [(validate.rules).string = {min_len: 3, max_len: 30}];
 }
 
 message renewReq {
-  string clientId = 1;
-  string ip = 2;
-  string app = 3;
-  string env = 4;
-  repeated string watchingKeys = 5;
+  string clientId = 1 [(validate.rules).string = {min_len: 5, max_len: 64}];
+  string clientIp = 2 [(validate.rules).string = {ip: true}];
+  string app = 3 [(validate.rules).string = {min_len: 3, max_len: 30}];
+  string env = 4 [(validate.rules).string = {min_len: 3, max_len: 30}];
+  repeated string watchingKeys = 5 [(validate.rules).repeated = {unique: true, min_items: 1, max_items: 100}];
 }
 
 message emptyResp {}
 
 message regAndWaitReq {
-  string app = 1;
-  string env = 2;
-  repeated string watchingKeys = 3;
-  string clientId = 4;
-  string clientIp = 5;
+  string app = 1 [(validate.rules).string = {min_len: 3, max_len: 30}];
+  string env = 2 [(validate.rules).string = {min_len: 3, max_len: 30}];
+  repeated string watchingKeys = 3 [(validate.rules).repeated = {unique: true, min_items: 1, max_items: 100}];;;
+  string clientId = 4 [(validate.rules).string = {min_len: 5, max_len: 64}];
+  string clientIp = 5 [(validate.rules).string = {ip: true}];
 }
 message waitResp {
   cassem.concept.Element elem = 1;

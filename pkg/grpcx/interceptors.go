@@ -100,6 +100,34 @@ func SevrerErrorx() grpc.UnaryServerInterceptor {
 	}
 }
 
+type validator interface {
+	// Validate which returns the first error encountered during validation.
+	Validate() error
+
+	// TODO(@yeqown): figure out how to enable ValidateAll method.
+	// https://github.com/envoyproxy/protoc-gen-validate/issues/508
+	//// ValidateAll which returns all errors encountered during validation.
+	//ValidateAll() error
+}
+
+// ServerValidation check all requests from clients. In order to save the server's compute resources,
+// validation process will be aborted if any invalidation is encountered.
+func ServerValidation() grpc.UnaryServerInterceptor {
+	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo,
+		handler grpc.UnaryHandler) (resp interface{}, err error) {
+
+		v, ok := req.(validator)
+		if ok {
+			if err = v.Validate(); err != nil {
+				err = errorx.New(errorx.Code_INVALID_ARGUMENT, err.Error())
+				return nil, err
+			}
+		}
+
+		return handler(ctx, req)
+	}
+}
+
 func ClientRecovery() grpc.UnaryClientInterceptor {
 	return func(ctx context.Context, method string, req, reply interface{},
 		cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) (err error) {
@@ -133,5 +161,25 @@ func ClientErrorx() grpc.UnaryClientInterceptor {
 		// from status to errorx
 		err = errorx.FromStatus(err)
 		return err
+	}
+}
+
+// ClientValidation validate the client's requests before requests are sending to server, which may
+// avoid wasting network bandwidth. Of course server would check again. The difference between client
+// and server is that client check all fields in the request, but server aborts the validation immediately,
+// since any invalid field is encountered.
+func ClientValidation() grpc.UnaryClientInterceptor {
+	return func(ctx context.Context, method string, req, reply interface{},
+		cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
+		v, ok := req.(validator)
+		if ok {
+			if err := v.Validate(); err != nil {
+				// if err := v.ValidateAll(); err != nil {
+				err = errorx.New(errorx.Code_INVALID_ARGUMENT, err.Error())
+				return err
+			}
+		}
+
+		return invoker(ctx, method, req, reply, cc, opts...)
 	}
 }
