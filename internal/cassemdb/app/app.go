@@ -65,7 +65,7 @@ func (d *app) bootstrap(cfg *conf.CassemdbConfig) (err error) {
 // Notice that, tryLeaveCluster maybe failed if cluster could not be maintained while there is only one node in cluster,
 // it could not be removed, it will still be elected as leader. (Situation: count of cluster nodes is less than 2).
 //
-// NOTE: could leader call removeNode by it self? (leader could call removeNode only when cluster has more than 1 node)
+// NOTE: could leader call removeNode by itself? (leader could call removeNode only when cluster has more than 1 node)
 func (d *app) Run() {
 	tick := time.NewTicker(10 * time.Second)
 	quit := make(chan os.Signal, 1)

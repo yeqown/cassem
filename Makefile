@@ -8,17 +8,29 @@ cassemdb.build:
 							  -X main.GitHash=`git rev-parse HEAD`" \
 					./cmd/cassemdb
 
-cassemdb.run: cassemdb.build
+cassemdb.run: cassemdb.build cassemdb.kill
 	- mkdir ./debugdata/{d1,d2,d3}
-	DEBUG=1 ./cassemdb --conf=./examples/cassemdb/cassemdb1.toml > ./debugdata/d1/cassemdb.log &
+	DEBUG=1 ./cassemdb --conf=./examples/cassemdb/cassemdb1.toml > ./debugdata/d1/cassemdb.log 2>&1 & \
+		echo $$! >> cassemdb.pids
 	sleep 2
-	DEBUG=1 ./cassemdb --conf=./examples/cassemdb/cassemdb2.toml > ./debugdata/d2/cassemdb.log &
-	DEBUG=1 ./cassemdb --conf=./examples/cassemdb/cassemdb3.toml > ./debugdata/d3/cassemdb.log &
+	DEBUG=1 ./cassemdb --conf=./examples/cassemdb/cassemdb2.toml > ./debugdata/d2/cassemdb.log 2>&1 & \
+		echo $$! >> cassemdb.pids
+	DEBUG=1 ./cassemdb --conf=./examples/cassemdb/cassemdb3.toml > ./debugdata/d3/cassemdb.log 2>&1 & \
+		echo $$! >> cassemdb.pids
 
 cassemdb.kill:
-	kill -9 "$(ps -ef | grep cassemdb | awk '{print $2}')"
+	@ echo "clearing running cassemdb process from cassemdb.pids"
+	@ if [ -f "cassemdb.pids" ]; then \
+		cat cassemdb.pids | xargs kill -9;\
+	fi
+	#
+	# If cassemdb process is not killed as expected, you can try following command:
+	#
+	# 1: kill -9 $$(ps -ef | grep cassemdb | awk '{print $2}')
+	# 2: jobs -l | grep cassemdb | awk '{print $3}' | xargs kill -9
 
 cassemdb.clear:
+	- rm -fr ./cassemdb.pids
 	- rm -fr ./debugdata/d{1,2,3}/{raft.db,cassemdb.log,cassemdb.kv,snapshots}
 
 cassemadm.build:
