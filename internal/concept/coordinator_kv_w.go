@@ -6,7 +6,6 @@ import (
 	"github.com/pkg/errors"
 
 	apicassemdb "github.com/yeqown/cassem/internal/cassemdb/api"
-	pbcassemdb "github.com/yeqown/cassem/internal/cassemdb/api/gen"
 	"github.com/yeqown/cassem/pkg/hash"
 )
 
@@ -14,7 +13,7 @@ var _ KVWriteOnly = kvWriteOnly{}
 
 // kvWriteOnly can read and write to cassemdb.
 type kvWriteOnly struct {
-	cassemdb pbcassemdb.KVClient
+	cassemdb apicassemdb.KVClient
 }
 
 // NewKVHybrid with endpoints these endpoints of cassemdb.
@@ -25,7 +24,7 @@ func NewKVHybrid(endpoints []string) (KVWriteOnly, error) {
 	}
 
 	return kvWriteOnly{
-		cassemdb: pbcassemdb.NewKVClient(cc),
+		cassemdb: apicassemdb.NewKVClient(cc),
 	}, nil
 }
 
@@ -47,7 +46,7 @@ func (_h kvWriteOnly) CreateElement(ctx context.Context,
 		return err
 	}
 
-	if _, err = _h.cassemdb.SetKV(ctx, &pbcassemdb.SetKVReq{
+	if _, err = _h.cassemdb.SetKV(ctx, &apicassemdb.SetKVReq{
 		Key:       mdKey,
 		Val:       bytes,
 		IsDir:     false,
@@ -62,7 +61,7 @@ func (_h kvWriteOnly) CreateElement(ctx context.Context,
 		return err
 	}
 	// set element with specified version
-	if _, err = _h.cassemdb.SetKV(ctx, &pbcassemdb.SetKVReq{
+	if _, err = _h.cassemdb.SetKV(ctx, &apicassemdb.SetKVReq{
 		Key:       withVersion(k, version),
 		Val:       bytes,
 		IsDir:     false,
@@ -82,7 +81,7 @@ func (_h kvWriteOnly) CreateElement(ctx context.Context,
 func (_h kvWriteOnly) UpdateElement(ctx context.Context, app, env, eltKey string, raw []byte) error {
 	// get metadata
 	k := genElementKey(app, env, eltKey)
-	r, err := _h.cassemdb.GetKV(ctx, &pbcassemdb.GetKVReq{Key: withMetadataSuffix(k)})
+	r, err := _h.cassemdb.GetKV(ctx, &apicassemdb.GetKVReq{Key: withMetadataSuffix(k)})
 	if err != nil {
 		return err
 	}
@@ -101,7 +100,7 @@ func (_h kvWriteOnly) UpdateElement(ctx context.Context, app, env, eltKey string
 		return err
 	}
 	// set element with specified version
-	if _, err = _h.cassemdb.SetKV(ctx, &pbcassemdb.SetKVReq{
+	if _, err = _h.cassemdb.SetKV(ctx, &apicassemdb.SetKVReq{
 		Key:       withVersion(k, int(version)),
 		Val:       bytes,
 		IsDir:     false,
@@ -113,7 +112,7 @@ func (_h kvWriteOnly) UpdateElement(ctx context.Context, app, env, eltKey string
 
 	bytes, _ = MarshalProto(md)
 	// set element with specified version
-	_, err = _h.cassemdb.SetKV(ctx, &pbcassemdb.SetKVReq{
+	_, err = _h.cassemdb.SetKV(ctx, &apicassemdb.SetKVReq{
 		Key:       withMetadataSuffix(k),
 		Val:       bytes,
 		IsDir:     false,
@@ -126,7 +125,7 @@ func (_h kvWriteOnly) UpdateElement(ctx context.Context, app, env, eltKey string
 
 func (_h kvWriteOnly) DeleteElement(ctx context.Context, app, env, eltKey string) error {
 	k := genElementKey(app, env, eltKey)
-	_, err := _h.cassemdb.UnsetKV(ctx, &pbcassemdb.UnsetKVReq{
+	_, err := _h.cassemdb.UnsetKV(ctx, &apicassemdb.UnsetKVReq{
 		Key:   k,
 		IsDir: true,
 	})
@@ -137,7 +136,7 @@ func (_h kvWriteOnly) DeleteElement(ctx context.Context, app, env, eltKey string
 func (_h kvWriteOnly) CreateApp(ctx context.Context, md *AppMetadata) error {
 	k := genAppKey(md.Id)
 	bytes, _ := MarshalProto(md)
-	_, err := _h.cassemdb.SetKV(ctx, &pbcassemdb.SetKVReq{
+	_, err := _h.cassemdb.SetKV(ctx, &apicassemdb.SetKVReq{
 		Key:       k,
 		IsDir:     false,
 		Ttl:       0,
@@ -151,14 +150,14 @@ func (_h kvWriteOnly) DeleteApp(ctx context.Context, appId string) error {
 	k := genAppKey(appId)
 	eleKey := genAppElementKey(appId)
 
-	_, err := _h.cassemdb.UnsetKV(ctx, &pbcassemdb.UnsetKVReq{
+	_, err := _h.cassemdb.UnsetKV(ctx, &apicassemdb.UnsetKVReq{
 		Key:   eleKey,
 		IsDir: true,
 	})
 	if err != nil {
 		return err
 	}
-	_, err = _h.cassemdb.UnsetKV(ctx, &pbcassemdb.UnsetKVReq{
+	_, err = _h.cassemdb.UnsetKV(ctx, &apicassemdb.UnsetKVReq{
 		Key:   k,
 		IsDir: false,
 	})

@@ -6,7 +6,7 @@ import (
 
 	"github.com/yeqown/log"
 
-	pb "github.com/yeqown/cassem/internal/cassemdb/api/gen"
+	pb "github.com/yeqown/cassem/internal/cassemdb/api"
 	"github.com/yeqown/cassem/pkg/hash"
 )
 

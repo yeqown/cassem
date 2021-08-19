@@ -4,7 +4,7 @@ import (
 	"context"
 	"net"
 
-	pb "github.com/yeqown/cassem/internal/cassemdb/api/gen"
+	pb "github.com/yeqown/cassem/internal/cassemdb/api"
 	"github.com/yeqown/cassem/internal/cassemdb/infras/repository"
 	"github.com/yeqown/cassem/pkg/grpcx"
 	"github.com/yeqown/cassem/pkg/watcher"

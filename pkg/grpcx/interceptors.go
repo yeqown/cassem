@@ -99,3 +99,39 @@ func SevrerErrorx() grpc.UnaryServerInterceptor {
 		return
 	}
 }
+
+func ClientRecovery() grpc.UnaryClientInterceptor {
+	return func(ctx context.Context, method string, req, reply interface{},
+		cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) (err error) {
+
+		panicked := true
+		defer func() {
+			if v := recover(); v != nil || panicked {
+				formatted := fmt.Sprintf("client panic: %v %v", req, v)
+				log.Errorf(formatted)
+				fmt.Println(runtime.Stack())
+				err = runtime.RecoverFrom(v)
+			}
+		}()
+
+		err = invoker(ctx, method, req, reply, cc, opts...)
+		panicked = false
+
+		return
+	}
+}
+
+func ClientErrorx() grpc.UnaryClientInterceptor {
+	return func(ctx context.Context, method string, req, reply interface{},
+		cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
+
+		err := invoker(ctx, method, req, reply, cc, opts...)
+		if err == nil {
+			return nil
+		}
+
+		// from status to errorx
+		err = errorx.FromStatus(err)
+		return err
+	}
+}

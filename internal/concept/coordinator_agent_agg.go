@@ -2,7 +2,6 @@ package concept
 
 import (
 	apicassemdb "github.com/yeqown/cassem/internal/cassemdb/api"
-	pbcassemdb "github.com/yeqown/cassem/internal/cassemdb/api/gen"
 )
 
 type agentAggregate struct {
@@ -16,7 +15,7 @@ func NewAgentAggregate(endpoints []string) (AgentAggregate, error) {
 		return nil, err
 	}
 
-	c := pbcassemdb.NewKVClient(cc)
+	c := apicassemdb.NewKVClient(cc)
 	return agentAggregate{
 		kvReadOnly:     kvReadOnly{cassemdb: c},
 		instanceHybrid: instanceHybrid{cassemdb: c},

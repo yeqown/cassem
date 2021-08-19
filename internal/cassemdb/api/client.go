@@ -2,7 +2,6 @@ package api
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"time"
 
@@ -12,8 +11,7 @@ import (
 	_ "google.golang.org/grpc/health"
 	"google.golang.org/grpc/resolver"
 
-	"github.com/yeqown/cassem/pkg/errorx"
-	"github.com/yeqown/cassem/pkg/runtime"
+	"github.com/yeqown/cassem/pkg/grpcx"
 )
 
 // Mode indicates the way that gRPC client communicate with cassemdb cluster.
@@ -59,47 +57,11 @@ func DialWithMode(endpoints []string, mode Mode) (*grpc.ClientConn, error) {
 	cc, err := grpc.DialContext(timeout, target,
 		grpc.WithInsecure(),
 		grpc.WithBlock(),
-		grpc.WithChainUnaryInterceptor(clientRecovery(), clientErrorx()),
+		grpc.WithChainUnaryInterceptor(grpcx.ClientRecovery(), grpcx.ClientErrorx()),
 	)
 	if err != nil {
 		return nil, errors.Wrap(err, "DialWithMode failed")
 	}
 
 	return cc, nil
-}
-
-func clientRecovery() grpc.UnaryClientInterceptor {
-	return func(ctx context.Context, method string, req, reply interface{},
-		cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) (err error) {
-
-		panicked := true
-		defer func() {
-			if v := recover(); v != nil || panicked {
-				formatted := fmt.Sprintf("client panic: %v %v", req, v)
-				log.Errorf(formatted)
-				fmt.Println(runtime.Stack())
-				err = runtime.RecoverFrom(v)
-			}
-		}()
-
-		err = invoker(ctx, method, req, reply, cc, opts...)
-		panicked = false
-
-		return
-	}
-}
-
-func clientErrorx() grpc.UnaryClientInterceptor {
-	return func(ctx context.Context, method string, req, reply interface{},
-		cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
-
-		err := invoker(ctx, method, req, reply, cc, opts...)
-		if err == nil {
-			return nil
-		}
-
-		// from status to errorx
-		err = errorx.FromStatus(err)
-		return err
-	}
 }

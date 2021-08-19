@@ -5,8 +5,6 @@ import (
 	"time"
 
 	"github.com/yeqown/log"
-
-	pb "github.com/yeqown/cassem/internal/cassemdb/api/gen"
 )
 
 type distributedLock struct {
@@ -21,7 +19,7 @@ func newLock(key string, ttl int) distributedLock {
 	}
 }
 
-func (l distributedLock) Acquire(kv pb.KVClient) (err error) {
+func (l distributedLock) Acquire(kv KVClient) (err error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -32,7 +30,7 @@ func (l distributedLock) Acquire(kv pb.KVClient) (err error) {
 		l.ttl = 2 * 24 * 3600
 	}
 
-	if _, err = kv.SetKV(ctx, &pb.SetKVReq{
+	if _, err = kv.SetKV(ctx, &SetKVReq{
 		Key:       l.key,
 		IsDir:     false,
 		Ttl:       0,
@@ -45,10 +43,10 @@ func (l distributedLock) Acquire(kv pb.KVClient) (err error) {
 	return
 }
 
-func (l distributedLock) Release(kv pb.KVClient) error {
+func (l distributedLock) Release(kv KVClient) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	_, err := kv.UnsetKV(ctx, &pb.UnsetKVReq{
+	_, err := kv.UnsetKV(ctx, &UnsetKVReq{
 		Key:   l.key,
 		IsDir: false,
 	})
@@ -61,7 +59,7 @@ func (l distributedLock) Release(kv pb.KVClient) error {
 	return err
 }
 
-func WithLock(kv pb.KVClient, lockKey string, ttl int, f func()) {
+func WithLock(kv KVClient, lockKey string, ttl int, f func()) {
 	lock := newLock(lockKey, ttl)
 	if err := lock.Acquire(kv); err != nil {
 		panic(err)

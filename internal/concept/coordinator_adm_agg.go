@@ -2,7 +2,6 @@ package concept
 
 import (
 	apicassemdb "github.com/yeqown/cassem/internal/cassemdb/api"
-	pbcassemdb "github.com/yeqown/cassem/internal/cassemdb/api/gen"
 )
 
 type admAggregate struct {
@@ -17,7 +16,7 @@ func NewAdmAggregate(endpoints []string) (AdmAggregate, error) {
 		return nil, err
 	}
 
-	c := pbcassemdb.NewKVClient(cc)
+	c := apicassemdb.NewKVClient(cc)
 	return admAggregate{
 		kvReadOnly:     kvReadOnly{cassemdb: c},
 		kvWriteOnly:    kvWriteOnly{cassemdb: c},

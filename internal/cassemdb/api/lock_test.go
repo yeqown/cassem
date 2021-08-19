@@ -6,15 +6,13 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
-
-	pb "github.com/yeqown/cassem/internal/cassemdb/api/gen"
 )
 
 func Test_lock(t *testing.T) {
 	conn, err := DialWithMode([]string{"127.0.0.1:2021", "127.0.0.1:2022", "127.0.0.1:2023"}, Mode_X)
 	assert.NoError(t, err)
 
-	kv := pb.NewKVClient(conn)
+	kv := NewKVClient(conn)
 	wg := sync.WaitGroup{}
 
 	go func() {

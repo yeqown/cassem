@@ -6,8 +6,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	pb "github.com/yeqown/cassem/internal/cassemdb/api/gen"
 )
 
 func TestDialCassemDB(t *testing.T) {
@@ -15,10 +13,10 @@ func TestDialCassemDB(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotNil(t, conn)
 
-	c := pb.NewKVClient(conn)
+	c := NewKVClient(conn)
 
 	for i := 1; i <= 100; i++ {
-		_, err = c.GetKV(context.Background(), &pb.GetKVReq{
+		_, err = c.GetKV(context.Background(), &GetKVReq{
 			//Key: "bench/" + strconv.Itoa(i),
 			Key: "a/b",
 		})

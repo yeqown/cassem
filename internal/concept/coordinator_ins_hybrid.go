@@ -8,7 +8,6 @@ import (
 	"github.com/yeqown/log"
 
 	apicassemdb "github.com/yeqown/cassem/internal/cassemdb/api"
-	pbcassemdb "github.com/yeqown/cassem/internal/cassemdb/api/gen"
 	"github.com/yeqown/cassem/pkg/errorx"
 	"github.com/yeqown/cassem/pkg/runtime"
 )
@@ -18,7 +17,7 @@ var (
 )
 
 type instanceHybrid struct {
-	cassemdb pbcassemdb.KVClient
+	cassemdb apicassemdb.KVClient
 }
 
 func NewInstanceHybrid(endpoints []string) (InstanceHybrid, error) {
@@ -28,7 +27,7 @@ func NewInstanceHybrid(endpoints []string) (InstanceHybrid, error) {
 	}
 
 	return instanceHybrid{
-		cassemdb: pbcassemdb.NewKVClient(cc),
+		cassemdb: apicassemdb.NewKVClient(cc),
 	}, nil
 }
 
@@ -43,7 +42,7 @@ func (i instanceHybrid) GetElementInstances(ctx context.Context, app, env, key s
 		}).
 		Debug("instanceHybrid.GetElementInstances")
 
-	r, err := i.cassemdb.Range(ctx, &pbcassemdb.RangeReq{
+	r, err := i.cassemdb.Range(ctx, &apicassemdb.RangeReq{
 		Key:   k,
 		Seek:  "",
 		Limit: 100, // TODO(@yeqown): allow limit variable
@@ -59,7 +58,7 @@ func (i instanceHybrid) GetElementInstances(ctx context.Context, app, env, key s
 	}
 
 	// get all instance detail information.
-	r2, err2 := i.cassemdb.GetKVs(ctx, &pbcassemdb.GetKVsReq{
+	r2, err2 := i.cassemdb.GetKVs(ctx, &apicassemdb.GetKVsReq{
 		Keys: insIds,
 	})
 	if err2 != nil {
@@ -77,7 +76,7 @@ func (i instanceHybrid) GetElementInstances(ctx context.Context, app, env, key s
 
 func (i instanceHybrid) GetInstance(ctx context.Context, insId string) (*Instance, error) {
 	k := genInstanceNormalKey(insId)
-	r, err := i.cassemdb.GetKV(ctx, &pbcassemdb.GetKVReq{
+	r, err := i.cassemdb.GetKV(ctx, &apicassemdb.GetKVReq{
 		Key: k,
 	})
 	if err != nil {
@@ -95,7 +94,7 @@ func (i instanceHybrid) RegisterInstance(ctx context.Context, ins *Instance) (er
 	insId := ins.Id()
 	k := genInstanceNormalKey(insId)
 
-	r, err := i.cassemdb.GetKV(ctx, &pbcassemdb.GetKVReq{
+	r, err := i.cassemdb.GetKV(ctx, &apicassemdb.GetKVReq{
 		Key: k,
 	})
 	if err != nil && !errors.Is(err, errorx.Err_NOT_FOUND) {
@@ -130,7 +129,7 @@ func (i instanceHybrid) setInstanceInfo(ctx context.Context, ins *Instance) (err
 		Debug("instanceHybrid.UnregisterInstance")
 
 	bytes, _ := MarshalProto(ins)
-	_, err = i.cassemdb.SetKV(ctx, &pbcassemdb.SetKVReq{
+	_, err = i.cassemdb.SetKV(ctx, &apicassemdb.SetKVReq{
 		Key:       k,
 		IsDir:     false,
 		Ttl:       120,
@@ -144,7 +143,7 @@ func (i instanceHybrid) setInstanceInfo(ctx context.Context, ins *Instance) (err
 	// save reversed kv
 	for _, key := range ins.WatchKeys {
 		k2 := genInstanceReversedKeyWithInsid(ins.App, ins.Env, key, insId)
-		_, err = i.cassemdb.SetKV(ctx, &pbcassemdb.SetKVReq{
+		_, err = i.cassemdb.SetKV(ctx, &apicassemdb.SetKVReq{
 			Key:       k2,
 			IsDir:     false,
 			Ttl:       120,
@@ -168,7 +167,7 @@ func (i instanceHybrid) RenewInstance(ctx context.Context, ins *Instance) error 
 	// check duplicate instance
 	//insId := ins.Id()
 	//k := genInstanceNormalKey(insId)
-	//r, _ := i.cassemdb.GetKV(ctx, &pbcassemdb.GetKVReq{
+	//r, _ := i.cassemdb.GetKV(ctx, &apicassemdb.GetKVReq{
 	//	Key: k,
 	//})
 	//if r.GetEntity() != nil {
@@ -190,7 +189,7 @@ func (i instanceHybrid) UnregisterInstance(ctx context.Context, insId string) er
 		Debug("instanceHybrid.UnregisterInstance")
 
 	// try to get instance detail
-	r, err := i.cassemdb.GetKV(ctx, &pbcassemdb.GetKVReq{
+	r, err := i.cassemdb.GetKV(ctx, &apicassemdb.GetKVReq{
 		Key: k,
 	})
 	if err != nil {
@@ -207,7 +206,7 @@ func (i instanceHybrid) UnregisterInstance(ctx context.Context, insId string) er
 	}
 
 	// unset normalized kv
-	_, err = i.cassemdb.UnsetKV(ctx, &pbcassemdb.UnsetKVReq{
+	_, err = i.cassemdb.UnsetKV(ctx, &apicassemdb.UnsetKVReq{
 		Key:   k,
 		IsDir: false,
 	})
@@ -215,7 +214,7 @@ func (i instanceHybrid) UnregisterInstance(ctx context.Context, insId string) er
 	// unset reversed kv
 	for _, key := range ins.WatchKeys {
 		k2 := genInstanceReversedKeyWithInsid(ins.App, ins.Env, key, insId)
-		_, err = i.cassemdb.UnsetKV(ctx, &pbcassemdb.UnsetKVReq{
+		_, err = i.cassemdb.UnsetKV(ctx, &apicassemdb.UnsetKVReq{
 			Key: k2,
 		})
 		if err != nil {

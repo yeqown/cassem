@@ -7,12 +7,11 @@ import (
 	"github.com/yeqown/log"
 
 	apicassemdb "github.com/yeqown/cassem/internal/cassemdb/api"
-	pbcassemdb "github.com/yeqown/cassem/internal/cassemdb/api/gen"
 )
 
 // kvReadOnly manages all read operation from cassemdb, it is allowed to read only.
 type kvReadOnly struct {
-	cassemdb pbcassemdb.KVClient
+	cassemdb apicassemdb.KVClient
 }
 
 // NewKVReader with endpoints these endpoints of cassemdb.
@@ -23,7 +22,7 @@ func NewKVReader(endpoints []string) (KVReadOnly, error) {
 	}
 
 	return kvReadOnly{
-		cassemdb: pbcassemdb.NewKVClient(cc),
+		cassemdb: apicassemdb.NewKVClient(cc),
 	}, nil
 }
 
@@ -31,7 +30,7 @@ func (_r kvReadOnly) GetElementWithVersion(
 	ctx context.Context, app, env, key string, version int) (*Element, error) {
 	// get metadata
 	k := genElementKey(app, env, key)
-	r1, err := _r.cassemdb.GetKV(ctx, &pbcassemdb.GetKVReq{Key: withMetadataSuffix(k)})
+	r1, err := _r.cassemdb.GetKV(ctx, &apicassemdb.GetKVReq{Key: withMetadataSuffix(k)})
 	if err != nil {
 		return nil, err
 	}
@@ -45,7 +44,7 @@ func (_r kvReadOnly) GetElementWithVersion(
 		version = int(md.LatestVersion)
 	}
 	// get element with specified version
-	r2, err2 := _r.cassemdb.GetKV(ctx, &pbcassemdb.GetKVReq{Key: withVersion(k, version)})
+	r2, err2 := _r.cassemdb.GetKV(ctx, &apicassemdb.GetKVReq{Key: withVersion(k, version)})
 	if err2 != nil {
 		return nil, err
 	}
@@ -72,7 +71,7 @@ func (_r kvReadOnly) GetElements(
 			"k":     k,
 		}).
 		Debug("kvReadOnly.GetElements enter")
-	r, err := _r.cassemdb.Range(ctx, &pbcassemdb.RangeReq{
+	r, err := _r.cassemdb.Range(ctx, &apicassemdb.RangeReq{
 		Key:   k,
 		Seek:  seek,
 		Limit: int32(limit),
@@ -113,7 +112,7 @@ func (_r kvReadOnly) getElementsByKeys(ctx context.Context, app, env string, key
 		k := genElementKey(app, env, key)
 		mdKeys = append(mdKeys, withMetadataSuffix(k))
 	}
-	r, err := _r.cassemdb.GetKVs(ctx, &pbcassemdb.GetKVsReq{
+	r, err := _r.cassemdb.GetKVs(ctx, &apicassemdb.GetKVsReq{
 		Keys: mdKeys,
 	})
 	if err != nil {
@@ -133,7 +132,7 @@ func (_r kvReadOnly) getElementsByKeys(ctx context.Context, app, env string, key
 		eleVersionKeys = append(eleVersionKeys, withVersion(k, int(md.LatestVersion)))
 	}
 
-	r2, err2 := _r.cassemdb.GetKVs(ctx, &pbcassemdb.GetKVsReq{
+	r2, err2 := _r.cassemdb.GetKVs(ctx, &apicassemdb.GetKVsReq{
 		Keys: eleVersionKeys,
 	})
 	if err2 != nil {
@@ -165,7 +164,7 @@ func (_r kvReadOnly) GetElementOperations(
 
 func (_r kvReadOnly) GetApp(ctx context.Context, app string) (*AppMetadata, error) {
 	k := genAppKey(app)
-	r, err := _r.cassemdb.GetKV(ctx, &pbcassemdb.GetKVReq{
+	r, err := _r.cassemdb.GetKV(ctx, &apicassemdb.GetKVReq{
 		Key: k,
 	})
 	if err != nil {
@@ -178,7 +177,7 @@ func (_r kvReadOnly) GetApp(ctx context.Context, app string) (*AppMetadata, erro
 }
 
 func (_r kvReadOnly) GetApps(ctx context.Context, seek string, limit int) (*getAppsResult, error) {
-	r, err := _r.cassemdb.Range(ctx, &pbcassemdb.RangeReq{
+	r, err := _r.cassemdb.Range(ctx, &apicassemdb.RangeReq{
 		Key:   _APP_PREFIX,
 		Seek:  seek,
 		Limit: int32(limit),
@@ -206,7 +205,7 @@ func (_r kvReadOnly) GetApps(ctx context.Context, seek string, limit int) (*getA
 
 func (_r kvReadOnly) GetEnvironments(ctx context.Context, app, seek string, limit int) (*getAppEnvsResult, error) {
 	k := genAppElementKey(app)
-	r, err := _r.cassemdb.Range(ctx, &pbcassemdb.RangeReq{
+	r, err := _r.cassemdb.Range(ctx, &apicassemdb.RangeReq{
 		Key:   k,
 		Seek:  seek,
 		Limit: int32(limit),
