@@ -11,8 +11,9 @@ const (
 	// _INS_PREFIX will be divided into two part, one is forward storage, another is reversed index.
 	// 1. root/instances/normalized/instance-id => instance in detail
 	// 2. root/instances/reversed/app-env-key => instances{instance-id}
-	_INS_PREFIX   = "root/instances"
-	_AGENT_PREFIX = "root/agents"
+	_INS_PREFIX     = "root/instances"
+	_AGENT_PREFIX   = "root/agents"
+	_VERSION_PREFIX = "v"
 
 	// utility constants, helps key to be more expressive.
 	_SEP             = "/"
@@ -45,7 +46,7 @@ func withVersion(key string, version int) string {
 	if version < 1 {
 		panic("invalid version: " + strconv.Itoa(version))
 	}
-	return key + "/v" + strconv.Itoa(version)
+	return key + "/" + _VERSION_PREFIX + strconv.Itoa(version)
 }
 
 func withMetadataSuffix(key string) string {

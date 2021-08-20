@@ -48,8 +48,28 @@ type getAppEnvElementReq struct {
 	Version uint `form:"version"`
 }
 
+type getAppEnvElementVersionsReq struct {
+	commonAppEnvEltRequest
+	commonPagingRequest
+
+	Versions []uint `form:"version"`
+}
+
 type deleteAppEnvElementsReq struct {
 	commonAppEnvEltRequest
+}
+
+type diffAppEnvElementsReq struct {
+	commonAppEnvEltRequest
+
+	Base    uint `form:"base"`
+	Compare uint `form:"compare"`
+}
+
+type diffAppEnvElementsResp struct {
+	Base    *concept.Element
+	Compare *concept.Element
+	Diff    string
 }
 
 type pagingAppsReq struct {

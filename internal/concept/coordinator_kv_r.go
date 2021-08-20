@@ -57,6 +57,52 @@ func (_r kvReadOnly) GetElementWithVersion(
 	return elt, nil
 }
 
+func (_r kvReadOnly) GetElementVersions(
+	ctx context.Context, app, env, key string, seek string, limit int) (*getElementsResult, error) {
+	k := genElementKey(app, env, key)
+	log.
+		WithFields(log.Fields{
+			"app":   app,
+			"env":   env,
+			"seek":  seek,
+			"limit": limit,
+			"k":     k,
+		}).
+		Debug("kvReadOnly.GetElementVersions enter")
+
+	r, err := _r.cassemdb.GetKVs(ctx, &apicassemdb.GetKVsReq{
+		Keys: []string{withMetadataSuffix(k)},
+	})
+	if err != nil {
+		return nil, errors.Wrap(err, "kvReadOnly.GetElementVersions")
+	}
+
+	if len(seek) == 0 {
+		// default seek to skip metadata
+		seek = _VERSION_PREFIX
+	}
+
+	r2, err := _r.cassemdb.Range(ctx, &apicassemdb.RangeReq{
+		Key:   k,
+		Seek:  seek,
+		Limit: int32(limit),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	_, _, mdMapping := convertFromEntitiesToMetadata(r.GetEntities())
+	result := &getElementsResult{
+		commonPager: commonPager{
+			HasMore:  r2.GetHasMore(),
+			NextSeek: r2.GetNextSeekKey(),
+		},
+		Elements: convertFromEntitiesToElements(r2.GetEntities(), mdMapping),
+	}
+
+	return result, err
+}
+
 // GetElements paging elements under app and env bucket.
 func (_r kvReadOnly) GetElements(
 	ctx context.Context, app, env string, seek string, limit int) (*getElementsResult, error) {
@@ -106,6 +152,8 @@ func (_r kvReadOnly) GetElementsByKeys(
 	return
 }
 
+// getElementsByKeys get elements by keys.
+// keys contain all key to element.
 func (_r kvReadOnly) getElementsByKeys(ctx context.Context, app, env string, keys []string) ([]*Element, error) {
 	mdKeys := make([]string, 0, len(keys))
 	for _, key := range keys {
@@ -119,19 +167,21 @@ func (_r kvReadOnly) getElementsByKeys(ctx context.Context, app, env string, key
 		return nil, errors.Wrap(err, "kvReadOnly.getElementsByKeys")
 	}
 
-	eleVersionKeys := make([]string, 0, len(keys))
-	metadataMapping := make(map[string]*ElementMetadata, len(keys))
-	for _, entity := range r.GetEntities() {
-		k := trimMetadata(entity.GetKey())
-		md := new(ElementMetadata)
-		if err = UnmarshalProto(entity.GetVal(), md); err != nil {
-			continue
-		}
-		md.Key = extractPureKey(k)
-		metadataMapping[k] = md
-		eleVersionKeys = append(eleVersionKeys, withVersion(k, int(md.LatestVersion)))
-	}
+	//eleVersionKeys := make([]string, 0, len(keys))
+	//metadataMapping := make(map[string]*ElementMetadata, len(keys))
+	//for _, entity := range r.GetEntities() {
+	//	k := trimMetadata(entity.GetKey())
+	//	md := new(ElementMetadata)
+	//	if err = UnmarshalProto(entity.GetVal(), md); err != nil {
+	//		continue
+	//	}
+	//	md.Key = extractPureKey(k)
+	//	metadataMapping[k] = md
+	//	eleVersionKeys = append(eleVersionKeys, withVersion(k, int(md.LatestVersion)))
+	//}
 
+	// DONE(@yeqown): replace this part of code with convertFromEntitiesToMetadata
+	eleVersionKeys, _, metadataMapping := convertFromEntitiesToMetadata(r.GetEntities())
 	r2, err2 := _r.cassemdb.GetKVs(ctx, &apicassemdb.GetKVsReq{
 		Keys: eleVersionKeys,
 	})
@@ -139,26 +189,14 @@ func (_r kvReadOnly) getElementsByKeys(ctx context.Context, app, env string, key
 		return nil, errors.Wrap(err, "kvReadOnly.getElementsByKeys")
 	}
 
-	out := make([]*Element, 0, len(keys))
-	for _, entity := range r2.GetEntities() {
-		elt := &Element{
-			Metadata: new(ElementMetadata),
-			Version:  0,
-			Raw:      nil,
-		}
-		if err = UnmarshalProto(entity.GetVal(), elt); err != nil {
-			continue
-		}
-		k := trimVersion(entity.GetKey())
-		elt.Metadata = metadataMapping[k]
-		out = append(out, elt)
-	}
+	out := convertFromEntitiesToElements(r2.GetEntities(), metadataMapping)
 
 	return out, nil
 }
 
 func (_r kvReadOnly) GetElementOperations(
 	ctx context.Context, app, env, eltKey string, start int) (ops []*ElementOperation, next int, err error) {
+	// TODO(@yeqown): implement this
 	panic("implement me")
 }
 

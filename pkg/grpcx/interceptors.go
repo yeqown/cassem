@@ -71,9 +71,7 @@ func ServerLogger() grpc.UnaryServerInterceptor {
 			WithFields(fields).
 			Infof("one request coming")
 
-		resp, err = handler(ctx, req)
-
-		if err != nil {
+		if resp, err = handler(ctx, req); err != nil {
 			fields["error"] = err
 			log.
 				WithFields(fields).
@@ -81,6 +79,9 @@ func ServerLogger() grpc.UnaryServerInterceptor {
 			return
 		}
 
+		if runtime.IsDebug() {
+			fields["response"] = resp
+		}
 		log.
 			WithFields(fields).
 			Infof("request successful")

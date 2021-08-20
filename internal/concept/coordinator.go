@@ -16,6 +16,7 @@ type AgentAggregate interface {
 
 type KVReadOnly interface {
 	GetElementWithVersion(ctx context.Context, app, env, key string, version int) (*Element, error)
+	GetElementVersions(ctx context.Context, app, env, key string, seek string, limit int) (*getElementsResult, error)
 	GetElements(ctx context.Context, app, env string, seek string, limit int) (*getElementsResult, error)
 	GetElementsByKeys(ctx context.Context, app, env string, keys []string) (*getElementsResult, error)
 	GetElementOperations(

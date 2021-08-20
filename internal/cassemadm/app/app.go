@@ -84,7 +84,9 @@ func (d app) initialHTTP(engi *gin.Engine) {
 				elt.GET("/:key", d.GetAppEnvElement)
 				elt.GET("/:key/versions", d.GetAppEnvElementAllVersions)
 				elt.POST("/:key", d.CreateAppEnvElement)
+				elt.PUT("/:key", d.UpdateAppEnvElement)
 				elt.DELETE("/:key", d.DeleteAppEnvElement)
+				elt.GET("/:key/diff", d.DiffAppEnvElement)
 			}
 		}
 	}

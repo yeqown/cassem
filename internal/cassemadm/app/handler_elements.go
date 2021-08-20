@@ -2,8 +2,10 @@ package app
 
 import (
 	"github.com/gin-gonic/gin"
+	dmp "github.com/sergi/go-diff/diffmatchpatch"
 
 	"github.com/yeqown/cassem/pkg/httpx"
+	"github.com/yeqown/cassem/pkg/runtime"
 )
 
 func (d app) GetAppEnvElements(c *gin.Context) {
@@ -53,7 +55,7 @@ func (d app) GetAppEnvElement(c *gin.Context) {
 }
 
 func (d app) GetAppEnvElementAllVersions(c *gin.Context) {
-	req := new(getAppEnvElementReq)
+	req := new(getAppEnvElementVersionsReq)
 
 	_ = c.ShouldBindUri(req)
 	if err := c.ShouldBind(req); err != nil {
@@ -61,9 +63,10 @@ func (d app) GetAppEnvElementAllVersions(c *gin.Context) {
 		return
 	}
 
-	// TODO(@yeqown): get all versions to element
-	element, err := d.aggregate.GetElementWithVersion(
-		c.Request.Context(), req.AppId, req.Env, req.ElementKey, int(req.Version))
+	// TODO(@yeqown): get specified versions of element, if there's not version specified
+	// get all version.
+	element, err := d.aggregate.GetElementVersions(
+		c.Request.Context(), req.AppId, req.Env, req.ElementKey, req.Seek, req.Limit)
 	if err != nil {
 		httpx.ResponseError(c, err)
 		return
@@ -123,5 +126,41 @@ func (d app) DeleteAppEnvElement(c *gin.Context) {
 	}
 
 	httpx.ResponseJSON(c, nil)
+}
 
+// DiffAppEnvElement diff between element's versions
+func (d app) DiffAppEnvElement(c *gin.Context) {
+	req := new(diffAppEnvElementsReq)
+	_ = c.ShouldBindUri(req)
+	if err := c.ShouldBind(req); err != nil {
+		httpx.ResponseError(c, err)
+		return
+	}
+
+	base, err := d.aggregate.
+		GetElementWithVersion(c.Request.Context(), req.AppId, req.Env, req.ElementKey, int(req.Base))
+	if err != nil {
+		httpx.ResponseError(c, err)
+		return
+	}
+	compare, err := d.aggregate.
+		GetElementWithVersion(c.Request.Context(), req.AppId, req.Env, req.ElementKey, int(req.Compare))
+	if err != nil {
+		httpx.ResponseError(c, err)
+		return
+	}
+
+	pretty := diff(base.GetRaw(), compare.GetRaw())
+	httpx.ResponseJSON(c, diffAppEnvElementsResp{
+		Base:    base,
+		Compare: compare,
+		Diff:    pretty,
+	})
+}
+
+func diff(src1, src2 []byte) string {
+	// TODO(@yeqown): object pool for dmp if needed.
+	_dmp := dmp.New()
+	diffs := _dmp.DiffMain(runtime.ToString(src1), runtime.ToString(src2), false)
+	return _dmp.DiffPrettyText(diffs)
 }
