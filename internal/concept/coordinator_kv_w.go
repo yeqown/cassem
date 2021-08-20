@@ -50,7 +50,7 @@ func (_h kvWriteOnly) CreateElement(ctx context.Context,
 		Key:       mdKey,
 		Val:       bytes,
 		IsDir:     false,
-		Overwrite: true,
+		Overwrite: false,
 		Ttl:       0,
 	}); err != nil {
 		return err

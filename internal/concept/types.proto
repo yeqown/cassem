@@ -21,15 +21,15 @@ message ElementMetadata {
   string      key                = 1;
   string      app                = 2;
   string      env                = 3;
-  int32       latest_version     = 4;
-  string      latest_fingerprint = 5;
-  ContentType content_type       = 6;
+  int32       latestVersion      = 4;
+  string      latestFingerprint  = 5;
+  ContentType contentType        = 6;
 }
 
 message AppMetadata {
   string id          = 1;
   string description = 2;
-  int64  created_at  = 3;
+  int64  createdAt   = 3;
   string creator     = 4;
   string owner       = 5;
 }
@@ -42,22 +42,22 @@ enum Operation {
 }
 
 message ElementOperation {
-  string    operator        = 1;
-  int64     operated_at     = 2;
-  string    operated_key    = 3;
-  Operation op              = 4;
-  int32     last_version    = 5;
-  int32     current_version = 6;
-  string    remark          = 7;
+  string    operator       = 1;
+  int64     operatedAt     = 2;
+  string    operatedKey    = 3;
+  Operation op             = 4;
+  int32     lastVersion    = 5;
+  int32     currentVersion = 6;
+  string    remark         = 7;
 }
 
 message Instance {
-  string          client_id            = 1;
-  string          agent_id             = 2;
-  string          client_ip            = 3;
-  string          app                  = 4;
-  string          env                  = 5;
-  repeated string watch_keys           = 6;
-  int64           last_renew_timestamp = 7;
+  string          clientId           = 1;
+  string          agentId            = 2;
+  string          clientIp           = 3;
+  string          app                = 4;
+  string          env                = 5;
+  repeated string watchKeys          = 6;
+  int64           lastRenewTimestamp = 7;
 }
 

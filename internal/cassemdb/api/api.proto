@@ -15,8 +15,8 @@ message Entity {
   string     fingerprint = 1;
   string     key         = 2;
   bytes      val         = 3;
-  int64      created_at  = 4;
-  int64      updated_at  = 5;
+  int64      createdAt   = 4;
+  int64      updatedAt   = 5;
   int32      ttl         = 6;
   EntityType typ         = 7;
 };
@@ -54,17 +54,17 @@ message getKVsResp {
 
 
 message setKVReq {
-  string key       = 1 [(validate.rules).string = {min_len: 2, contains: "/"}];
-  bool   is_dir    = 2;
-  uint32 ttl       = 3; // ttl is Time to Live (n seconds)
+  string key      = 1 [(validate.rules).string = {min_len: 2, contains: "/"}];
+  bool   isDir    = 2;
+  uint32 ttl      = 3; // ttl is Time to Live (n seconds)
   // val's size in [1, 256K] Byte
   bytes  val       = 4 [(validate.rules).bytes = {min_len: 1, max_len: 262144}];
   bool   overwrite = 5;
 };
 
 message unsetKVReq {
-  string key    = 1 [(validate.rules).string = {min_len: 2}];
-  bool   is_dir = 2;
+  string key   = 1 [(validate.rules).string = {min_len: 2}];
+  bool   isDir = 2;
 };
 
 message watchReq {
@@ -85,14 +85,14 @@ message expireReq {
 
 message rangeReq {
   string key   = 1 [(validate.rules).string = {min_len: 2}];
-  string seek  = 2 [(validate.rules).string = {min_len: 1}];
+  string seek  = 2 [(validate.rules).string = {min_len: 1, ignore_empty: true}];
   int32  limit = 3 [(validate.rules).int32  = {gte: 1, lte: 100}];
 };
 
 message rangeResp {
-  repeated Entity entities      = 1;
-  bool            has_more      = 2;
-  string          next_seek_key = 3;
+  repeated Entity entities    = 1;
+  bool            hasMore     = 2;
+  string          nextSeekKey = 3;
 }
 
 service KV {

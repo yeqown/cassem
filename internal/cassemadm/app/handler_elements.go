@@ -1,6 +1,8 @@
 package app
 
 import (
+	"fmt"
+
 	"github.com/gin-gonic/gin"
 	dmp "github.com/sergi/go-diff/diffmatchpatch"
 
@@ -84,7 +86,7 @@ func (d app) CreateAppEnvElement(c *gin.Context) {
 	}
 
 	err := d.aggregate.CreateElement(c.Request.Context(),
-		req.AppId, req.Env, req.ElementKey, req.Raw, req.ContentType)
+		req.AppId, req.Env, req.ElementKey, runtime.ToBytes(req.Raw), req.ContentType)
 	if err != nil {
 		httpx.ResponseError(c, err)
 		return
@@ -102,7 +104,7 @@ func (d app) UpdateAppEnvElement(c *gin.Context) {
 	}
 
 	err := d.aggregate.UpdateElement(c.Request.Context(),
-		req.AppId, req.Env, req.ElementKey, req.Raw)
+		req.AppId, req.Env, req.ElementKey, runtime.ToBytes(req.Raw))
 	if err != nil {
 		httpx.ResponseError(c, err)
 		return
@@ -150,7 +152,8 @@ func (d app) DiffAppEnvElement(c *gin.Context) {
 		return
 	}
 
-	pretty := diff(base.GetRaw(), compare.GetRaw())
+	pretty := diff(runtime.ToString(base.GetRaw()), runtime.ToString(compare.GetRaw()))
+	fmt.Println(pretty)
 	httpx.ResponseJSON(c, diffAppEnvElementsResp{
 		Base:    base,
 		Compare: compare,
@@ -158,9 +161,12 @@ func (d app) DiffAppEnvElement(c *gin.Context) {
 	})
 }
 
-func diff(src1, src2 []byte) string {
+func diff(src1, src2 string) string {
 	// TODO(@yeqown): object pool for dmp if needed.
 	_dmp := dmp.New()
-	diffs := _dmp.DiffMain(runtime.ToString(src1), runtime.ToString(src2), false)
-	return _dmp.DiffPrettyText(diffs)
+	diffs := _dmp.DiffMain(src1, src2, false)
+
+	// TODO(@yeqown): may customize pretty text string, render in HTML or others format.
+	//_dmp.DiffPrettyText()
+	return _dmp.DiffText1(diffs)
 }

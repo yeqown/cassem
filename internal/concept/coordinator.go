@@ -50,8 +50,8 @@ type InstanceHybrid interface {
 }
 
 type commonPager struct {
-	HasMore  bool   `json:"has_more"`
-	NextSeek string `json:"next_seek"`
+	HasMore  bool   `json:"hasMore"`
+	NextSeek string `json:"nextSeek"`
 }
 
 type getAppsResult struct {

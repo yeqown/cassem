@@ -1087,11 +1087,15 @@ func (m *RangeReq) Validate() error {
 		}
 	}
 
-	if utf8.RuneCountInString(m.GetSeek()) < 1 {
-		return RangeReqValidationError{
-			field:  "Seek",
-			reason: "value length must be at least 1 runes",
+	if m.GetSeek() != "" {
+
+		if utf8.RuneCountInString(m.GetSeek()) < 1 {
+			return RangeReqValidationError{
+				field:  "Seek",
+				reason: "value length must be at least 1 runes",
+			}
 		}
+
 	}
 
 	if val := m.GetLimit(); val < 1 || val > 100 {

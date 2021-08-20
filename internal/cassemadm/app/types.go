@@ -1,8 +1,6 @@
 package app
 
 import (
-	"encoding/json"
-
 	"github.com/yeqown/cassem/internal/concept"
 )
 
@@ -32,14 +30,14 @@ type getAppEnvElementsReq struct {
 type createAppEnvElementReq struct {
 	commonAppEnvEltRequest
 
-	Raw         json.RawMessage     `json:"raw" binding:"required"`
-	ContentType concept.ContentType `json:"content_type" binding:"required,oneof=1 2 3 4"`
+	Raw         string              `json:"raw" binding:"required"`
+	ContentType concept.ContentType `json:"contentType" binding:"required,oneof=1 2 3 4"`
 }
 
 type updateAppEnvElementReq struct {
 	commonAppEnvEltRequest
 
-	Raw json.RawMessage `json:"raw" binding:"required"`
+	Raw string `json:"raw" binding:"required"`
 }
 
 type getAppEnvElementReq struct {
@@ -67,9 +65,9 @@ type diffAppEnvElementsReq struct {
 }
 
 type diffAppEnvElementsResp struct {
-	Base    *concept.Element
-	Compare *concept.Element
-	Diff    string
+	Base    *concept.Element `json:"base"`
+	Compare *concept.Element `json:"compare"`
+	Diff    string           `json:"diff"`
 }
 
 type pagingAppsReq struct {

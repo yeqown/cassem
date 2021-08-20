@@ -23,6 +23,7 @@ cassemdb.kill:
 	@ if [ -f "cassemdb.pids" ]; then \
 		cat cassemdb.pids | xargs kill -9;\
 	fi
+	- rm cassemdb.pids
 	#
 	# If cassemdb process is not killed as expected, you can try following command:
 	#
