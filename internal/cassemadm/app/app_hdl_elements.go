@@ -5,7 +5,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 	dmp "github.com/sergi/go-diff/diffmatchpatch"
+	"github.com/yeqown/log"
 
+	"github.com/yeqown/cassem/internal/concept"
 	"github.com/yeqown/cassem/pkg/httpx"
 	"github.com/yeqown/cassem/pkg/runtime"
 )
@@ -197,10 +199,41 @@ func (d app) PublishAppEnvElement(c *gin.Context) {
 		return
 	}
 
-	err := d.aggregate.
+	// DONE(@yeqown): trigger dispatch to agents.
+	elem, err := d.aggregate.
 		PublishElementVersion(
-			c.Request.Context(), req.AppId, req.Env, req.ElementKey, req.Publish, req.InstanceIds, req.PublishMode)
+			c.Request.Context(), req.AppId, req.Env, req.ElementKey, req.Publish)
 	if err != nil {
+		httpx.ResponseError(c, err)
+		return
+	}
+
+	if elem == nil {
+		// if no element needs to notify, just return.
+		httpx.ResponseJSON(c, nil)
+		return
+	}
+
+	// call d.agents (agentPool) to notify agents by PublishMode and instancesIds.
+	switch req.PublishMode {
+	case concept.PublishMode_FULL:
+		err = d.agents.notifyAll(elem)
+	case concept.PublishMode_GRAY:
+		// gray mode with agentIds
+		fallthrough
+	default:
+		// no specific mode, but agentIds is not empty.
+		if len(req.InstanceIds) != 0 {
+			err = d.agents.notifyAgent(elem, req.InstanceIds...)
+		}
+	}
+	if err != nil {
+		log.
+			WithFields(log.Fields{
+				"req":   req,
+				"error": err,
+			}).
+			Error("cassemadm.app.PublishElementVersion failed to dispatch to agents")
 		httpx.ResponseError(c, err)
 		return
 	}

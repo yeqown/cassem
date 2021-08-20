@@ -7,6 +7,7 @@ import (
 type agentAggregate struct {
 	kvReadOnly
 	instanceHybrid
+	agentInsHybrid
 }
 
 func NewAgentAggregate(endpoints []string) (AgentAggregate, error) {
@@ -19,5 +20,6 @@ func NewAgentAggregate(endpoints []string) (AgentAggregate, error) {
 	return agentAggregate{
 		kvReadOnly:     kvReadOnly{cassemdb: c},
 		instanceHybrid: instanceHybrid{cassemdb: c},
+		agentInsHybrid: agentInsHybrid{cassemdb: c},
 	}, nil
 }

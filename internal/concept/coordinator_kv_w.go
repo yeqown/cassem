@@ -138,14 +138,13 @@ func (_h kvWriteOnly) RollbackElementVersion(ctx context.Context, app string, en
 	return _h.saveRaw(ctx, withMetadataSuffix(k), md, 0, true)
 }
 
-// PublishElementVersion
-// TODO(@yeqown): publish to specific instanceIds or all instances watching the element key.
+// PublishElementVersion publish element version.
 func (_h kvWriteOnly) PublishElementVersion(ctx context.Context, app string, env string, key string,
-	publishVersion uint32, instanceIds []string, mode PublishingMode) error {
+	publishVersion uint32) (*Element, error) {
 	k := genElementKey(app, env, key)
 	md, err := _h.getElementMetadata(ctx, k)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if publishVersion == 0 && md.UnpublishedVersion != 0 {
@@ -154,13 +153,13 @@ func (_h kvWriteOnly) PublishElementVersion(ctx context.Context, app string, env
 
 	// There is no available version
 	if publishVersion == 0 {
-		return nil
+		return nil, nil
 	}
 
 	// Check the element has  version or not.
 	publish, err := _h.getElementWithoutMetadata(ctx, k, publishVersion)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// update metadata UsingVersion, UsingFingerprint, reset UnpublishedVersion.
@@ -168,12 +167,14 @@ func (_h kvWriteOnly) PublishElementVersion(ctx context.Context, app string, env
 	md.UsingFingerprint = hash.MD5(publish.GetRaw())
 	md.UnpublishedVersion = 0
 	if err = _h.saveRaw(ctx, withMetadataSuffix(k), md, 0, true); err != nil {
-		return err
+		return nil, err
 	}
 
 	// Update  version's published be TRUE.
 	publish.Published = true
-	return _h.saveRaw(ctx, withVersion(k, int(publishVersion)), publish, 0, true)
+	err = _h.saveRaw(ctx, withVersion(k, int(publishVersion)), publish, 0, true)
+	publish.Metadata = md
+	return publish, err
 }
 
 func (_h kvWriteOnly) CreateApp(ctx context.Context, md *AppMetadata) error {

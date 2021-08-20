@@ -7,11 +7,13 @@ type AdmAggregate interface {
 	KVReadOnly
 	KVWriteOnly
 	InstanceHybrid
+	AgentHybrid
 }
 
 type AgentAggregate interface {
 	KVReadOnly
 	InstanceHybrid
+	AgentHybrid
 }
 
 type KVReadOnly interface {
@@ -36,8 +38,8 @@ type KVWriteOnly interface {
 
 	RollbackElementVersion(ctx context.Context, app string, env string, key string,
 		rollbackVersion uint32) error
-	PublishElementVersion(ctx context.Context, app string, env string, key string, publishVersion uint32,
-		instanceIds []string, mode PublishingMode) error
+	PublishElementVersion(ctx context.Context, app string, env string, key string,
+		publishVersion uint32) (*Element, error)
 
 	CreateApp(ctx context.Context, md *AppMetadata) error
 	DeleteApp(ctx context.Context, appId string) error
@@ -53,6 +55,20 @@ type InstanceHybrid interface {
 	RegisterInstance(ctx context.Context, ins *Instance) error
 	RenewInstance(ctx context.Context, ins *Instance) error
 	UnregisterInstance(ctx context.Context, insId string) error
+}
+
+// AgentHybrid describes all methods to manage agent nodes in cassemdb.
+type AgentHybrid interface {
+	// Watch would block util any error happened, otherwise any change of agents will be
+	// pushed into ch.
+	Watch(ctx context.Context, ch chan<- *AgentInstanceChange) error
+	// Register helps agent registers itself.
+	Register(ctx context.Context, ins *AgentInstance) error
+	// Renew helps agents keep online.
+	Renew(ctx context.Context, ins *AgentInstance) error
+	// Unregister helps agent unregister itself.
+	Unregister(ctx context.Context, agentId string) error
+	GetAgents(ctx context.Context, seek string, limit int) (*getAgentsResult, error)
 }
 
 type commonPager struct {
@@ -87,3 +103,9 @@ const (
 	// PublishMode_FULL full publish mode, push to all instances.
 	PublishMode_FULL
 )
+
+type getAgentsResult struct {
+	commonPager
+
+	Agents []*AgentInstance `json:"agents"`
+}

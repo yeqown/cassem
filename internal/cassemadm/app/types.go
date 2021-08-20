@@ -115,3 +115,7 @@ type publishAppEnvElementReq struct {
 	InstanceIds []string               `json:"instanceId" form:"instanceId"`
 	PublishMode concept.PublishingMode `json:"publishMode" form:"publishMode,default=2" binding:"required,oneof=1 2"`
 }
+
+type pagingAgentInstanceReq struct {
+	commonPagingRequest
+}

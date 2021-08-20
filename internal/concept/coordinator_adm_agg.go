@@ -8,6 +8,7 @@ type admAggregate struct {
 	kvReadOnly
 	kvWriteOnly
 	instanceHybrid
+	agentInsHybrid
 }
 
 func NewAdmAggregate(endpoints []string) (AdmAggregate, error) {
@@ -21,5 +22,6 @@ func NewAdmAggregate(endpoints []string) (AdmAggregate, error) {
 		kvReadOnly:     kvReadOnly{cassemdb: c},
 		kvWriteOnly:    kvWriteOnly{cassemdb: c},
 		instanceHybrid: instanceHybrid{cassemdb: c},
+		agentInsHybrid: agentInsHybrid{cassemdb: c},
 	}, nil
 }

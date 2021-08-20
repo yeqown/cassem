@@ -8,7 +8,7 @@ type CassemAdminConfig struct {
 	CassemDBEndpoints []string `toml:"cassemdb"`
 
 	// HTTP indicates which port is cassemadm serving on.
-	HTTP *HTTP `toml:"http"`
+	HTTP *Server `toml:"http"`
 }
 
 func (c *CassemAdminConfig) Valid() error {

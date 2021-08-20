@@ -83,3 +83,11 @@ func convertFromEntitiesToMetadata(
 
 	return keys, arr, mdMapping
 }
+
+// TODO(@yeqown): finish this function
+func convertChangeToChange(c1 *apicassemdb.Change) (c2 *AgentInstanceChange, ok bool) {
+	return &AgentInstanceChange{
+		Ins: nil,
+		Op:  0,
+	}, ok
+}

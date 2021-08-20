@@ -7,6 +7,7 @@ import (
 	"github.com/yeqown/log"
 
 	apicassemdb "github.com/yeqown/cassem/internal/cassemdb/api"
+	"github.com/yeqown/cassem/pkg/errorx"
 )
 
 // kvReadOnly manages all read operation from cassemdb, it is allowed to read only.
@@ -43,6 +44,12 @@ func (_r kvReadOnly) GetElementWithVersion(
 	if version <= 0 {
 		version = int(md.UsingVersion)
 	}
+	if version <= 0 {
+		// if there's not using version, NOT_FOUND
+		return nil, errors.Wrap(errorx.Err_NOT_FOUND,
+			"kvReadOnly.GetElementVersions: no available using version")
+	}
+
 	// get element with specified version
 	r2, err2 := _r.cassemdb.GetKV(ctx, &apicassemdb.GetKVReq{Key: withVersion(k, version)})
 	if err2 != nil {

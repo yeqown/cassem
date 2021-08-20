@@ -53,9 +53,23 @@ message waitResp {
   cassem.concept.Element elem = 1;
 }
 
+// agent service provide API for client.
 service agent {
-  rpc GetConfig(getConfigReq) returns  (getConfigResp){};
+  rpc GetConfig(getConfigReq) returns (getConfigResp){};
   rpc Unregister(unregisterReq) returns (emptyResp){};
   rpc Renew(renewReq) returns (emptyResp) {};
   rpc RegisterAndWait(regAndWaitReq) returns (stream waitResp) {};
+}
+
+message dispatchReq {
+  repeated cassem.concept.Element elems = 1;
+}
+
+message dispatchResp {
+
+}
+
+// delivery service provide API for cassem.adm.
+service delivery {
+  rpc Dispatch(dispatchReq) returns (dispatchResp) {};
 }

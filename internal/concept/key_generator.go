@@ -93,3 +93,7 @@ func genInstanceReversedKeyWithInsid(app, env, key string, insId string) string 
 	k := app + "-" + env + "-" + key
 	return strings.Join([]string{_INS_PREFIX, "reversed", k, insId}, _SEP)
 }
+
+func withAgentPrefix(agentId string) string {
+	return strings.Join([]string{_AGENT_PREFIX, agentId}, _SEP)
+}

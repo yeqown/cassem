@@ -7,8 +7,8 @@ type CassemAgentConfig struct {
 	// CassemDBEndpoints in format like: 127.0.0.1:2021 172.16.2.26:2021 172.16.2.27:2021
 	CassemDBEndpoints []string `toml:"cassemdb"`
 
-	// HTTP indicates which port is cassemadm serving on.
-	Server *HTTP `toml:"server"`
+	// Server indicates which port is cassemadm serving on.
+	Server *Server `toml:"server"`
 }
 
 func (c *CassemAgentConfig) Valid() error {

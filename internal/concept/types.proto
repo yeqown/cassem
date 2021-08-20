@@ -75,6 +75,7 @@ message ElementOperation {
   string    remark         = 7;
 }
 
+// Instance describes client instance.
 message Instance {
   string          clientId           = 1;
   string          agentId            = 2;
@@ -85,3 +86,23 @@ message Instance {
   int64           lastRenewTimestamp = 7;
 }
 
+// AgentInstance describes agent node instance attributes.
+message AgentInstance {
+  // agentId is the unique identifier for agent.
+  string agentId                  = 1;
+  string addr                     = 2;
+  // annotations contains the some custom label and value of AgentInstance.
+  map<string, string> annotations = 3;
+}
+
+enum ChangeOp {
+  UNDEFINED = 0;
+  NEW       = 1;
+  UPDATE    = 2;
+  DELETE    = 3;
+}
+
+message AgentInstanceChange {
+  AgentInstance ins = 1;
+  ChangeOp      op  = 2;
+}

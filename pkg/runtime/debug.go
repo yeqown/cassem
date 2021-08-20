@@ -26,3 +26,8 @@ func IsDebug() bool {
 
 	return _debug
 }
+
+func Hostname() string {
+	hostname, _ := os.Hostname()
+	return hostname
+}

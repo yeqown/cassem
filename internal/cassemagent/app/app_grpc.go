@@ -152,3 +152,18 @@ func (d app) Renew(ctx context.Context, req *apiagent.RenewReq) (*apiagent.Empty
 	err := d.aggregate.RenewInstance(ctx, ins)
 	return _emptyResp, err
 }
+
+// Dispatch implements apiagent.Delivery service
+func (d app) Dispatch(ctx context.Context, req *apiagent.DispatchReq) (*apiagent.DispatchResp, error) {
+	r := new(apiagent.DispatchResp)
+
+	// TODO(@yeqown): implement dispatch rpc call to related client instances.
+	log.
+		WithFields(log.Fields{
+			"elems": req.GetElems(),
+			"count": len(req.GetElems()),
+		}).
+		Info("dispatch request")
+
+	return r, nil
+}

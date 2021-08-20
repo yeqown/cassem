@@ -40,7 +40,7 @@ type IMyRaft interface {
 }
 
 type Conf struct {
-	HTTP        *conf.HTTP
+	HTTP        *conf.Server
 	Raft        *conf.Raft
 	Persistence *conf.Bolt
 }

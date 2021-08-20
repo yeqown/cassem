@@ -15,7 +15,7 @@ type Raft struct {
 	BootstrapCluster bool     `toml:"bootstrapCluster"`
 }
 
-type HTTP struct {
+type Server struct {
 	Addr string `toml:"addr"`
 }
 

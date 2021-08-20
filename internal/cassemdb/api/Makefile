@@ -4,4 +4,4 @@ gen-proto:
 		-I ../../../thirdparty \
 		--go_out=plugins=grpc:. \
 		--validate_out=lang=go:. \
-		api.proto
+		cassemdb.api.proto

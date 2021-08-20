@@ -18,6 +18,10 @@ func (s StringSet) Add(key string) (evicted bool) {
 	return evicted
 }
 
+func (s StringSet) Del(key string) {
+	delete(s, key)
+}
+
 func (s StringSet) Adds(keys []string) {
 	for _, key := range keys {
 		s[key] = struct{}{}

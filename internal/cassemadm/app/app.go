@@ -15,11 +15,17 @@ import (
 )
 
 type app struct {
-	aggregate concept.AdmAggregate
+	conf *conf.CassemAdminConfig
 
 	repo infras.Repository
 
-	conf *conf.CassemAdminConfig
+	// aggregate is special methods interface customized form adm component which
+	// can only be used by cassemadm.app.
+	aggregate concept.AdmAggregate
+
+	// agents type agentPool is a pool contains all agents nodes, and agentPool will update
+	// agent nodes  automatically.
+	agents *agentPool
 }
 
 func New(c *conf.CassemAdminConfig) (*app, error) {
@@ -36,6 +42,7 @@ func New(c *conf.CassemAdminConfig) (*app, error) {
 		aggregate: agg,
 		conf:      c,
 		repo:      nil, // FIXME: initialize repo
+		agents:    newAgentPool(),
 	}
 
 	return d, nil
@@ -93,6 +100,11 @@ func (d app) initialHTTP(engi *gin.Engine) {
 				//elt.GET("/:key/operations", d.GetAppEnvElementOperations)
 			}
 		}
+	}
+
+	agentIns := g.Group("/agents")
+	{
+		agentIns.GET("", d.GetAgents)
 	}
 
 	instances := g.Group("/instances")

@@ -20,16 +20,16 @@ type instanceHybrid struct {
 	cassemdb apicassemdb.KVClient
 }
 
-func NewInstanceHybrid(endpoints []string) (InstanceHybrid, error) {
-	cc, err := apicassemdb.DialWithMode(endpoints, apicassemdb.Mode_X)
-	if err != nil {
-		return nil, errors.Wrap(err, "NewInstanceHybrid")
-	}
-
-	return instanceHybrid{
-		cassemdb: apicassemdb.NewKVClient(cc),
-	}, nil
-}
+//func NewInstanceHybrid(endpoints []string) (InstanceHybrid, error) {
+//	cc, err := apicassemdb.DialWithMode(endpoints, apicassemdb.Mode_X)
+//	if err != nil {
+//		return nil, errors.Wrap(err, "NewInstanceHybrid")
+//	}
+//
+//	return instanceHybrid{
+//		cassemdb: apicassemdb.NewKVClient(cc),
+//	}, nil
+//}
 
 func (i instanceHybrid) GetElementInstances(ctx context.Context, app, env, key string) ([]*Instance, error) {
 	k := genInstanceReversedKey(app, env, key)
