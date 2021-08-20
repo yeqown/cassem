@@ -77,7 +77,7 @@ func (s StoreValue) Marshal() ([]byte, error) {
 //	return NewKVWithCreatedAt(key, val, ttl, time.Now().Unix())
 //}
 
-func NewKVWithCreatedAt(key string, val []byte, ttl uint32, created int64) (StoreKey, StoreValue) {
+func NewKVWithCreatedAt(key string, val []byte, ttl int32, created int64) (StoreKey, StoreValue) {
 	k := StoreKey(key)
 
 	v := StoreValue{
@@ -93,12 +93,12 @@ func NewKVWithCreatedAt(key string, val []byte, ttl uint32, created int64) (Stor
 	return k, v
 }
 
-func calculateTTL(ttl uint32) int32 {
-	if ttl == 0 {
+func calculateTTL(ttl int32) int32 {
+	if ttl <= 0 {
 		return NEVER_EXPIRED
 	}
 
-	return int32(ttl)
+	return ttl
 }
 
 //go:generate stringer -type=Op

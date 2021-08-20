@@ -119,7 +119,7 @@ type setKVReq struct {
 	Value     []byte `json:"value" binding:"required"`
 	IsDir     bool   `json:"isDir"`
 	Overwrite bool   `json:"overwrite"`
-	TTL       uint32 `json:"ttl"`
+	TTL       int32  `json:"ttl"`
 }
 
 func (srv *httpServer) SetKV(c *gin.Context) {

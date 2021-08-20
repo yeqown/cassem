@@ -56,7 +56,7 @@ message getKVsResp {
 message setKVReq {
   string key      = 1 [(validate.rules).string = {min_len: 2, contains: "/"}];
   bool   isDir    = 2;
-  uint32 ttl      = 3; // ttl is Time to Live (n seconds)
+  int32  ttl      = 3; // ttl is Time to Live (n seconds)
   // val's size in [1, 256K] Byte
   bytes  val       = 4 [(validate.rules).bytes = {min_len: 1, max_len: 262144}];
   bool   overwrite = 5;

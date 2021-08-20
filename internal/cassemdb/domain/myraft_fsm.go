@@ -8,6 +8,7 @@ import (
 	"github.com/yeqown/log"
 
 	"github.com/yeqown/cassem/internal/cassemdb/infras/repository"
+	"github.com/yeqown/cassem/pkg/errorx"
 	"github.com/yeqown/cassem/pkg/runtime"
 )
 
@@ -15,7 +16,7 @@ import (
 // isDir parameter indicates key means a kv or directory, if it's ture val will be ignored,
 // overwrite indicates the operation MUST BE failed if key exists with repository.ErrExists,
 // ttl means Time To Live, which will only be stored in file and recalculated in memory to use.
-func (r *myraft) SetKV(key string, val []byte, isDir, overwrite bool, ttl uint32) (err error) {
+func (r *myraft) SetKV(key string, val []byte, isDir, overwrite bool, ttl int32) (err error) {
 	log.
 		WithFields(log.Fields{
 			"key":       key,
@@ -163,6 +164,31 @@ func (r *myraft) probeRemoveExpired(val *repository.StoreValue) (removed bool) {
 }
 
 func (r myraft) Range(key, seek string, limit int) (*repository.RangeResult, error) {
-	// TODO(@yeqown): return expired keys and trigger probeRemoveExpired methods
-	return r.repo.Range(repository.StoreKey(key), seek, limit)
+	// DONE(@yeqown): return expired keys and trigger probeRemoveExpired methods
+	result, err := r.repo.Range(repository.StoreKey(key), seek, limit)
+	if err == nil && len(result.ExpiredKeys) != 0 {
+		//	TODO(@yeqown): delete the expired keys
+	}
+
+	return result, err
+}
+
+func (r *myraft) Expire(key string) error {
+	v, err := r.repo.GetKV(repository.StoreKey(key), false)
+	if err != nil {
+		if errors.Is(err, errorx.Err_NOT_FOUND) {
+			return nil
+		}
+
+		return errors.Wrap(err, "cassemdb.myraft.Expire")
+	}
+
+	switch v.TTL {
+	case repository.NEVER_EXPIRED:
+		return nil
+	}
+
+	// unset the key value directly or update it's TTL, choose update it's TTL
+	// so that the expiry(expire) operation is same to method's meaning.
+	return r.SetKV(key, v.Val, false, true, repository.EXPIRED)
 }

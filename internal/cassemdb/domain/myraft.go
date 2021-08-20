@@ -21,12 +21,12 @@ import (
 )
 
 // IMyRaft defines the ability of what raft component should act.
-// TODO(@yeqown): design master and slave write read operation.
 type IMyRaft interface {
-	GetKV(key string) (*repository.StoreValue, error)                        // GetKV get value of key
-	SetKV(key string, value []byte, isDir, overwrite bool, ttl uint32) error // SetKV save key and value
-	UnsetKV(key string, isDir bool) error                                    // UnsetKV save key and value
+	GetKV(key string) (*repository.StoreValue, error)                       // GetKV get value of key
+	SetKV(key string, value []byte, isDir, overwrite bool, ttl int32) error // SetKV save key and value
+	UnsetKV(key string, isDir bool) error                                   // UnsetKV save key and value
 	Range(key, seek string, limit int) (*repository.RangeResult, error)
+	Expire(key string) error
 
 	ChangeNotifyCh() <-chan watcher.IChange
 

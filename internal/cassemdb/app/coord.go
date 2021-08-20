@@ -20,7 +20,7 @@ type setKVParam struct {
 	val       []byte
 	isDir     bool
 	overwrite bool
-	ttl       uint32
+	ttl       int32
 }
 
 type unsetKVParam struct {

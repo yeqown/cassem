@@ -209,11 +209,12 @@ func (d *app) iterate(param *rangeParam) (*repository.RangeResult, error) {
 	return d.raft.Range(param.key, param.seek, param.limit)
 }
 
+// expire one key in cassemdb, but notice that the never expired key
+// will skip expire operation.
+//
+// FIXED(@yeqown): expire the key instead of clear it directly.
 func (d *app) expire(key string) error {
-	return d.unsetKV(&unsetKVParam{
-		key:   key,
-		isDir: false,
-	})
+	return d.raft.Expire(key)
 }
 
 func (d *app) ttl(key string) (int32, error) {

@@ -236,7 +236,6 @@ func (b boltRepoImpl) Range(key StoreKey, seek string, limit int) (*RangeResult,
 
 				// FIXED: shielding expired data in range
 				if err2 == nil && sv.Expired() {
-					// TODO(@yeqown): asynchronize delete expired key
 					result.ExpiredKeys = append(result.ExpiredKeys, sv.Key.String())
 					continue
 				}
