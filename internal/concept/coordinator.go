@@ -16,7 +16,8 @@ type AgentAggregate interface {
 
 type KVReadOnly interface {
 	GetElementWithVersion(ctx context.Context, app, env, key string, version int) (*Element, error)
-	GetElementVersions(ctx context.Context, app, env, key string, seek string, limit int) (*getElementsResult, error)
+	GetElementVersions(ctx context.Context, app, env, key string,
+		seek string, limit int) (*getElementsResult, error)
 	GetElements(ctx context.Context, app, env string, seek string, limit int) (*getElementsResult, error)
 	GetElementsByKeys(ctx context.Context, app, env string, keys []string) (*getElementsResult, error)
 	GetElementOperations(
@@ -32,6 +33,11 @@ type KVWriteOnly interface {
 	CreateElement(ctx context.Context, app, env, key string, raw []byte, contentTyp ContentType) error
 	UpdateElement(ctx context.Context, app, env, key string, raw []byte) error
 	DeleteElement(ctx context.Context, app, env, key string) error
+
+	RollbackElementVersion(ctx context.Context, app string, env string, key string,
+		rollbackVersion uint32) error
+	PublishElementVersion(ctx context.Context, app string, env string, key string, publishVersion uint32,
+		instanceIds []string, mode PublishingMode) error
 
 	CreateApp(ctx context.Context, md *AppMetadata) error
 	DeleteApp(ctx context.Context, appId string) error
@@ -71,3 +77,13 @@ type getElementsResult struct {
 
 	Elements []*Element `json:"elements"`
 }
+
+// PublishingMode indicates how to publish the element's update.
+type PublishingMode uint8
+
+const (
+	// PublishMode_GRAY gray publish mode only push to specified instance.
+	PublishMode_GRAY PublishingMode = iota + 1
+	// PublishMode_FULL full publish mode, push to all instances.
+	PublishMode_FULL
+)

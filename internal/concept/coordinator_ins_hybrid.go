@@ -89,6 +89,8 @@ func (i instanceHybrid) GetInstance(ctx context.Context, insId string) (*Instanc
 }
 
 // RegisterInstance registers a new instance.
+// DONE(@yeqown): keep insId unique in cluster, if register duplicated just return
+// duplicated error to client.
 func (i instanceHybrid) RegisterInstance(ctx context.Context, ins *Instance) (err error) {
 	// check duplicate instance
 	insId := ins.Id()
@@ -118,7 +120,7 @@ func (i instanceHybrid) setInstanceInfo(ctx context.Context, ins *Instance) (err
 		return
 	}
 	insId := ins.Id()
-	// TODO(@yeqown): should keep insId be unique in cluster?
+
 	// save normalized kv
 	k := genInstanceNormalKey(insId)
 	log.

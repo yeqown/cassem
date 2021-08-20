@@ -41,7 +41,7 @@ func (_r kvReadOnly) GetElementWithVersion(
 
 	md.Key = key
 	if version <= 0 {
-		version = int(md.LatestVersion)
+		version = int(md.UsingVersion)
 	}
 	// get element with specified version
 	r2, err2 := _r.cassemdb.GetKV(ctx, &apicassemdb.GetKVReq{Key: withVersion(k, version)})

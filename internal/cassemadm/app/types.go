@@ -101,3 +101,17 @@ type getInstanceReq struct {
 type getEleInstancesReq struct {
 	commonAppEnvEltRequest
 }
+
+type rollbackAppEnvElementReq struct {
+	commonAppEnvEltRequest
+
+	RollbackTo uint32 `json:"version" form:"version" binding:"required"`
+}
+
+type publishAppEnvElementReq struct {
+	commonAppEnvEltRequest
+
+	Publish     uint32                 `json:"version" form:"version" binding:"required"`
+	InstanceIds []string               `json:"instanceId" form:"instanceId"`
+	PublishMode concept.PublishingMode `json:"publishMode" form:"publishMode,default=2" binding:"required,oneof=1 2"`
+}

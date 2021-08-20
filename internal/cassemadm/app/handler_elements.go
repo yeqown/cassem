@@ -56,27 +56,6 @@ func (d app) GetAppEnvElement(c *gin.Context) {
 	httpx.ResponseJSON(c, element)
 }
 
-func (d app) GetAppEnvElementAllVersions(c *gin.Context) {
-	req := new(getAppEnvElementVersionsReq)
-
-	_ = c.ShouldBindUri(req)
-	if err := c.ShouldBind(req); err != nil {
-		httpx.ResponseError(c, err)
-		return
-	}
-
-	// TODO(@yeqown): get specified versions of element, if there's not version specified
-	// get all version.
-	element, err := d.aggregate.GetElementVersions(
-		c.Request.Context(), req.AppId, req.Env, req.ElementKey, req.Seek, req.Limit)
-	if err != nil {
-		httpx.ResponseError(c, err)
-		return
-	}
-
-	httpx.ResponseJSON(c, element)
-}
-
 func (d app) CreateAppEnvElement(c *gin.Context) {
 	req := new(createAppEnvElementReq)
 	_ = c.ShouldBindUri(req)
@@ -130,6 +109,27 @@ func (d app) DeleteAppEnvElement(c *gin.Context) {
 	httpx.ResponseJSON(c, nil)
 }
 
+func (d app) GetAppEnvElementAllVersions(c *gin.Context) {
+	req := new(getAppEnvElementVersionsReq)
+
+	_ = c.ShouldBindUri(req)
+	if err := c.ShouldBind(req); err != nil {
+		httpx.ResponseError(c, err)
+		return
+	}
+
+	// TODO(@yeqown): get specified versions of element, if there's not version specified
+	// get all version.
+	element, err := d.aggregate.GetElementVersions(
+		c.Request.Context(), req.AppId, req.Env, req.ElementKey, req.Seek, req.Limit)
+	if err != nil {
+		httpx.ResponseError(c, err)
+		return
+	}
+
+	httpx.ResponseJSON(c, element)
+}
+
 // DiffAppEnvElement diff between element's versions
 func (d app) DiffAppEnvElement(c *gin.Context) {
 	req := new(diffAppEnvElementsReq)
@@ -169,4 +169,41 @@ func diff(src1, src2 string) string {
 	// TODO(@yeqown): may customize pretty text string, render in HTML or others format.
 	//_dmp.DiffPrettyText()
 	return _dmp.DiffText1(diffs)
+}
+
+func (d app) RollbackAppEnvElement(c *gin.Context) {
+	req := new(rollbackAppEnvElementReq)
+	_ = c.ShouldBindUri(req)
+	if err := c.ShouldBind(req); err != nil {
+		httpx.ResponseError(c, err)
+		return
+	}
+
+	err := d.aggregate.
+		RollbackElementVersion(c.Request.Context(), req.AppId, req.Env, req.ElementKey, req.RollbackTo)
+	if err != nil {
+		httpx.ResponseError(c, err)
+		return
+	}
+
+	httpx.ResponseJSON(c, nil)
+}
+
+func (d app) PublishAppEnvElement(c *gin.Context) {
+	req := new(publishAppEnvElementReq)
+	_ = c.ShouldBindUri(req)
+	if err := c.ShouldBind(req); err != nil {
+		httpx.ResponseError(c, err)
+		return
+	}
+
+	err := d.aggregate.
+		PublishElementVersion(
+			c.Request.Context(), req.AppId, req.Env, req.ElementKey, req.Publish, req.InstanceIds, req.PublishMode)
+	if err != nil {
+		httpx.ResponseError(c, err)
+		return
+	}
+
+	httpx.ResponseJSON(c, nil)
 }

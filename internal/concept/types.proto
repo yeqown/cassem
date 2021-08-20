@@ -3,27 +3,51 @@ syntax = "proto3";
 package cassem.concept;
 option go_package = "concept";
 
+// Element represent a config element with specific version.
 message Element {
-  ElementMetadata metadata = 1;
-  bytes           raw      = 2;
-  int32           version  = 3;
+  // refer ElementMetadata
+  ElementMetadata metadata  = 1;
+  // raw data in the version.
+  bytes           raw       = 2;
+  // version number start since 1.
+  int32           version   = 3;
+  // indicates published or not.
+  bool            published = 4;
 };
 
+// ContentType enumerates all built-in content types those Element's
+// raw could be.
 enum ContentType {
   UNKNOWN   = 0;
+  // application/json
   JSON      = 1;
+  // application/toml
   TOML      = 2;
+  // application/ini
   INI       = 3;
+  // application/plaintext
   PLAINTEXT = 4;
 }
 
+// ElementMetadata contains metadata of one element, includes
+// specific key, app, env attributes, and other fields to display
+// the element's version status.
 message ElementMetadata {
   string      key                = 1;
   string      app                = 2;
   string      env                = 3;
+  // the latest version in all versions of the element.
   int32       latestVersion      = 4;
-  string      latestFingerprint  = 5;
-  ContentType contentType        = 6;
+  // if there is any unpublished version, if there's any unpublished
+  // version, the element can not create a new version util all versions have been
+  // published,
+  int32       unpublishedVersion = 5;
+  // the in-use version.
+  int32       usingVersion       = 6;
+  // the using version's fingerprint.
+  string      usingFingerprint   = 7;
+  // indicates the content type of Element's raw data
+  ContentType contentType        = 8;
 }
 
 message AppMetadata {

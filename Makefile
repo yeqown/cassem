@@ -58,5 +58,10 @@ cassemagent.run: cassemagent.build
 
 build-all: cassemadm.build cassemagent.build cassemdb.build
 
+proto-all:
+	make -C ./internal/cassemdb/api
+	make -C ./internal/concept
+	make -C ./internal/cassemagent/api
+
 clear:
 	- rm ./cassemdb || rm ./cassemadm || rm ./cassemagent
