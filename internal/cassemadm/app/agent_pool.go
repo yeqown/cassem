@@ -30,23 +30,34 @@ type agentPool struct {
 	rwMutex sync.RWMutex
 
 	agg concept.AgentHybrid
+	// once make sure agentPool.run will be called only once.
+	once sync.Once
 }
 
-func newAgentPool() *agentPool {
-	return &agentPool{
+// newAgentPool construct a agentPool instance and automatically run routines.
+func newAgentPool(agg concept.AgentHybrid) *agentPool {
+	p := &agentPool{
 		nodes:       make(map[string]*agentNode, 16),
 		allAgentIds: set.NewStringSet(16),
 		rwMutex:     sync.RWMutex{},
+		agg:         agg,
+		once:        sync.Once{},
 	}
+
+	p.run()
+
+	return p
 }
 
-// run to start
+// run to start background routines to help agentPool manage agent instances.
 func (p *agentPool) run() {
-	ch := make(chan *concept.AgentInstanceChange, _SIZE_AGENT_NODE_BUF)
-	runtime.GoFunc("watchingAgentInstanceRaw", func() error {
-		return p.agg.Watch(context.Background(), ch)
+	p.once.Do(func() {
+		ch := make(chan *concept.AgentInstanceChange, _SIZE_AGENT_NODE_BUF)
+		runtime.GoFunc("watchingAgentInstanceRaw", func() error {
+			return p.agg.Watch(context.Background(), ch)
+		})
+		runtime.GoFunc("updateAgentInstance", p.updateAgentInstanceFromCh(ch))
 	})
-	runtime.GoFunc("updateAgentInstance", p.updateAgentInstanceFromCh(ch))
 }
 
 func (p *agentPool) updateAgentInstanceFromCh(ch <-chan *concept.AgentInstanceChange) func() error {

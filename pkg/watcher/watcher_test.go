@@ -29,9 +29,10 @@ type testObserver struct {
 	ch        chan IChange
 }
 
-func (t *testObserver) Identity() string       { return t.id }
-func (t testObserver) Inbound() chan<- IChange { return t.ch }
-func (t testObserver) Topics() []string {
+func (t *testObserver) Identity() string         { return t.id }
+func (t *testObserver) Outbound() <-chan IChange { return t.ch }
+func (t *testObserver) Inbound() chan<- IChange  { return t.ch }
+func (t *testObserver) Topics() []string {
 	topics := make([]string, len(t.keys))
 	for idx, key := range t.keys {
 		topics[idx] = fmt.Sprintf("%s#%s#%s", t.namespace, key, t.format)
@@ -71,7 +72,7 @@ func Test_Watcher(t *testing.T) {
 	w := NewChannelWatcher(5)
 
 	// count data and control flag
-	counter := 20
+	counter := 10
 	sent := make(map[string]int, len(keys))
 	for _, key := range keys {
 		sent[key] = 0
@@ -132,4 +133,8 @@ func (t testChange) Topic() string {
 
 func (t testChange) Data() []byte {
 	return t.D
+}
+
+func (t testChange) Type() ChangeType {
+	return ChangeType_KV
 }

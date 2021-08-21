@@ -25,11 +25,11 @@ func newTopicObserver(changesCh chan watcher.IChange, close func(), keys []strin
 	return &ob
 }
 
-func (t *builtinObserver) Identity() string                { return t.id }
-func (t builtinObserver) Inbound() chan<- watcher.IChange  { return t.ch }
-func (t builtinObserver) Outbound() <-chan watcher.IChange { return t.ch }
-func (t builtinObserver) Close()                           { t.close() }
-func (t builtinObserver) Topics() []string {
+func (t *builtinObserver) Identity() string                 { return t.id }
+func (t *builtinObserver) Inbound() chan<- watcher.IChange  { return t.ch }
+func (t *builtinObserver) Outbound() <-chan watcher.IChange { return t.ch }
+func (t *builtinObserver) Close()                           { t.close() }
+func (t *builtinObserver) Topics() []string {
 	s := set.NewStringSet(len(t.keys))
 
 	for _, key := range t.keys {

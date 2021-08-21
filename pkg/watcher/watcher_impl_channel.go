@@ -9,7 +9,7 @@ import (
 	"github.com/yeqown/cassem/pkg/runtime"
 )
 
-// topicBucket used to manage one topic and it's observers. The main purpose to design
+// topicBucket used to manage one topic, and it's observers. The main purpose to design
 // this is to reduce lock conflicts.
 type topicBucket struct {
 	sync.RWMutex
@@ -49,10 +49,14 @@ func (t *topicBucket) distribute(notify IChange) {
 	if len(observers) == 0 {
 		log.
 			WithField("count", len(observers)).
-			Debug("topicBucket.distribute called")
+			Debug("topicBucket.distribute called with no observers")
+		return
 	}
 
 	for _, observer := range observers {
+		log.
+			WithField("observer", observer.Identity()).
+			Debug("watcher.topicBucket.distribute send to observer")
 		// NOTICE: send but do not block for it
 		select {
 		case observer.Inbound() <- notify:
@@ -135,7 +139,7 @@ func (c *channelWatcher) Subscribe(obs ...IObserver) {
 		if observer == nil || observer.Identity() == "" {
 			log.
 				WithField("observer", observer).
-				Warn("channelWatcher.Subscribe would not handle with EMPTY IObserver")
+				Warn("channelWatcher.Subscribe skipped EMPTY IObserver")
 
 			continue
 		}
@@ -143,10 +147,9 @@ func (c *channelWatcher) Subscribe(obs ...IObserver) {
 		c._mu.Lock()
 		// register observer into topic.
 		for _, topic := range observer.Topics() {
-			log.
-				WithField("topic", topic).
-				Debug("channelWatcher.Subscribe add one observer")
-
+			//log.
+			//	WithField("topic", topic).
+			//	Debug("channelWatcher.Subscribe add one observer")
 			if _, ok := c.buckets[topic]; !ok {
 				c.buckets[topic] = newTopicBucket()
 			}
@@ -175,5 +178,11 @@ func (c *channelWatcher) Unsubscribe(observer IObserver) {
 }
 
 func (c *channelWatcher) ChangeNotify(notify IChange) {
-	c.ch <- notify
+	select {
+	case c.ch <- notify:
+	default:
+		log.
+			WithFields(log.Fields{"notify": notify}).
+			Warn("channelWatcher.skip notify: channel is full or unavailable")
+	}
 }

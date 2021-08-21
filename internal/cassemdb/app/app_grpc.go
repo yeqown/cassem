@@ -4,14 +4,14 @@ import (
 	"context"
 	"net"
 
+	"github.com/yeqown/log"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/reflection"
+
 	pb "github.com/yeqown/cassem/internal/cassemdb/api"
 	"github.com/yeqown/cassem/internal/cassemdb/infras/repository"
 	"github.com/yeqown/cassem/pkg/grpcx"
 	"github.com/yeqown/cassem/pkg/watcher"
-
-	"github.com/yeqown/log"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/reflection"
 )
 
 type grpcServer struct {
@@ -90,29 +90,30 @@ func (s grpcServer) UnsetKV(ctx context.Context, req *pb.UnsetKVReq) (*pb.Empty,
 }
 
 func (s grpcServer) Watch(req *pb.WatchReq, stream pb.KV_WatchServer) (err error) {
-	keys := req.GetKeys()
-	// changeCh := make(chan watcher.IChange, len(keys))
-	// once := sync.Once{}
-
-	ob, cancel := s.coord.watch(keys...)
+	ob, cancel := s.coord.watch(req.GetKeys()...)
 	defer cancel()
-
-	var v watcher.IChange
 
 	for {
 		select {
-		case v = <-ob.Outbound():
+		case change, ok := <-ob.Outbound():
 			log.
-				WithField("change", v).
+				WithFields(log.Fields{
+					"change": change,
+					"ok":     ok,
+				}).
 				Debug("grpcServer.watch will be send to client")
-
-			c, ok := v.(*repository.Change)
 			if !ok {
-				log.Debug("grpcServer.watch skip the change, not the type(*types.Change)")
+				return
+			}
+
+			// convert change from raw source into api.Change
+			// TODO(@yeqown): use api.Change directly rather than convert it again an again.
+			pbChange := convertChange(change)
+			if pbChange == nil {
 				continue
 			}
 
-			if err = stream.Send(convertChange(c)); err != nil {
+			if err = stream.Send(pbChange); err != nil {
 				log.
 					Errorf("grpcServer(grpc).watch gets failed to send to client: %v", err)
 				continue
@@ -200,8 +201,28 @@ func convertStoreValue(v *repository.StoreValue) *pb.Entity {
 	}
 }
 
-func convertChange(c *repository.Change) *pb.Change {
-	if c == nil {
+// TODO(@yeqown): use proto to ignore convert procedure.
+func convertChange(change watcher.IChange) *pb.Change {
+	var (
+		c  *repository.Change
+		ok bool
+	)
+
+	switch change.Type() {
+	case watcher.ChangeType_KV:
+		c, ok = change.(*repository.Change)
+	case watcher.ChangeType_DIR:
+		var pdc *repository.ParentDirectoryChange
+		if pdc, ok = change.(*repository.ParentDirectoryChange); ok {
+			c = pdc.Change
+		}
+	default:
+	}
+
+	if !ok || c == nil {
+		log.
+			WithField("change", change).
+			Warn("cassemdb.convertChange skip the change")
 		return nil
 	}
 

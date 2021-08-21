@@ -37,18 +37,24 @@ func (_h agentInsHybrid) Watch(ctx context.Context, ch chan<- *AgentInstanceChan
 	}
 
 	change := new(apicassemdb.Change)
-	ctx, cancel := context.WithCancel(stream.Context())
+	ctx2, cancel := context.WithCancel(stream.Context())
 	defer cancel()
 loop:
 	for {
 		select {
-		case <-ctx.Done():
+		case <-ctx2.Done():
+			err = ctx2.Err()
 		default:
 			if err = stream.RecvMsg(change); err != nil {
-				log.Error("cassem.concept.agentInsHybrid failed to receive message")
+				log.
+					WithFields(log.Fields{"error": err}).
+					Error("cassem.concept.agentInsHybrid failed to receive message")
 				break loop
 			}
 
+			log.
+				WithFields(log.Fields{"change": change}).
+				Debug("cassem.concept.agentInsHybrid received message")
 			c, ok := convertChangeToChange(change)
 			if !ok {
 				continue
@@ -70,13 +76,18 @@ loop:
 		}
 	}
 
+	log.
+		WithFields(log.Fields{
+			"error": err,
+		}).
+		Debug("cassem.concept.agentInsHybrid.Watch quit")
 	return err
 }
 
 func (_h agentInsHybrid) Register(ctx context.Context, ins *AgentInstance) error {
 	bytes, err := MarshalProto(ins)
 	if err != nil {
-		return errors.Wrap(err, "agentInsHybrid.Register")
+		return errors.Wrap(err, "cassem.concept.agentInsHybrid.Register")
 	}
 
 	_, err = _h.cassemdb.SetKV(ctx, &apicassemdb.SetKVReq{
@@ -93,7 +104,7 @@ func (_h agentInsHybrid) Register(ctx context.Context, ins *AgentInstance) error
 func (_h agentInsHybrid) Renew(ctx context.Context, ins *AgentInstance) error {
 	bytes, err := MarshalProto(ins)
 	if err != nil {
-		return errors.Wrap(err, "agentInsHybrid.Renew")
+		return errors.Wrap(err, "cassem.concept.agentInsHybrid.Renew")
 	}
 
 	_, err = _h.cassemdb.SetKV(ctx, &apicassemdb.SetKVReq{
@@ -141,7 +152,7 @@ func (_h agentInsHybrid) GetAgents(ctx context.Context, seek string, limit int) 
 					"error":  err,
 					"entity": v,
 				}).
-				Error("agentHybrid.GetAgents failed unmarshal proto")
+				Error("cassem.concept.agentInsHybrid.GetAgents failed unmarshal proto")
 			continue
 		}
 

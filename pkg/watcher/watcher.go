@@ -1,8 +1,16 @@
 package watcher
 
+type ChangeType uint8
+
+const (
+	ChangeType_KV ChangeType = iota + 1
+	ChangeType_DIR
+)
+
 type IChange interface {
 	Topic() string
 	Data() []byte
+	Type() ChangeType
 }
 
 // IWatcher provides Subscribe(obs ...IObserver) and Unsubscribe(obs IObserver) for observers,

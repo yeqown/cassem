@@ -16,7 +16,7 @@ type testAgentPoolSuite struct {
 }
 
 func (t *testAgentPoolSuite) SetupSuite() {
-	t.ap = newAgentPool()
+	t.ap = newAgentPool(nil)
 }
 
 func (t *testAgentPoolSuite) Test_consumeAgentInstanceChange() {

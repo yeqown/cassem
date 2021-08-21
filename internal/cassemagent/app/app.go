@@ -88,9 +88,9 @@ func (d app) startRoutines() {
 		AgentId: d.uniqueId,
 		Addr:    d.conf.Server.Addr,
 		Annotations: map[string]string{
-			"op":        "renew",
-			"hostname":  runtime.Hostname(),
-			"timestamp": time.Now().Format(time.RFC3339),
+			"op":       "renew",
+			"hostname": runtime.Hostname(),
+			// "timestamp": time.Now().Format(time.RFC3339),
 		},
 	})
 	if err != nil {
@@ -144,9 +144,9 @@ func (d app) renewSelf() error {
 		AgentId: d.uniqueId,
 		Addr:    d.conf.Server.Addr,
 		Annotations: map[string]string{
-			"op":        "renew",
-			"hostname":  runtime.Hostname(),
-			"timestamp": time.Now().Format(time.RFC3339),
+			"op":       "renew",
+			"hostname": runtime.Hostname(),
+			// "timestamp": time.Now().Format(time.RFC3339),
 		},
 	})
 	if err != nil {

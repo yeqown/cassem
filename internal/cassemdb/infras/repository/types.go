@@ -9,6 +9,7 @@ import (
 
 	pb "github.com/yeqown/cassem/internal/cassemdb/api"
 	"github.com/yeqown/cassem/pkg/hash"
+	"github.com/yeqown/cassem/pkg/watcher"
 )
 
 type StoreKey string
@@ -123,6 +124,10 @@ func (c *Change) Topic() string {
 	return c.Key.String()
 }
 
+func (c *Change) Type() watcher.ChangeType {
+	return watcher.ChangeType_KV
+}
+
 // Parent returns the change message of parent directory, only if current
 // KV has a parent directory.
 func (c *Change) Parent() (*ParentDirectoryChange, bool) {
@@ -162,6 +167,10 @@ type ParentDirectoryChange struct {
 
 func (pdc *ParentDirectoryChange) Topic() string {
 	return pdc.topic
+}
+
+func (pdc *ParentDirectoryChange) Type() watcher.ChangeType {
+	return watcher.ChangeType_DIR
 }
 
 type RangeResult struct {

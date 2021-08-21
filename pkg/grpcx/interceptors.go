@@ -47,7 +47,7 @@ func ServerRecovery() grpc.UnaryServerInterceptor {
 			if v := recover(); v != nil || panicked {
 				formatted := fmt.Sprintf("server panic: %v %v", req, v)
 				log.Errorf(formatted)
-				fmt.Println(runtime.Stack())
+				fmt.Println(string(runtime.Stack()))
 				err = runtime.RecoverFrom(v)
 			}
 		}()

@@ -42,7 +42,7 @@ func New(c *conf.CassemAdminConfig) (*app, error) {
 		aggregate: agg,
 		conf:      c,
 		repo:      nil, // FIXME: initialize repo
-		agents:    newAgentPool(),
+		agents:    newAgentPool(agg),
 	}
 
 	return d, nil

@@ -3,6 +3,7 @@ package concept
 import (
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
+	"github.com/yeqown/log"
 
 	apicassemdb "github.com/yeqown/cassem/internal/cassemdb/api"
 	"github.com/yeqown/cassem/pkg/runtime"
@@ -84,10 +85,41 @@ func convertFromEntitiesToMetadata(
 	return keys, arr, mdMapping
 }
 
-// TODO(@yeqown): finish this function
+// convertChangeToChange convert api.Change (cassemdb.api) to concept.AgentInstanceChange.
+// Make sure of that c1 is agentInstance format rather than any other.
 func convertChangeToChange(c1 *apicassemdb.Change) (c2 *AgentInstanceChange, ok bool) {
+	if c1 == nil {
+		return
+	}
+
+	var op ChangeOp
+	switch c1.GetOp() {
+	case apicassemdb.Change_Set:
+		op = ChangeOp_UPDATE
+		if c1.GetLast() == nil {
+			op = ChangeOp_NEW
+		}
+	case apicassemdb.Change_Unset:
+		op = ChangeOp_DELETE
+	default:
+		return
+	}
+
+	var ins = new(AgentInstance)
+	if err := UnmarshalProto(c1.GetCurrent().GetVal(), ins); err != nil {
+		log.
+			WithFields(log.Fields{
+				"op":     op,
+				"change": c1,
+			}).
+			Debug()
+		return
+	}
+
+	// all convert OK
+	ok = true
 	return &AgentInstanceChange{
-		Ins: nil,
-		Op:  0,
+		Ins: ins,
+		Op:  op,
 	}, ok
 }

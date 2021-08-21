@@ -192,6 +192,10 @@ func (d *app) unsetKV(param *unsetKVParam) error {
 }
 
 func (d *app) watch(keys ...string) (ob watcher.IObserver, cancelFn func()) {
+	if len(keys) == 0 {
+		return
+	}
+
 	ch := make(chan watcher.IChange, 2)
 	closeFn := func() {
 		log.Debug("observer closeFn called")
