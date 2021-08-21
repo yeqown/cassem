@@ -2,6 +2,7 @@ package repository
 
 import (
 	"encoding/json"
+	"strings"
 	"time"
 
 	"github.com/yeqown/log"
@@ -122,6 +123,17 @@ func (c *Change) Topic() string {
 	return c.Key.String()
 }
 
+// Parent returns the change message of parent directory, only if current
+// KV has a parent directory.
+func (c *Change) Parent() (*ParentDirectoryChange, bool) {
+	paths, _ := keySplitter(c.Key)
+	if len(paths) == 0 {
+		return nil, false
+	}
+
+	return &ParentDirectoryChange{Change: c, topic: strings.Join(paths, "/")}, true
+}
+
 func (c *Change) Data() []byte {
 	if c.data != nil {
 		return c.data
@@ -141,6 +153,15 @@ func (c *Change) Data() []byte {
 	}
 
 	return c.data
+}
+
+type ParentDirectoryChange struct {
+	*Change
+	topic string
+}
+
+func (pdc *ParentDirectoryChange) Topic() string {
+	return pdc.topic
 }
 
 type RangeResult struct {

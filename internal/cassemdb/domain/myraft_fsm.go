@@ -96,10 +96,18 @@ func (r *myraft) UnsetKV(key string, isDir bool) error {
 // 2. really update an existed kv.
 //
 func (r myraft) triggerWatchingMechanism(op repository.ChangeOp, key string, last, newVal *repository.StoreValue) {
-	if last == nil || last.Expired() {
-		// last == nil means that the key is new, there's no observer;
-		return
-	}
+	log.
+		WithFields(log.Fields{
+			"key": key,
+			"op":  op,
+		}).
+		Debug("myraft.triggerWatchingMechanism called")
+
+	// FIXED(@yeqown): new value should also notify watchers.
+	//if last == nil || last.Expired() {
+	//	// last == nil means that the key is new, there's no observer;
+	//	return
+	//}
 
 	if newVal != nil && strings.Compare(last.Fingerprint, newVal.Fingerprint) == 0 {
 		// set kv but newVal is same to old value, so no need to touch off a change notification.

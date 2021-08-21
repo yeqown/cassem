@@ -129,6 +129,9 @@ func applyActionChange(f *fsm, l *fsmLog) error {
 
 	select {
 	case f.ch <- cc.Change:
+		if parentDirectoryChange, ok := cc.Change.Parent(); ok {
+			f.ch <- parentDirectoryChange
+		}
 	default:
 		log.
 			WithFields(log.Fields{
