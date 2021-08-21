@@ -63,9 +63,9 @@ type AgentHybrid interface {
 	// pushed into ch.
 	Watch(ctx context.Context, ch chan<- *AgentInstanceChange) error
 	// Register helps agent registers itself.
-	Register(ctx context.Context, ins *AgentInstance) error
+	Register(ctx context.Context, ins *AgentInstance, ttl int32) error
 	// Renew helps agents keep online.
-	Renew(ctx context.Context, ins *AgentInstance) error
+	Renew(ctx context.Context, ins *AgentInstance, ttl int32) error
 	// Unregister helps agent unregister itself.
 	Unregister(ctx context.Context, agentId string) error
 	GetAgents(ctx context.Context, seek string, limit int) (*getAgentsResult, error)

@@ -60,6 +60,11 @@ func (p *agentPool) run() {
 	})
 }
 
+func (p *agentPool) updateAgentNodesManually() error {
+	// TODO(@yeqown): update agent nodes manually at the start of the agent pool.
+	return errors.New("implement me")
+}
+
 func (p *agentPool) updateAgentInstanceFromCh(ch <-chan *concept.AgentInstanceChange) func() error {
 	return func() error {
 		// There is a node changed, then judge and update p.nodes and p.allAgentIds
@@ -156,7 +161,9 @@ func newAgentNode(id string, addr string) *agentNode {
 
 	u, err := url.Parse(addr)
 	if err != nil {
-		panic(err)
+		log.
+			WithField("error", err).
+			Warn("cassemadm.newAgentNode failed parse addr")
 	}
 	_ = u
 
@@ -221,6 +228,10 @@ func (n *agentNode) run() {
 					reset()
 				}
 			case <-t.C:
+				if len(batch) == 0 {
+					continue
+				}
+
 				// if there's no more message in the period of validity of the t.
 				n.delivery(batch)
 				reset()
@@ -239,6 +250,7 @@ func (n *agentNode) delivery(batch []*concept.Element) {
 	log.
 		WithFields(log.Fields{
 			"batchSize": len(batch),
+			"agentId":   n.Id,
 		}).
 		Debug("agentNode.delivery called")
 
@@ -253,8 +265,9 @@ func (n *agentNode) delivery(batch []*concept.Element) {
 		// message missed
 		log.
 			WithFields(log.Fields{
-				"req":   req,
-				"error": err,
+				"req":     req,
+				"error":   err,
+				"agentId": n.Id,
 			}).
 			Warn("agentNode.delivery failed dispatch")
 	}

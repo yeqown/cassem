@@ -92,7 +92,7 @@ func (d app) startRoutines() {
 			"hostname": runtime.Hostname(),
 			// "timestamp": time.Now().Format(time.RFC3339),
 		},
-	})
+	}, d.conf.TTL)
 	if err != nil {
 		log.
 			WithFields(log.Fields{
@@ -104,7 +104,8 @@ func (d app) startRoutines() {
 
 	runtime.GoFunc("renew", func() error {
 		// random tick to renew
-		dur := time.Duration(20+rand.Intn(10)) * time.Second
+		// actualRenewInterval = conf.renewInterval + int32n(conf.TTL - cond.RenewInterval)
+		dur := time.Duration(d.conf.RenewInterval+rand.Int31n(d.conf.TTL-d.conf.RenewInterval)) * time.Second
 		ticker := time.NewTicker(dur)
 
 		for {
@@ -148,7 +149,7 @@ func (d app) renewSelf() error {
 			"hostname": runtime.Hostname(),
 			// "timestamp": time.Now().Format(time.RFC3339),
 		},
-	})
+	}, d.conf.TTL)
 	if err != nil {
 		return errors.Wrap(err, "cassemagent.app.renewSelf")
 	}

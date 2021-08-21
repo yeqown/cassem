@@ -9,10 +9,6 @@ import (
 	apicassemdb "github.com/yeqown/cassem/internal/cassemdb/api"
 )
 
-const (
-	_INTERVAL_AGENT_RENEW = 30
-)
-
 type agentInsHybrid struct {
 	cassemdb apicassemdb.KVClient
 }
@@ -84,7 +80,7 @@ loop:
 	return err
 }
 
-func (_h agentInsHybrid) Register(ctx context.Context, ins *AgentInstance) error {
+func (_h agentInsHybrid) Register(ctx context.Context, ins *AgentInstance, ttl int32) error {
 	bytes, err := MarshalProto(ins)
 	if err != nil {
 		return errors.Wrap(err, "cassem.concept.agentInsHybrid.Register")
@@ -93,7 +89,7 @@ func (_h agentInsHybrid) Register(ctx context.Context, ins *AgentInstance) error
 	_, err = _h.cassemdb.SetKV(ctx, &apicassemdb.SetKVReq{
 		Key:       withAgentPrefix(ins.AgentId),
 		IsDir:     false,
-		Ttl:       _INTERVAL_AGENT_RENEW,
+		Ttl:       ttl,
 		Val:       bytes,
 		Overwrite: false,
 	})
@@ -101,7 +97,7 @@ func (_h agentInsHybrid) Register(ctx context.Context, ins *AgentInstance) error
 	return err
 }
 
-func (_h agentInsHybrid) Renew(ctx context.Context, ins *AgentInstance) error {
+func (_h agentInsHybrid) Renew(ctx context.Context, ins *AgentInstance, ttl int32) error {
 	bytes, err := MarshalProto(ins)
 	if err != nil {
 		return errors.Wrap(err, "cassem.concept.agentInsHybrid.Renew")
@@ -110,7 +106,7 @@ func (_h agentInsHybrid) Renew(ctx context.Context, ins *AgentInstance) error {
 	_, err = _h.cassemdb.SetKV(ctx, &apicassemdb.SetKVReq{
 		Key:       withAgentPrefix(ins.AgentId),
 		IsDir:     false,
-		Ttl:       _INTERVAL_AGENT_RENEW,
+		Ttl:       ttl,
 		Val:       bytes,
 		Overwrite: true,
 	})

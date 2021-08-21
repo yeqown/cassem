@@ -16,6 +16,7 @@ type Raft struct {
 }
 
 type Server struct {
+	// Addr of server in format of: HOST:PORT with default scheme TCP.
 	Addr string `toml:"addr"`
 }
 
