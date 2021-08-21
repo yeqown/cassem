@@ -8,7 +8,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/yeqown/log"
 
-	"github.com/yeqown/cassem/internal/cassemdb/infras/repository"
 	"github.com/yeqown/cassem/pkg/httpx"
 	"github.com/yeqown/cassem/pkg/runtime"
 	"github.com/yeqown/cassem/pkg/watcher"
@@ -72,31 +71,31 @@ type getKVReq struct {
 	Key string `form:"key" binding:"required"`
 }
 
-type storeVO struct {
-	Fingerprint string `json:"fingerprint"`
-	Key         string `json:"key"`
-	Val         string `json:"val"`
-	Size        int64  `json:"size"`
-	CreatedAt   int64  `json:"createdAt"`
-	UpdatedAt   int64  `json:"updatedAt"`
-	TTL         int32  `json:"ttl"`
-}
-
-func newStoreVO(v *repository.StoreValue) *storeVO {
-	if v == nil {
-		return nil
-	}
-
-	return &storeVO{
-		Fingerprint: v.Fingerprint,
-		Key:         v.Key.String(),
-		Val:         runtime.ToString(v.Val),
-		Size:        v.Size,
-		CreatedAt:   v.CreatedAt,
-		UpdatedAt:   v.UpdatedAt,
-		TTL:         v.TTL,
-	}
-}
+//type storeVO struct {
+//	Fingerprint string `json:"fingerprint"`
+//	Key         string `json:"key"`
+//	Val         string `json:"val"`
+//	Size        int64  `json:"size"`
+//	CreatedAt   int64  `json:"createdAt"`
+//	UpdatedAt   int64  `json:"updatedAt"`
+//	TTL         int32  `json:"ttl"`
+//}
+//
+//func newStoreVO(v *repository.StoreValue) *storeVO {
+//	if v == nil {
+//		return nil
+//	}
+//
+//	return &storeVO{
+//		Fingerprint: v.Fingerprint,
+//		Key:         v.Key.String(),
+//		Val:         runtime.ToString(v.Val),
+//		Size:        v.Size,
+//		CreatedAt:   v.CreatedAt,
+//		UpdatedAt:   v.UpdatedAt,
+//		TTL:         v.TTL,
+//	}
+//}
 
 func (srv *httpServer) GetKV(c *gin.Context) {
 	req := new(getKVReq)
@@ -111,7 +110,7 @@ func (srv *httpServer) GetKV(c *gin.Context) {
 		return
 	}
 
-	httpx.ResponseJSON(c, newStoreVO(out))
+	httpx.ResponseJSON(c, out)
 }
 
 type setKVReq struct {

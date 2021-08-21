@@ -9,9 +9,9 @@ import (
 	"github.com/pkg/errors"
 	"github.com/yeqown/log"
 
+	apicassemdb "github.com/yeqown/cassem/internal/cassemdb/api"
 	"github.com/yeqown/cassem/internal/cassemdb/domain"
 	raftleader "github.com/yeqown/cassem/internal/cassemdb/infras/raft-leader-grpc"
-	"github.com/yeqown/cassem/internal/cassemdb/infras/repository"
 	"github.com/yeqown/cassem/pkg/conf"
 	"github.com/yeqown/cassem/pkg/httpx"
 	"github.com/yeqown/cassem/pkg/runtime"
@@ -153,7 +153,7 @@ func (d app) removeNode(nodeID string) error {
 	panic("TODO")
 }
 
-func (d *app) getKV(key string) (*repository.StoreValue, error) {
+func (d *app) getKV(key string) (*apicassemdb.Entity, error) {
 	val, err := d.raft.GetKV(key)
 	if err != nil {
 		return nil, err
@@ -209,7 +209,7 @@ func (d *app) watch(keys ...string) (ob watcher.IObserver, cancelFn func()) {
 	}
 }
 
-func (d *app) iterate(param *rangeParam) (*repository.RangeResult, error) {
+func (d *app) iterate(param *rangeParam) (*apicassemdb.RangeResp, error) {
 	return d.raft.Range(param.key, param.seek, param.limit)
 }
 
@@ -227,5 +227,5 @@ func (d *app) ttl(key string) (int32, error) {
 		return 0, err
 	}
 
-	return v.TTL, nil
+	return v.GetTtl(), nil
 }

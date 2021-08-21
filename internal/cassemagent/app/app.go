@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"math/rand"
+	"strconv"
 	"time"
 
 	"github.com/hashicorp/go-uuid"
@@ -25,7 +26,8 @@ type app struct {
 	// TODO(@yeqown): trigger quit from TERMINATED/KILL signal.
 	quit chan struct{}
 
-	conf *conf.CassemAgentConfig
+	actualRenewInterval int32
+	conf                *conf.CassemAgentConfig
 
 	aggregate concept.AgentAggregate
 
@@ -82,14 +84,17 @@ func (d app) shutdown() {
 	}
 }
 
-func (d app) startRoutines() {
+func (d *app) startRoutines() {
+	d.actualRenewInterval = d.conf.RenewInterval + rand.Int31n(d.conf.TTL-d.conf.RenewInterval)
 	timeoutCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	err := d.aggregate.Register(timeoutCtx, &concept.AgentInstance{
 		AgentId: d.uniqueId,
 		Addr:    d.conf.Server.Addr,
 		Annotations: map[string]string{
-			"op":       "renew",
-			"hostname": runtime.Hostname(),
+			"op":            "renew",
+			"hostname":      runtime.Hostname(),
+			"ttl":           strconv.Itoa(int(d.conf.TTL)),
+			"renewInterval": strconv.Itoa(int(d.actualRenewInterval)),
 			// "timestamp": time.Now().Format(time.RFC3339),
 		},
 	}, d.conf.TTL)
@@ -103,9 +108,8 @@ func (d app) startRoutines() {
 	cancel()
 
 	runtime.GoFunc("renew", func() error {
-		// random tick to renew
 		// actualRenewInterval = conf.renewInterval + int32n(conf.TTL - cond.RenewInterval)
-		dur := time.Duration(d.conf.RenewInterval+rand.Int31n(d.conf.TTL-d.conf.RenewInterval)) * time.Second
+		dur := time.Duration(d.actualRenewInterval) * time.Second
 		ticker := time.NewTicker(dur)
 
 		for {
@@ -145,8 +149,10 @@ func (d app) renewSelf() error {
 		AgentId: d.uniqueId,
 		Addr:    d.conf.Server.Addr,
 		Annotations: map[string]string{
-			"op":       "renew",
-			"hostname": runtime.Hostname(),
+			"op":            "renew",
+			"hostname":      runtime.Hostname(),
+			"ttl":           strconv.Itoa(int(d.conf.TTL)),
+			"renewInterval": strconv.Itoa(int(d.actualRenewInterval)),
 			// "timestamp": time.Now().Format(time.RFC3339),
 		},
 	}, d.conf.TTL)

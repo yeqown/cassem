@@ -131,10 +131,6 @@ func (t testChange) Topic() string {
 	return t.Namespace + "#" + t.Key + "#" + t.Format
 }
 
-func (t testChange) Data() []byte {
-	return t.D
-}
-
 func (t testChange) Type() ChangeType {
 	return ChangeType_KV
 }

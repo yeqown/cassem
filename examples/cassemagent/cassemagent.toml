@@ -1,4 +1,9 @@
 debug = false
+# seconds for agent registration time to live.
+ttl = 30
+# renew agent registration interval (base), this is better less than ttl.
+renewInterval = 20
+
 cassemdb = [
     "127.0.0.1:2021",
     "127.0.0.1:2022",
@@ -6,8 +11,3 @@ cassemdb = [
 ]
 [server]
     addr = "127.0.0.1:20219"
-
-# seconds for agent registration time to live.
-ttl = 30
-# renew agent registration interval (base), this is better less than ttl.
-renewInterval = 20

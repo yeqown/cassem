@@ -21,18 +21,23 @@ message Entity {
   EntityType typ         = 7;
 };
 
-message change {
-  enum ChangeOp {
+message Change {
+  enum Op {
     Invalid = 0;
     Set     = 1;
     Unset   = 2;
   }
 
-  ChangeOp op      = 1 [(validate.rules).enum   = {defined_only: true}];
+  Op       op      = 1 [(validate.rules).enum   = {defined_only: true}];
   string   key     = 2 [(validate.rules).string = {min_len: 2, contains: "/"}];
   Entity   last    = 3;
   Entity   current = 4;
 };
+
+message ParentDirectoryChange {
+  Change change        = 1;
+  string specificTopic = 2;
+}
 
 message empty {};
 
@@ -102,7 +107,7 @@ service KV {
   rpc UnsetKV(unsetKVReq) returns(empty) {};
 
   // Watch will rev a stream response in client.
-  rpc Watch(watchReq) returns (stream change) {};
+  rpc Watch(watchReq) returns (stream Change) {};
 
   rpc TTL(ttlReq) returns (ttlResp) {};
   rpc Expire(expireReq) returns (empty) {};

@@ -8,6 +8,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	apicassemdb "github.com/yeqown/cassem/internal/cassemdb/api"
 	"github.com/yeqown/cassem/internal/cassemdb/infras/repository"
 	"github.com/yeqown/cassem/pkg/conf"
 	"github.com/yeqown/cassem/pkg/hash"
@@ -22,10 +23,10 @@ import (
 
 // IMyRaft defines the ability of what raft component should act.
 type IMyRaft interface {
-	GetKV(key string) (*repository.StoreValue, error)                       // GetKV get value of key
+	GetKV(key string) (*apicassemdb.Entity, error)                          // GetKV get value of key
 	SetKV(key string, value []byte, isDir, overwrite bool, ttl int32) error // SetKV save key and value
 	UnsetKV(key string, isDir bool) error                                   // UnsetKV save key and value
-	Range(key, seek string, limit int) (*repository.RangeResult, error)
+	Range(key, seek string, limit int) (*apicassemdb.RangeResp, error)
 	Expire(key string) error
 
 	ChangeNotifyCh() <-chan watcher.IChange

@@ -2,10 +2,13 @@ package domain
 
 import (
 	"encoding/json"
+	"strings"
 	"time"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/yeqown/log"
 
+	apicassemdb "github.com/yeqown/cassem/internal/cassemdb/api"
 	"github.com/yeqown/cassem/internal/cassemdb/infras/repository"
 )
 
@@ -98,12 +101,12 @@ func applyActionSetKV(f *fsm, l *fsmLog) (err error) {
 }
 
 type changeCommand struct {
-	*repository.Change
+	*apicassemdb.Change
 }
 
 func (cc changeCommand) action() action                 { return actionChange }
-func (cc changeCommand) Serialize() ([]byte, error)     { return json.Marshal(cc) }
-func (cc *changeCommand) Deserialize(data []byte) error { return json.Unmarshal(data, cc) }
+func (cc changeCommand) Serialize() ([]byte, error)     { return proto.Marshal(cc.Change) }
+func (cc *changeCommand) Deserialize(data []byte) error { return proto.Unmarshal(data, cc.Change) }
 
 func applyActionChange(f *fsm, l *fsmLog) error {
 	if now := time.Now().Unix(); now-l.CreatedAt > _LOG_EXPIRED_TS {
@@ -116,7 +119,7 @@ func applyActionChange(f *fsm, l *fsmLog) error {
 		return nil
 	}
 
-	cc := new(changeCommand)
+	cc := &changeCommand{Change: new(apicassemdb.Change)}
 	if err := cc.Deserialize(l.Data); err != nil {
 		panic("could not unmarshal: " + err.Error())
 	}
@@ -129,8 +132,17 @@ func applyActionChange(f *fsm, l *fsmLog) error {
 
 	select {
 	case f.ch <- cc.Change:
-		if parentDirectoryChange, ok := cc.Change.Parent(); ok {
-			f.ch <- parentDirectoryChange
+		paths, _ := repository.KeySplitter(repository.StoreKey(cc.GetKey()))
+		if len(paths) == 0 {
+			break
+		}
+		parentDirectoryChange := &apicassemdb.ParentDirectoryChange{
+			Change:        cc.Change,
+			SpecificTopic: strings.Join(paths, "/"),
+		}
+		select {
+		case f.ch <- parentDirectoryChange:
+		default:
 		}
 	default:
 		log.

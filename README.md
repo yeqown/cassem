@@ -11,7 +11,7 @@ same time, it's deployed by `Go` which gives it platform-cross ability and fast-
 
 - [x] HTTP Restful API to manage all configs `cassemadm`.
   - [x] Stateless so that it can be easily scaled.
-  - [ ] Gray released.
+  - [x] Gray released.
   - [x] Multi-version management.
   - [ ] Operation log, each operation to config elements will be recorded.
   - [ ] Permission control.

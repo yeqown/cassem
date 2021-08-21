@@ -7,6 +7,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/yeqown/log"
 
+	apicassemdb "github.com/yeqown/cassem/internal/cassemdb/api"
 	"github.com/yeqown/cassem/internal/cassemdb/infras/repository"
 	"github.com/yeqown/cassem/pkg/errorx"
 	"github.com/yeqown/cassem/pkg/runtime"
@@ -60,7 +61,7 @@ func (r *myraft) SetKV(key string, val []byte, isDir, overwrite bool, ttl int32)
 	}
 
 	// touch off change signal to cassemdb cluster.
-	r.triggerWatchingMechanism(repository.OpSet, key, last, &v)
+	r.triggerWatchingMechanism(apicassemdb.Change_Set, key, last, &v)
 
 	return nil
 }
@@ -86,7 +87,7 @@ func (r *myraft) UnsetKV(key string, isDir bool) error {
 	}
 
 	// touch off change signal to cassemdb cluster.
-	r.triggerWatchingMechanism(repository.OpUnset, key, last, nil)
+	r.triggerWatchingMechanism(apicassemdb.Change_Unset, key, last, nil)
 
 	return nil
 }
@@ -95,7 +96,7 @@ func (r *myraft) UnsetKV(key string, isDir bool) error {
 // 1. delete a kv.
 // 2. really update an existed kv.
 //
-func (r myraft) triggerWatchingMechanism(op repository.ChangeOp, key string, last, newVal *repository.StoreValue) {
+func (r myraft) triggerWatchingMechanism(op apicassemdb.Change_Op, key string, last, cur *repository.StoreValue) {
 	log.
 		WithFields(log.Fields{
 			"key": key,
@@ -109,32 +110,51 @@ func (r myraft) triggerWatchingMechanism(op repository.ChangeOp, key string, las
 	//	return
 	//}
 
-	if newVal != nil && strings.Compare(last.Fingerprint, newVal.Fingerprint) == 0 {
-		// set kv but newVal is same to old value, so no need to touch off a change notification.
+	if last != nil && cur != nil && strings.Compare(last.Fingerprint, cur.Fingerprint) == 0 {
+		// set kv but cur is same to old value, so no need to touch off a change notification.
 		return
 	}
 
 	go func() {
 		log.
-			WithFields(log.Fields{"key": key, "newVal": newVal}).
+			WithFields(log.Fields{"key": key, "cur": cur}).
 			Debug("myraft.triggerWatchingMechanism called")
 
 		if err := r.propagateCommand(&changeCommand{
-			Change: &repository.Change{
+			Change: &apicassemdb.Change{
 				Op:      op,
-				Key:     repository.StoreKey(key),
-				Last:    last,
-				Current: newVal,
+				Key:     key,
+				Last:    convertStoreValue(last),
+				Current: convertStoreValue(cur),
 			}}); err != nil {
 
 			log.
-				WithFields(log.Fields{"key": key, "newVal": newVal}).
+				WithFields(log.Fields{
+					"key": key,
+					"cur": cur,
+				}).
 				Error("myraft.triggerWatchingMechanism called")
 		}
 	}()
 }
 
-func (r *myraft) GetKV(key string) (*repository.StoreValue, error) {
+func convertStoreValue(v *repository.StoreValue) *apicassemdb.Entity {
+	if v == nil {
+		return nil
+	}
+
+	return &apicassemdb.Entity{
+		Fingerprint: v.Fingerprint,
+		Key:         v.Key,
+		Val:         v.Val,
+		CreatedAt:   v.CreatedAt,
+		UpdatedAt:   v.UpdatedAt,
+		Ttl:         v.TTL,
+		Typ:         v.Type(),
+	}
+}
+
+func (r *myraft) GetKV(key string) (*apicassemdb.Entity, error) {
 	val, err := r.repo.GetKV(repository.StoreKey(key), false)
 	if err != nil {
 		log.
@@ -150,7 +170,7 @@ func (r *myraft) GetKV(key string) (*repository.StoreValue, error) {
 		return nil, repository.ErrNotFound
 	}
 
-	return val, nil
+	return convertStoreValue(val), nil
 }
 
 // probeRemoveExpired returns true while val.Expired() is true.
@@ -160,9 +180,9 @@ func (r *myraft) probeRemoveExpired(val *repository.StoreValue) (removed bool) {
 	}
 
 	if val.Expired() {
-		if err := r.UnsetKV(val.Key.String(), false); err != nil {
+		if err := r.UnsetKV(val.Key, false); err != nil {
 			log.
-				WithFields(log.Fields{"key": val.Key.String(), "error": err}).
+				WithFields(log.Fields{"key": val.Key, "error": err}).
 				Error("repo.GetKV failed to remove expired key")
 		}
 		return true
@@ -171,18 +191,43 @@ func (r *myraft) probeRemoveExpired(val *repository.StoreValue) (removed bool) {
 	return false
 }
 
-func (r myraft) Range(key, seek string, limit int) (*repository.RangeResult, error) {
+func (r myraft) Range(key, seek string, limit int) (*apicassemdb.RangeResp, error) {
 	// DONE(@yeqown): return expired keys and trigger probeRemoveExpired methods
 	result, err := r.repo.Range(repository.StoreKey(key), seek, limit)
-	if err == nil && len(result.ExpiredKeys) != 0 {
-		//	TODO(@yeqown): delete the expired keys
+	if err != nil {
+		return nil, errors.Wrap(err, "myraft.Range")
 	}
 
-	return result, err
+	if len(result.ExpiredKeys) != 0 {
+		// DONE(@yeqown): delete the expired keys while got expired keys.
+		go func() {
+			log.
+				WithFields(log.Fields{
+					"keys": result.ExpiredKeys,
+				}).
+				Debug("myraft.Range trigger remove expired keys")
+
+			for _, k := range result.ExpiredKeys {
+				_ = r.UnsetKV(k, false)
+			}
+		}()
+	}
+
+	resp := &apicassemdb.RangeResp{
+		Entities:    make([]*apicassemdb.Entity, 0, len(result.Items)),
+		HasMore:     result.HasMore,
+		NextSeekKey: result.NextSeekKey,
+	}
+
+	for _, v := range result.Items {
+		resp.Entities = append(resp.Entities, convertStoreValue(v))
+	}
+
+	return resp, err
 }
 
 func (r *myraft) Expire(key string) error {
-	v, err := r.repo.GetKV(repository.StoreKey(key), false)
+	v, err := r.repo.GetKV(key, false)
 	if err != nil {
 		if errors.Is(err, errorx.Err_NOT_FOUND) {
 			return nil

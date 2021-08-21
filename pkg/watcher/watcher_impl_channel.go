@@ -103,8 +103,8 @@ func (c *channelWatcher) loop() (err error) {
 		case notify := <-c.ch:
 			log.
 				WithFields(log.Fields{
-					"topic": notify.Topic(),
-					"data":  string(notify.Data()),
+					"topic":  notify.Topic(),
+					"change": notify,
 				}).
 				Debug("channelWatcher loop gets one signal")
 

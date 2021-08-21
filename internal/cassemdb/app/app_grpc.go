@@ -8,8 +8,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 
-	pb "github.com/yeqown/cassem/internal/cassemdb/api"
-	"github.com/yeqown/cassem/internal/cassemdb/infras/repository"
+	apicassemdb "github.com/yeqown/cassem/internal/cassemdb/api"
 	"github.com/yeqown/cassem/pkg/grpcx"
 	"github.com/yeqown/cassem/pkg/watcher"
 )
@@ -32,42 +31,42 @@ func gRPC(coord ICoordinator) *grpc.Server {
 				grpcx.ServerRecovery(), grpcx.ServerLogger(), grpcx.SevrerErrorx(), grpcx.ServerValidation()),
 		),
 	)
-	pb.RegisterKVServer(s, srv)
+	apicassemdb.RegisterKVServer(s, srv)
 	reflection.Register(s)
 
 	return s
 }
 
-func (s grpcServer) GetKV(ctx context.Context, req *pb.GetKVReq) (*pb.GetKVResp, error) {
+func (s grpcServer) GetKV(ctx context.Context, req *apicassemdb.GetKVReq) (*apicassemdb.GetKVResp, error) {
 	v, err := s.coord.getKV(req.GetKey())
 	if err != nil {
 		return nil, err
 	}
 
-	resp := &pb.GetKVResp{
-		Entity: convertStoreValue(v),
+	resp := &apicassemdb.GetKVResp{
+		Entity: v,
 	}
 	return resp, nil
 }
 
-func (s grpcServer) GetKVs(ctx context.Context, req *pb.GetKVsReq) (*pb.GetKVsResp, error) {
-	entities := make([]*pb.Entity, 0, len(req.GetKeys()))
+func (s grpcServer) GetKVs(ctx context.Context, req *apicassemdb.GetKVsReq) (*apicassemdb.GetKVsResp, error) {
+	entities := make([]*apicassemdb.Entity, 0, len(req.GetKeys()))
 	for _, k := range req.GetKeys() {
 		v, err := s.coord.getKV(k)
 		if err != nil {
 			continue
 		}
 
-		entities = append(entities, convertStoreValue(v))
+		entities = append(entities, v)
 	}
 
-	resp := &pb.GetKVsResp{
+	resp := &apicassemdb.GetKVsResp{
 		Entities: entities,
 	}
 	return resp, nil
 }
 
-func (s grpcServer) SetKV(ctx context.Context, req *pb.SetKVReq) (*pb.Empty, error) {
+func (s grpcServer) SetKV(ctx context.Context, req *apicassemdb.SetKVReq) (*apicassemdb.Empty, error) {
 	err := s.coord.setKV(&setKVParam{
 		key:       req.GetKey(),
 		val:       req.GetVal(),
@@ -79,9 +78,9 @@ func (s grpcServer) SetKV(ctx context.Context, req *pb.SetKVReq) (*pb.Empty, err
 	return _empty, err
 }
 
-var _empty = new(pb.Empty)
+var _empty = new(apicassemdb.Empty)
 
-func (s grpcServer) UnsetKV(ctx context.Context, req *pb.UnsetKVReq) (*pb.Empty, error) {
+func (s grpcServer) UnsetKV(ctx context.Context, req *apicassemdb.UnsetKVReq) (*apicassemdb.Empty, error) {
 	err := s.coord.unsetKV(&unsetKVParam{
 		key:   req.GetKey(),
 		isDir: req.GetIsDir(),
@@ -89,7 +88,7 @@ func (s grpcServer) UnsetKV(ctx context.Context, req *pb.UnsetKVReq) (*pb.Empty,
 	return _empty, err
 }
 
-func (s grpcServer) Watch(req *pb.WatchReq, stream pb.KV_WatchServer) (err error) {
+func (s grpcServer) Watch(req *apicassemdb.WatchReq, stream apicassemdb.KV_WatchServer) (err error) {
 	ob, cancel := s.coord.watch(req.GetKeys()...)
 	defer cancel()
 
@@ -108,7 +107,7 @@ func (s grpcServer) Watch(req *pb.WatchReq, stream pb.KV_WatchServer) (err error
 
 			// convert change from raw source into api.Change
 			// TODO(@yeqown): use api.Change directly rather than convert it again an again.
-			pbChange := convertChange(change)
+			pbChange := translateChange(change)
 			if pbChange == nil {
 				continue
 			}
@@ -131,17 +130,17 @@ func (s grpcServer) Watch(req *pb.WatchReq, stream pb.KV_WatchServer) (err error
 	}
 }
 
-func (s grpcServer) TTL(ctx context.Context, req *pb.TtlReq) (*pb.TtlResp, error) {
+func (s grpcServer) TTL(ctx context.Context, req *apicassemdb.TtlReq) (*apicassemdb.TtlResp, error) {
 	ttl, err := s.coord.ttl(req.GetKey())
-	return &pb.TtlResp{Ttl: ttl}, err
+	return &apicassemdb.TtlResp{Ttl: ttl}, err
 }
 
-func (s grpcServer) Expire(ctx context.Context, req *pb.ExpireReq) (*pb.Empty, error) {
+func (s grpcServer) Expire(ctx context.Context, req *apicassemdb.ExpireReq) (*apicassemdb.Empty, error) {
 	err := s.coord.expire(req.GetKey())
 	return _empty, err
 }
 
-func (s grpcServer) Range(ctx context.Context, req *pb.RangeReq) (*pb.RangeResp, error) {
+func (s grpcServer) Range(ctx context.Context, req *apicassemdb.RangeReq) (*apicassemdb.RangeResp, error) {
 	result, err := s.coord.iterate(&rangeParam{
 		key:   req.GetKey(),
 		seek:  req.GetSeek(),
@@ -158,62 +157,23 @@ func (s grpcServer) Range(ctx context.Context, req *pb.RangeReq) (*pb.RangeResp,
 		return nil, err
 	}
 
-	// remove keys
-	go func() {
-		log.
-			WithContext(ctx).
-			WithFields(log.Fields{
-				"keys": result.ExpiredKeys,
-			}).
-			Debug("grpcServer.Range trigger remove expired keys")
-		for _, k := range result.ExpiredKeys {
-			_ = s.coord.unsetKV(&unsetKVParam{key: k, isDir: false})
-		}
-	}()
-
-	entities := make([]*pb.Entity, 0, len(result.Items))
-	for _, item := range result.Items {
-		entities = append(entities, convertStoreValue(&item))
-	}
-
-	r := &pb.RangeResp{
-		Entities:    entities,
-		HasMore:     result.HasMore,
-		NextSeekKey: result.NextSeekKey,
-	}
-
-	return r, nil
+	return result, nil
 }
 
-func convertStoreValue(v *repository.StoreValue) *pb.Entity {
-	if v == nil {
-		return nil
-	}
-
-	return &pb.Entity{
-		Fingerprint: v.Fingerprint,
-		Key:         v.Key.String(),
-		Val:         v.Val,
-		CreatedAt:   v.CreatedAt,
-		UpdatedAt:   v.UpdatedAt,
-		Ttl:         v.TTL,
-		Typ:         v.Type(),
-	}
-}
-
-// TODO(@yeqown): use proto to ignore convert procedure.
-func convertChange(change watcher.IChange) *pb.Change {
+// translateChange construct an api.Change from watcher.IChange interface.
+// DONE(@yeqown): use proto to ignore convert procedure.
+func translateChange(change watcher.IChange) *apicassemdb.Change {
 	var (
-		c  *repository.Change
+		c  *apicassemdb.Change
 		ok bool
 	)
 
 	switch change.Type() {
 	case watcher.ChangeType_KV:
-		c, ok = change.(*repository.Change)
+		c, ok = change.(*apicassemdb.Change)
 	case watcher.ChangeType_DIR:
-		var pdc *repository.ParentDirectoryChange
-		if pdc, ok = change.(*repository.ParentDirectoryChange); ok {
+		var pdc *apicassemdb.ParentDirectoryChange
+		if pdc, ok = change.(*apicassemdb.ParentDirectoryChange); ok {
 			c = pdc.Change
 		}
 	default:
@@ -222,15 +182,15 @@ func convertChange(change watcher.IChange) *pb.Change {
 	if !ok || c == nil {
 		log.
 			WithField("change", change).
-			Warn("cassemdb.convertChange skip the change")
+			Warn("cassemdb.translateChange skip the change")
 		return nil
 	}
 
-	return &pb.Change{
-		Op:      pb.Change_ChangeOp(c.Op),
-		Key:     c.Key.String(),
-		Last:    convertStoreValue(c.Last),
-		Current: convertStoreValue(c.Current),
+	return &apicassemdb.Change{
+		Op:      c.GetOp(),
+		Key:     c.GetKey(),
+		Last:    c.GetLast(),
+		Current: c.GetCurrent(),
 	}
 }
 

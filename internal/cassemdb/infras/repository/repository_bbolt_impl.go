@@ -54,7 +54,7 @@ func newRepositoryWithDB(db *bolt.DB) KV {
 // returns buk: p1/p2, leaf: leaf, err: nil.
 func (b boltRepoImpl) locateBucket(
 	tx *bolt.Tx, key StoreKey, createBucketNotFound bool) (buk *bolt.Bucket, leaf string, err error) {
-	nodes, leaf := keySplitter(key)
+	nodes, leaf := KeySplitter(key)
 	if len(nodes) == 0 {
 		return nil, leaf, ErrNoParentBucket
 	}
@@ -142,7 +142,8 @@ func (b boltRepoImpl) SetKV(key StoreKey, val *StoreValue, dir bool) (err error)
 	log.
 		WithFields(log.Fields{
 			"key": key,
-			"val": val,
+			"ttl": val.TTL,
+			"val": runtime.ToString(val.Val),
 			"dir": dir,
 		}).
 		Debug("boltRepoImpl.SetKV called")
@@ -213,7 +214,7 @@ func (b boltRepoImpl) Range(key StoreKey, seek string, limit int) (*RangeResult,
 
 		k, v := cur.First()
 		result = &RangeResult{
-			Items:       make([]StoreValue, 0, limit),
+			Items:       make([]*StoreValue, 0, limit),
 			HasMore:     false,
 			NextSeekKey: "",
 		}
@@ -236,12 +237,12 @@ func (b boltRepoImpl) Range(key StoreKey, seek string, limit int) (*RangeResult,
 
 				// FIXED: shielding expired data in range
 				if err2 == nil && sv.Expired() {
-					result.ExpiredKeys = append(result.ExpiredKeys, sv.Key.String())
+					result.ExpiredKeys = append(result.ExpiredKeys, sv.Key)
 					continue
 				}
 			}
 
-			result.Items = append(result.Items, sv)
+			result.Items = append(result.Items, &sv)
 			count++
 		}
 

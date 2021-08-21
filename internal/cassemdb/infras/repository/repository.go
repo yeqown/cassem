@@ -20,8 +20,15 @@ type KV interface {
 	Range(key StoreKey, seek string, limit int) (*RangeResult, error)
 }
 
-func keySplitter(s StoreKey) (paths []string, leaf string) {
-	arr := strings.Split(s.String(), "/")
+type RangeResult struct {
+	Items       []*StoreValue
+	HasMore     bool
+	NextSeekKey string
+	ExpiredKeys []string
+}
+
+func KeySplitter(s StoreKey) (paths []string, leaf string) {
+	arr := strings.Split(s, "/")
 	l := len(arr)
 	if l < 1 {
 		return

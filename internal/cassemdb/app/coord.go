@@ -1,18 +1,18 @@
 package app
 
 import (
-	"github.com/yeqown/cassem/internal/cassemdb/infras/repository"
+	apicassemdb "github.com/yeqown/cassem/internal/cassemdb/api"
 	"github.com/yeqown/cassem/pkg/watcher"
 )
 
 type ICoordinator interface {
-	getKV(key string) (*repository.StoreValue, error)
+	getKV(key string) (*apicassemdb.Entity, error)
 	setKV(*setKVParam) error
 	unsetKV(*unsetKVParam) error
 	watch(keys ...string) (watcher.IObserver, func())
 	ttl(key string) (int32, error)
 	expire(key string) error
-	iterate(*rangeParam) (*repository.RangeResult, error)
+	iterate(*rangeParam) (*apicassemdb.RangeResp, error)
 }
 
 type setKVParam struct {

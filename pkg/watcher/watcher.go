@@ -9,7 +9,6 @@ const (
 
 type IChange interface {
 	Topic() string
-	Data() []byte
 	Type() ChangeType
 }
 

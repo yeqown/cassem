@@ -43,13 +43,15 @@ func main() {
 
 func start(ctx *cli.Context) error {
 	c := new(conf.CassemAgentConfig)
-	if err := conf.Load(ctx.String("conf"), c); err != nil {
+	confpath := ctx.String("conf")
+	if err := conf.Load(confpath, c); err != nil {
 		return err
 	}
 
 	log.
 		WithFields(log.Fields{
 			"conf": c,
+			"path": confpath,
 		}).
 		Debugf("loaded from CONF file: %+v", c)
 

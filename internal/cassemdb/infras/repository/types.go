@@ -2,21 +2,13 @@ package repository
 
 import (
 	"encoding/json"
-	"strings"
 	"time"
 
-	"github.com/yeqown/log"
-
-	pb "github.com/yeqown/cassem/internal/cassemdb/api"
+	apicassemdb "github.com/yeqown/cassem/internal/cassemdb/api"
 	"github.com/yeqown/cassem/pkg/hash"
-	"github.com/yeqown/cassem/pkg/watcher"
 )
 
-type StoreKey string
-
-func (k StoreKey) String() string {
-	return string(k)
-}
+type StoreKey = string
 
 type StoreValue struct {
 	Fingerprint string   `json:"fingerprint"`
@@ -34,12 +26,12 @@ const (
 	EXPIRED       = -1
 )
 
-func (s StoreValue) Type() pb.EntityType {
+func (s StoreValue) Type() apicassemdb.EntityType {
 	if s.Val == nil && s.Size == 0 {
-		return pb.EntityType_DIR
+		return apicassemdb.EntityType_DIR
 	}
 
-	return pb.EntityType_ELT
+	return apicassemdb.EntityType_ELT
 }
 
 func (s *StoreValue) Expired() bool {
@@ -103,79 +95,72 @@ func calculateTTL(ttl int32) int32 {
 	return ttl
 }
 
-//go:generate stringer -type=Op
-type ChangeOp uint8
-
-const (
-	OpSet ChangeOp = iota + 1
-	OpUnset
-)
-
-type Change struct {
-	Op      ChangeOp    `json:"op"`
-	Key     StoreKey    `json:"key"`
-	Last    *StoreValue `json:"last"`
-	Current *StoreValue `json:"current"`
-
-	data []byte
-}
-
-func (c *Change) Topic() string {
-	return c.Key.String()
-}
-
-func (c *Change) Type() watcher.ChangeType {
-	return watcher.ChangeType_KV
-}
-
-// Parent returns the change message of parent directory, only if current
-// KV has a parent directory.
-func (c *Change) Parent() (*ParentDirectoryChange, bool) {
-	paths, _ := keySplitter(c.Key)
-	if len(paths) == 0 {
-		return nil, false
-	}
-
-	return &ParentDirectoryChange{Change: c, topic: strings.Join(paths, "/")}, true
-}
-
-func (c *Change) Data() []byte {
-	if c.data != nil {
-		return c.data
-	}
-
-	var err error
-	c.data, err = json.Marshal(c)
-	if err != nil {
-		log.
-			WithFields(log.Fields{
-				"key":     c.Key,
-				"last":    c.Last,
-				"current": c.Current,
-				"error":   err,
-			}).
-			Error("Change.Data failed")
-	}
-
-	return c.data
-}
-
-type ParentDirectoryChange struct {
-	*Change
-	topic string
-}
-
-func (pdc *ParentDirectoryChange) Topic() string {
-	return pdc.topic
-}
-
-func (pdc *ParentDirectoryChange) Type() watcher.ChangeType {
-	return watcher.ChangeType_DIR
-}
-
-type RangeResult struct {
-	Items       []StoreValue
-	HasMore     bool
-	NextSeekKey string
-	ExpiredKeys []string
-}
+////go:generate stringer -type=Op
+//type ChangeOp uint8
+//
+//const (
+//	OpSet ChangeOp = iota + 1
+//	OpUnset
+//)
+//
+//type Change struct {
+//	Op      ChangeOp    `json:"op"`
+//	Key     StoreKey    `json:"key"`
+//	Last    *StoreValue `json:"last"`
+//	Current *StoreValue `json:"current"`
+//
+//	data []byte
+//}
+//
+//func (c *Change) Topic() string {
+//	return c.Key.String()
+//}
+//
+//func (c *Change) Type() watcher.ChangeType {
+//	return watcher.ChangeType_KV
+//}
+//
+//// Parent returns the change message of parent directory, only if current
+//// KV has a parent directory.
+//func (c *Change) Parent() (*ParentDirectoryChange, bool) {
+//	paths, _ := KeySplitter(c.Key)
+//	if len(paths) == 0 {
+//		return nil, false
+//	}
+//
+//	return &ParentDirectoryChange{Change: c, topic: strings.Join(paths, "/")}, true
+//}
+//
+//func (c *Change) Data() []byte {
+//	if c.data != nil {
+//		return c.data
+//	}
+//
+//	var err error
+//	c.data, err = json.Marshal(c)
+//	if err != nil {
+//		log.
+//			WithFields(log.Fields{
+//				"key":     c.Key,
+//				"last":    c.Last,
+//				"current": c.Current,
+//				"error":   err,
+//			}).
+//			Error("Change.Data failed")
+//	}
+//
+//	return c.data
+//}
+//
+//type ParentDirectoryChange struct {
+//	*Change
+//	topic string
+//}
+//
+//func (pdc *ParentDirectoryChange) Topic() string {
+//	return pdc.topic
+//}
+//
+//func (pdc *ParentDirectoryChange) Type() watcher.ChangeType {
+//	return watcher.ChangeType_DIR
+//}

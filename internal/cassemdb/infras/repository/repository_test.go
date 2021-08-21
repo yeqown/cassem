@@ -71,7 +71,7 @@ func TestKeySplitter(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotNodes, gotLeaf := keySplitter(tt.args.s)
+			gotNodes, gotLeaf := KeySplitter(tt.args.s)
 			assert.Equal(t, tt.wantNodes, gotNodes)
 			assert.Equal(t, tt.wantLeaf, gotLeaf)
 		})
@@ -111,7 +111,7 @@ func (s testRepositoryBBoltSuite) Test_STest_Set_Get_Unset_DIR() {
 	val, err := s.repo.GetKV("dir/b", true)
 	s.Require().NoError(err)
 	s.NotNil(val)
-	s.Equal("dir/b", val.Key.String())
+	s.Equal("dir/b", val.Key)
 
 	err = s.repo.UnsetKV("dir/b", true)
 	s.Require().NoError(err)
