@@ -15,7 +15,7 @@ require (
 	github.com/sergi/go-diff v1.2.0
 	github.com/stretchr/testify v1.7.0
 	github.com/urfave/cli/v2 v2.3.0
-	github.com/yeqown/log v1.0.6
+	github.com/yeqown/log v1.1.0
 	go.etcd.io/bbolt v1.3.5
 	golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9
 	golang.org/x/net v0.0.0-20210405180319-a5a99cb37ef4

@@ -2,6 +2,7 @@ package main
 
 import (
 	"os"
+	"time"
 
 	cassemdb "github.com/yeqown/cassem/internal/cassemdb/app"
 	"github.com/yeqown/cassem/pkg/conf"
@@ -13,6 +14,7 @@ import (
 
 func init() {
 	log.SetLogLevel(log.LevelInfo)
+	log.SetTimeFormat(true, time.RFC3339)
 
 	if runtime.IsDebug() {
 		log.SetCallerReporter(true)
