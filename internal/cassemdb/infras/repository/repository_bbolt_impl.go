@@ -24,10 +24,17 @@ var (
 
 type boltRepoImpl struct {
 	db *bolt.DB
+
+	// preWriteC chan *preWriteLog
 }
 
 func NewRepository(c *conf.Bolt) (KV, error) {
-	db, err := bolt.Open(path.Join(c.Dir, c.DB), 0600, nil)
+	db, err := bolt.Open(path.Join(c.Dir, c.DB), 0600, &bolt.Options{
+		Timeout:        0,
+		NoGrowSync:     false,
+		FreelistType:   bolt.FreelistArrayType,
+		NoFreelistSync: true,
+	})
 	if err != nil {
 		return nil, errors.Wrap(err, "open bolt.DB failed")
 	}
@@ -36,9 +43,15 @@ func NewRepository(c *conf.Bolt) (KV, error) {
 }
 
 func newRepositoryWithDB(db *bolt.DB) KV {
-	return boltRepoImpl{
+	b := boltRepoImpl{
 		db: db,
+		// preWriteC: make(chan *preWriteLog, _PRE_WRITE_BUF_SIZE),
 	}
+
+	// run forever until the process quit.
+	// runtime.GoFunc("boltRepoImpl.preWriteDispatcher", b.preWriteDispatcher)
+
+	return b
 }
 
 // locateBucket locate bucket which parameters specified.
@@ -148,7 +161,7 @@ func (b boltRepoImpl) SetKV(key StoreKey, val *StoreValue, dir bool) (err error)
 		}).
 		Debug("boltRepoImpl.SetKV called")
 
-	err = b.db.Update(func(tx *bolt.Tx) error {
+	err = b.db.Batch(func(tx *bolt.Tx) error {
 		bucket, leaf, err2 := b.locateBucket(tx, key, true)
 		if err2 != nil {
 			return err2
@@ -171,8 +184,8 @@ func (b boltRepoImpl) SetKV(key StoreKey, val *StoreValue, dir bool) (err error)
 }
 
 func (b boltRepoImpl) UnsetKV(key StoreKey, dir bool) (err error) {
-	err = b.db.Update(func(tx *bolt.Tx) error {
-		bucket, leaf, err2 := b.locateBucket(tx, key, true)
+	err = b.db.Batch(func(tx *bolt.Tx) error {
+		bucket, leaf, err2 := b.locateBucket(tx, key, false)
 		if err2 != nil {
 			return err2
 		}
