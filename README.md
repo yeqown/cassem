@@ -42,6 +42,8 @@ same time, it's deployed by `Go` which gives it platform-cross ability and fast-
 
 The KV storage component in cassem, provide gRPC API.
 
+<img src="./assets/cassemdb-architecture.svg" width="100%" />
+
 ### - [cassemadm](cmd/cassemadm/README.md)
 
 The manager in cassem, provide RESTful API to communicate. It is serving for CTL and Dashboard UI.

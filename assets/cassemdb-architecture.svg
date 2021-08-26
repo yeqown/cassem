@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="537px" height="294px" viewBox="0 0 537 294" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title>切片</title>
+    <defs>
+        <rect id="path-1" x="0" y="0" width="33" height="50"></rect>
+        <mask id="mask-2" maskContentUnits="userSpaceOnUse" maskUnits="objectBoundingBox" x="0" y="0" width="33" height="50" fill="white">
+            <use xlink:href="#path-1"></use>
+        </mask>
+        <rect id="path-3" x="0" y="0" width="20" height="89"></rect>
+        <mask id="mask-4" maskContentUnits="userSpaceOnUse" maskUnits="objectBoundingBox" x="0" y="0" width="20" height="89" fill="white">
+            <use xlink:href="#path-3"></use>
+        </mask>
+    </defs>
+    <g id="soft-archittecture" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <g id="编组-4" transform="translate(40.000000, 110.000000)">
+            <rect id="矩形" stroke="#0D47A1" fill="#00B0FF" x="0.5" y="0.5" width="273" height="49"></rect>
+            <text id="APP-Layer" font-family="AndaleMono, Andale Mono" font-size="16" font-weight="normal" fill="#ECEFF1">
+                <tspan x="94" y="31">APP Layer</tspan>
+            </text>
+        </g>
+        <g id="编组-2" transform="translate(40.000000, 167.000000)">
+            <rect id="矩形备份-4" stroke="#0D47A1" fill="#0288D1" x="0.5" y="0.5" width="233" height="49"></rect>
+            <text id="Consensus-Protocol" font-family="AndaleMono, Andale Mono" font-size="16" font-weight="normal" fill="#ECEFF1">
+                <tspan x="37" y="31">Consensus Protocol</tspan>
+            </text>
+        </g>
+        <g id="编组" transform="translate(281.000000, 167.000000)">
+            <use id="矩形备份-6" stroke="#0D47A1" mask="url(#mask-2)" stroke-width="4" stroke-dasharray="4" xlink:href="#path-1"></use>
+            <text id="read" transform="translate(16.500000, 25.500000) rotate(90.000000) translate(-16.500000, -25.500000) " font-family="AndaleMono, Andale Mono" font-size="10" font-weight="normal" fill="#000000">
+                <tspan x="4" y="29">read</tspan>
+            </text>
+        </g>
+        <g id="编组-3" transform="translate(40.000000, 224.000000)">
+            <rect id="矩形备份-5" stroke="#0D47A1" fill="#546E7A" x="0.5" y="0.5" width="273" height="49"></rect>
+            <text id="KV-Storage" font-family="AndaleMono, Andale Mono" font-size="16" font-weight="normal" fill="#ECEFF1">
+                <tspan x="89" y="31">KV Storage</tspan>
+            </text>
+        </g>
+        <g id="api-layer" transform="translate(13.000000, 53.000000)">
+            <rect id="矩形备份-3" stroke="#0D47A1" fill="#E0F7FA" x="0.5" y="0.5" width="19" height="49"></rect>
+            <text id="API" transform="translate(10.000000, 25.500000) rotate(-90.000000) translate(-10.000000, -25.500000) " font-family="AndaleMono, Andale Mono" font-size="10" font-weight="normal" fill="#000000">
+                <tspan x="0" y="29">API</tspan>
+            </text>
+        </g>
+        <g id="title" transform="translate(13.000000, 25.000000)">
+            <rect id="矩形备份-3" stroke="#0D47A1" fill="#E0F7FA" x="0.5" y="0.5" width="300" height="19"></rect>
+            <text id="cassemdb-soft-archit" font-family="AndaleMono, Andale Mono" font-size="10" font-weight="normal" fill="#000000">
+                <tspan x="82" y="13">cassemdb soft architecture</tspan>
+            </text>
+        </g>
+        <g id="infra-layer" transform="translate(13.000000, 224.000000)">
+            <rect id="矩形备份-3" stroke="#0D47A1" fill="#E0F7FA" x="0.5" y="0.5" width="19" height="49"></rect>
+            <text id="INFRA" transform="translate(10.000000, 24.500000) rotate(-90.000000) translate(-10.000000, -24.500000) " font-family="AndaleMono, Andale Mono" font-size="10" font-weight="normal" fill="#000000">
+                <tspan x="-6.31578947" y="28">INFRA</tspan>
+            </text>
+        </g>
+        <g id="app-layer" transform="translate(13.000000, 110.000000)">
+            <rect id="矩形备份-3" stroke="#0D47A1" fill="#E0F7FA" x="0.5" y="0.5" width="19" height="106"></rect>
+            <text id="APP" transform="translate(10.000000, 54.500000) rotate(-90.000000) translate(-10.000000, -54.500000) " font-family="AndaleMono, Andale Mono" font-size="10" font-weight="normal" fill="#000000">
+                <tspan x="0" y="58">APP</tspan>
+            </text>
+        </g>
+        <g id="grpc" transform="translate(40.000000, 53.000000)">
+            <rect id="矩形备份" stroke="#0D47A1" fill="#64FFDA" x="0.5" y="0.5" width="134" height="49"></rect>
+            <text id="gRPC" font-family="AndaleMono, Andale Mono" font-size="16" font-weight="normal" fill="#000000">
+                <tspan x="46" y="31">gRPC</tspan>
+            </text>
+        </g>
+        <g id="http" transform="translate(179.000000, 53.000000)">
+            <rect id="矩形备份-2" stroke="#0D47A1" fill="#18FFFF" x="0.5" y="0.5" width="134" height="49"></rect>
+            <text id="HTTP" font-family="AndaleMono, Andale Mono" font-size="16" font-weight="normal" fill="#000000">
+                <tspan x="42" y="31">HTTP</tspan>
+            </text>
+        </g>
+        <path id="路径" d="M350.969421,191 C351.482257,191 351.904929,191.38604 351.962694,191.883379 L351.969421,192 L351.969421,251.691986 C351.969421,252.204822 351.583381,252.627493 351.086043,252.685258 L350.969421,252.691986 L327.222,252.691 L327.222222,257.856871 C327.222222,258.282614 326.903638,258.633947 326.491862,258.685479 L326.387107,258.691986 C326.257459,258.691986 326.129592,258.661801 326.013632,258.603821 L326.013632,258.603821 L313.684046,252.439027 C313.271517,252.232763 313.104306,251.731132 313.310571,251.318603 C313.391379,251.156985 313.522428,251.025937 313.684046,250.945128 L313.684046,250.945128 L326.013632,244.780334 C326.426161,244.57407 326.927792,244.74128 327.134057,245.153809 C327.192037,245.26977 327.222222,245.397637 327.222222,245.527284 L327.222222,245.527284 L327.222,250.691 L349.969,250.691 L349.969,193 L314,193 L314,191 L350.969421,191 Z" fill="#0D47A1" fill-rule="nonzero"></path>
+        <text id="App-work-as-coordina" font-family="AndaleMono, Andale Mono" font-size="10" font-weight="normal" fill="#000000">
+            <tspan x="358" y="119">App work as coordinator to </tspan>
+            <tspan x="358" y="130">manage R/W operation for -</tspan>
+            <tspan x="358" y="141">API layer.</tspan>
+        </text>
+        <text id="Infra-layer-provide" font-family="AndaleMono, Andale Mono" font-size="10" font-weight="normal" fill="#000000">
+            <tspan x="358" y="233">Infra layer provide basic -</tspan>
+            <tspan x="358" y="244">ability to support </tspan>
+            <tspan x="472.018555" y="244" font-family="PingFangSC-Regular, PingFang SC">u</tspan>
+            <tspan x="477.618555" y="244">pper c-</tspan>
+            <tspan x="358" y="258">onstructure.</tspan>
+        </text>
+        <text id="API-layer-provide-di" font-family="AndaleMono, Andale Mono" font-size="10" font-weight="normal" fill="#000000">
+            <tspan x="358" y="62">API layer provide different</tspan>
+            <tspan x="358" y="73">application protocol for c-</tspan>
+            <tspan x="358" y="84">assemdb’s clients.</tspan>
+        </text>
+        <g id="change-channel" transform="translate(97.000000, 90.000000)">
+            <use id="矩形" stroke="#0D47A1" mask="url(#mask-4)" stroke-width="4" fill="#FFFFFF" stroke-dasharray="4" xlink:href="#path-3"></use>
+            <text transform="translate(10.000000, 45.000000) rotate(90.000000) translate(-10.000000, -45.000000) " font-family="AndaleMono, Andale Mono" font-size="10" font-weight="normal" fill="#000000">
+                <tspan x="-32.5" y="48.5">change channel</tspan>
+            </text>
+        </g>
+    </g>
+</svg>
