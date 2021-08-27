@@ -1,4 +1,4 @@
-package domain
+package hashicorp
 
 import (
 	"fmt"
@@ -8,7 +8,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	apicassemdb "github.com/yeqown/cassem/internal/cassemdb/api"
+	"github.com/yeqown/cassem/internal/cassemdb/infras/raftimpl"
 	"github.com/yeqown/cassem/internal/cassemdb/infras/repository"
 	"github.com/yeqown/cassem/pkg/conf"
 	"github.com/yeqown/cassem/pkg/hash"
@@ -20,25 +20,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/yeqown/log"
 )
-
-// IMyRaft defines the ability of what raft component should act.
-type IMyRaft interface {
-	GetKV(key string) (*apicassemdb.Entity, error)                          // GetKV get value of key
-	SetKV(key string, value []byte, isDir, overwrite bool, ttl int32) error // SetKV save key and value
-	UnsetKV(key string, isDir bool) error                                   // UnsetKV save key and value
-	Range(key, seek string, limit int) (*apicassemdb.RangeResp, error)
-	Expire(key string) error
-
-	ChangeNotifyCh() <-chan watcher.IChange
-
-	// IsLeader
-	// TODO(@yeqown): replace IsLeader() into Stat()
-	IsLeader() bool // IsLeader
-
-	Shutdown() error
-
-	RAFT() *raft.Raft
-}
 
 type Conf struct {
 	HTTP        *conf.Server
@@ -67,15 +48,17 @@ type myraft struct {
 
 	// changeCh
 	changeCh chan watcher.IChange
+	leaderCh chan bool
 }
 
-func NewMyRaft(c *conf.CassemdbConfig) (IMyRaft, error) {
+func NewMyRaft(c *conf.CassemdbConfig) (raftimpl.RaftNode, error) {
 	r := &myraft{
 		Raft:     nil,
 		conf:     c,
 		repo:     nil,
 		fsm:      nil,
 		changeCh: make(chan watcher.IChange, _SIZE_CHANGE_BUF),
+		leaderCh: make(chan bool, 4),
 	}
 
 	err := r.bootstrap()
@@ -196,6 +179,10 @@ func (r myraft) printStat() {
 		Debug("myraft.stat")
 }
 
+func (r myraft) LeaderChangeCh() <-chan bool {
+	return r.leaderCh
+}
+
 // DONE(@yeqown): let node be notified while leader changes, and also mark current node is leader or not?
 func (r myraft) watchLeaderChanges() error {
 	isLeaderCh := r.Raft.LeaderCh()
@@ -207,6 +194,12 @@ func (r myraft) watchLeaderChanges() error {
 
 		// FIXED(@yeqown): reset leader address when leadership transition has occurred.
 		//r.fsm.setLeaderAddr("")
+
+		// propagate leadership change signal to channel.
+		select {
+		case r.leaderCh <- isLeader:
+		default:
+		}
 
 		if !isLeader {
 			continue
@@ -320,6 +313,10 @@ func (r myraft) propagateToSlaves(fsmLog *fsmLog) (err error) {
 	return nil
 }
 
+func (r *myraft) ChangeNotifyCh() <-chan watcher.IChange {
+	return r.changeCh
+}
+
 //
 //// removeNode only leader node would receive such request.
 //func (r myraft) removeNode(nodeID string) error {
@@ -384,7 +381,3 @@ func (r myraft) propagateToSlaves(fsmLog *fsmLog) (err error) {
 //	log.Infof("node %s at %s joinedCluster successfully", serverId, addr)
 //	return nil
 //}
-
-func (r *myraft) ChangeNotifyCh() <-chan watcher.IChange {
-	return r.changeCh
-}

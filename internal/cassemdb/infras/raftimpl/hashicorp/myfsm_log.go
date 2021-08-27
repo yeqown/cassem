@@ -1,4 +1,4 @@
-package domain
+package hashicorp
 
 import (
 	"encoding/json"

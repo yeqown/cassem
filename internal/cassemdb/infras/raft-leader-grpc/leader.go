@@ -2,7 +2,6 @@
 package raftleader
 
 import (
-	"github.com/hashicorp/raft"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
 	"google.golang.org/grpc/health/grpc_health_v1"
@@ -12,28 +11,28 @@ import (
 
 // Setup creates a new health.Server for you and registers it on s.
 // It's a convenience wrapper around report.
-func Setup(r *raft.Raft, s *grpc.Server, services []string) {
+func Setup(isLeader bool, leadershipChangeCh <-chan bool, s *grpc.Server, services []string) {
 	h := health.NewServer()
-	report(r, h, services)
+	report(isLeader, leadershipChangeCh, h, services)
 	grpc_health_v1.RegisterHealthServer(s, h)
 }
 
 // report starts a goroutine that updates the given health.Server with whether we are the Raft leader.
 // It will set the given services as SERVING if we are the leader, and as NOT_SERVING otherwise.
-func report(r *raft.Raft, h *health.Server, services []string) {
-	ch := make(chan raft.Observation, 1)
-	r.RegisterObserver(raft.NewObserver(ch, true, func(o *raft.Observation) bool {
-		_, ok := o.Data.(raft.LeaderObservation)
-		return ok
-	}))
+func report(isLeader bool, leadershipChangeCh <-chan bool, h *health.Server, services []string) {
+	// ch := make(chan raft.Observation, 1)
+	//r.RegisterObserver(raft.NewObserver(ch, true, func(o *raft.Observation) bool {
+	//	_, ok := o.Data.(raft.LeaderObservation)
+	//	return ok
+	//}))
 
-	updateServingStatus(h, services, r.State() == raft.Leader)
+	updateServingStatus(h, services, isLeader)
 
 	// run forever
 	runtime.GoFunc("", func() error {
-		for range ch {
+		for beLeader := range leadershipChangeCh {
 			// TODO(quis, https://github.com/hashicorp/raft/issues/426): Use a safer method to decide if we are the leader.
-			updateServingStatus(h, services, r.State() == raft.Leader)
+			updateServingStatus(h, services, beLeader)
 		}
 
 		return nil

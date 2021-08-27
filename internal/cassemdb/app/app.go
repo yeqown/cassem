@@ -10,8 +10,9 @@ import (
 	"github.com/yeqown/log"
 
 	apicassemdb "github.com/yeqown/cassem/internal/cassemdb/api"
-	"github.com/yeqown/cassem/internal/cassemdb/domain"
 	raftleader "github.com/yeqown/cassem/internal/cassemdb/infras/raft-leader-grpc"
+	"github.com/yeqown/cassem/internal/cassemdb/infras/raftimpl"
+	"github.com/yeqown/cassem/internal/cassemdb/infras/raftimpl/hashicorp"
 	"github.com/yeqown/cassem/pkg/conf"
 	"github.com/yeqown/cassem/pkg/httpx"
 	"github.com/yeqown/cassem/pkg/runtime"
@@ -31,7 +32,7 @@ type app struct {
 	watcher watcher.IWatcher
 
 	// raft is a customized raft node for cassem.
-	raft domain.IMyRaft
+	raft raftimpl.RaftNode
 }
 
 func New(cfg *conf.CassemdbConfig) (*app, error) {
@@ -46,7 +47,7 @@ func New(cfg *conf.CassemdbConfig) (*app, error) {
 func (d *app) bootstrap(cfg *conf.CassemdbConfig) (err error) {
 	d.config = cfg
 	d.watcher = watcher.NewChannelWatcher(100)
-	d.raft, err = domain.NewMyRaft(cfg)
+	d.raft, err = hashicorp.NewMyRaft(cfg)
 	if err != nil {
 		return errors.Wrapf(err, "app.bootstrap failed to load raft")
 	}
@@ -130,7 +131,7 @@ func (d app) propagateChangesSignal() error {
 
 func (d *app) servingAPI() error {
 	s := gRPC(d)
-	raftleader.Setup(d.raft.RAFT(), s, d.config.Raft.ClusterAddresses)
+	raftleader.Setup(d.raft.IsLeader(), d.raft.LeaderChangeCh(), s, d.config.Raft.ClusterAddresses)
 
 	if runtime.IsDebug() {
 		g := httpx.NewGateway(d.config.Addr, debugHTTP(d), s)
