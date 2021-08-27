@@ -42,15 +42,7 @@ func (m *LogEntry) Validate() error {
 
 	// no validation rules for Action
 
-	if v, ok := interface{}(m.GetCommand()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return LogEntryValidationError{
-				field:  "Command",
-				reason: "embedded message failed validation",
-				cause:  err,
-			}
-		}
-	}
+	// no validation rules for Command
 
 	return nil
 }
@@ -122,7 +114,15 @@ func (m *SetCommand) Validate() error {
 
 	// no validation rules for SetKey
 
-	// no validation rules for Value
+	if v, ok := interface{}(m.GetValue()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return SetCommandValidationError{
+				field:  "Value",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
 
 	return nil
 }

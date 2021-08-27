@@ -12,7 +12,7 @@ import (
 	apicassemdb "github.com/yeqown/cassem/internal/cassemdb/api"
 	raftleader "github.com/yeqown/cassem/internal/cassemdb/infras/raft-leader-grpc"
 	"github.com/yeqown/cassem/internal/cassemdb/infras/raftimpl"
-	"github.com/yeqown/cassem/internal/cassemdb/infras/raftimpl/hashicorp"
+	"github.com/yeqown/cassem/internal/cassemdb/infras/raftimpl/etcdio"
 	"github.com/yeqown/cassem/pkg/conf"
 	"github.com/yeqown/cassem/pkg/httpx"
 	"github.com/yeqown/cassem/pkg/runtime"
@@ -47,7 +47,9 @@ func New(cfg *conf.CassemdbConfig) (*app, error) {
 func (d *app) bootstrap(cfg *conf.CassemdbConfig) (err error) {
 	d.config = cfg
 	d.watcher = watcher.NewChannelWatcher(100)
-	d.raft, err = hashicorp.NewMyRaft(cfg)
+	//d.raft, err = hashicorp.NewMyRaft(cfg)
+	d.raft = etcdio.NewRaftNode(cfg)
+
 	if err != nil {
 		return errors.Wrapf(err, "app.bootstrap failed to load raft")
 	}
@@ -131,7 +133,7 @@ func (d app) propagateChangesSignal() error {
 
 func (d *app) servingAPI() error {
 	s := gRPC(d)
-	raftleader.Setup(d.raft.IsLeader(), d.raft.LeaderChangeCh(), s, d.config.Raft.ClusterAddresses)
+	raftleader.Setup(d.raft.IsLeader(), d.raft.LeaderChangeCh(), s, d.config.Raft.Peers)
 
 	if runtime.IsDebug() {
 		g := httpx.NewGateway(d.config.Addr, debugHTTP(d), s)
@@ -155,7 +157,7 @@ func (d app) removeNode(nodeID string) error {
 }
 
 func (d *app) getKV(key string) (*apicassemdb.Entity, error) {
-	val, err := d.raft.GetKV(key)
+	val, err := d.raft.GetKV(&apicassemdb.GetKVReq{Key: key})
 	if err != nil {
 		return nil, err
 	}
@@ -179,7 +181,13 @@ func (d *app) setKV(param *setKVParam) (err error) {
 		}).
 		Debug("app.setKV called")
 
-	return d.raft.SetKV(param.key, param.val, param.isDir, param.overwrite, param.ttl)
+	return d.raft.SetKV(&apicassemdb.SetKVReq{
+		Key:       param.key,
+		IsDir:     param.isDir,
+		Ttl:       param.ttl,
+		Val:       param.val,
+		Overwrite: param.overwrite,
+	})
 }
 
 func (d *app) unsetKV(param *unsetKVParam) error {
@@ -189,7 +197,10 @@ func (d *app) unsetKV(param *unsetKVParam) error {
 		}).
 		Debug("app.unsetKV called")
 
-	return d.raft.UnsetKV(param.key, param.isDir)
+	return d.raft.UnsetKV(&apicassemdb.UnsetKVReq{
+		Key:   param.key,
+		IsDir: param.isDir,
+	})
 }
 
 func (d *app) watch(keys ...string) (ob watcher.IObserver, cancelFn func()) {
@@ -211,7 +222,11 @@ func (d *app) watch(keys ...string) (ob watcher.IObserver, cancelFn func()) {
 }
 
 func (d *app) iterate(param *rangeParam) (*apicassemdb.RangeResp, error) {
-	return d.raft.Range(param.key, param.seek, param.limit)
+	return d.raft.Range(&apicassemdb.RangeReq{
+		Key:   param.key,
+		Seek:  param.seek,
+		Limit: int32(param.limit),
+	})
 }
 
 // expire one key in cassemdb, but notice that the never expired key
@@ -219,7 +234,7 @@ func (d *app) iterate(param *rangeParam) (*apicassemdb.RangeResp, error) {
 //
 // FIXED(@yeqown): expire the key instead of clear it directly.
 func (d *app) expire(key string) error {
-	return d.raft.Expire(key)
+	return d.raft.Expire(&apicassemdb.ExpireReq{Key: key})
 }
 
 func (d *app) ttl(key string) (int32, error) {

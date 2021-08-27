@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/yeqown/cassem/internal/cassemdb/infras/raftimpl"
-	"github.com/yeqown/cassem/internal/cassemdb/infras/repository"
+	"github.com/yeqown/cassem/internal/cassemdb/infras/storage"
 	"github.com/yeqown/cassem/pkg/conf"
 	"github.com/yeqown/cassem/pkg/hash"
 	"github.com/yeqown/cassem/pkg/runtime"
@@ -32,7 +32,7 @@ type myraft struct {
 
 	conf *conf.CassemdbConfig
 
-	repo repository.KV
+	repo storage.KV
 
 	// fsm is the state machine to be used in raft.RAFT. In cassem, it's mainly used to store
 	// caches those encoded bytes to containers who are requested and should be cached.
@@ -117,7 +117,7 @@ func (r *myraft) bootstrap() (err error) {
 	}
 
 	// fsm loading
-	r.repo, err = repository.NewRepository(r.conf.Bolt)
+	r.repo, err = storage.NewRepository(r.conf.Bolt)
 	if err != nil {
 		return errors.Wrap(err, "bbolt.NewMyRaft failed")
 	}
@@ -136,7 +136,7 @@ func (r *myraft) bootstrap() (err error) {
 	}
 
 	// DONE(@yeqown): allow node to bootstrap every time (IGNORING error), but only to join cluster when
-	// raftConf.ClusterAddresses is not empty and raftConf.ClusterToJoin != raftConf.Bind
+	// raftConf.Peers is not empty and raftConf.ClusterToJoin != raftConf.Bind
 	var couldIgnore error
 
 	log.
@@ -145,8 +145,8 @@ func (r *myraft) bootstrap() (err error) {
 		}).
 		Debug("myraft.bootstrap called")
 	if raftConf.BootstrapCluster {
-		servers := make([]raft.Server, 0, len(raftConf.ClusterAddresses))
-		for _, address := range raftConf.ClusterAddresses {
+		servers := make([]raft.Server, 0, len(raftConf.Peers))
+		for _, address := range raftConf.Peers {
 			servers = append(servers, raft.Server{
 				Suffrage: raft.Voter,
 				ID:       mallocServerId(address),

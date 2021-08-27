@@ -1,4 +1,4 @@
-package repository
+package storage
 
 import (
 	"path"
@@ -12,6 +12,7 @@ import (
 	"github.com/yeqown/log"
 	bolt "go.etcd.io/bbolt"
 
+	apicassemdb "github.com/yeqown/cassem/internal/cassemdb/api"
 	"github.com/yeqown/cassem/pkg/conf"
 )
 
@@ -22,7 +23,7 @@ var (
 
 func TestKeySplitter(t *testing.T) {
 	type args struct {
-		s StoreKey
+		s string
 	}
 	tests := []struct {
 		name      string
@@ -97,18 +98,18 @@ func (s testRepositoryBBoltSuite) Test_locateBucket() {
 	_ = impl
 }
 
-var _setkv = &StoreValue{
+var _setkv = &apicassemdb.Entity{
 	Fingerprint: "1231231",
 	Key:         "a/b",
 	Val:         []byte("hello"),
 	Size:        5,
 	CreatedAt:   123,
 	UpdatedAt:   123,
-	TTL:         123,
+	Ttl:         123,
 }
 
 func (s testRepositoryBBoltSuite) Test_Set_Get_Unset_DIR() {
-	var dirVal *StoreValue
+	var dirVal *apicassemdb.Entity
 	err := s.repo.SetKV("dir/b", dirVal, true)
 	s.NoError(err)
 
@@ -148,14 +149,15 @@ func (s testRepositoryBBoltSuite) Test_Range() {
 
 	// write kv under range/dir bucket
 	for i := 0; i < 10; i++ {
-		k, v := NewKVWithCreatedAt("range/dir/"+strconv.Itoa(i), []byte("range value"), 0, time.Now().Unix())
-		err := s.repo.SetKV(k, &v, false)
+		k := "range/dir/" + strconv.Itoa(i)
+		v := apicassemdb.NewEntityWithCreated(k, []byte("range value"), 0, time.Now().Unix())
+		err := s.repo.SetKV(k, v, false)
 		s.NoError(err)
 	}
 
 	// write dir under range/dir
 	for i := 0; i < 2; i++ {
-		k := StoreKey("range/dir/d" + strconv.Itoa(i))
+		k := string("range/dir/d" + strconv.Itoa(i))
 		err := s.repo.SetKV(k, nil, true)
 		s.NoError(err)
 	}
@@ -215,7 +217,7 @@ func Benchmark_bolt_write_32B(b *testing.B) {
 
 	// 32B
 	bytes := []byte(strings.Repeat("a", 32))
-	//val := &StoreValue{
+	//val := &apicassemdb.Entity{
 	//	Fingerprint: "fingerprint",
 	//	Key:         "benchmark/write_32B",
 	//	Val:         bytes,
@@ -255,14 +257,14 @@ func Benchmark_repo_write_32B(b *testing.B) {
 	// 32B
 	bytes := []byte(strings.Repeat("a", 32))
 	println("size:", len(bytes))
-	val := &StoreValue{
+	val := &apicassemdb.Entity{
 		Fingerprint: "fingerprint",
 		Key:         "benchmark/write_32B",
 		Val:         bytes,
-		Size:        int64(len(bytes)),
+		Size:        int32(int64(len(bytes))),
 		CreatedAt:   time.Now().Unix(),
 		UpdatedAt:   time.Now().Unix(),
-		TTL:         30,
+		Ttl:         30,
 	}
 
 	b.ResetTimer()
@@ -289,14 +291,14 @@ func Benchmark_repo_write_1KB(b *testing.B) {
 	// 1024 * 1 byte = 1KB
 	bytes := []byte(strings.Repeat("a", 1024))
 	println("size:", len(bytes))
-	val := &StoreValue{
+	val := &apicassemdb.Entity{
 		Fingerprint: "fingerprint",
 		Key:         "benchmark/write_1KB",
 		Val:         bytes,
-		Size:        int64(len(bytes)),
+		Size:        int32(int64(len(bytes))),
 		CreatedAt:   time.Now().Unix(),
 		UpdatedAt:   time.Now().Unix(),
-		TTL:         30,
+		Ttl:         30,
 	}
 
 	b.ResetTimer()
@@ -323,14 +325,14 @@ func Benchmark_repo_write_10KB(b *testing.B) {
 	// // 1024 * 10 byte = 10KB
 	bytes := []byte(strings.Repeat("1234567890", 1024))
 	print("size:", len(bytes))
-	val := &StoreValue{
+	val := &apicassemdb.Entity{
 		Fingerprint: "fingerprint",
 		Key:         "benchmark/write_10KB",
 		Val:         bytes,
-		Size:        int64(len(bytes)),
+		Size:        int32(int64(len(bytes))),
 		CreatedAt:   time.Now().Unix(),
 		UpdatedAt:   time.Now().Unix(),
-		TTL:         30,
+		Ttl:         30,
 	}
 
 	b.ResetTimer()

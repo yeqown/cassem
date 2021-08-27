@@ -18,22 +18,22 @@
                 <tspan x="94" y="31">APP Layer</tspan>
             </text>
         </g>
-        <g id="编组-2" transform="translate(40.000000, 167.000000)">
-            <rect id="矩形备份-4" stroke="#0D47A1" fill="#0288D1" x="0.5" y="0.5" width="233" height="49"></rect>
+        <g id="编组-2" transform="translate(40.000000, 224.000000)">
+            <rect id="矩形备份-4" stroke="#0D47A1" fill="#00838F" x="0.5" y="0.5" width="273" height="49"></rect>
             <text id="Consensus-Protocol" font-family="AndaleMono, Andale Mono" font-size="16" font-weight="normal" fill="#ECEFF1">
-                <tspan x="37" y="31">Consensus Protocol</tspan>
+                <tspan x="43" y="31">Consensus Protocol</tspan>
             </text>
         </g>
         <g id="编组" transform="translate(281.000000, 167.000000)">
             <use id="矩形备份-6" stroke="#0D47A1" mask="url(#mask-2)" stroke-width="4" stroke-dasharray="4" xlink:href="#path-1"></use>
-            <text id="read" transform="translate(16.500000, 25.500000) rotate(90.000000) translate(-16.500000, -25.500000) " font-family="AndaleMono, Andale Mono" font-size="10" font-weight="normal" fill="#000000">
-                <tspan x="4" y="29">read</tspan>
+            <text id="write" transform="translate(16.500000, 24.500000) rotate(90.000000) translate(-16.500000, -24.500000) " font-family="AndaleMono, Andale Mono" font-size="10" font-weight="normal" fill="#000000">
+                <tspan x="1" y="28">write</tspan>
             </text>
         </g>
-        <g id="编组-3" transform="translate(40.000000, 224.000000)">
-            <rect id="矩形备份-5" stroke="#0D47A1" fill="#546E7A" x="0.5" y="0.5" width="273" height="49"></rect>
+        <g id="编组-3" transform="translate(40.000000, 167.000000)">
+            <rect id="矩形备份-5" stroke="#0D47A1" fill="#546E7A" x="0.5" y="0.5" width="233" height="49"></rect>
             <text id="KV-Storage" font-family="AndaleMono, Andale Mono" font-size="16" font-weight="normal" fill="#ECEFF1">
-                <tspan x="89" y="31">KV Storage</tspan>
+                <tspan x="76" y="31">KV Storage</tspan>
             </text>
         </g>
         <g id="api-layer" transform="translate(13.000000, 53.000000)">
@@ -48,16 +48,16 @@
                 <tspan x="82" y="13">cassemdb soft architecture</tspan>
             </text>
         </g>
-        <g id="infra-layer" transform="translate(13.000000, 224.000000)">
-            <rect id="矩形备份-3" stroke="#0D47A1" fill="#E0F7FA" x="0.5" y="0.5" width="19" height="49"></rect>
-            <text id="INFRA" transform="translate(10.000000, 24.500000) rotate(-90.000000) translate(-10.000000, -24.500000) " font-family="AndaleMono, Andale Mono" font-size="10" font-weight="normal" fill="#000000">
-                <tspan x="-6.31578947" y="28">INFRA</tspan>
+        <g id="infra-layer" transform="translate(13.000000, 167.000000)">
+            <rect id="矩形备份-3" stroke="#0D47A1" fill="#E0F7FA" x="0.5" y="0.5" width="19" height="106"></rect>
+            <text id="INFRA" transform="translate(9.500000, 52.500000) rotate(-90.000000) translate(-9.500000, -52.500000) " font-family="AndaleMono, Andale Mono" font-size="10" font-weight="normal" fill="#000000">
+                <tspan x="-7" y="56">INFRA</tspan>
             </text>
         </g>
         <g id="app-layer" transform="translate(13.000000, 110.000000)">
-            <rect id="矩形备份-3" stroke="#0D47A1" fill="#E0F7FA" x="0.5" y="0.5" width="19" height="106"></rect>
-            <text id="APP" transform="translate(10.000000, 54.500000) rotate(-90.000000) translate(-10.000000, -54.500000) " font-family="AndaleMono, Andale Mono" font-size="10" font-weight="normal" fill="#000000">
-                <tspan x="0" y="58">APP</tspan>
+            <rect id="矩形备份-3" stroke="#0D47A1" fill="#E0F7FA" x="0.5" y="0.5" width="19" height="49"></rect>
+            <text id="APP" transform="translate(10.000000, 25.500000) rotate(-90.000000) translate(-10.000000, -25.500000) " font-family="AndaleMono, Andale Mono" font-size="10" font-weight="normal" fill="#000000">
+                <tspan x="0" y="29">APP</tspan>
             </text>
         </g>
         <g id="grpc" transform="translate(40.000000, 53.000000)">

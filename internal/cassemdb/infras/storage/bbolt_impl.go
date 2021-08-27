@@ -1,4 +1,4 @@
-package repository
+package storage
 
 import (
 	"path"
@@ -8,6 +8,7 @@ import (
 	"github.com/yeqown/log"
 	bolt "go.etcd.io/bbolt"
 
+	apicassemdb "github.com/yeqown/cassem/internal/cassemdb/api"
 	"github.com/yeqown/cassem/pkg/conf"
 	"github.com/yeqown/cassem/pkg/errorx"
 	"github.com/yeqown/cassem/pkg/runtime"
@@ -66,7 +67,7 @@ func newRepositoryWithDB(db *bolt.DB) KV {
 // and locateBucket only return the parent bucket of key, for example (p1/p2/leaf)
 // returns buk: p1/p2, leaf: leaf, err: nil.
 func (b boltRepoImpl) locateBucket(
-	tx *bolt.Tx, key StoreKey, createBucketNotFound bool) (buk *bolt.Bucket, leaf string, err error) {
+	tx *bolt.Tx, key string, createBucketNotFound bool) (buk *bolt.Bucket, leaf string, err error) {
 	nodes, leaf := KeySplitter(key)
 	if len(nodes) == 0 {
 		return nil, leaf, ErrNoParentBucket
@@ -115,7 +116,7 @@ func (b boltRepoImpl) locateBucket(
 	return buk, leaf, nil
 }
 
-func (b boltRepoImpl) GetKV(key StoreKey, dir bool) (val *StoreValue, err error) {
+func (b boltRepoImpl) GetKV(key string, dir bool) (val *apicassemdb.Entity, err error) {
 	var d []byte
 	err = b.db.View(func(tx *bolt.Tx) error {
 		buk, leaf, err2 := b.locateBucket(tx, key, false)
@@ -142,21 +143,21 @@ func (b boltRepoImpl) GetKV(key StoreKey, dir bool) (val *StoreValue, err error)
 	}
 
 	if dir {
-		return &StoreValue{Key: key}, nil
+		return &apicassemdb.Entity{Key: key}, nil
 	}
 
-	val = new(StoreValue)
-	err = val.Unmarshal(d)
+	val = new(apicassemdb.Entity)
+	err = apicassemdb.Unmarshal(d, val)
 
 	return val, err
 }
 
-func (b boltRepoImpl) SetKV(key StoreKey, val *StoreValue, dir bool) (err error) {
+func (b boltRepoImpl) SetKV(key string, val *apicassemdb.Entity, dir bool) (err error) {
 	log.
 		WithFields(log.Fields{
 			"key": key,
-			"ttl": val.TTL,
-			"val": runtime.ToString(val.Val),
+			"ttl": val.GetTtl(),
+			"val": runtime.ToString(val.GetVal()),
 			"dir": dir,
 		}).
 		Debug("boltRepoImpl.SetKV called")
@@ -166,16 +167,11 @@ func (b boltRepoImpl) SetKV(key StoreKey, val *StoreValue, dir bool) (err error)
 		if err2 != nil {
 			return err2
 		}
-
 		if dir {
 			_, err2 = bucket.CreateBucketIfNotExists(runtime.ToBytes(leaf))
 			return err2
 		}
-
-		d, err2 := val.Marshal()
-		if err2 != nil {
-			return err2
-		}
+		d := apicassemdb.Must(apicassemdb.Marshal(val))
 
 		return bucket.Put(runtime.ToBytes(leaf), d)
 	})
@@ -183,7 +179,7 @@ func (b boltRepoImpl) SetKV(key StoreKey, val *StoreValue, dir bool) (err error)
 	return
 }
 
-func (b boltRepoImpl) UnsetKV(key StoreKey, dir bool) (err error) {
+func (b boltRepoImpl) UnsetKV(key string, dir bool) (err error) {
 	err = b.db.Batch(func(tx *bolt.Tx) error {
 		bucket, leaf, err2 := b.locateBucket(tx, key, false)
 		if err2 != nil {
@@ -205,7 +201,7 @@ func (b boltRepoImpl) UnsetKV(key StoreKey, dir bool) (err error) {
 }
 
 // Range key must be directory key.
-func (b boltRepoImpl) Range(key StoreKey, seek string, limit int) (*RangeResult, error) {
+func (b boltRepoImpl) Range(key string, seek string, limit int) (*RangeResult, error) {
 	var (
 		err    error
 		result *RangeResult
@@ -227,7 +223,7 @@ func (b boltRepoImpl) Range(key StoreKey, seek string, limit int) (*RangeResult,
 
 		k, v := cur.First()
 		result = &RangeResult{
-			Items:       make([]*StoreValue, 0, limit),
+			Items:       make([]*apicassemdb.Entity, 0, limit),
 			HasMore:     false,
 			NextSeekKey: "",
 		}
@@ -236,26 +232,19 @@ func (b boltRepoImpl) Range(key StoreKey, seek string, limit int) (*RangeResult,
 		}
 
 		for ; k != nil && count < limit; k, v = cur.Next() {
-			sv := StoreValue{
-				Key:  StoreKey(k),
-				Val:  nil,
-				Size: 0,
+			entity := &apicassemdb.Entity{
+				Key: runtime.ToString(k),
 			}
 			if v != nil {
-				if err2 = sv.Unmarshal(v); err2 != nil {
-					log.
-						WithFields(log.Fields{"error": err2, "raw": string(v)}).
-						Error("could not be unmarshalled")
-				}
-
+				apicassemdb.MustUnmarshal(v, entity)
 				// FIXED: shielding expired data in range
-				if err2 == nil && sv.Expired() {
-					result.ExpiredKeys = append(result.ExpiredKeys, sv.Key)
+				if err2 == nil && entity.Expired() {
+					result.ExpiredKeys = append(result.ExpiredKeys, entity.Key)
 					continue
 				}
 			}
 
-			result.Items = append(result.Items, &sv)
+			result.Items = append(result.Items, entity)
 			count++
 		}
 

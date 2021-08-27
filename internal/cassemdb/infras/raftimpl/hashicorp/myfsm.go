@@ -8,7 +8,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/yeqown/log"
 
-	"github.com/yeqown/cassem/internal/cassemdb/infras/repository"
+	"github.com/yeqown/cassem/internal/cassemdb/infras/storage"
 	"github.com/yeqown/cassem/pkg/watcher"
 )
 
@@ -20,12 +20,12 @@ type myFSM interface {
 
 // fsm implement raft.FSM which means the state machine in RAFT consensus algorithm.
 type fsm struct {
-	repo  repository.KV
+	repo  storage.KV
 	hooks map[action]actionApplyFunc
 	ch    chan<- watcher.IChange
 }
 
-func newFSM(repo repository.KV, ch chan<- watcher.IChange) myFSM {
+func newFSM(repo storage.KV, ch chan<- watcher.IChange) myFSM {
 	return &fsm{
 		repo: repo,
 		hooks: map[action]actionApplyFunc{

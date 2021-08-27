@@ -8,32 +8,32 @@ import (
 	"github.com/yeqown/log"
 
 	apicassemdb "github.com/yeqown/cassem/internal/cassemdb/api"
-	"github.com/yeqown/cassem/internal/cassemdb/infras/repository"
+	"github.com/yeqown/cassem/internal/cassemdb/infras/storage"
 	"github.com/yeqown/cassem/pkg/errorx"
 	"github.com/yeqown/cassem/pkg/runtime"
 )
 
 // SetKV set a KV or directory into db storage with other parameters.
 // isDir parameter indicates key means a kv or directory, if it's ture val will be ignored,
-// overwrite indicates the operation MUST BE failed if key exists with repository.ErrExists,
+// overwrite indicates the operation MUST BE failed if key exists with storage.ErrExists,
 // ttl means Time To Live, which will only be stored in file and recalculated in memory to use.
-func (r *myraft) SetKV(key string, val []byte, isDir, overwrite bool, ttl int32) (err error) {
+func (r *myraft) SetKV(req *apicassemdb.SetKVReq) (err error) {
 	log.
 		WithFields(log.Fields{
-			"key":       key,
-			"val":       runtime.ToString(val),
-			"isDir":     isDir,
-			"overwrite": overwrite,
-			"ttl":       ttl,
+			"key":       req.GetKey(),
+			"val":       runtime.ToString(req.GetVal()),
+			"isDir":     req.GetIsDir(),
+			"overwrite": req.GetOverwrite(),
+			"ttl":       req.GetTtl(),
 		}).
 		Debug("myraft.setKV called")
 
 	// get preview value
-	last, err := r.repo.GetKV(repository.StoreKey(key), isDir)
+	last, err := r.repo.GetKV(req.GetKey(), req.GetIsDir())
 	if err != nil {
 		log.
 			WithFields(log.Fields{
-				"key":   key,
+				"key":   req.GetKey(),
 				"error": err,
 			}).
 			Warn("myraft.SetKV could to load last value of key")
@@ -44,34 +44,35 @@ func (r *myraft) SetKV(key string, val []byte, isDir, overwrite bool, ttl int32)
 		last = nil
 	}
 
-	if !overwrite && last != nil {
-		return repository.ErrExists
+	if !req.GetOverwrite() && last != nil {
+		return storage.ErrExists
 	}
 
 	var createdAt = time.Now().Unix()
 	if last != nil && !last.Expired() {
 		createdAt = last.CreatedAt
 	}
-	k, v := repository.NewKVWithCreatedAt(key, val, ttl, createdAt)
+
+	v := apicassemdb.NewEntityWithCreated(req.GetKey(), req.GetVal(), req.GetTtl(), createdAt)
 	if err = r.propagateCommand(&setKVCommand{
-		SetKey: k,
-		Data:   &v,
+		SetKey: req.GetKey(),
+		Data:   v,
 	}); err != nil {
 		return errors.Wrap(err, "myraft.SetKV calling myraft.propagateCommand failed")
 	}
 
 	// touch off change signal to cassemdb cluster.
-	r.triggerWatchingMechanism(apicassemdb.Change_Set, key, last, &v)
+	r.triggerWatchingMechanism(apicassemdb.Change_Set, req.GetKey(), last, v)
 
 	return nil
 }
 
-func (r *myraft) UnsetKV(key string, isDir bool) error {
-	last, err := r.repo.GetKV(repository.StoreKey(key), isDir)
+func (r *myraft) UnsetKV(req *apicassemdb.UnsetKVReq) error {
+	last, err := r.repo.GetKV(req.GetKey(), req.GetIsDir())
 	if err != nil {
 		log.
 			WithFields(log.Fields{
-				"key":   key,
+				"key":   req.GetKey(),
 				"error": err,
 			}).
 			Warn("myraft.triggerWatchingMechanism could to load last value of key")
@@ -79,15 +80,15 @@ func (r *myraft) UnsetKV(key string, isDir bool) error {
 
 	if err = r.propagateCommand(&setKVCommand{
 		SetKey:    "",
-		DeleteKey: repository.StoreKey(key),
-		IsDir:     isDir,
+		DeleteKey: req.GetKey(),
+		IsDir:     req.GetIsDir(),
 		Data:      nil,
 	}); err != nil {
 		return errors.Wrap(err, "myraft.SetKV calling myraft.propagateCommand failed")
 	}
 
 	// touch off change signal to cassemdb cluster.
-	r.triggerWatchingMechanism(apicassemdb.Change_Unset, key, last, nil)
+	r.triggerWatchingMechanism(apicassemdb.Change_Unset, req.GetKey(), last, nil)
 
 	return nil
 }
@@ -96,7 +97,7 @@ func (r *myraft) UnsetKV(key string, isDir bool) error {
 // 1. delete a kv.
 // 2. really update an existed kv.
 //
-func (r myraft) triggerWatchingMechanism(op apicassemdb.Change_Op, key string, last, cur *repository.StoreValue) {
+func (r myraft) triggerWatchingMechanism(op apicassemdb.Change_Op, key string, last, cur *apicassemdb.Entity) {
 	log.
 		WithFields(log.Fields{
 			"key": key,
@@ -124,8 +125,8 @@ func (r myraft) triggerWatchingMechanism(op apicassemdb.Change_Op, key string, l
 			Change: &apicassemdb.Change{
 				Op:      op,
 				Key:     key,
-				Last:    convertStoreValue(last),
-				Current: convertStoreValue(cur),
+				Last:    last,
+				Current: cur,
 			}}); err != nil {
 
 			log.
@@ -138,28 +139,28 @@ func (r myraft) triggerWatchingMechanism(op apicassemdb.Change_Op, key string, l
 	}()
 }
 
-func convertStoreValue(v *repository.StoreValue) *apicassemdb.Entity {
-	if v == nil {
-		return nil
-	}
+//func convertStoreValue(v *apicassemdb.Entity) *apicassemdb.Entity {
+//	if v == nil {
+//		return nil
+//	}
+//
+//	return &apicassemdb.Entity{
+//		Fingerprint: v.Fingerprint,
+//		Key:         v.Key,
+//		Val:         v.Val,
+//		CreatedAt:   v.CreatedAt,
+//		UpdatedAt:   v.UpdatedAt,
+//		Ttl:         v.Ttl,
+//		Typ:         v.Type(),
+//	}
+//}
 
-	return &apicassemdb.Entity{
-		Fingerprint: v.Fingerprint,
-		Key:         v.Key,
-		Val:         v.Val,
-		CreatedAt:   v.CreatedAt,
-		UpdatedAt:   v.UpdatedAt,
-		Ttl:         v.TTL,
-		Typ:         v.Type(),
-	}
-}
-
-func (r *myraft) GetKV(key string) (*apicassemdb.Entity, error) {
-	val, err := r.repo.GetKV(repository.StoreKey(key), false)
+func (r *myraft) GetKV(req *apicassemdb.GetKVReq) (*apicassemdb.Entity, error) {
+	val, err := r.repo.GetKV(req.GetKey(), false)
 	if err != nil {
 		log.
 			WithFields(log.Fields{
-				"key":   key,
+				"key":   req.GetKey(),
 				"error": err,
 			}).
 			Error("repo.getKV failed")
@@ -167,20 +168,20 @@ func (r *myraft) GetKV(key string) (*apicassemdb.Entity, error) {
 	}
 
 	if r.probeRemoveExpired(val) {
-		return nil, repository.ErrNotFound
+		return nil, storage.ErrNotFound
 	}
 
-	return convertStoreValue(val), nil
+	return val, nil
 }
 
 // probeRemoveExpired returns true while val.Expired() is true.
-func (r *myraft) probeRemoveExpired(val *repository.StoreValue) (removed bool) {
+func (r *myraft) probeRemoveExpired(val *apicassemdb.Entity) (removed bool) {
 	if val == nil {
 		return false
 	}
 
 	if val.Expired() {
-		if err := r.UnsetKV(val.Key, false); err != nil {
+		if err := r.UnsetKV(&apicassemdb.UnsetKVReq{Key: val.Key}); err != nil {
 			log.
 				WithFields(log.Fields{"key": val.Key, "error": err}).
 				Error("repo.GetKV failed to remove expired key")
@@ -191,9 +192,9 @@ func (r *myraft) probeRemoveExpired(val *repository.StoreValue) (removed bool) {
 	return false
 }
 
-func (r myraft) Range(key, seek string, limit int) (*apicassemdb.RangeResp, error) {
+func (r myraft) Range(req *apicassemdb.RangeReq) (*apicassemdb.RangeResp, error) {
 	// DONE(@yeqown): return expired keys and trigger probeRemoveExpired methods
-	result, err := r.repo.Range(repository.StoreKey(key), seek, limit)
+	result, err := r.repo.Range(req.GetKey(), req.GetSeek(), int(req.GetLimit()))
 	if err != nil {
 		return nil, errors.Wrap(err, "myraft.Range")
 	}
@@ -208,26 +209,22 @@ func (r myraft) Range(key, seek string, limit int) (*apicassemdb.RangeResp, erro
 				Debug("myraft.Range trigger remove expired keys")
 
 			for _, k := range result.ExpiredKeys {
-				_ = r.UnsetKV(k, false)
+				_ = r.UnsetKV(&apicassemdb.UnsetKVReq{Key: k})
 			}
 		}()
 	}
 
 	resp := &apicassemdb.RangeResp{
-		Entities:    make([]*apicassemdb.Entity, 0, len(result.Items)),
+		Entities:    result.Items,
 		HasMore:     result.HasMore,
 		NextSeekKey: result.NextSeekKey,
-	}
-
-	for _, v := range result.Items {
-		resp.Entities = append(resp.Entities, convertStoreValue(v))
 	}
 
 	return resp, err
 }
 
-func (r *myraft) Expire(key string) error {
-	v, err := r.repo.GetKV(key, false)
+func (r *myraft) Expire(req *apicassemdb.ExpireReq) error {
+	v, err := r.repo.GetKV(req.GetKey(), false)
 	if err != nil {
 		if errors.Is(err, errorx.Err_NOT_FOUND) {
 			return nil
@@ -236,12 +233,18 @@ func (r *myraft) Expire(key string) error {
 		return errors.Wrap(err, "cassemdb.myraft.Expire")
 	}
 
-	switch v.TTL {
-	case repository.NEVER_EXPIRED:
+	switch v.GetTtl() {
+	case apicassemdb.NEVER_EXPIRED:
 		return nil
 	}
 
 	// unset the key value directly or update it's TTL, choose update it's TTL
 	// so that the expiry(expire) operation is same to method's meaning.
-	return r.SetKV(key, v.Val, false, true, repository.EXPIRED)
+	return r.SetKV(&apicassemdb.SetKVReq{
+		Key:       req.GetKey(),
+		IsDir:     false,
+		Ttl:       apicassemdb.EXPIRED,
+		Val:       v.Val,
+		Overwrite: true,
+	})
 }

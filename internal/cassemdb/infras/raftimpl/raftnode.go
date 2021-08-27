@@ -9,19 +9,19 @@ import (
 // TODO(@yeqown): redesign RaftNode interface.
 type RaftNode interface {
 	// GetKV get value of key
-	GetKV(key string) (*apicassemdb.Entity, error)
+	GetKV(getReq *apicassemdb.GetKVReq) (*apicassemdb.Entity, error)
 	// SetKV save key and value
-	SetKV(key string, value []byte, isDir, overwrite bool, ttl int32) error
+	SetKV(setReq *apicassemdb.SetKVReq) error
 	// UnsetKV save key and value
-	UnsetKV(key string, isDir bool) error
-	Range(key, seek string, limit int) (*apicassemdb.RangeResp, error)
-	Expire(key string) error
-	ChangeNotifyCh() <-chan watcher.IChange
+	UnsetKV(unsetReq *apicassemdb.UnsetKVReq) error
+	Range(rangeReq *apicassemdb.RangeReq) (*apicassemdb.RangeResp, error)
+	Expire(expireReq *apicassemdb.ExpireReq) error
 
 	// IsLeader
 	// TODO(@yeqown): replace IsLeader() into Stat()
 	IsLeader() bool // IsLeader
 	LeaderChangeCh() <-chan bool
+	ChangeNotifyCh() <-chan watcher.IChange
 
 	Shutdown() error
 }

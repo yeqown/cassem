@@ -19,6 +19,7 @@ message Entity {
   int64      updatedAt   = 5;
   int32      ttl         = 6;
   EntityType typ         = 7;
+  int32      size        = 8;
 };
 
 message Change {

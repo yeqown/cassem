@@ -21,7 +21,7 @@ cassemdb.run: cassemdb.build cassemdb.kill
 cassemdb.kill:
 	@ echo "clearing running cassemdb process from cassemdb.pids"
 	@ if [ -f "cassemdb.pids" ]; then \
-		cat cassemdb.pids | xargs kill -9;\
+		cat cassemdb.pids | xargs kill -9 || TRUE;\
 	fi
 	- rm cassemdb.pids
 	#
@@ -32,7 +32,7 @@ cassemdb.kill:
 
 cassemdb.clear:
 	- rm -fr ./cassemdb.pids
-	- rm -fr ./debugdata/d{1,2,3}/{raft.db,cassemdb.log,cassemdb.kv,snapshots}
+	- rm -fr ./debugdata/d{1,2,3}/*
 
 cassemadm.build:
 	${GOCMD} build 	-o cassemadm \

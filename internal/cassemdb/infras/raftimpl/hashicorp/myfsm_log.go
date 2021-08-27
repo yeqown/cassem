@@ -9,7 +9,7 @@ import (
 	"github.com/yeqown/log"
 
 	apicassemdb "github.com/yeqown/cassem/internal/cassemdb/api"
-	"github.com/yeqown/cassem/internal/cassemdb/infras/repository"
+	"github.com/yeqown/cassem/internal/cassemdb/infras/storage"
 )
 
 // action indicates the operation of fsmLog
@@ -66,10 +66,10 @@ type command interface {
 type actionApplyFunc func(f *fsm, log *fsmLog) error
 
 type setKVCommand struct {
-	DeleteKey repository.StoreKey
+	DeleteKey string
 	IsDir     bool
-	SetKey    repository.StoreKey
-	Data      *repository.StoreValue
+	SetKey    string
+	Data      *apicassemdb.Entity
 }
 
 func (cc setKVCommand) action() action                 { return actionSetKV }
@@ -132,7 +132,7 @@ func applyActionChange(f *fsm, l *fsmLog) error {
 
 	select {
 	case f.ch <- cc.Change:
-		paths, _ := repository.KeySplitter(repository.StoreKey(cc.GetKey()))
+		paths, _ := storage.KeySplitter(cc.GetKey())
 		if len(paths) == 0 {
 			break
 		}

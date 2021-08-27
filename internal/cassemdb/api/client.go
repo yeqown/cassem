@@ -35,10 +35,14 @@ func init() {
 // target = "cassemdb:/all//0.0.0.0:2021,1.1.1.1:2021" can communicate to other nodes,
 // but note that the client can only execute READ operations.
 func DialWithMode(endpoints []string, mode Mode) (*grpc.ClientConn, error) {
-	var target = "cassemdb:/"
+	var (
+		target  = "cassemdb:/"
+		scPlain = _SERVICE_CONFIG_JSON_WITH_HEALTH
+	)
 	switch mode {
 	case Mode_R:
 		target += "all//"
+		scPlain = _SERVICE_CONFIG_JSON_WITHOUT_HEALTH
 	case Mode_X:
 		target += "//"
 	}
@@ -54,9 +58,11 @@ func DialWithMode(endpoints []string, mode Mode) (*grpc.ClientConn, error) {
 
 	timeout, cancel := context.WithTimeout(context.TODO(), 10*time.Second)
 	defer cancel()
+
 	cc, err := grpc.DialContext(timeout, target,
 		grpc.WithInsecure(),
 		grpc.WithBlock(),
+		grpc.WithDefaultServiceConfig(scPlain),
 		grpc.WithChainUnaryInterceptor(grpcx.ClientRecovery(), grpcx.ClientErrorx(), grpcx.ClientValidation()),
 	)
 	if err != nil {

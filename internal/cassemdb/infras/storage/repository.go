@@ -1,33 +1,35 @@
-package repository
+package storage
 
 import (
 	"strings"
+
+	apicassemdb "github.com/yeqown/cassem/internal/cassemdb/api"
 )
 
 // KV is a proxy who helps convert data between logic and persistence.Not only all parameters of KV
 // are logic datatype, but also all return values.
 type KV interface {
 	// GetKV get value of key
-	GetKV(key StoreKey, isDir bool) (*StoreValue, error)
+	GetKV(key string, isDir bool) (*apicassemdb.Entity, error)
 
 	// SetKV save key and value
-	SetKV(key StoreKey, value *StoreValue, isDir bool) error
+	SetKV(key string, value *apicassemdb.Entity, isDir bool) error
 
 	// UnsetKV save key and value
-	UnsetKV(key StoreKey, isDir bool) error
+	UnsetKV(key string, isDir bool) error
 
 	// Range iterates all keys or buckets under the given key.
-	Range(key StoreKey, seek string, limit int) (*RangeResult, error)
+	Range(key string, seek string, limit int) (*RangeResult, error)
 }
 
 type RangeResult struct {
-	Items       []*StoreValue
+	Items       []*apicassemdb.Entity
 	HasMore     bool
 	NextSeekKey string
 	ExpiredKeys []string
 }
 
-func KeySplitter(s StoreKey) (paths []string, leaf string) {
+func KeySplitter(s string) (paths []string, leaf string) {
 	arr := strings.Split(s, "/")
 	l := len(arr)
 	if l < 1 {

@@ -54,6 +54,8 @@ func (m *Entity) Validate() error {
 
 	// no validation rules for Typ
 
+	// no validation rules for Size
+
 	return nil
 }
 

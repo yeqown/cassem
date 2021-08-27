@@ -81,7 +81,7 @@ type getKVReq struct {
 //	TTL         int32  `json:"ttl"`
 //}
 //
-//func newStoreVO(v *repository.StoreValue) *storeVO {
+//func newStoreVO(v *storage.StoreValue) *storeVO {
 //	if v == nil {
 //		return nil
 //	}

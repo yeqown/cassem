@@ -9,9 +9,10 @@ import (
 )
 
 type Raft struct {
+	NodeId           uint     `toml:"nodeId"`
 	Base             string   `toml:"base"`
 	Bind             string   `toml:"bind"`
-	ClusterAddresses []string `toml:"clusterAddresses"`
+	Peers            []string `toml:"peers"`
 	BootstrapCluster bool     `toml:"bootstrapCluster"`
 }
 

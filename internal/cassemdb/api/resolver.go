@@ -5,7 +5,6 @@ import (
 
 	"github.com/yeqown/log"
 	"google.golang.org/grpc/resolver"
-	"google.golang.org/grpc/serviceconfig"
 )
 
 var (
@@ -17,13 +16,13 @@ var (
 // update resolver.ClientConn's state once resolver.Builder called.
 type cassemdbResolver struct{}
 
-func (c cassemdbResolver) ResolveNow(option resolver.ResolveNowOption) {}
-func (c cassemdbResolver) Close()                                      {}
+func (c cassemdbResolver) ResolveNow(option resolver.ResolveNowOptions) {}
+func (c cassemdbResolver) Close()                                       {}
 
 type cassemdbResolverBuilder struct{}
 
 func (c cassemdbResolverBuilder) Build(
-	target resolver.Target, cc resolver.ClientConn, opts resolver.BuildOption) (resolver.Resolver, error) {
+	target resolver.Target, cc resolver.ClientConn, opts resolver.BuildOptions) (resolver.Resolver, error) {
 	log.
 		WithFields(log.Fields{
 			"target": target,
@@ -35,29 +34,28 @@ func (c cassemdbResolverBuilder) Build(
 	for _, v := range endpoints {
 		addrs = append(addrs, resolver.Address{
 			Addr:       v,
-			Type:       resolver.Backend,
 			ServerName: "cassemdb:" + v,
-			Metadata:   nil,
+			Attributes: nil,
 		})
 	}
 
-	scPlain := _SERVICE_CONFIG_JSON_WITH_HEALTH
-	switch target.Authority {
-	case "all":
-		scPlain = _SERVICE_CONFIG_JSON_WITHOUT_HEALTH
-	default:
-	}
+	//scPlain := _SERVICE_CONFIG_JSON_WITH_HEALTH
+	//switch target.Authority {
+	//case "all":
+	//	scPlain = _SERVICE_CONFIG_JSON_WITHOUT_HEALTH
+	//default:
+	//}
 
-	sc, _ := serviceconfig.Parse(scPlain)
-	log.
-		WithFields(log.Fields{
-			"sc": sc,
-		}).
-		Debug("cassemdbResolverBuilder parse service config")
+	// sc, _ := serviceconfig.Parse(scPlain)
+	//log.
+	//	WithFields(log.Fields{
+	//		"sc": sc,
+	//	}).
+	//	Debug("cassemdbResolverBuilder parse service config")
 
-	cc.UpdateState(resolver.State{
-		Addresses:     addrs,
-		ServiceConfig: sc,
+	_ = cc.UpdateState(resolver.State{
+		Addresses: addrs,
+		// ServiceConfig: sc,
 	})
 
 	return cassemdbResolver{}, nil
