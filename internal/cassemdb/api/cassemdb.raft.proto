@@ -1,0 +1,32 @@
+syntax = "proto3";
+
+package cassem.db;
+option go_package = "api";
+
+//import "cassemdb/api/cassemdb.api.proto";
+import "cassemdb.api.proto";
+import "google/protobuf/any.proto";
+
+
+message LogEntry  {
+  enum Action {
+    UNKNOWN      = 0;
+    Set          = 1;
+    ChangeSpread = 2;
+  }
+
+  // action indicates what's the format of data dose the log entry contains.
+  Action               action  = 1;
+  google.protobuf.Any  command = 2;
+}
+
+message SetCommand {
+  string deleteKey = 1;
+  bool   isDir     = 2;
+  string setKey    = 3;
+  bytes  value     = 4;
+}
+
+message ChangeCommand {
+  cassem.db.Change change = 1;
+}
