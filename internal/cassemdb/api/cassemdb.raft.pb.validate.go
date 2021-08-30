@@ -44,6 +44,8 @@ func (m *LogEntry) Validate() error {
 
 	// no validation rules for Command
 
+	// no validation rules for CreatedAt
+
 	return nil
 }
 

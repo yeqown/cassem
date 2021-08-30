@@ -91,3 +91,36 @@ func calculateTTL(ttl int32) int32 {
 
 	return ttl
 }
+
+const (
+	// _expiredInterval means how long the log entry could live.
+	_expiredInterval = 10
+)
+
+// Expired represents the LogEntry has expired, could not be applied by raft node.
+// this method should only be used in some case which cares about duplicate log entries applied.
+func (m *LogEntry) Expired() bool {
+	now := time.Now().Unix()
+	if now-m.CreatedAt > _expiredInterval {
+		return true
+	}
+
+	return false
+}
+
+// Propose is wrapper of log entry, and only used by node internal.
+type Propose struct {
+	Entry *LogEntry
+	ErrC  chan<- error
+}
+
+func NewPropose(entry *LogEntry, errC chan<- error) *Propose {
+	if entry == nil || errC == nil {
+		panic("invalid parameters for commit")
+	}
+
+	return &Propose{
+		Entry: entry,
+		ErrC:  errC,
+	}
+}

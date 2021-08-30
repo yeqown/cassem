@@ -15,8 +15,9 @@ message LogEntry  {
   }
 
   // action indicates what's the format of data dose the log entry contains.
-  Action action  = 1;
-  bytes  command = 2;
+  Action action    = 1;
+  bytes  command   = 2;
+  int64  createdAt = 3;
 }
 
 message SetCommand {

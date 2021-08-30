@@ -32,7 +32,8 @@ type raftNodeImpl struct {
 	// raftState of current raft node.
 	raftState raft.StateType
 
-	proposeC          chan *apicassemdb.LogEntry
+	// proposeC to propose a commit to raft cluster.
+	proposeC          chan *apicassemdb.Propose
 	confChangeC       chan raftpb.ConfChange
 	changeC           chan watcher.IChange
 	leadershipFanOutC []chan<- bool
@@ -43,7 +44,7 @@ type raftNodeImpl struct {
 
 func NewRaftNode(cfg *conf.CassemdbConfig) (rc *raftNodeImpl) {
 	rc = new(raftNodeImpl)
-	rc.proposeC = make(chan *apicassemdb.LogEntry, 4)
+	rc.proposeC = make(chan *apicassemdb.Propose, 4)
 	rc.confChangeC = make(chan raftpb.ConfChange, 1)
 	rc.changeC = make(chan watcher.IChange, 64)
 	rc.leadershipFanOutC = make([]chan<- bool, 4)
@@ -141,16 +142,25 @@ func (r *raftNodeImpl) applyCommits(commitCh <-chan *commit, errorCh <-chan erro
 				cmd := new(apicassemdb.SetCommand)
 				apicassemdb.MustUnmarshal(entry.Command, cmd)
 				if cmd.SetKey != "" {
-					err := r.kvstore.SetKV(cmd.GetSetKey(), cmd.GetValue(), cmd.GetIsDir())
-					// TODO(@yeqown): handle error return to client or retry.
-					_ = err
+					if err := r.kvstore.SetKV(cmd.GetSetKey(), cmd.GetValue(), cmd.GetIsDir()); err != nil {
+						log.
+							WithFields(log.Fields{"cmd": cmd, "error": err}).
+							Error("raftNodeImpl.applyCommits failed to SetKV")
+					}
 				}
 				if cmd.DeleteKey != "" {
-					err := r.kvstore.UnsetKV(cmd.GetDeleteKey(), cmd.GetIsDir())
-					// TODO(@yeqown): handle error return to client or retry.
-					_ = err
+					if err := r.kvstore.UnsetKV(cmd.GetDeleteKey(), cmd.GetIsDir()); err != nil {
+						log.
+							WithFields(log.Fields{"cmd": cmd, "error": err}).
+							Error("raftNodeImpl.applyCommits failed to SetKV")
+					}
 				}
+
 			case apicassemdb.LogEntry_ChangeSpread:
+				if entry.Expired() {
+					// skip change log entry.
+					continue
+				}
 				cmd := new(apicassemdb.ChangeCommand)
 				apicassemdb.MustUnmarshal(entry.Command, cmd)
 				change := cmd.GetChange()
@@ -187,9 +197,6 @@ func (r *raftNodeImpl) applyCommits(commitCh <-chan *commit, errorCh <-chan erro
 }
 
 func (r *raftNodeImpl) getSnapshot() ([]byte, error) {
-	//rc.mu.RLock()
-	//defer rc.mu.RUnlock()
-	//return json.Marshal(rc.kvStore)
 	return []byte("empty snapshot"), nil
 }
 
@@ -215,21 +222,20 @@ type LogEntryCommand interface {
 }
 
 // propose log to commit
-// FIXME(@yeqown): make sure cmd is valid in async mode.
-func (r *raftNodeImpl) propose(cmd LogEntryCommand) {
+func (r *raftNodeImpl) propose(cmd LogEntryCommand) error {
 	if cmd == nil {
-		return
+		return errors.New("empty logEntryCommand")
 	}
 
 	entry := &apicassemdb.LogEntry{
-		Action:  cmd.Action(),
-		Command: apicassemdb.Must(apicassemdb.Marshal(cmd)),
+		Action:    cmd.Action(),
+		Command:   apicassemdb.Must(apicassemdb.Marshal(cmd)),
+		CreatedAt: time.Now().Unix(),
 	}
-
-	log.WithFields(log.Fields{"entry": entry}).Debug("raftNodeImpl.propose start")
-	r.proposeC <- entry
+	errC := make(chan error)
+	r.proposeC <- apicassemdb.NewPropose(entry, errC)
 	log.WithFields(log.Fields{"entry": entry}).Debug("raftNodeImpl.propose done")
-
+	return <-errC
 }
 
 // SetKV set a KV or directory into db storage with other parameters.
@@ -273,12 +279,14 @@ func (r *raftNodeImpl) SetKV(req *apicassemdb.SetKVReq) (err error) {
 	}
 
 	v := apicassemdb.NewEntityWithCreated(req.GetKey(), req.GetVal(), req.GetTtl(), createdAt)
-	r.propose(&apicassemdb.SetCommand{
+	if err = r.propose(&apicassemdb.SetCommand{
 		DeleteKey: "",
 		IsDir:     false,
 		SetKey:    req.GetKey(),
 		Value:     v,
-	})
+	}); err != nil {
+		return errors.Wrap(err, "raftNodeImpl.SetKV")
+	}
 
 	// touch off change signal to cassemdb cluster.
 	r.triggerWatchingMechanism(apicassemdb.Change_Set, req.GetKey(), last, v)
@@ -297,12 +305,14 @@ func (r *raftNodeImpl) UnsetKV(req *apicassemdb.UnsetKVReq) error {
 			Warn("raftNodeImpl.triggerWatchingMechanism could to load last value of key")
 	}
 
-	r.propose(&apicassemdb.SetCommand{
+	if err = r.propose(&apicassemdb.SetCommand{
 		DeleteKey: req.GetKey(),
 		IsDir:     req.GetIsDir(),
 		SetKey:    "",
 		Value:     nil,
-	})
+	}); err != nil {
+		return errors.Wrap(err, "raftNodeImpl.UnsetKV")
+	}
 
 	// touch off change signal to cassemdb cluster.
 	r.triggerWatchingMechanism(apicassemdb.Change_Unset, req.GetKey(), last, nil)
@@ -314,7 +324,7 @@ func (r *raftNodeImpl) UnsetKV(req *apicassemdb.UnsetKVReq) error {
 // 1. delete a kv.
 // 2. really update an existed kv.
 //
-func (r raftNodeImpl) triggerWatchingMechanism(op apicassemdb.Change_Op, key string, last, cur *apicassemdb.Entity) {
+func (r *raftNodeImpl) triggerWatchingMechanism(op apicassemdb.Change_Op, key string, last, cur *apicassemdb.Entity) {
 	log.
 		WithFields(log.Fields{
 			"key": key,
@@ -338,21 +348,20 @@ func (r raftNodeImpl) triggerWatchingMechanism(op apicassemdb.Change_Op, key str
 			WithFields(log.Fields{"key": key, "cur": cur}).
 			Debug("raftNodeImpl.triggerWatchingMechanism called")
 
-		r.propose(&apicassemdb.ChangeCommand{
+		if err := r.propose(&apicassemdb.ChangeCommand{
 			Change: &apicassemdb.Change{
 				Op:      op,
 				Key:     key,
 				Last:    last,
 				Current: cur,
-			}})
-		//if err != nil {
-		//	log.
-		//		WithFields(log.Fields{
-		//			"key": key,
-		//			"cur": cur,
-		//		}).
-		//		Error("raftNodeImpl.triggerWatchingMechanism called")
-		//}
+			}}); err != nil {
+			log.
+				WithFields(log.Fields{
+					"key": key,
+					"cur": cur,
+				}).
+				Error("raftNodeImpl.triggerWatchingMechanism called")
+		}
 	}()
 }
 
@@ -393,7 +402,7 @@ func (r *raftNodeImpl) probeRemoveExpired(val *apicassemdb.Entity) (removed bool
 	return false
 }
 
-func (r raftNodeImpl) Range(req *apicassemdb.RangeReq) (*apicassemdb.RangeResp, error) {
+func (r *raftNodeImpl) Range(req *apicassemdb.RangeReq) (*apicassemdb.RangeResp, error) {
 	// DONE(@yeqown): return expired keys and trigger probeRemoveExpired methods
 	result, err := r.kvstore.Range(req.GetKey(), req.GetSeek(), int(req.GetLimit()))
 	if err != nil {

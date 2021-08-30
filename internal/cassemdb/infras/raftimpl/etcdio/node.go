@@ -31,10 +31,10 @@ type commit struct {
 
 // A key-value stream backed by raft
 type raftNode struct {
-	proposeC    <-chan *apicassemdb.LogEntry // proposed messages (k,v)
-	confChangeC <-chan raftpb.ConfChange     // proposed cluster config changes
-	commitC     chan<- *commit               // entries committed to log (k,v)
-	errorC      chan<- error                 // errors from raft session
+	proposeC    <-chan *apicassemdb.Propose // proposed messages (k,v)
+	confChangeC <-chan raftpb.ConfChange    // proposed cluster config changes
+	commitC     chan<- *commit              // entries committed to log (k,v)
+	errorC      chan<- error                // errors from raft session
 	leadershipC chan<- raft.StateType
 
 	id          int      // client ID for raft session
@@ -84,7 +84,7 @@ type config struct {
 // current), then new log entries. To shutdown, close proposeC and read errorC.
 func newRaftNode(
 	cfg *config,
-	proposeC <-chan *apicassemdb.LogEntry,
+	proposeC <-chan *apicassemdb.Propose,
 	confChangeC <-chan raftpb.ConfChange,
 	leadershipC chan<- raft.StateType,
 ) (<-chan *commit, <-chan error, <-chan *snap.Snapshotter) {
@@ -428,14 +428,15 @@ func (rc *raftNode) serveChannels() {
 		for rc.proposeC != nil && rc.confChangeC != nil {
 			select {
 			case prop, ok := <-rc.proposeC:
-				log.Debug("raftNode.serveChannels proposeC called")
+				log.
+					WithFields(log.Fields{"ok": ok, "prop": prop}).
+					Debug("raftNode.serveChannels proposeC called")
 				if !ok {
 					rc.proposeC = nil
 				} else {
 					// blocks until accepted by raft state machine
-					// TODO(@yeqown): return error to request (synchronized?)
-					log.Debug("raftNode.serveChannels Propose called")
-					_ = rc.node.Propose(context.TODO(), apicassemdb.Must(apicassemdb.Marshal(prop)))
+					// DONE(@yeqown): return error to request (synchronized?)
+					prop.ErrC <- rc.node.Propose(context.TODO(), apicassemdb.Must(apicassemdb.Marshal(prop.Entry)))
 				}
 
 			case cc, ok := <-rc.confChangeC:
