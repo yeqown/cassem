@@ -31,7 +31,6 @@ func report(isLeader bool, leadershipChangeCh <-chan bool, h *health.Server, ser
 	// run forever
 	runtime.GoFunc("", func() error {
 		for beLeader := range leadershipChangeCh {
-			// TODO(quis, https://github.com/hashicorp/raft/issues/426): Use a safer method to decide if we are the leader.
 			updateServingStatus(h, services, beLeader)
 		}
 

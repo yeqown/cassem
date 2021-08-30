@@ -133,7 +133,10 @@ func (d app) propagateChangesSignal() error {
 
 func (d *app) servingAPI() error {
 	s := gRPC(d)
-	raftleader.Setup(d.raft.IsLeader(), d.raft.LeaderChangeCh(), s, d.config.Raft.Peers)
+
+	leadershipC := make(chan bool, 4)
+	d.raft.LeaderChangeCh(leadershipC)
+	raftleader.Setup(d.raft.IsLeader(), leadershipC, s, d.config.Raft.Peers)
 
 	if runtime.IsDebug() {
 		g := httpx.NewGateway(d.config.Addr, debugHTTP(d), s)

@@ -35,7 +35,7 @@ type raftNode struct {
 	confChangeC <-chan raftpb.ConfChange     // proposed cluster config changes
 	commitC     chan<- *commit               // entries committed to log (k,v)
 	errorC      chan<- error                 // errors from raft session
-	leadershipC chan<- bool
+	leadershipC chan<- raft.StateType
 
 	id          int      // client ID for raft session
 	peers       []string // raft peer URLs
@@ -44,7 +44,6 @@ type raftNode struct {
 	snapdir     string   // path to snapshot directory
 	getSnapshot func() ([]byte, error)
 
-	raftState     raft.StateType
 	confState     raftpb.ConfState
 	snapshotIndex uint64
 	appliedIndex  uint64
@@ -69,20 +68,33 @@ type raftNode struct {
 
 var defaultSnapshotCount uint64 = 10000
 
+type config struct {
+	id          int
+	peers       []string
+	join        bool
+	baseDir     string
+	snapCount   uint64
+	getSnapshot func() ([]byte, error)
+}
+
 // newRaftNode initiates a raft instance and returns a committed log entry
 // channel and error channel. Proposals for log updates are sent over the
 // provided the proposal channel. All log entries are replayed over the
 // commit channel, followed by a nil message (to indicate the channel is
 // current), then new log entries. To shutdown, close proposeC and read errorC.
-func newRaftNode(id uint, peers []string, join bool, baseDir string,
-	getSnapshot func() ([]byte, error),
+func newRaftNode(
+	cfg *config,
 	proposeC <-chan *apicassemdb.LogEntry,
 	confChangeC <-chan raftpb.ConfChange,
-	leadershipC chan<- bool,
+	leadershipC chan<- raft.StateType,
 ) (<-chan *commit, <-chan error, <-chan *snap.Snapshotter) {
 
 	commitC := make(chan *commit)
 	errorC := make(chan error)
+
+	if cfg.snapCount == 0 {
+		cfg.snapCount = defaultSnapshotCount
+	}
 
 	rc := &raftNode{
 		proposeC:    proposeC,
@@ -90,13 +102,12 @@ func newRaftNode(id uint, peers []string, join bool, baseDir string,
 		commitC:     commitC,
 		errorC:      errorC,
 		leadershipC: leadershipC,
-		id:          int(id),
-		peers:       peers,
-		join:        join,
-		waldir:      fmt.Sprintf("%s/node-%d", baseDir, id),
-		snapdir:     fmt.Sprintf("%s/node-%d-snapshots", baseDir, id),
-		getSnapshot: getSnapshot,
-		raftState:   raft.StateFollower,
+		id:          cfg.id,
+		peers:       cfg.peers,
+		join:        cfg.join,
+		waldir:      fmt.Sprintf("%s/node-%d", cfg.baseDir, cfg.id),
+		snapdir:     fmt.Sprintf("%s/node-%d-snapshots", cfg.baseDir, cfg.id),
+		getSnapshot: cfg.getSnapshot,
 		snapCount:   defaultSnapshotCount,
 		stopc:       make(chan struct{}),
 		httpstopc:   make(chan struct{}),
@@ -110,6 +121,7 @@ func newRaftNode(id uint, peers []string, join bool, baseDir string,
 }
 
 func (rc *raftNode) saveSnap(snap raftpb.Snapshot) error {
+	log.Debug("raftNode.saveSnap called")
 	walSnap := walpb.Snapshot{
 		Index:     snap.Metadata.Index,
 		Term:      snap.Metadata.Term,
@@ -448,10 +460,11 @@ func (rc *raftNode) serveChannels() {
 
 		// store raft entries to wal, then publish over commit channel
 		case rd := <-rc.node.Ready():
-			if rd.SoftState != nil && rd.RaftState != rc.raftState {
-				rc.leadershipC <- rd.RaftState == raft.StateLeader
-				log.WithFields(log.Fields{"rc.raftState": rd.RaftState}).Debug("membership changed")
-				rc.raftState = rd.RaftState
+			if rd.SoftState != nil {
+				log.
+					WithFields(log.Fields{"rc.raftState": rd.RaftState}).
+					Debug("membership changed")
+				rc.leadershipC <- rd.RaftState
 			}
 
 			_ = rc.wal.Save(rd.HardState, rd.Entries)
@@ -499,13 +512,6 @@ func (rc *raftNode) serveRaft() {
 		log.Fatalf("raftNode: Failed to serve rafthttp (%v)", err)
 	}
 	close(rc.httpdonec)
-}
-
-func (rc *raftNode) isLeader() bool {
-	if rc == nil {
-		return false
-	}
-	return rc.node.Status().RaftState == raft.StateLeader
 }
 
 func (rc *raftNode) Process(ctx context.Context, m raftpb.Message) error {

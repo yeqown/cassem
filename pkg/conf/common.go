@@ -14,6 +14,7 @@ type Raft struct {
 	Bind             string   `toml:"bind"`
 	Peers            []string `toml:"peers"`
 	BootstrapCluster bool     `toml:"bootstrapCluster"`
+	SnapCount        uint     `toml:"snapCount"`
 }
 
 type Server struct {

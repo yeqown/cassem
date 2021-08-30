@@ -172,7 +172,6 @@ type watchKVReq struct {
 }
 
 // Watch
-// TODO(@yeqown) all API implemented by grpc
 func (srv *httpServer) Watch(c *gin.Context) {
 	req := new(watchKVReq)
 	if err := c.ShouldBind(req); err != nil {

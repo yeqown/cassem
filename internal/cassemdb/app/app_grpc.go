@@ -106,7 +106,7 @@ func (s grpcServer) Watch(req *apicassemdb.WatchReq, stream apicassemdb.KV_Watch
 			}
 
 			// convert change from raw source into api.Change
-			// TODO(@yeqown): use api.Change directly rather than convert it again an again.
+			// DONE(@yeqown): use api.Change directly rather than convert it again an again.
 			pbChange := translateChange(change)
 			if pbChange == nil {
 				continue
@@ -185,13 +185,7 @@ func translateChange(change watcher.IChange) *apicassemdb.Change {
 			Warn("cassemdb.translateChange skip the change")
 		return nil
 	}
-
-	return &apicassemdb.Change{
-		Op:      c.GetOp(),
-		Key:     c.GetKey(),
-		Last:    c.GetLast(),
-		Current: c.GetCurrent(),
-	}
+	return c
 }
 
 //// isClientClosed check whether the error contains any code which indicates client is offline.

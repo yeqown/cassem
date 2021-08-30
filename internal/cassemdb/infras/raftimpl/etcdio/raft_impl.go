@@ -2,11 +2,13 @@ package etcdio
 
 import (
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	"github.com/yeqown/log"
+	"go.etcd.io/etcd/raft/v3"
 	"go.etcd.io/etcd/raft/v3/raftpb"
 	"go.etcd.io/etcd/server/v3/etcdserver/api/snap"
 
@@ -25,14 +27,18 @@ var (
 
 // raftNodeImpl implement raftimpl.RaftNode constraints.
 type raftNodeImpl struct {
-	raftNode *raftNode
-	kvstore  storage.KV
+	// kvstore is backend store component.
+	kvstore storage.KV
+	// raftState of current raft node.
+	raftState raft.StateType
 
-	proposeC    chan *apicassemdb.LogEntry
-	confChangeC chan raftpb.ConfChange
-	changeC     chan watcher.IChange
-	leadershipC chan bool
-	snapshotter *snap.Snapshotter
+	proposeC          chan *apicassemdb.LogEntry
+	confChangeC       chan raftpb.ConfChange
+	changeC           chan watcher.IChange
+	leadershipFanOutC []chan<- bool
+	snapshotter       *snap.Snapshotter
+
+	mu sync.Mutex
 }
 
 func NewRaftNode(cfg *conf.CassemdbConfig) (rc *raftNodeImpl) {
@@ -40,18 +46,23 @@ func NewRaftNode(cfg *conf.CassemdbConfig) (rc *raftNodeImpl) {
 	rc.proposeC = make(chan *apicassemdb.LogEntry, 4)
 	rc.confChangeC = make(chan raftpb.ConfChange, 1)
 	rc.changeC = make(chan watcher.IChange, 64)
-	rc.leadershipC = make(chan bool, 4)
+	rc.leadershipFanOutC = make([]chan<- bool, 4)
+	raftStateChangeC := make(chan raft.StateType, 4)
 	var err error
 	if rc.kvstore, err = storage.NewRepository(cfg.Bolt); err != nil {
 		panic(err)
 	}
 
-	getSnapshot := func() ([]byte, error) { return rc.getSnapshot() }
-
-	// start raft raftNode
-	commitC, errorC, snapshotterReady := newRaftNode(
-		cfg.Raft.NodeId, cfg.Raft.Peers, !cfg.Raft.BootstrapCluster, cfg.Raft.Base,
-		getSnapshot, rc.proposeC, rc.confChangeC, rc.leadershipC)
+	//start raft raftNode
+	c := &config{
+		id:          int(cfg.Raft.NodeId),
+		peers:       cfg.Raft.Peers,
+		join:        !cfg.Raft.BootstrapCluster,
+		baseDir:     cfg.Raft.Base,
+		snapCount:   uint64(cfg.Raft.SnapCount),
+		getSnapshot: func() ([]byte, error) { return rc.getSnapshot() },
+	}
+	commitC, errorC, snapshotterReady := newRaftNode(c, rc.proposeC, rc.confChangeC, raftStateChangeC)
 	rc.snapshotter = <-snapshotterReady
 
 	rc.setup()
@@ -59,6 +70,24 @@ func NewRaftNode(cfg *conf.CassemdbConfig) (rc *raftNodeImpl) {
 	// apply commits
 	runtime.GoFunc("raftNodeImpl.applyCommits", func() error {
 		return rc.applyCommits(commitC, errorC)
+	})
+
+	// fanout leader change signal.
+	runtime.GoFunc("raftNodeImpl.leaderChangeFanOut", func() error {
+		for {
+			select {
+			case state := <-raftStateChangeC:
+				rc.raftState = state
+				beLeader := state == raft.StateLeader
+				log.Debugf("raftNodeImpl.leaderChangeFanOut: %v", beLeader)
+				for _, ch := range rc.leadershipFanOutC {
+					select {
+					case ch <- beLeader:
+					default:
+					}
+				}
+			}
+		}
 	})
 
 	return
@@ -426,11 +455,15 @@ func (r *raftNodeImpl) Expire(req *apicassemdb.ExpireReq) error {
 }
 
 func (r *raftNodeImpl) IsLeader() bool {
-	return r.raftNode.isLeader()
+	return r.raftState == raft.StateLeader
 }
 
-func (r *raftNodeImpl) LeaderChangeCh() <-chan bool {
-	return r.leadershipC
+func (r *raftNodeImpl) LeaderChangeCh(c chan<- bool) {
+	// lock
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	r.leadershipFanOutC = append(r.leadershipFanOutC, c)
 }
 
 func (r *raftNodeImpl) ChangeNotifyCh() <-chan watcher.IChange {

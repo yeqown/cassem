@@ -6,7 +6,6 @@ import (
 )
 
 // RaftNode defines the ability of what raft component should act.
-// TODO(@yeqown): redesign RaftNode interface.
 type RaftNode interface {
 	// GetKV get value of key
 	GetKV(getReq *apicassemdb.GetKVReq) (*apicassemdb.Entity, error)
@@ -17,10 +16,9 @@ type RaftNode interface {
 	Range(rangeReq *apicassemdb.RangeReq) (*apicassemdb.RangeResp, error)
 	Expire(expireReq *apicassemdb.ExpireReq) error
 
-	// IsLeader
-	// TODO(@yeqown): replace IsLeader() into Stat()
-	IsLeader() bool // IsLeader
-	LeaderChangeCh() <-chan bool
+	// IsLeader returns current node is leader or not. true mean leader.
+	IsLeader() bool
+	LeaderChangeCh(chan<- bool)
 	ChangeNotifyCh() <-chan watcher.IChange
 
 	Shutdown() error

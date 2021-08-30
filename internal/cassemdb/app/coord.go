@@ -6,7 +6,6 @@ import (
 )
 
 // ICoordinator is a interface for app API layer.
-// TODO(@yeqown): try to remove this interface
 type ICoordinator interface {
 	getKV(key string) (*apicassemdb.Entity, error)
 	setKV(*setKVParam) error
