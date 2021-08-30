@@ -6,7 +6,7 @@ import (
 
 	"github.com/stretchr/testify/suite"
 
-	"github.com/yeqown/cassem/internal/concept"
+	"github.com/yeqown/cassem/concept"
 )
 
 type testCacheSuite struct {

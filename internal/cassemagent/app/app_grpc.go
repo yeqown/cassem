@@ -6,8 +6,8 @@ import (
 
 	"github.com/yeqown/log"
 
+	"github.com/yeqown/cassem/concept"
 	apiagent "github.com/yeqown/cassem/internal/cassemagent/api"
-	"github.com/yeqown/cassem/internal/concept"
 )
 
 // GetConfig execute query request from clients, and also at the same time, agent app is

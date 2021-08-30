@@ -5,7 +5,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/yeqown/cassem/internal/concept"
+	"github.com/yeqown/cassem/concept"
 	"github.com/yeqown/cassem/pkg/httpx"
 )
 

@@ -12,9 +12,9 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 
+	"github.com/yeqown/cassem/concept"
 	apiagent "github.com/yeqown/cassem/internal/cassemagent/api"
 	"github.com/yeqown/cassem/internal/cassemagent/domain"
-	"github.com/yeqown/cassem/internal/concept"
 	"github.com/yeqown/cassem/pkg/conf"
 	"github.com/yeqown/cassem/pkg/grpcx"
 	"github.com/yeqown/cassem/pkg/httpx"

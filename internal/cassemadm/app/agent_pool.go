@@ -14,8 +14,8 @@ import (
 
 	"github.com/yeqown/log"
 
+	"github.com/yeqown/cassem/concept"
 	apiagent "github.com/yeqown/cassem/internal/cassemagent/api"
-	"github.com/yeqown/cassem/internal/concept"
 	"github.com/yeqown/cassem/pkg/runtime"
 	"github.com/yeqown/cassem/pkg/set"
 )

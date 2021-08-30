@@ -15,13 +15,13 @@ type IChange interface {
 // IWatcher provides Subscribe(obs ...IObserver) and Unsubscribe(obs IObserver) for observers,
 // and ChangeNotify(notify IChange) for producer.
 type IWatcher interface {
-	// Subscribe tell watcher there is a client want to get notified while these topic changed.
+	// Subscribe tell watcher there is a client want to get notified while topics are changed.
 	Subscribe(obs ...IObserver)
 
 	// Unsubscribe how to unsubscribe safely?
 	Unsubscribe(obs IObserver)
 
-	// ChangeNotify any changes would be send to Watcher.Inbound.
+	// ChangeNotify any changes would be sent to Watcher.Inbound.
 	ChangeNotify(notify IChange)
 }
 

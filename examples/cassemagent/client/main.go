@@ -5,12 +5,13 @@ import (
 	"fmt"
 	"time"
 
-	apiagent "github.com/yeqown/cassem/internal/cassemagent/api"
-	"github.com/yeqown/cassem/internal/concept"
+	"github.com/yeqown/cassem/concept"
+
+	"github.github.com/yeqown/cassem/client/agent"
 )
 
 func main() {
-	c, err := apiagent.Dial("127.0.0.1:20219")
+	c, err := agent.Dial("127.0.0.1:20219")
 	if err != nil {
 		panic(err)
 	}

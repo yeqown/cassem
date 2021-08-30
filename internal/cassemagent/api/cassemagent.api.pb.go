@@ -6,11 +6,12 @@ package api
 import (
 	context "context"
 	fmt "fmt"
+	math "math"
+
 	_ "github.com/envoyproxy/protoc-gen-validate/validate"
 	proto "github.com/golang/protobuf/proto"
-	concept "github.com/yeqown/cassem/internal/concept"
+	concept "github.com/yeqown/cassem/concept"
 	grpc "google.golang.org/grpc"
-	math "math"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.

@@ -1,6 +1,4 @@
-package api
-
-// TODO(@yeqown): move this package outside of cassem/internal.
+package agent
 
 import (
 	"context"
@@ -11,7 +9,8 @@ import (
 	"github.com/yeqown/log"
 	"google.golang.org/grpc"
 
-	"github.com/yeqown/cassem/internal/concept"
+	"github.com/yeqown/cassem/concept"
+	"github.com/yeqown/cassem/internal/cassemagent/api"
 	"github.com/yeqown/cassem/pkg/grpcx"
 )
 
@@ -45,7 +44,7 @@ func Dial(addr string) (*clientWrapper, error) {
 }
 
 type clientWrapper struct {
-	c                  AgentClient
+	c                  api.AgentClient
 	app                string
 	env                string
 	clientId, clientIp string
@@ -54,7 +53,7 @@ type clientWrapper struct {
 
 func newClient(cc *grpc.ClientConn) *clientWrapper {
 	return &clientWrapper{
-		c: NewAgentClient(cc),
+		c: api.NewAgentClient(cc),
 	}
 }
 
@@ -70,7 +69,7 @@ func (cw *clientWrapper) Wait(
 	cw.app, cw.env, cw.keys = app, env, keys
 	cw.clientId, cw.clientIp = clientId, clientIp
 
-	stream, err := cw.c.RegisterAndWait(ctx, &RegAndWaitReq{
+	stream, err := cw.c.RegisterAndWait(ctx, &api.RegAndWaitReq{
 		App:          app,
 		Env:          env,
 		WatchingKeys: keys,
@@ -81,7 +80,7 @@ func (cw *clientWrapper) Wait(
 		return errors.Wrap(err, "clientWrapper.Wait")
 	}
 
-	r := new(WaitResp)
+	r := new(api.WaitResp)
 	ctx2, cancel := context.WithCancel(stream.Context())
 	defer cancel()
 
@@ -139,7 +138,7 @@ func (cw clientWrapper) renewSelf() {
 	log.Debug("clientWrapper.renewSelf called")
 	ctx, cancel := context.WithTimeout(context.Background(), _CLIENT_REQ_TIMEOUT)
 	defer cancel()
-	_, err := cw.c.Renew(ctx, &RenewReq{
+	_, err := cw.c.Renew(ctx, &api.RenewReq{
 		ClientId:     cw.clientId,
 		ClientIp:     cw.clientIp,
 		App:          cw.app,
@@ -172,7 +171,7 @@ func (cw clientWrapper) GetConfig(
 		defer cancel()
 	}
 
-	r, err := cw.c.GetConfig(ctx, &GetConfigReq{
+	r, err := cw.c.GetConfig(ctx, &api.GetConfigReq{
 		App:  app,
 		Env:  env,
 		Keys: keys,
@@ -182,20 +181,4 @@ func (cw clientWrapper) GetConfig(
 	}
 
 	return r.GetElems(), nil
-}
-
-func DialDelivery(addr string) (DeliveryClient, error) {
-	timeout, cancel := context.WithTimeout(context.Background(), _CLIENT_INIT_TIMEOUT)
-	defer cancel()
-
-	cc, err := grpc.DialContext(timeout, addr,
-		grpc.WithInsecure(),
-		grpc.WithBlock(),
-		grpc.WithChainUnaryInterceptor(grpcx.ClientRecovery(), grpcx.ClientErrorx(), grpcx.ClientValidation()),
-	)
-	if err != nil {
-		return nil, errors.Wrap(err, "cassemagent.api.Dial")
-	}
-
-	return NewDeliveryClient(cc), nil
 }

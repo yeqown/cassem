@@ -7,8 +7,8 @@ import (
 
 	"github.com/yeqown/log"
 
+	"github.com/yeqown/cassem/concept"
 	"github.com/yeqown/cassem/internal/cassemagent/infras/lru"
-	"github.com/yeqown/cassem/internal/concept"
 )
 
 var (
