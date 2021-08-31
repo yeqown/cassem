@@ -3,6 +3,7 @@ module github.com/yeqown/cassem
 go 1.17
 
 require (
+	github.com/casbin/casbin/v2 v2.36.1
 	github.com/envoyproxy/protoc-gen-validate v0.6.1
 	github.com/gin-contrib/pprof v1.3.0
 	github.com/gin-gonic/gin v1.6.3
@@ -26,6 +27,7 @@ require (
 )
 
 require (
+	github.com/Knetic/govaluate v3.0.1-0.20171022003610-9aa49832a739+incompatible // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.1.1 // indirect
 	github.com/coreos/go-semver v0.3.0 // indirect

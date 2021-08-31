@@ -6,14 +6,17 @@ import (
 )
 
 const (
-	_ELT_PREFIX = "root/elements"
-	_APP_PREFIX = "root/apps"
+	_ROOT_PREFIX = "cassem/"
+	_ELT_PREFIX  = _ROOT_PREFIX + "elements"
+	_APP_PREFIX  = _ROOT_PREFIX + "apps"
 	// _INS_PREFIX will be divided into two part, one is forward storage, another is reversed index.
 	// 1. root/instances/normalized/instance-id => instance in detail
 	// 2. root/instances/reversed/app-env-key => instances{instance-id}
-	_INS_PREFIX     = "root/instances"
-	_AGENT_PREFIX   = "root/agents"
-	_VERSION_PREFIX = "v"
+	_INS_PREFIX        = _ROOT_PREFIX + "instances"
+	_AGENT_PREFIX      = _ROOT_PREFIX + "agents"
+	_VERSION_PREFIX    = "v"
+	_ACL_POLICY_PREFIX = _ROOT_PREFIX + "acl/policy"
+	_ACL_USER_PREFIX   = _ROOT_PREFIX + "acl/users"
 
 	// utility constants, helps key to be more expressive.
 	_SEP             = "/"
@@ -96,4 +99,16 @@ func genInstanceReversedKeyWithInsid(app, env, key string, insId string) string 
 
 func withAgentPrefix(agentId string) string {
 	return strings.Join([]string{_AGENT_PREFIX, agentId}, _SEP)
+}
+
+func genAclPolicyKey() string {
+	return _ACL_POLICY_PREFIX
+}
+
+func genUserKey(account string) string {
+	if account == "" {
+		return ""
+	}
+
+	return strings.Join([]string{_ACL_USER_PREFIX, account}, _SEP)
 }

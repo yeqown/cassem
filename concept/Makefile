@@ -1,2 +1,7 @@
 gen-proto:
-	protoc ./types.proto --go_out=plugins=grpc:.
+	protoc \
+		-I. \
+		-I../thirdparty \
+		--go_out=plugins=grpc:.\
+		--validate_out=lang=go:. \
+		types.proto acl.proto

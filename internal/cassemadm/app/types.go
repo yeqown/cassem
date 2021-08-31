@@ -119,3 +119,24 @@ type publishAppEnvElementReq struct {
 type pagingAgentInstanceReq struct {
 	commonPagingRequest
 }
+
+type addUserReq struct {
+	Account  string `json:"account" binding:"email,required"`
+	Password string `json:"password" binding:"required"`
+	Nickname string `json:"nickname" binding:"required"`
+}
+
+type disableUserReq struct {
+	Account string `form:"account" binding:"email,required"`
+}
+
+type userLoginReq struct {
+	Account  string `json:"account" binding:"email,required"`
+	Password string `json:"password" binding:"required"`
+}
+
+type assignOrRevokeRoleReq struct {
+	Account string   `form:"account" binding:"required,email"`
+	Role    string   `form:"role" binding:"required,oneof=superadmin admin appowner developer"`
+	Domains []string `form:"domain"`
+}

@@ -1,0 +1,42 @@
+syntax = "proto3";
+
+package cassem.concept;
+option go_package = "concept";
+
+import "envoyproxy-validate/validate.proto";
+
+message User {
+    enum Status {
+        NORMAL    = 0;
+        // FORBIDDEN indicates the user is forbidden to access the system.
+        FORBIDDEN = 1;
+    }
+
+    // account 
+    string account        = 1 [(validate.rules).string.email = true];
+    string nickname       = 2 [(validate.rules).string = {min_len: 1, max_len: 64}];
+    string hashedPassword = 3 [(validate.rules).string = {min_len: 6, max_len: 12}];
+    string salt           = 4 [(validate.rules).string = {len: 8}];
+    Status status         = 5 [(validate.rules).enum   = {defined_only: true}];
+}
+
+
+
+// Casbin represent the casbin model.
+message Casbin {
+    message Policy {
+        string Ptype = 1; 
+        string V0    = 2;
+        string V1    = 3;
+        string V2    = 4;
+        string V3    = 5;
+        string V4    = 6;
+        string V5    = 7;
+    }
+
+    //    message Policy {
+    //        repeated Rule rule = 1;
+    //    }
+
+    repeated Policy policies = 1;
+}

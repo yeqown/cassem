@@ -22,6 +22,11 @@ type CommonResponse struct {
 	Data       interface{} `json:"data,omitempty"`
 }
 
+func ResponseErrorAndAbort(c *gin.Context, err error) {
+	ResponseError(c, err)
+	c.Abort()
+}
+
 func ResponseError(c *gin.Context, err error) {
 	if err == nil {
 		c.JSON(http.StatusInternalServerError, CommonResponse{

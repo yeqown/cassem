@@ -8,6 +8,7 @@ type AdmAggregate interface {
 	KVWriteOnly
 	InstanceHybrid
 	AgentHybrid
+	RBAC
 }
 
 type AgentAggregate interface {
@@ -69,6 +70,16 @@ type AgentHybrid interface {
 	// Unregister helps agent unregister itself.
 	Unregister(ctx context.Context, agentId string) error
 	GetAgents(ctx context.Context, seek string, limit int) (*getAgentsResult, error)
+}
+
+// RBAC is an ACL model to implement authentication permission management.
+type RBAC interface {
+	GetUser(account string) (*User, error)
+	AddUser(u *User) error
+	DisableUser(account string) error
+	AssignRole(account, role string, domain ...string) error
+	RevokeRole(account, role string, domain ...string) error
+	Enforce(subject, domain, object, act string) (bool, error)
 }
 
 type commonPager struct {

@@ -17,8 +17,6 @@ import (
 type app struct {
 	conf *conf.CassemAdminConfig
 
-	repo infras.Repository
-
 	// aggregate is special methods interface customized form adm component which
 	// can only be used by cassemadm.app.
 	aggregate concept.AdmAggregate
@@ -41,7 +39,6 @@ func New(c *conf.CassemAdminConfig) (*app, error) {
 	d := &app{
 		aggregate: agg,
 		conf:      c,
-		repo:      nil, // FIXME: initialize repo
 		agents:    newAgentPool(agg),
 	}
 
@@ -73,8 +70,24 @@ func (d app) initialHTTP(engi *gin.Engine) {
 
 	// mount APIs
 	// DONE(@yeqown) authorize middleware is needed.
-	g := engi.Group("/api")
-	apps := g.Group("/apps")
+	public := engi.Group("/api")
+	auth := engi.Group("/api", infras.Authorization(d.aggregate), infras.Authentication(d.aggregate))
+	accountp := public.Group("/account")
+	{
+		accountp.POST("/login", d.UserLogin)
+	}
+
+	accounta := auth.Group("/account")
+	{
+		// accounta.GET("/users", d.GetUsers)
+		accounta.POST("/add", d.AddUser)
+		accounta.GET("/disable", d.DisableUser)
+		accounta.GET("/reset", d.ResetUser)
+		accounta.GET("/acl/assign", d.AssignRole)
+		accounta.GET("/acl/revoke", d.RevokeRole)
+	}
+
+	apps := auth.Group("/apps")
 	{
 		apps.GET("", d.GetApps)
 		apps.GET("/:appId", d.GetApp)
@@ -102,12 +115,12 @@ func (d app) initialHTTP(engi *gin.Engine) {
 		}
 	}
 
-	agentIns := g.Group("/agents")
+	agentIns := auth.Group("/agents")
 	{
 		agentIns.GET("", d.GetAgents)
 	}
 
-	instances := g.Group("/instances")
+	instances := auth.Group("/instances")
 	{
 		instances.GET("/:insId", d.GetInstance)
 		instances.GET("", d.GetElementInstance)

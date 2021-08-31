@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"time"
 
@@ -33,7 +34,7 @@ func main() {
 			Email: "yeqown@gmail.com",
 		},
 	}
-	app.Version = Version
+	app.Version = fmt.Sprintf(`{"version": %s, "buildTime": %s, "gitHash": %s}`, Version, BuildTime, GitHash)
 	app.Description = `The storage component of cassem.`
 	app.Flags = _cliGlobalFlags
 	app.Action = start

@@ -50,26 +50,42 @@ message ElementMetadata {
   ContentType contentType        = 8;
 }
 
+// AppMetadata contains metadata of one app, includes specific identity, 
+// description, and other fields to display the app's status.
 message AppMetadata {
+  enum Status {
+    INUSE = 0;
+    // DEPRECATED represents the app is deprecated. It can only read but update.
+    DEPRECATED = 1;
+  }
+
   string id          = 1;
   string description = 2;
   int64  createdAt   = 3;
+  // creator of the app indicates the user who created the app.
   string creator     = 4;
   string owner       = 5;
+  Status status      = 6;
+  // secret is the key to acccecss the app's elements. If it's empty,
+  // that means the app is public.
+  string secret      = 7;
 }
 
-enum Operation {
-  INVALID = 0;
-  SET     = 1;
-  UNSET   = 2;
-  PUBLISH = 3;
-}
 
+// ElementOperation is used to indicate the operation of one element.
 message ElementOperation {
+  enum Op {
+    INVALID = 0;
+    SET     = 1;
+    UNSET   = 2;
+    PUBLISH = 3;
+  }
+
+  // operator indicates the user who execute the operation.
   string    operator       = 1;
   int64     operatedAt     = 2;
   string    operatedKey    = 3;
-  Operation op             = 4;
+  Op op                    = 4;
   int32     lastVersion    = 5;
   int32     currentVersion = 6;
   string    remark         = 7;

@@ -70,7 +70,12 @@ func (d *app) bootstrap(cfg *conf.CassemdbConfig) (err error) {
 //
 // NOTE: could leader call removeNode by itself? (leader could call removeNode only when cluster has more than 1 node)
 func (d *app) Run() {
-	tick := time.NewTicker(10 * time.Second)
+	var t = 30 * time.Second
+	if d.config.HeartbeatTick != 0 {
+		t = time.Duration(d.config.HeartbeatTick) * time.Second
+	}
+
+	tick := time.NewTicker(t)
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, os.Interrupt, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 
