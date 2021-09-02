@@ -3,7 +3,10 @@ package app
 import (
 	"context"
 	"math/rand"
+	"os"
+	"os/signal"
 	"strconv"
+	"syscall"
 	"time"
 
 	"github.com/hashicorp/go-uuid"
@@ -60,6 +63,34 @@ func New(c *conf.CassemAgentConfig) (*app, error) {
 func (d app) Run() {
 	d.startRoutines()
 
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, os.Interrupt, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
+
+	for {
+		select {
+		case <-quit:
+			log.Debug("app received one signal, then quit")
+			// graceful shutdown and quit main goroutine
+			d.shutdown()
+			return
+		}
+	}
+}
+
+func (d app) shutdown() {
+	select {
+	case d.quit <- struct{}{}:
+		time.Sleep(5 * time.Second)
+	default:
+	}
+}
+
+func (d *app) startRoutines() {
+	runtime.GoFunc("app.serve", d.serve)
+	runtime.GoFunc("app.renewSelf", d.renew)
+}
+
+func (d app) serve() error {
 	s := grpc.NewServer(
 		grpc.UnaryInterceptor(grpcx.ChainUnaryServer(
 			grpcx.ServerRecovery(), grpcx.ServerLogger(), grpcx.SevrerErrorx(), grpcx.ServerValidation())),
@@ -72,19 +103,35 @@ func (d app) Run() {
 
 	gate := httpx.NewGateway(d.conf.Server.Addr, nil, s)
 	if err := gate.ListenAndServe(); err != nil {
-		d.shutdown()
-		log.Fatal(err)
+		return err
 	}
+
+	return nil
 }
 
-func (d app) shutdown() {
-	select {
-	case d.quit <- struct{}{}:
-	default:
+// renew
+func (d app) renew() error {
+	renewSelf := func() error {
+		timeoutCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+		err := d.aggregate.Renew(timeoutCtx, &concept.AgentInstance{
+			AgentId: d.uniqueId,
+			Addr:    d.conf.Server.Addr,
+			Annotations: map[string]string{
+				"op":            "renew",
+				"hostname":      runtime.Hostname(),
+				"ttl":           strconv.Itoa(int(d.conf.TTL)),
+				"renewInterval": strconv.Itoa(int(d.actualRenewInterval)),
+				// "timestamp": time.Now().Format(time.RFC3339),
+			},
+		}, d.conf.TTL)
+		if err != nil {
+			return errors.Wrap(err, "cassemagent.app.renewSelf")
+		}
+		return err
 	}
-}
 
-func (d *app) startRoutines() {
+	// calculate renew interval
 	d.actualRenewInterval = d.conf.RenewInterval + rand.Int31n(d.conf.TTL-d.conf.RenewInterval)
 	timeoutCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	err := d.aggregate.Register(timeoutCtx, &concept.AgentInstance{
@@ -107,59 +154,36 @@ func (d *app) startRoutines() {
 	}
 	cancel()
 
-	runtime.GoFunc("renew", func() error {
-		// actualRenewInterval = conf.renewInterval + int32n(conf.TTL - cond.RenewInterval)
-		dur := time.Duration(d.actualRenewInterval) * time.Second
-		ticker := time.NewTicker(dur)
-
-		for {
-			select {
-			case ts := <-ticker.C:
-				log.Info("cassemagent.app renewSelf")
-				if err = d.renewSelf(); err != nil {
-					log.
-						WithFields(log.Fields{
-							"error": err,
-							"time":  ts.Format(time.RFC3339),
-						}).
-						Error("cassemagent.app.renewSelf failed")
-				}
-			case <-d.quit:
-				log.Info("cassemagent.app receives a quit signal")
-				timeoutCtx, cancel = context.WithTimeout(context.Background(), 3*time.Second)
-				if err = d.aggregate.Unregister(timeoutCtx, d.uniqueId); err != nil {
-					log.
-						WithFields(log.Fields{
-							"error": err,
-						}).
-						Error("cassemagent.app.Unregister failed")
-				}
-				cancel()
-				// quit routine
-				return nil
+	// actualRenewInterval = conf.renewInterval + int32n(conf.TTL - cond.RenewInterval)
+	dur := time.Duration(d.actualRenewInterval) * time.Second
+	ticker := time.NewTicker(dur)
+	for {
+		select {
+		case ts := <-ticker.C:
+			log.Info("cassemagent.app renewSelf")
+			if err = renewSelf(); err != nil {
+				log.
+					WithFields(log.Fields{
+						"error": err,
+						"time":  ts.Format(time.RFC3339),
+					}).
+					Error("cassemagent.app.renewSelf failed")
 			}
+		case <-d.quit:
+			log.Info("cassemagent.app receives a quit signal")
+			timeoutCtx, cancel = context.WithTimeout(context.Background(), 3*time.Second)
+			if err = d.aggregate.Unregister(timeoutCtx, d.uniqueId); err != nil {
+				log.
+					WithFields(log.Fields{
+						"error": err,
+					}).
+					Error("cassemagent.app.Unregister failed")
+			}
+			cancel()
+			// quit routine
+			return nil
 		}
-	})
-}
-
-func (d app) renewSelf() error {
-	timeoutCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
-	err := d.aggregate.Renew(timeoutCtx, &concept.AgentInstance{
-		AgentId: d.uniqueId,
-		Addr:    d.conf.Server.Addr,
-		Annotations: map[string]string{
-			"op":            "renew",
-			"hostname":      runtime.Hostname(),
-			"ttl":           strconv.Itoa(int(d.conf.TTL)),
-			"renewInterval": strconv.Itoa(int(d.actualRenewInterval)),
-			// "timestamp": time.Now().Format(time.RFC3339),
-		},
-	}, d.conf.TTL)
-	if err != nil {
-		return errors.Wrap(err, "cassemagent.app.renewSelf")
 	}
-	return err
 }
 
 // uniqueId panics if any error encountered during apply unique id.

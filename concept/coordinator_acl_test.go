@@ -84,7 +84,7 @@ func (s rbacTestSuite) Test_Enforce() {
 	s.NoError(err)
 	s.True(allow)
 
-	allow, err = s.rbac.Enforce("yeqown@gmail.com", Domain_DEFAULT, Object_APP, Action_READ)
+	allow, err = s.rbac.Enforce("yeqown@gmail.com", Domain_CLUSTER, Object_APP, Action_READ)
 	s.NoError(err)
 	s.True(allow)
 

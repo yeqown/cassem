@@ -214,7 +214,7 @@ func (m *AppMetadata) Validate() error {
 
 	// no validation rules for Status
 
-	// no validation rules for Secret
+	// no validation rules for Secrets
 
 	return nil
 }

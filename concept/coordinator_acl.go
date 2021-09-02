@@ -2,6 +2,7 @@ package concept
 
 import (
 	"context"
+	"strings"
 
 	"github.com/casbin/casbin/v2"
 	"github.com/casbin/casbin/v2/model"
@@ -23,19 +24,30 @@ const (
 	Action_ANY     = "*"
 )
 
+// domain is equal to app/env
 const (
-	Domain_ALL = "*"
-	// domain is equal to env
-	Domain_DEFAULT    = "default"
-	Domain_PRODUCTION = "production"
-	Domain_UAT        = "uat"
+	Domain_ALL     = "*"
+	Domain_CLUSTER = "cluster"
+	// Domain_APP MUST NOT be used, this only represents the format of
+	// app domain.
+	Domain_APP = "app/env"
+	// Domain_APP_ENV = "ae:appName/envName"
 )
 
 const (
+	// Role_SUPERADMIN can control whole resources.
+	// p superadmin * * *
 	Role_SUPERADMIN = "superadmin"
-	Role_ADMIN      = "admin"
-	Role_APPOWNER   = "appowner"
-	Role_DEVELOPER  = "developer"
+	// Role_ADMIN is an admin role who owns all apps' all permissions.
+	Role_ADMIN = "admin"
+	// Role_APPOWNER can only control the app's resources which belong to him
+	// and visit other apps's resources.
+	Role_APPOWNER = "appowner"
+	// Role_DEVELOPER can only access(except delete, publish, rollback permissions)
+	// the app's resources which belong to him and visit other apps's resources.
+	Role_DEVELOPER = "appdeveloper"
+	// Role_VISITOR can only access(readonly) app's resources.
+	Role_VISITOR = "visitor"
 )
 
 const (
@@ -97,8 +109,28 @@ func newRBAC(c apicassemdb.KVClient) (RBAC, error) {
 
 	// use 1-layer RBAC
 	e.SetRoleManager(defaultrolemanager.NewRoleManager(1))
-	e.AddNamedDomainMatchingFunc("g", "*", func(arg1, arg2 string) bool {
-		return true
+	e.AddNamedDomainMatchingFunc("g", "", func(r, p string) bool {
+		switch p {
+		case Domain_ALL:
+			return true
+		case Domain_CLUSTER:
+			return r == p
+		}
+
+		// app/subdomain strategy
+		parr := strings.Split(p, "/")
+		rarr := strings.Split(r, "/")
+		if len(parr) < 2 || len(rarr) < 2 {
+			return false
+		}
+
+		pdomain, psub := parr[0], parr[1]
+		rdomain, rsub := rarr[0], rarr[1]
+		if psub == "*" {
+			return pdomain == rdomain
+		}
+
+		return pdomain == rdomain && rsub == psub
 	})
 	e.EnableAutoBuildRoleLinks(true)
 	e.EnableAutoSave(false) // TODO(@yeqown): support automatically save
@@ -128,8 +160,13 @@ func (a aclImpl) GetUser(account string) (*User, error) {
 	u := new(User)
 	apicassemdb.MustUnmarshal(r.GetEntity().GetVal(), u)
 
-	roles, _ := a.e.GetRolesForUser(account)
-	log.Debugf("roles=%+v", roles)
+	roles, err := a.e.GetRolesForUser(account, Domain_ALL)
+	log.
+		WithFields(log.Fields{
+			"roles": roles,
+			"err":   err,
+		}).
+		Debugf("aclImpl.GetUser.GetRolesForUser")
 
 	return u, nil
 }

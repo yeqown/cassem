@@ -21,15 +21,15 @@ type Session struct {
 
 func Authorization(rbac concept.RBAC) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		account := c.GetHeader("x-cassem-user")
-		if account == "" {
-			c.AbortWithStatus(http.StatusUnauthorized)
-			return
-		}
-
-		salt := c.GetHeader("x-cassem-hash")
-		if salt == "" {
-			c.AbortWithStatus(http.StatusUnauthorized)
+		account, salt := c.GetHeader("x-cassem-user"), c.GetHeader("x-cassem-hash")
+		log.
+			WithFields(log.Fields{
+				"account": account,
+				"salt":    salt,
+			}).
+			Debug("Authorization called")
+		if account == "" || salt == "" {
+			_ = c.AbortWithError(http.StatusUnauthorized, errorx.Err_PERMISSION_DENIED)
 			return
 		}
 

@@ -40,7 +40,7 @@ func Authentication(rbac concept.RBAC) gin.HandlerFunc {
 		r := new(req)
 		_ = c.ShouldBindUri(r)
 		if r.Domain == "" {
-			r.Domain = concept.Domain_DEFAULT
+			r.Domain = concept.Domain_CLUSTER
 		}
 		allow, err := rbac.Enforce(sess.Account, r.Domain, def.object, def.act)
 		if err != nil {

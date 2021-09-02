@@ -89,7 +89,7 @@ func (d app) AssignRole(c *gin.Context) {
 	}
 
 	if len(req.Domains) == 0 {
-		req.Domains = []string{concept.Domain_DEFAULT}
+		req.Domains = []string{concept.Domain_CLUSTER}
 	}
 
 	err := d.aggregate.AssignRole(req.Account, req.Role, req.Domains...)
@@ -109,7 +109,7 @@ func (d app) RevokeRole(c *gin.Context) {
 	}
 
 	if len(req.Domains) == 0 {
-		req.Domains = []string{concept.Domain_DEFAULT}
+		req.Domains = []string{concept.Domain_CLUSTER}
 	}
 
 	err := d.aggregate.RevokeRole(req.Account, req.Role, req.Domains...)

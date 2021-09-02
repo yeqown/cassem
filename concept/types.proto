@@ -64,11 +64,13 @@ message AppMetadata {
   int64  createdAt   = 3;
   // creator of the app indicates the user who created the app.
   string creator     = 4;
+  // owner of the app indicates the user who actually own this app.
+  // of course, admin account owns all apps.
   string owner       = 5;
   Status status      = 6;
-  // secret is the key to acccecss the app's elements. If it's empty,
+  // secrets is the key to acccecss the app's elements by different envs. If it's empty,
   // that means the app is public.
-  string secret      = 7;
+  map<string, string> secrets = 7;
 }
 
 

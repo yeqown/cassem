@@ -5,6 +5,7 @@ go 1.17
 require (
 	github.com/casbin/casbin/v2 v2.36.1
 	github.com/envoyproxy/protoc-gen-validate v0.6.1
+	github.com/gin-contrib/cors v1.3.1
 	github.com/gin-contrib/pprof v1.3.0
 	github.com/gin-gonic/gin v1.6.3
 	github.com/golang/protobuf v1.5.2

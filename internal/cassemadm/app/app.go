@@ -2,7 +2,9 @@ package app
 
 import (
 	"log"
+	"time"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-contrib/pprof"
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
@@ -63,6 +65,14 @@ func (d app) initialHTTP(engi *gin.Engine) {
 
 	engi.Use(httpx.Recovery())
 	engi.Use(httpx.Logger())
+	corsConfig := cors.Config{
+		AllowAllOrigins:  true,
+		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Content-Length", "Content-Type", "X-CASSEM-HASH", "X-CASSEM-USER"},
+		AllowCredentials: false,
+		MaxAge:           12 * time.Hour,
+	}
+	engi.Use(cors.New(corsConfig))
 
 	if runtime.IsDebug() {
 		pprof.Register(engi, "/debug/pprof")
