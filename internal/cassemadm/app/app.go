@@ -107,6 +107,9 @@ func (d app) initialHTTP(engi *gin.Engine) {
 		envs := apps.Group("/:appId/envs")
 		{
 			envs.GET("", d.GetAppEnvironments)
+			{
+				envs.POST("/:env", d.CreateAppEnvironment)
+			}
 
 			elt := envs.Group("/:env/elements")
 			{

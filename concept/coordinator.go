@@ -37,6 +37,8 @@ type KVWriteOnly interface {
 	UpdateElement(ctx context.Context, app, env, key string, raw []byte) error
 	DeleteElement(ctx context.Context, app, env, key string) error
 
+	CreateEnvironment(ctx context.Context, app, env string) error
+
 	RollbackElementVersion(ctx context.Context, app string, env string, key string,
 		rollbackVersion uint32) error
 	PublishElementVersion(ctx context.Context, app string, env string, key string,

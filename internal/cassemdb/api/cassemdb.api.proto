@@ -64,7 +64,7 @@ message setKVReq {
   bool   isDir    = 2;
   int32  ttl      = 3; // ttl is Time to Live (n seconds)
   // val's size in [1, 256K] Byte
-  bytes  val       = 4 [(validate.rules).bytes = {min_len: 1, max_len: 262144}];
+  bytes  val       = 4 [(validate.rules).bytes = {min_len: 0, max_len: 262144}];
   bool   overwrite = 5;
 };
 

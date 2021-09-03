@@ -162,6 +162,9 @@ func (_r kvReadOnly) GetElementsByKeys(
 // getElementsByKeys get elements by keys.
 // keys contain all key to element.
 func (_r kvReadOnly) getElementsByKeys(ctx context.Context, app, env string, keys []string) ([]*Element, error) {
+	if len(keys) == 0 {
+		return []*Element{}, nil
+	}
 	mdKeys := make([]string, 0, len(keys))
 	for _, key := range keys {
 		k := genElementKey(app, env, key)
@@ -268,7 +271,7 @@ func (_r kvReadOnly) GetEnvironments(ctx context.Context, app, seek string, limi
 	}
 
 	for _, v := range r.GetEntities() {
-		result.Environments = append(result.Environments, v.Key)
+		result.Environments = append(result.Environments, extractPureKey(v.Key))
 	}
 
 	return result, nil

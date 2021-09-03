@@ -705,10 +705,10 @@ func (m *SetKVReq) Validate() error {
 
 	// no validation rules for Ttl
 
-	if l := len(m.GetVal()); l < 1 || l > 262144 {
+	if l := len(m.GetVal()); l < 0 || l > 262144 {
 		return SetKVReqValidationError{
 			field:  "Val",
-			reason: "value length must be between 1 and 262144 bytes, inclusive",
+			reason: "value length must be between 0 and 262144 bytes, inclusive",
 		}
 	}
 

@@ -1,4 +1,4 @@
-all: gen-proto gen-proto2
+all: gen-proto
 
 gen-proto:
 	protoc \
@@ -6,12 +6,5 @@ gen-proto:
 		-I ../../../thirdparty \
 		--go_out=plugins=grpc:. \
 		--validate_out=lang=go:. \
-		cassemdb.api.proto
+		cassemdb.api.proto cassemdb.raft.proto
 
-gen-proto2:
-	protoc \
-		-I. \
-		-I ../../../thirdparty \
-		--go_out=plugins=grpc:. \
-		--validate_out=lang=go:. \
-		cassemdb.raft.proto

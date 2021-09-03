@@ -22,3 +22,19 @@ func (d app) GetAppEnvironments(c *gin.Context) {
 
 	httpx.ResponseJSON(c, out)
 }
+
+func (d app) CreateAppEnvironment(c *gin.Context) {
+	req := new(createAppEnvReq)
+	if err := c.ShouldBindUri(req); err != nil {
+		httpx.ResponseError(c, err)
+		return
+	}
+
+	err := d.aggregate.CreateEnvironment(c.Request.Context(), req.AppId, req.Env)
+	if err != nil {
+		httpx.ResponseError(c, err)
+		return
+	}
+
+	httpx.ResponseJSON(c, nil)
+}

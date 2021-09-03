@@ -94,6 +94,10 @@ type getAppEnvsReq struct {
 	App string `uri:"appId" binding:"required"`
 }
 
+type createAppEnvReq struct {
+	commonAppEnvRequest
+}
+
 type getInstanceReq struct {
 	InsId string `uri:"insId" binding:"required"`
 }

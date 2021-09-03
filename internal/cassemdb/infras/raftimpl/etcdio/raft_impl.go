@@ -402,10 +402,22 @@ func (r *raftNodeImpl) probeRemoveExpired(val *apicassemdb.Entity) (removed bool
 	return false
 }
 
+var (
+	emptyRangeResp = &apicassemdb.RangeResp{
+		Entities:    make([]*apicassemdb.Entity, 0, 0),
+		HasMore:     false,
+		NextSeekKey: "",
+	}
+)
+
 func (r *raftNodeImpl) Range(req *apicassemdb.RangeReq) (*apicassemdb.RangeResp, error) {
 	// DONE(@yeqown): return expired keys and trigger probeRemoveExpired methods
 	result, err := r.kvstore.Range(req.GetKey(), req.GetSeek(), int(req.GetLimit()))
 	if err != nil {
+		if errors.Is(err, errorx.Err_NOT_FOUND) {
+			return emptyRangeResp, nil
+		}
+
 		return nil, errors.Wrap(err, "raftNodeImpl.Range")
 	}
 
