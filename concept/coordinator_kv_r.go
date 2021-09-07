@@ -98,7 +98,7 @@ func (_r kvReadOnly) GetElementVersions(
 		return nil, err
 	}
 
-	_, _, mdMapping := convertFromEntitiesToMetadata(r.GetEntities())
+	_, _, mdMapping := convertFromEntitiesToMetadata(r.GetEntities(), false)
 	result := &getElementsResult{
 		commonPager: commonPager{
 			HasMore:  r2.GetHasMore(),
@@ -145,7 +145,7 @@ func (_r kvReadOnly) GetElements(
 		keys = append(keys, v.GetKey())
 	}
 
-	result.Elements, err = _r.getElementsByKeys(ctx, app, env, keys)
+	result.Elements, err = _r.getElementsByKeys(ctx, app, env, keys, false)
 	return result, err
 }
 
@@ -155,13 +155,16 @@ func (_r kvReadOnly) GetElementsByKeys(
 		commonPager: commonPager{},
 		Elements:    nil,
 	}
-	result.Elements, err = _r.getElementsByKeys(ctx, app, env, keys)
+	result.Elements, err = _r.getElementsByKeys(ctx, app, env, keys, false)
 	return
 }
 
 // getElementsByKeys get elements by keys.
 // keys contain all key to element.
-func (_r kvReadOnly) getElementsByKeys(ctx context.Context, app, env string, keys []string) ([]*Element, error) {
+func (_r kvReadOnly) getElementsByKeys(
+	ctx context.Context, app, env string, keys []string,
+	wipeUnpublish bool,
+) ([]*Element, error) {
 	if len(keys) == 0 {
 		return []*Element{}, nil
 	}
@@ -177,21 +180,8 @@ func (_r kvReadOnly) getElementsByKeys(ctx context.Context, app, env string, key
 		return nil, errors.Wrap(err, "kvReadOnly.getElementsByKeys")
 	}
 
-	//eleVersionKeys := make([]string, 0, len(keys))
-	//metadataMapping := make(map[string]*ElementMetadata, len(keys))
-	//for _, entity := range r.GetEntities() {
-	//	k := trimMetadata(entity.GetKey())
-	//	md := new(ElementMetadata)
-	//	if err = UnmarshalProto(entity.GetVal(), md); err != nil {
-	//		continue
-	//	}
-	//	md.Key = extractPureKey(k)
-	//	metadataMapping[k] = md
-	//	eleVersionKeys = append(eleVersionKeys, withVersion(k, int(md.LatestVersion)))
-	//}
-
 	// DONE(@yeqown): replace this part of code with convertFromEntitiesToMetadata
-	eleVersionKeys, _, metadataMapping := convertFromEntitiesToMetadata(r.GetEntities())
+	eleVersionKeys, _, metadataMapping := convertFromEntitiesToMetadata(r.GetEntities(), wipeUnpublish)
 	r2, err2 := _r.cassemdb.GetKVs(ctx, &apicassemdb.GetKVsReq{
 		Keys: eleVersionKeys,
 	})

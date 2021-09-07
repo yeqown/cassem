@@ -61,7 +61,7 @@ func convertFromEntitiesToElements(in []*apicassemdb.Entity, mdMapping map[strin
 // arr contains ElementMetadata in slice structure
 // mapping contains ElementMetadata in format: map[app/env/ele]*ElementMetadata
 func convertFromEntitiesToMetadata(
-	in []*apicassemdb.Entity) (keys []string, arr []*ElementMetadata, mdMapping map[string]*ElementMetadata) {
+	in []*apicassemdb.Entity, wipeUnpublish bool) (keys []string, arr []*ElementMetadata, mdMapping map[string]*ElementMetadata) {
 
 	arr = make([]*ElementMetadata, 0, len(in))
 	mdMapping = make(map[string]*ElementMetadata, len(in))
@@ -77,7 +77,7 @@ func convertFromEntitiesToMetadata(
 		mdMapping[k] = md
 		// If current metadata has no using version, so there is no available version
 		// for the element.
-		if md.UsingVersion != 0 {
+		if !wipeUnpublish || md.UsingVersion != 0 {
 			keys = append(keys, withVersion(k, int(md.UsingVersion)))
 		}
 	}

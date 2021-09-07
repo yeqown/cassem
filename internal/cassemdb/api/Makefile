@@ -1,7 +1,7 @@
 all: gen-proto
 
 gen-proto:
-	protoc \
+	DEBUG_PGV=1 protoc \
 		-I. \
 		-I ../../../thirdparty \
 		--go_out=plugins=grpc:. \

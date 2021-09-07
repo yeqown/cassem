@@ -139,6 +139,11 @@ type userLoginReq struct {
 	Password string `json:"password" binding:"required"`
 }
 
+type userLoginResp struct {
+	User    *concept.User `json:"user"`
+	Session string        `json:"session"`
+}
+
 type assignOrRevokeRoleReq struct {
 	Account string   `form:"account" binding:"required,email"`
 	Role    string   `form:"role" binding:"required,oneof=superadmin admin appowner developer"`

@@ -2,10 +2,12 @@ package app
 
 import (
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
 	"github.com/yeqown/cassem/concept"
+	"github.com/yeqown/cassem/internal/cassemadm/infras"
 	"github.com/yeqown/cassem/pkg/errorx"
 	"github.com/yeqown/cassem/pkg/hash"
 	"github.com/yeqown/cassem/pkg/httpx"
@@ -35,7 +37,13 @@ func (d app) UserLogin(c *gin.Context) {
 		return
 	}
 
-	httpx.ResponseJSON(c, u)
+	sess, err := infras.EncodeSession(&infras.Session{
+		Account:   u.GetAccount(),
+		Salt:      u.GetSalt(),
+		ExpiredAt: time.Now().AddDate(0, 0, 1).Unix(), // after 1 day to expire
+	})
+
+	httpx.ResponseJSON(c, userLoginResp{User: u, Session: sess})
 }
 
 func (d app) AddUser(c *gin.Context) {
