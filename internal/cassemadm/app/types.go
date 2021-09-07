@@ -98,6 +98,10 @@ type createAppEnvReq struct {
 	commonAppEnvRequest
 }
 
+type deleteAppEnvReq struct {
+	commonAppEnvRequest
+}
+
 type getInstanceReq struct {
 	InsId string `uri:"insId" binding:"required"`
 }

@@ -38,3 +38,19 @@ func (d app) CreateAppEnvironment(c *gin.Context) {
 
 	httpx.ResponseJSON(c, nil)
 }
+
+func (d app) DeleteAppEnvironment(c *gin.Context) {
+	req := new(deleteAppEnvReq)
+	if err := c.ShouldBindUri(req); err != nil {
+		httpx.ResponseError(c, err)
+		return
+	}
+
+	err := d.aggregate.DeleteEnvironment(c.Request.Context(), req.AppId, req.Env)
+	if err != nil {
+		httpx.ResponseError(c, err)
+		return
+	}
+
+	httpx.ResponseJSON(c, nil)
+}

@@ -281,7 +281,7 @@ func (r *raftNodeImpl) SetKV(req *apicassemdb.SetKVReq) (err error) {
 	v := apicassemdb.NewEntityWithCreated(req.GetKey(), req.GetVal(), req.GetTtl(), createdAt)
 	if err = r.propose(&apicassemdb.SetCommand{
 		DeleteKey: "",
-		IsDir:     false,
+		IsDir:     req.GetIsDir(),
 		SetKey:    req.GetKey(),
 		Value:     v,
 	}); err != nil {

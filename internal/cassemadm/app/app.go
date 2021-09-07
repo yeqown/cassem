@@ -68,7 +68,7 @@ func (d app) initialHTTP(engi *gin.Engine) {
 	corsConfig := cors.Config{
 		AllowAllOrigins:  true,
 		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"},
-		AllowHeaders:     []string{"Origin", "Content-Length", "Content-Type", "X-CASSEM-HASH", "X-CASSEM-USER"},
+		AllowHeaders:     []string{"Origin", "Content-Length", "Content-Type", "X-CASSEM-SESSION"},
 		AllowCredentials: false,
 		MaxAge:           12 * time.Hour,
 	}
@@ -109,6 +109,7 @@ func (d app) initialHTTP(engi *gin.Engine) {
 			envs.GET("", d.GetAppEnvironments)
 			{
 				envs.POST("/:env", d.CreateAppEnvironment)
+				envs.DELETE("/:env", d.DeleteAppEnvironment)
 			}
 
 			elt := envs.Group("/:env/elements")

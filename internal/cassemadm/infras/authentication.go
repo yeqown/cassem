@@ -71,6 +71,7 @@ var defMapping = map[string]objectDef{
 
 	"GET/api/apps/:appId/envs":                       {object: concept.Object_APP, act: concept.Action_READ},
 	"POST/api/apps/:appId/envs/:env":                 {object: concept.Object_APP, act: concept.Action_WRITE},
+	"DELETE/api/apps/:appId/envs/:env":               {object: concept.Object_APP, act: concept.Action_WRITE},
 	"GET/api/apps/:appId/envs/:env/elements":         {object: concept.Object_APP, act: concept.Action_READ},
 	"GET/api/apps/:appId/envs/:env/elements/:key":    {object: concept.Object_ELEMENT, act: concept.Action_READ},
 	"POST/api/apps/:appId/envs/:env/elements/:key":   {object: concept.Object_ELEMENT, act: concept.Action_WRITE},

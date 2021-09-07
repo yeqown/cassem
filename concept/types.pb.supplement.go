@@ -77,8 +77,14 @@ func convertFromEntitiesToMetadata(
 		mdMapping[k] = md
 		// If current metadata has no using version, so there is no available version
 		// for the element.
-		if !wipeUnpublish || md.UsingVersion != 0 {
+		if md.UsingVersion != 0 {
 			keys = append(keys, withVersion(k, int(md.UsingVersion)))
+			continue
+		}
+
+		if !wipeUnpublish && md.UsingVersion <= 0 && md.UnpublishedVersion != 0 {
+			keys = append(keys, withVersion(k, int(md.UnpublishedVersion)))
+			continue
 		}
 	}
 

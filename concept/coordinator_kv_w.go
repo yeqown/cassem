@@ -123,6 +123,19 @@ func (_h kvWriteOnly) CreateEnvironment(ctx context.Context, app, env string) er
 	return err
 }
 
+func (_h kvWriteOnly) DeleteEnvironment(ctx context.Context, app, env string) error {
+	k := genAppElementEnvKey(app, env)
+	_, err := _h.cassemdb.UnsetKV(ctx, &apicassemdb.UnsetKVReq{
+		Key:   k,
+		IsDir: true,
+		//Ttl:                  0,
+		//Val:                  nil,
+		//Overwrite:            false,
+	})
+
+	return err
+}
+
 // RollbackElementVersion reset element's latest published version as rollbackVersion
 // elementMetadata.usingVersion => rollbackVersion
 // elementMetadata.usingFingerprint = md5(rollbackVersion.raw)
