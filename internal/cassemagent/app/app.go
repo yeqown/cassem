@@ -9,7 +9,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/hashicorp/go-uuid"
 	"github.com/pkg/errors"
 	"github.com/yeqown/log"
 	"google.golang.org/grpc"
@@ -20,14 +19,15 @@ import (
 	"github.com/yeqown/cassem/internal/cassemagent/domain"
 	"github.com/yeqown/cassem/pkg/conf"
 	"github.com/yeqown/cassem/pkg/grpcx"
+	"github.com/yeqown/cassem/pkg/hash"
 	"github.com/yeqown/cassem/pkg/httpx"
 	"github.com/yeqown/cassem/pkg/runtime"
 )
 
 type app struct {
-	uniqueId string
-	// TODO(@yeqown): trigger quit from TERMINATED/KILL signal.
-	quit chan struct{}
+	uniqueId    string
+	quit        chan struct{}
+	regSuccessC chan struct{}
 
 	actualRenewInterval int32
 	conf                *conf.CassemAgentConfig
@@ -49,8 +49,9 @@ func New(c *conf.CassemAgentConfig) (*app, error) {
 	}
 
 	d := &app{
-		uniqueId:     uniqueId(),
+		uniqueId:     "",
 		quit:         make(chan struct{}, 1),
+		regSuccessC:  make(chan struct{}),
 		conf:         c,
 		aggregate:    agg,
 		cache:        domain.NewCache(1000), // TODO(@yeqown): measure the parameter of 1000
@@ -61,6 +62,7 @@ func New(c *conf.CassemAgentConfig) (*app, error) {
 }
 
 func (d app) Run() {
+	d.genUniqueId()
 	d.startRoutines()
 
 	quit := make(chan os.Signal, 1)
@@ -91,6 +93,9 @@ func (d *app) startRoutines() {
 }
 
 func (d app) serve() error {
+	// blocked here until app register itself success
+	<-d.regSuccessC
+
 	s := grpc.NewServer(
 		grpc.UnaryInterceptor(grpcx.ChainUnaryServer(
 			grpcx.ServerRecovery(), grpcx.ServerLogger(), grpcx.SevrerErrorx(), grpcx.ServerValidation())),
@@ -132,8 +137,10 @@ func (d app) renew() error {
 	}
 
 	// calculate renew interval
+	rand.Seed(time.Now().UnixNano())
 	d.actualRenewInterval = d.conf.RenewInterval + rand.Int31n(d.conf.TTL-d.conf.RenewInterval)
 	timeoutCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+retryReg:
 	err := d.aggregate.Register(timeoutCtx, &concept.AgentInstance{
 		AgentId: d.uniqueId,
 		Addr:    d.conf.Server.Addr,
@@ -151,7 +158,10 @@ func (d app) renew() error {
 				"error": err,
 			}).
 			Error("cassemagent.app.Register failed")
+		goto retryReg
 	}
+
+	d.regSuccessC <- struct{}{}
 	cancel()
 
 	// actualRenewInterval = conf.renewInterval + int32n(conf.TTL - cond.RenewInterval)
@@ -186,17 +196,8 @@ func (d app) renew() error {
 	}
 }
 
-// uniqueId panics if any error encountered during apply unique id.
-func uniqueId() string {
-	buf, err := uuid.GenerateRandomBytes(16)
-	if err != nil {
-		panic(err)
-	}
-
-	uid, err2 := uuid.FormatUUID(buf)
-	if err2 != nil {
-		panic(err2)
-	}
-
-	return uid
+// genUniqueId panics if any error encountered during apply unique id.
+func (d *app) genUniqueId() string {
+	d.uniqueId = hash.RandKey(8)
+	return d.uniqueId
 }
