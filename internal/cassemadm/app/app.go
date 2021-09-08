@@ -23,9 +23,9 @@ type app struct {
 	// can only be used by cassemadm.app.
 	aggregate concept.AdmAggregate
 
-	// agents type agentPool is a pool contains all agents nodes, and agentPool will update
+	// ap type agentPool is a pool contains all ap nodes, and agentPool will update
 	// agent nodes  automatically.
-	agents *agentPool
+	ap *agentPool
 }
 
 func New(c *conf.CassemAdminConfig) (*app, error) {
@@ -41,7 +41,7 @@ func New(c *conf.CassemAdminConfig) (*app, error) {
 	d := &app{
 		aggregate: agg,
 		conf:      c,
-		agents:    newAgentPool(agg),
+		ap:        newAgentPool(agg),
 	}
 
 	return d, nil

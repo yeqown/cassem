@@ -217,14 +217,14 @@ func (d app) PublishAppEnvElement(c *gin.Context) {
 	// call d.agents (agentPool) to notify agents by PublishMode and instancesIds.
 	switch req.PublishMode {
 	case concept.PublishMode_FULL:
-		err = d.agents.notifyAll(elem)
+		err = d.ap.notifyAll(elem)
 	case concept.PublishMode_GRAY:
 		// gray mode with agentIds
 		fallthrough
 	default:
 		// no specific mode, but agentIds is not empty.
 		if len(req.InstanceIds) != 0 {
-			err = d.agents.notifyAgent(elem, req.InstanceIds...)
+			err = d.ap.notifyAgent(elem, req.InstanceIds...)
 		}
 	}
 	if err != nil {
@@ -233,7 +233,7 @@ func (d app) PublishAppEnvElement(c *gin.Context) {
 				"req":   req,
 				"error": err,
 			}).
-			Error("cassemadm.app.PublishElementVersion failed to dispatch to agents")
+			Error("cassemadm.app.PublishElementVersion failed to dispatch to ap")
 		httpx.ResponseError(c, err)
 		return
 	}

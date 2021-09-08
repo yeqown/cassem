@@ -1,17 +1,17 @@
 package app
 
 // The purpose of agent_pool.go is that helps app to publish elements to
-// cassem agents, so that agent can update local cache, then agent notify all clients
+// cassem ap, so that agent can update local cache, then agent notify all clients
 // those are watching the element.
 
 import (
 	"context"
-	"errors"
 	"net/url"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/pkg/errors"
 	"github.com/yeqown/log"
 
 	"github.com/yeqown/cassem/concept"
@@ -20,7 +20,7 @@ import (
 	"github.com/yeqown/cassem/pkg/set"
 )
 
-// agentPool manages all agents those registered in cassemdb.
+// agentPool manages all ap those registered in cassemdb.
 type agentPool struct {
 	// nodes indicates map[agentId]*agentNode
 	nodes map[string]*agentNode
@@ -58,17 +58,76 @@ func (p *agentPool) run() {
 		})
 		runtime.GoFunc("updateAgentInstance", p.updateAgentInstanceFromCh(ch))
 	})
+
+	// update all ap firstly while cassem adm starting,
+	// in case of which adm recover from panic or exception shutdown.
+	if err := p.updateAgentNodesManually(); err != nil {
+		log.
+			WithFields(log.Fields{"error": err}).
+			Warn("agentPool.run failed to updateAgentNodesManually")
+	}
 }
 
+func (p *agentPool) all() []*concept.AgentInstance {
+	out := make([]*concept.AgentInstance, 0, len(p.nodes))
+	p.rwMutex.RLock()
+	defer p.rwMutex.RUnlock()
+
+	for key, v := range p.nodes {
+		if v == nil {
+			continue
+		}
+		out = append(out, p.nodes[key].AgentInstance)
+	}
+
+	return out
+}
+
+// DONE(@yeqown): update agent nodes manually at the start of the agent pool.
 func (p *agentPool) updateAgentNodesManually() error {
-	// TODO(@yeqown): update agent nodes manually at the start of the agent pool.
-	return errors.New("implement me")
+	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
+	defer cancel()
+	r, err := p.agg.GetAgents(ctx, "", 100)
+	if err != nil {
+		return errors.Wrap(err, "agentPool.updateAgentNodesManually")
+	}
+
+	if r.HasMore {
+		log.
+			Warn("agentPool.updateAgentNodesManually can only handling 1000 ap.")
+	}
+
+	log.
+		WithFields(log.Fields{
+			"nodeCount": len(r.Agents),
+			"hasMore":   r.HasMore,
+			"nextSeek":  r.NextSeek,
+		}).
+		Debug("agentPool.updateAgentNodesManually called")
+
+	// update whole ap
+	p.rwMutex.Lock()
+	for idx, v := range r.Agents {
+		no, ok := p.nodes[v.GetAgentId()]
+		if !ok {
+			p.nodes[v.GetAgentId()] = newAgentNode(r.Agents[idx])
+		} else {
+			no.updateAddr(v.GetAddr())
+		}
+	}
+	p.rwMutex.Unlock()
+
+	return nil
 }
 
 func (p *agentPool) updateAgentInstanceFromCh(ch <-chan *concept.AgentInstanceChange) func() error {
 	return func() error {
 		// There is a node changed, then judge and update p.nodes and p.allAgentIds
 		for change := range ch {
+			if change == nil || change.GetIns() == nil {
+				continue
+			}
+
 			agentId := change.GetIns().GetAgentId()
 			agentAddr := change.GetIns().GetAddr()
 			switch change.Op {
@@ -77,7 +136,7 @@ func (p *agentPool) updateAgentInstanceFromCh(ch <-chan *concept.AgentInstanceCh
 				node, ok := p.nodes[agentId]
 				if !ok {
 					// new node
-					node = newAgentNode(agentId, agentAddr)
+					node = newAgentNode(change.GetIns())
 					p.nodes[agentId] = node
 					node.run()
 				} else {
@@ -99,7 +158,7 @@ func (p *agentPool) updateAgentInstanceFromCh(ch <-chan *concept.AgentInstanceCh
 	}
 }
 
-// notifyAll dispatch element to all agents.
+// notifyAll dispatch element to all ap.
 func (p *agentPool) notifyAll(elem *concept.Element) error {
 	return p.notifyAgent(elem, p.allAgentIds.Keys()...)
 }
@@ -144,22 +203,22 @@ func (p *agentPool) notifyAgent(elem *concept.Element, agentIds ...string) error
 // agentNode contains agent node information, includes the address to
 // agent node.
 type agentNode struct {
-	Id   string
-	Addr string
-	ch   chan *concept.Element
-	c    apiagent.DeliveryClient
+	*concept.AgentInstance
+
+	ch chan *concept.Element
+	c  apiagent.DeliveryClient
 }
 
 // _SIZE_AGENT_NODE_BUF buf size of agent node notify channel, it indicates the maximum
 // elements could be held by agent node.
 const _SIZE_AGENT_NODE_BUF = 1024
 
-func newAgentNode(id string, addr string) *agentNode {
-	if addr == "" {
+func newAgentNode(ins *concept.AgentInstance) *agentNode {
+	if ins == nil || ins.GetAddr() == "" {
 		panic("")
 	}
 
-	u, err := url.Parse(addr)
+	u, err := url.Parse(ins.GetAddr())
 	if err != nil {
 		log.
 			WithField("error", err).
@@ -168,10 +227,9 @@ func newAgentNode(id string, addr string) *agentNode {
 	_ = u
 
 	return &agentNode{
-		Id:   id,
-		Addr: addr,
-		ch:   make(chan *concept.Element, _SIZE_AGENT_NODE_BUF),
-		c:    nil,
+		AgentInstance: ins,
+		ch:            make(chan *concept.Element, _SIZE_AGENT_NODE_BUF),
+		c:             nil,
 	}
 }
 
@@ -250,7 +308,7 @@ func (n *agentNode) delivery(batch []*concept.Element) {
 	log.
 		WithFields(log.Fields{
 			"batchSize": len(batch),
-			"agentId":   n.Id,
+			"agentId":   n.GetAgentId(),
 		}).
 		Debug("agentNode.delivery called")
 
@@ -267,7 +325,7 @@ func (n *agentNode) delivery(batch []*concept.Element) {
 			WithFields(log.Fields{
 				"req":     req,
 				"error":   err,
-				"agentId": n.Id,
+				"agentId": n.GetAgentId(),
 			}).
 			Warn("agentNode.delivery failed dispatch")
 	}
@@ -308,7 +366,7 @@ func (n *agentNode) updateAddr(addr string) {
 		return
 	}
 
-	// FIXME(@yeqown): data race
+	// FIXME(@yeqown): maybe data race
 	n.Addr = addr
 	n.c = nil
 }

@@ -14,11 +14,12 @@ func (d app) GetAgents(c *gin.Context) {
 		return
 	}
 
-	out, err := d.aggregate.GetAgents(c.Request.Context(), req.Seek, req.Limit)
-	if err != nil {
-		httpx.ResponseError(c, err)
-		return
-	}
+	out := d.ap.all()
+	//out, err := d.aggregate.GetAgents(c.Request.Context(), req.Seek, req.Limit)
+	//if err != nil {
+	//	httpx.ResponseError(c, err)
+	//	return
+	//}
 
 	httpx.ResponseJSON(c, out)
 }
