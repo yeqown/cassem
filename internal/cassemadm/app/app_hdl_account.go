@@ -33,7 +33,7 @@ func (d app) UserLogin(c *gin.Context) {
 
 	// compare password with salt
 	if strings.Compare(hash.WithSalt(req.Password, u.Salt), u.GetHashedPassword()) != 0 {
-		httpx.ResponseError(c, errorx.New(errorx.Code_NOT_FOUND, "user not found"))
+		httpx.ResponseError(c, errorx.New(errorx.Code_NOT_FOUND, "login failed"))
 		return
 	}
 

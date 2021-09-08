@@ -142,11 +142,11 @@ func newRBAC(c apicassemdb.KVClient) (RBAC, error) {
 }
 
 func (a aclImpl) GetUser(account string) (*User, error) {
-	if account == "superadmin" {
+	if strings.HasPrefix(account, "superadmin") {
 		return &User{
 			Account:        "superadmin",
 			Nickname:       "superadmin",
-			HashedPassword: "",
+			HashedPassword: "7c46f88749d0b4f39c0b089e67553361846cf9a0fa0213012ce345a5cfcea689",
 			Salt:           "Y2Fzc2VuCg==",
 			Status:         User_NORMAL,
 		}, nil
