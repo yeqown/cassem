@@ -2,6 +2,7 @@ package concept
 
 import (
 	"context"
+	"io"
 
 	"github.com/pkg/errors"
 	"github.com/yeqown/log"
@@ -44,8 +45,11 @@ loop:
 			if err = stream.RecvMsg(change); err != nil {
 				log.
 					WithFields(log.Fields{"error": err}).
-					Error("cassem.concept.agentInsHybrid failed to receive message")
-				break loop
+					Warn("cassem.concept.agentInsHybrid failed to receive message")
+				if errors.Is(err, io.EOF) {
+					break loop
+				}
+				continue
 			}
 
 			log.

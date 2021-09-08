@@ -143,22 +143,24 @@ func (i instanceHybrid) setInstanceInfo(ctx context.Context, ins *Instance) (err
 	}
 
 	// save reversed kv
-	for _, key := range ins.WatchKeys {
-		k2 := genInstanceReversedKeyWithInsid(ins.App, ins.Env, key, insId)
-		_, err = i.cassemdb.SetKV(ctx, &apicassemdb.SetKVReq{
-			Key:       k2,
-			IsDir:     false,
-			Ttl:       120,
-			Val:       runtime.ToBytes(insId),
-			Overwrite: true,
-		})
-		if err != nil {
-			log.
-				WithFields(log.Fields{
-					"key":   k2,
-					"error": err,
-				}).
-				Error("instanceHybrid.GetInstance failed to update reversed")
+	for _, w := range ins.GetWatching() {
+		for _, key := range w.GetWatchKeys() {
+			k2 := genInstanceReversedKeyWithInsid(w.GetApp(), w.GetEnv(), key, insId)
+			_, err = i.cassemdb.SetKV(ctx, &apicassemdb.SetKVReq{
+				Key:       k2,
+				IsDir:     false,
+				Ttl:       120,
+				Val:       runtime.ToBytes(insId),
+				Overwrite: true,
+			})
+			if err != nil {
+				log.
+					WithFields(log.Fields{
+						"key":   k2,
+						"error": err,
+					}).
+					Error("instanceHybrid.GetInstance failed to update reversed")
+			}
 		}
 	}
 
@@ -214,18 +216,20 @@ func (i instanceHybrid) UnregisterInstance(ctx context.Context, insId string) er
 	})
 
 	// unset reversed kv
-	for _, key := range ins.WatchKeys {
-		k2 := genInstanceReversedKeyWithInsid(ins.App, ins.Env, key, insId)
-		_, err = i.cassemdb.UnsetKV(ctx, &apicassemdb.UnsetKVReq{
-			Key: k2,
-		})
-		if err != nil {
-			log.
-				WithFields(log.Fields{
-					"key":   k2,
-					"error": err,
-				}).
-				Error("instanceHybrid.GetInstance failed to update reversed")
+	for _, w := range ins.GetWatching() {
+		for _, key := range w.GetWatchKeys() {
+			k2 := genInstanceReversedKeyWithInsid(w.GetApp(), w.GetEnv(), key, insId)
+			_, err = i.cassemdb.UnsetKV(ctx, &apicassemdb.UnsetKVReq{
+				Key: k2,
+			})
+			if err != nil {
+				log.
+					WithFields(log.Fields{
+						"key":   k2,
+						"error": err,
+					}).
+					Error("instanceHybrid.GetInstance failed to update reversed")
+			}
 		}
 	}
 

@@ -10,30 +10,25 @@ import (
 )
 
 func main() {
-	c, err := agent.Dial("127.0.0.1:20219")
+	c, err := agent.New("127.0.0.1:20219",
+		agent.WithClientId("clientId"), agent.WithClientIp("127.0.0.1"))
 	if err != nil {
 		panic(err)
 	}
-	go func() {
-		err = c.Wait(context.Background(),
-			"app",
-			"env",
-			"clientId",
-			"127.0.0.1",
-			func(next *concept.Element) {
-				fmt.Println("client one change: ", next.Metadata.Key, next.Raw)
-			},
-			"ele1", "bench02",
-		)
-		if err != nil {
-			fmt.Println(err.Error())
-		}
-	}()
+
+	_ = c.Watch(context.Background(),
+		"test",
+		"default",
+		func(next *concept.Element) {
+			fmt.Println("client one change: ", next.Metadata.Key, next.Raw)
+		},
+		"ele1", "bench02",
+	)
 
 	// query 4 times
 	for i := 0; i < 4; i++ {
 		time.Sleep(3 * time.Second)
-		elems, err := c.GetConfig(context.Background(), "app", "env", "ele1")
+		elems, err := c.GetElement(context.Background(), "test", "default", "ele1")
 		if err != nil {
 			panic(err)
 		}

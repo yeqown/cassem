@@ -95,13 +95,17 @@ message ElementOperation {
 
 // Instance describes client instance.
 message Instance {
-  string          clientId           = 1;
-  string          agentId            = 2;
-  string          clientIp           = 3;
-  string          app                = 4;
-  string          env                = 5;
-  repeated string watchKeys          = 6;
-  int64           lastRenewTimestamp = 7;
+  message Watching {
+    string          app       = 1;
+    string          env       = 2;
+    repeated string watchKeys = 3;
+  }
+
+  string            clientId           = 1;
+  string            agentId            = 2;
+  string            clientIp           = 3;
+  repeated Watching watching           = 4;
+  int64             lastRenewTimestamp = 5;
 }
 
 // AgentInstance describes agent node instance attributes.

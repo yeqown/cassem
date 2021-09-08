@@ -33,47 +33,47 @@ var (
 	_ = anypb.Any{}
 )
 
-// Validate checks the field values on GetConfigReq with the rules defined in
+// Validate checks the field values on GetElementReq with the rules defined in
 // the proto definition for this message. If any rules are violated, an error
 // is returned.
-func (m *GetConfigReq) Validate() error {
+func (m *GetElementReq) Validate() error {
 	if m == nil {
 		return nil
 	}
 
 	if l := utf8.RuneCountInString(m.GetApp()); l < 3 || l > 30 {
-		return GetConfigReqValidationError{
+		return GetElementReqValidationError{
 			field:  "App",
 			reason: "value length must be between 3 and 30 runes, inclusive",
 		}
 	}
 
 	if l := utf8.RuneCountInString(m.GetEnv()); l < 3 || l > 30 {
-		return GetConfigReqValidationError{
+		return GetElementReqValidationError{
 			field:  "Env",
 			reason: "value length must be between 3 and 30 runes, inclusive",
 		}
 	}
 
 	if l := len(m.GetKeys()); l < 1 || l > 100 {
-		return GetConfigReqValidationError{
+		return GetElementReqValidationError{
 			field:  "Keys",
 			reason: "value must contain between 1 and 100 items, inclusive",
 		}
 	}
 
-	_GetConfigReq_Keys_Unique := make(map[string]struct{}, len(m.GetKeys()))
+	_GetElementReq_Keys_Unique := make(map[string]struct{}, len(m.GetKeys()))
 
 	for idx, item := range m.GetKeys() {
 		_, _ = idx, item
 
-		if _, exists := _GetConfigReq_Keys_Unique[item]; exists {
-			return GetConfigReqValidationError{
+		if _, exists := _GetElementReq_Keys_Unique[item]; exists {
+			return GetElementReqValidationError{
 				field:  fmt.Sprintf("Keys[%v]", idx),
 				reason: "repeated value must contain unique items",
 			}
 		} else {
-			_GetConfigReq_Keys_Unique[item] = struct{}{}
+			_GetElementReq_Keys_Unique[item] = struct{}{}
 		}
 
 		// no validation rules for Keys[idx]
@@ -82,9 +82,9 @@ func (m *GetConfigReq) Validate() error {
 	return nil
 }
 
-// GetConfigReqValidationError is the validation error returned by
-// GetConfigReq.Validate if the designated constraints aren't met.
-type GetConfigReqValidationError struct {
+// GetElementReqValidationError is the validation error returned by
+// GetElementReq.Validate if the designated constraints aren't met.
+type GetElementReqValidationError struct {
 	field  string
 	reason string
 	cause  error
@@ -92,22 +92,22 @@ type GetConfigReqValidationError struct {
 }
 
 // Field function returns field value.
-func (e GetConfigReqValidationError) Field() string { return e.field }
+func (e GetElementReqValidationError) Field() string { return e.field }
 
 // Reason function returns reason value.
-func (e GetConfigReqValidationError) Reason() string { return e.reason }
+func (e GetElementReqValidationError) Reason() string { return e.reason }
 
 // Cause function returns cause value.
-func (e GetConfigReqValidationError) Cause() error { return e.cause }
+func (e GetElementReqValidationError) Cause() error { return e.cause }
 
 // Key function returns key value.
-func (e GetConfigReqValidationError) Key() bool { return e.key }
+func (e GetElementReqValidationError) Key() bool { return e.key }
 
 // ErrorName returns error name.
-func (e GetConfigReqValidationError) ErrorName() string { return "GetConfigReqValidationError" }
+func (e GetElementReqValidationError) ErrorName() string { return "GetElementReqValidationError" }
 
 // Error satisfies the builtin error interface
-func (e GetConfigReqValidationError) Error() string {
+func (e GetElementReqValidationError) Error() string {
 	cause := ""
 	if e.cause != nil {
 		cause = fmt.Sprintf(" | caused by: %v", e.cause)
@@ -119,14 +119,14 @@ func (e GetConfigReqValidationError) Error() string {
 	}
 
 	return fmt.Sprintf(
-		"invalid %sGetConfigReq.%s: %s%s",
+		"invalid %sGetElementReq.%s: %s%s",
 		key,
 		e.field,
 		e.reason,
 		cause)
 }
 
-var _ error = GetConfigReqValidationError{}
+var _ error = GetElementReqValidationError{}
 
 var _ interface {
 	Field() string
@@ -134,12 +134,12 @@ var _ interface {
 	Key() bool
 	Cause() error
 	ErrorName() string
-} = GetConfigReqValidationError{}
+} = GetElementReqValidationError{}
 
-// Validate checks the field values on GetConfigResp with the rules defined in
+// Validate checks the field values on GetElementResp with the rules defined in
 // the proto definition for this message. If any rules are violated, an error
 // is returned.
-func (m *GetConfigResp) Validate() error {
+func (m *GetElementResp) Validate() error {
 	if m == nil {
 		return nil
 	}
@@ -149,7 +149,7 @@ func (m *GetConfigResp) Validate() error {
 
 		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
-				return GetConfigRespValidationError{
+				return GetElementRespValidationError{
 					field:  fmt.Sprintf("Elems[%v]", idx),
 					reason: "embedded message failed validation",
 					cause:  err,
@@ -162,9 +162,9 @@ func (m *GetConfigResp) Validate() error {
 	return nil
 }
 
-// GetConfigRespValidationError is the validation error returned by
-// GetConfigResp.Validate if the designated constraints aren't met.
-type GetConfigRespValidationError struct {
+// GetElementRespValidationError is the validation error returned by
+// GetElementResp.Validate if the designated constraints aren't met.
+type GetElementRespValidationError struct {
 	field  string
 	reason string
 	cause  error
@@ -172,22 +172,22 @@ type GetConfigRespValidationError struct {
 }
 
 // Field function returns field value.
-func (e GetConfigRespValidationError) Field() string { return e.field }
+func (e GetElementRespValidationError) Field() string { return e.field }
 
 // Reason function returns reason value.
-func (e GetConfigRespValidationError) Reason() string { return e.reason }
+func (e GetElementRespValidationError) Reason() string { return e.reason }
 
 // Cause function returns cause value.
-func (e GetConfigRespValidationError) Cause() error { return e.cause }
+func (e GetElementRespValidationError) Cause() error { return e.cause }
 
 // Key function returns key value.
-func (e GetConfigRespValidationError) Key() bool { return e.key }
+func (e GetElementRespValidationError) Key() bool { return e.key }
 
 // ErrorName returns error name.
-func (e GetConfigRespValidationError) ErrorName() string { return "GetConfigRespValidationError" }
+func (e GetElementRespValidationError) ErrorName() string { return "GetElementRespValidationError" }
 
 // Error satisfies the builtin error interface
-func (e GetConfigRespValidationError) Error() string {
+func (e GetElementRespValidationError) Error() string {
 	cause := ""
 	if e.cause != nil {
 		cause = fmt.Sprintf(" | caused by: %v", e.cause)
@@ -199,14 +199,14 @@ func (e GetConfigRespValidationError) Error() string {
 	}
 
 	return fmt.Sprintf(
-		"invalid %sGetConfigResp.%s: %s%s",
+		"invalid %sGetElementResp.%s: %s%s",
 		key,
 		e.field,
 		e.reason,
 		cause)
 }
 
-var _ error = GetConfigRespValidationError{}
+var _ error = GetElementRespValidationError{}
 
 var _ interface {
 	Field() string
@@ -214,7 +214,7 @@ var _ interface {
 	Key() bool
 	Cause() error
 	ErrorName() string
-} = GetConfigRespValidationError{}
+} = GetElementRespValidationError{}
 
 // Validate checks the field values on UnregisterReq with the rules defined in
 // the proto definition for this message. If any rules are violated, an error
@@ -235,20 +235,6 @@ func (m *UnregisterReq) Validate() error {
 		return UnregisterReqValidationError{
 			field:  "ClientIp",
 			reason: "value must be a valid IP address",
-		}
-	}
-
-	if l := utf8.RuneCountInString(m.GetApp()); l < 3 || l > 30 {
-		return UnregisterReqValidationError{
-			field:  "App",
-			reason: "value length must be between 3 and 30 runes, inclusive",
-		}
-	}
-
-	if l := utf8.RuneCountInString(m.GetEnv()); l < 3 || l > 30 {
-		return UnregisterReqValidationError{
-			field:  "Env",
-			reason: "value length must be between 3 and 30 runes, inclusive",
 		}
 	}
 
@@ -309,71 +295,53 @@ var _ interface {
 	ErrorName() string
 } = UnregisterReqValidationError{}
 
-// Validate checks the field values on RenewReq with the rules defined in the
-// proto definition for this message. If any rules are violated, an error is returned.
-func (m *RenewReq) Validate() error {
+// Validate checks the field values on RegisterReq with the rules defined in
+// the proto definition for this message. If any rules are violated, an error
+// is returned.
+func (m *RegisterReq) Validate() error {
 	if m == nil {
 		return nil
 	}
 
 	if l := utf8.RuneCountInString(m.GetClientId()); l < 5 || l > 64 {
-		return RenewReqValidationError{
+		return RegisterReqValidationError{
 			field:  "ClientId",
 			reason: "value length must be between 5 and 64 runes, inclusive",
 		}
 	}
 
 	if ip := net.ParseIP(m.GetClientIp()); ip == nil {
-		return RenewReqValidationError{
+		return RegisterReqValidationError{
 			field:  "ClientIp",
 			reason: "value must be a valid IP address",
 		}
 	}
 
-	if l := utf8.RuneCountInString(m.GetApp()); l < 3 || l > 30 {
-		return RenewReqValidationError{
-			field:  "App",
-			reason: "value length must be between 3 and 30 runes, inclusive",
-		}
-	}
+	if len(m.GetWatching()) > 0 {
 
-	if l := utf8.RuneCountInString(m.GetEnv()); l < 3 || l > 30 {
-		return RenewReqValidationError{
-			field:  "Env",
-			reason: "value length must be between 3 and 30 runes, inclusive",
-		}
-	}
+		for idx, item := range m.GetWatching() {
+			_, _ = idx, item
 
-	if l := len(m.GetWatchingKeys()); l < 1 || l > 100 {
-		return RenewReqValidationError{
-			field:  "WatchingKeys",
-			reason: "value must contain between 1 and 100 items, inclusive",
-		}
-	}
-
-	_RenewReq_WatchingKeys_Unique := make(map[string]struct{}, len(m.GetWatchingKeys()))
-
-	for idx, item := range m.GetWatchingKeys() {
-		_, _ = idx, item
-
-		if _, exists := _RenewReq_WatchingKeys_Unique[item]; exists {
-			return RenewReqValidationError{
-				field:  fmt.Sprintf("WatchingKeys[%v]", idx),
-				reason: "repeated value must contain unique items",
+			if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+				if err := v.Validate(); err != nil {
+					return RegisterReqValidationError{
+						field:  fmt.Sprintf("Watching[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					}
+				}
 			}
-		} else {
-			_RenewReq_WatchingKeys_Unique[item] = struct{}{}
+
 		}
 
-		// no validation rules for WatchingKeys[idx]
 	}
 
 	return nil
 }
 
-// RenewReqValidationError is the validation error returned by
-// RenewReq.Validate if the designated constraints aren't met.
-type RenewReqValidationError struct {
+// RegisterReqValidationError is the validation error returned by
+// RegisterReq.Validate if the designated constraints aren't met.
+type RegisterReqValidationError struct {
 	field  string
 	reason string
 	cause  error
@@ -381,22 +349,22 @@ type RenewReqValidationError struct {
 }
 
 // Field function returns field value.
-func (e RenewReqValidationError) Field() string { return e.field }
+func (e RegisterReqValidationError) Field() string { return e.field }
 
 // Reason function returns reason value.
-func (e RenewReqValidationError) Reason() string { return e.reason }
+func (e RegisterReqValidationError) Reason() string { return e.reason }
 
 // Cause function returns cause value.
-func (e RenewReqValidationError) Cause() error { return e.cause }
+func (e RegisterReqValidationError) Cause() error { return e.cause }
 
 // Key function returns key value.
-func (e RenewReqValidationError) Key() bool { return e.key }
+func (e RegisterReqValidationError) Key() bool { return e.key }
 
 // ErrorName returns error name.
-func (e RenewReqValidationError) ErrorName() string { return "RenewReqValidationError" }
+func (e RegisterReqValidationError) ErrorName() string { return "RegisterReqValidationError" }
 
 // Error satisfies the builtin error interface
-func (e RenewReqValidationError) Error() string {
+func (e RegisterReqValidationError) Error() string {
 	cause := ""
 	if e.cause != nil {
 		cause = fmt.Sprintf(" | caused by: %v", e.cause)
@@ -408,14 +376,14 @@ func (e RenewReqValidationError) Error() string {
 	}
 
 	return fmt.Sprintf(
-		"invalid %sRenewReq.%s: %s%s",
+		"invalid %sRegisterReq.%s: %s%s",
 		key,
 		e.field,
 		e.reason,
 		cause)
 }
 
-var _ error = RenewReqValidationError{}
+var _ error = RegisterReqValidationError{}
 
 var _ interface {
 	Field() string
@@ -423,7 +391,7 @@ var _ interface {
 	Key() bool
 	Cause() error
 	ErrorName() string
-} = RenewReqValidationError{}
+} = RegisterReqValidationError{}
 
 // Validate checks the field values on EmptyResp with the rules defined in the
 // proto definition for this message. If any rules are violated, an error is returned.
@@ -489,61 +457,41 @@ var _ interface {
 	ErrorName() string
 } = EmptyRespValidationError{}
 
-// Validate checks the field values on RegAndWaitReq with the rules defined in
-// the proto definition for this message. If any rules are violated, an error
-// is returned.
-func (m *RegAndWaitReq) Validate() error {
+// Validate checks the field values on WatchReq with the rules defined in the
+// proto definition for this message. If any rules are violated, an error is returned.
+func (m *WatchReq) Validate() error {
 	if m == nil {
 		return nil
 	}
 
-	if l := utf8.RuneCountInString(m.GetApp()); l < 3 || l > 30 {
-		return RegAndWaitReqValidationError{
-			field:  "App",
-			reason: "value length must be between 3 and 30 runes, inclusive",
-		}
-	}
+	if len(m.GetWatching()) > 0 {
 
-	if l := utf8.RuneCountInString(m.GetEnv()); l < 3 || l > 30 {
-		return RegAndWaitReqValidationError{
-			field:  "Env",
-			reason: "value length must be between 3 and 30 runes, inclusive",
-		}
-	}
+		for idx, item := range m.GetWatching() {
+			_, _ = idx, item
 
-	if l := len(m.GetWatchingKeys()); l < 1 || l > 100 {
-		return RegAndWaitReqValidationError{
-			field:  "WatchingKeys",
-			reason: "value must contain between 1 and 100 items, inclusive",
-		}
-	}
-
-	_RegAndWaitReq_WatchingKeys_Unique := make(map[string]struct{}, len(m.GetWatchingKeys()))
-
-	for idx, item := range m.GetWatchingKeys() {
-		_, _ = idx, item
-
-		if _, exists := _RegAndWaitReq_WatchingKeys_Unique[item]; exists {
-			return RegAndWaitReqValidationError{
-				field:  fmt.Sprintf("WatchingKeys[%v]", idx),
-				reason: "repeated value must contain unique items",
+			if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+				if err := v.Validate(); err != nil {
+					return WatchReqValidationError{
+						field:  fmt.Sprintf("Watching[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					}
+				}
 			}
-		} else {
-			_RegAndWaitReq_WatchingKeys_Unique[item] = struct{}{}
+
 		}
 
-		// no validation rules for WatchingKeys[idx]
 	}
 
 	if l := utf8.RuneCountInString(m.GetClientId()); l < 5 || l > 64 {
-		return RegAndWaitReqValidationError{
+		return WatchReqValidationError{
 			field:  "ClientId",
 			reason: "value length must be between 5 and 64 runes, inclusive",
 		}
 	}
 
 	if ip := net.ParseIP(m.GetClientIp()); ip == nil {
-		return RegAndWaitReqValidationError{
+		return WatchReqValidationError{
 			field:  "ClientIp",
 			reason: "value must be a valid IP address",
 		}
@@ -552,9 +500,9 @@ func (m *RegAndWaitReq) Validate() error {
 	return nil
 }
 
-// RegAndWaitReqValidationError is the validation error returned by
-// RegAndWaitReq.Validate if the designated constraints aren't met.
-type RegAndWaitReqValidationError struct {
+// WatchReqValidationError is the validation error returned by
+// WatchReq.Validate if the designated constraints aren't met.
+type WatchReqValidationError struct {
 	field  string
 	reason string
 	cause  error
@@ -562,22 +510,22 @@ type RegAndWaitReqValidationError struct {
 }
 
 // Field function returns field value.
-func (e RegAndWaitReqValidationError) Field() string { return e.field }
+func (e WatchReqValidationError) Field() string { return e.field }
 
 // Reason function returns reason value.
-func (e RegAndWaitReqValidationError) Reason() string { return e.reason }
+func (e WatchReqValidationError) Reason() string { return e.reason }
 
 // Cause function returns cause value.
-func (e RegAndWaitReqValidationError) Cause() error { return e.cause }
+func (e WatchReqValidationError) Cause() error { return e.cause }
 
 // Key function returns key value.
-func (e RegAndWaitReqValidationError) Key() bool { return e.key }
+func (e WatchReqValidationError) Key() bool { return e.key }
 
 // ErrorName returns error name.
-func (e RegAndWaitReqValidationError) ErrorName() string { return "RegAndWaitReqValidationError" }
+func (e WatchReqValidationError) ErrorName() string { return "WatchReqValidationError" }
 
 // Error satisfies the builtin error interface
-func (e RegAndWaitReqValidationError) Error() string {
+func (e WatchReqValidationError) Error() string {
 	cause := ""
 	if e.cause != nil {
 		cause = fmt.Sprintf(" | caused by: %v", e.cause)
@@ -589,14 +537,14 @@ func (e RegAndWaitReqValidationError) Error() string {
 	}
 
 	return fmt.Sprintf(
-		"invalid %sRegAndWaitReq.%s: %s%s",
+		"invalid %sWatchReq.%s: %s%s",
 		key,
 		e.field,
 		e.reason,
 		cause)
 }
 
-var _ error = RegAndWaitReqValidationError{}
+var _ error = WatchReqValidationError{}
 
 var _ interface {
 	Field() string
@@ -604,18 +552,18 @@ var _ interface {
 	Key() bool
 	Cause() error
 	ErrorName() string
-} = RegAndWaitReqValidationError{}
+} = WatchReqValidationError{}
 
-// Validate checks the field values on WaitResp with the rules defined in the
+// Validate checks the field values on WatchResp with the rules defined in the
 // proto definition for this message. If any rules are violated, an error is returned.
-func (m *WaitResp) Validate() error {
+func (m *WatchResp) Validate() error {
 	if m == nil {
 		return nil
 	}
 
 	if v, ok := interface{}(m.GetElem()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
-			return WaitRespValidationError{
+			return WatchRespValidationError{
 				field:  "Elem",
 				reason: "embedded message failed validation",
 				cause:  err,
@@ -626,9 +574,9 @@ func (m *WaitResp) Validate() error {
 	return nil
 }
 
-// WaitRespValidationError is the validation error returned by
-// WaitResp.Validate if the designated constraints aren't met.
-type WaitRespValidationError struct {
+// WatchRespValidationError is the validation error returned by
+// WatchResp.Validate if the designated constraints aren't met.
+type WatchRespValidationError struct {
 	field  string
 	reason string
 	cause  error
@@ -636,22 +584,22 @@ type WaitRespValidationError struct {
 }
 
 // Field function returns field value.
-func (e WaitRespValidationError) Field() string { return e.field }
+func (e WatchRespValidationError) Field() string { return e.field }
 
 // Reason function returns reason value.
-func (e WaitRespValidationError) Reason() string { return e.reason }
+func (e WatchRespValidationError) Reason() string { return e.reason }
 
 // Cause function returns cause value.
-func (e WaitRespValidationError) Cause() error { return e.cause }
+func (e WatchRespValidationError) Cause() error { return e.cause }
 
 // Key function returns key value.
-func (e WaitRespValidationError) Key() bool { return e.key }
+func (e WatchRespValidationError) Key() bool { return e.key }
 
 // ErrorName returns error name.
-func (e WaitRespValidationError) ErrorName() string { return "WaitRespValidationError" }
+func (e WatchRespValidationError) ErrorName() string { return "WatchRespValidationError" }
 
 // Error satisfies the builtin error interface
-func (e WaitRespValidationError) Error() string {
+func (e WatchRespValidationError) Error() string {
 	cause := ""
 	if e.cause != nil {
 		cause = fmt.Sprintf(" | caused by: %v", e.cause)
@@ -663,14 +611,14 @@ func (e WaitRespValidationError) Error() string {
 	}
 
 	return fmt.Sprintf(
-		"invalid %sWaitResp.%s: %s%s",
+		"invalid %sWatchResp.%s: %s%s",
 		key,
 		e.field,
 		e.reason,
 		cause)
 }
 
-var _ error = WaitRespValidationError{}
+var _ error = WatchRespValidationError{}
 
 var _ interface {
 	Field() string
@@ -678,7 +626,7 @@ var _ interface {
 	Key() bool
 	Cause() error
 	ErrorName() string
-} = WaitRespValidationError{}
+} = WatchRespValidationError{}
 
 // Validate checks the field values on DispatchReq with the rules defined in
 // the proto definition for this message. If any rules are violated, an error

@@ -4,70 +4,61 @@ import "concept/types.proto";
 import "envoyproxy-validate/validate.proto";
 
 package cassem.agent;
-option go_package = "api";
+option go_package = "agent";
 
-message getConfigReq {
+message getElementReq {
   string          app = 1 [(validate.rules).string = {min_len: 3, max_len: 30}];
   string          env = 2 [(validate.rules).string = {min_len: 3, max_len: 30}];
   repeated string keys = 3 [(validate.rules).repeated = {unique: true, min_items: 1, max_items: 100}];
 }
 
-message getConfigResp {
+message getElementResp {
   repeated cassem.concept.Element elems = 1;
 }
-
-//// registerReq send req to agent so that agent can register this client to cassemdb.
-//message registerReq {
-//  string client_id = 1;
-//  string ip = 2;
-//  string app = 3;
-//  string env = 4;
-//  repeated string keys = 5;
-//}
 
 message unregisterReq {
   string clientId = 1 [(validate.rules).string = {min_len: 5, max_len: 64}];
   string clientIp = 2 [(validate.rules).string = {ip: true}];
-  string app = 3 [(validate.rules).string = {min_len: 3, max_len: 30}];
-  string env = 4 [(validate.rules).string = {min_len: 3, max_len: 30}];
+//  string app = 3 [(validate.rules).string = {min_len: 3, max_len: 30}];
+//  string env = 4 [(validate.rules).string = {min_len: 3, max_len: 30}];
 }
 
-message renewReq {
+message registerReq {
   string clientId = 1 [(validate.rules).string = {min_len: 5, max_len: 64}];
   string clientIp = 2 [(validate.rules).string = {ip: true}];
-  string app = 3 [(validate.rules).string = {min_len: 3, max_len: 30}];
-  string env = 4 [(validate.rules).string = {min_len: 3, max_len: 30}];
-  repeated string watchingKeys = 5 [(validate.rules).repeated = {unique: true, min_items: 1, max_items: 100}];
+  repeated concept.Instance.Watching watching = 3 [(validate.rules).repeated = {ignore_empty: true}];
+//  string app = 3 [(validate.rules).string = {min_len: 3, max_len: 30}];
+//  string env = 4 [(validate.rules).string = {min_len: 3, max_len: 30}];
+//  repeated string watchingKeys = 5 [(validate.rules).repeated = {unique: true, min_items: 1, max_items: 100}];
 }
 
 message emptyResp {}
 
-message regAndWaitReq {
-  string app = 1 [(validate.rules).string = {min_len: 3, max_len: 30}];
-  string env = 2 [(validate.rules).string = {min_len: 3, max_len: 30}];
-  repeated string watchingKeys = 3 [(validate.rules).repeated = {unique: true, min_items: 1, max_items: 100}];;;
+message watchReq {
+  repeated concept.Instance.Watching watching = 1 [(validate.rules).repeated = {ignore_empty: true}];
+//  string app = 1 [(validate.rules).string = {min_len: 3, max_len: 30}];
+//  string env = 2 [(validate.rules).string = {min_len: 3, max_len: 30}];
+//  repeated string watchingKeys = 3 [(validate.rules).repeated = {unique: true, min_items: 1, max_items: 100}];
   string clientId = 4 [(validate.rules).string = {min_len: 5, max_len: 64}];
   string clientIp = 5 [(validate.rules).string = {ip: true}];
 }
-message waitResp {
+message watchResp {
   cassem.concept.Element elem = 1;
 }
 
 // agent service provide API for client.
 service agent {
-  rpc GetConfig(getConfigReq) returns (getConfigResp){};
+  rpc GetElement(getElementReq) returns (getElementResp){};
   rpc Unregister(unregisterReq) returns (emptyResp){};
-  rpc Renew(renewReq) returns (emptyResp) {};
-  rpc RegisterAndWait(regAndWaitReq) returns (stream waitResp) {};
+  rpc RegisterOrRenew(registerReq) returns (emptyResp) {};
+  rpc Watch(watchReq) returns (stream watchResp) {};
 }
 
 message dispatchReq {
   repeated cassem.concept.Element elems = 1;
 }
 
-message dispatchResp {
-
-}
+message dispatchResp {}
 
 // delivery service provide API for cassem.adm.
 service delivery {

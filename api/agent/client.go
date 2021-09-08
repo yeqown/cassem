@@ -11,6 +11,7 @@ import (
 
 	"github.com/yeqown/cassem/api/concept"
 	"github.com/yeqown/cassem/pkg/grpcx"
+	"github.com/yeqown/cassem/pkg/runtime"
 )
 
 var (
@@ -23,10 +24,58 @@ const (
 	_CLIENT_RENEW_RAND = 10
 )
 
-// Dial build a AgentClient to communicate with cassem agent server, it failed
+type agentInstanceClient struct {
+	agentClient AgentClient
+	opt         *options
+	watching    []*concept.Instance_Watching
+	quit        chan struct{}
+	ctx         context.Context
+	cancel      context.CancelFunc
+}
+
+type clientOption func(o *options)
+type options struct {
+	clientId string
+	clientIp string
+
+	watchingKeys []string
+}
+
+func WithClientId(clientId string) clientOption {
+	return func(o *options) {
+		o.clientId = clientId
+	}
+}
+
+func WithClientIp(clientIp string) clientOption {
+	return func(o *options) {
+		o.clientIp = clientIp
+	}
+}
+
+func New(agentAddress string, opts ...clientOption) (*agentInstanceClient, error) {
+	dst := new(options)
+	for _, apply := range opts {
+		apply(dst)
+	}
+
+	if dst.clientId == "" || dst.clientIp == "" {
+		return nil, errors.New("clientId and clientIp could not be empty," +
+			" use WithClientId/WithClientIp to set!")
+	}
+
+	cc, err := dial(agentAddress)
+	if err != nil {
+		panic(err)
+	}
+
+	return newClient(cc, dst), nil
+}
+
+// dial build a AgentClient to communicate with cassem agent server, it failed
 // after 10 seconds timeout since building connection. The client has default
 // interceptors, such as: recovery, errorx.
-func Dial(addr string) (*clientWrapper, error) {
+func dial(addr string) (*grpc.ClientConn, error) {
 	timeout, cancel := context.WithTimeout(context.Background(), _CLIENT_INIT_TIMEOUT)
 	defer cancel()
 
@@ -39,128 +88,138 @@ func Dial(addr string) (*clientWrapper, error) {
 		return nil, errors.Wrap(err, "cassemagent.api.Dial")
 	}
 
-	return newClient(cc), nil
+	return cc, nil
 }
 
-type clientWrapper struct {
-	c                  AgentClient
-	app                string
-	env                string
-	clientId, clientIp string
-	keys               []string
-}
-
-func newClient(cc *grpc.ClientConn) *clientWrapper {
-	return &clientWrapper{
-		c: NewAgentClient(cc),
+func newClient(cc *grpc.ClientConn, opt *options) *agentInstanceClient {
+	ctx, cancel := context.WithCancel(context.Background())
+	c := &agentInstanceClient{
+		agentClient: NewAgentClient(cc),
+		opt:         opt,
+		quit:        make(chan struct{}, 1),
+		ctx:         ctx,
+		cancel:      cancel,
 	}
+
+	// start a renew self goroutine.
+	runtime.GoFunc("renewSelf", func() error {
+		// random ticker for renew client itself, random tick interval avoids
+		// too many renew requests are sent to cassemdb at the same time.
+		t := time.NewTicker(time.Duration(_CLIENT_RENEW_BASE+rand.Intn(_CLIENT_RENEW_RAND)) * time.Second)
+		for {
+			select {
+			case <-c.quit:
+				return nil
+			case <-t.C:
+				c.renewSelf()
+			}
+		}
+	})
+
+	return c
 }
 
-type NextHandlerFunc func(next *concept.Element)
+func (c *agentInstanceClient) Quit() {
+	// cancel all watch goroutines
+	c.cancel()
 
-// Wait of clientWrapper register itself to the agent and wait for next change of keys these
+	c.quit <- struct{}{}
+}
+
+type WatchHandlerFunc func(next *concept.Element)
+
+// Watch of agentInstanceClient register itself to the agent and wait for next change of keys these
 // it cares about.
 //
 // This is a `BLOCKING` method.
-func (cw *clientWrapper) Wait(
-	ctx context.Context, app, env, clientId, clientIp string, fn NextHandlerFunc, keys ...string) error {
-
-	cw.app, cw.env, cw.keys = app, env, keys
-	cw.clientId, cw.clientIp = clientId, clientIp
-
-	stream, err := cw.c.RegisterAndWait(ctx, &RegAndWaitReq{
-		App:          app,
-		Env:          env,
-		WatchingKeys: keys,
-		ClientId:     clientId,
-		ClientIp:     clientIp,
-	})
-	if err != nil {
-		return errors.Wrap(err, "clientWrapper.Wait")
+func (c *agentInstanceClient) Watch(
+	ctx context.Context, app, env string, fn WatchHandlerFunc, keys ...string) error {
+	if len(keys) == 0 {
+		return nil
 	}
 
-	r := new(WaitResp)
-	ctx2, cancel := context.WithCancel(stream.Context())
-	defer cancel()
+	stream, err := c.agentClient.Watch(ctx, &WatchReq{
+		ClientId: c.opt.clientId,
+		ClientIp: c.opt.clientIp,
+		Watching: []*concept.Instance_Watching{
+			{
+				App:       app,
+				Env:       env,
+				WatchKeys: keys,
+			},
+		},
+	})
+	if err != nil {
+		return errors.Wrap(err, "agentInstanceClient.Watch")
+	}
 
-	go func(ctx context.Context) {
-		// random ticker for renew client itself, random tick interval avoids
-		// too many renew requests are sent to cassemdb at the same time.
-		rt := time.NewTicker(time.Duration(_CLIENT_RENEW_BASE+rand.Intn(_CLIENT_RENEW_RAND)) * time.Second)
-
+	// start a routine to watch
+	runtime.GoFunc("watching", func() error {
+		r := new(WatchResp)
+	waitLoop:
 		for {
 			select {
 			case <-ctx.Done():
-				log.Debug("clientWrapper renewSelf quit")
-				return
-			case <-rt.C:
-				cw.renewSelf()
+				log.Debug("agentInstanceClient quit, watch Done)")
+				break waitLoop
+			case <-c.ctx.Done():
+				log.Debug("agentInstanceClient quit, client Done)")
+				break waitLoop
+			case <-stream.Context().Done():
+				log.Debug("agentInstanceClient quit, stream Done)")
+				break waitLoop
+			default:
+				if err = stream.RecvMsg(r); err != nil {
+					log.
+						WithFields(log.Fields{
+							"app":      app,
+							"env":      env,
+							"clientId": c.opt.clientId,
+							"clientIp": c.opt.clientIp,
+							"keys":     keys,
+							"error":    err,
+						}).
+						Error("agentInstanceClient.Watch failed to receive message")
+					return errors.Wrap(err, "agentInstanceClient.Watch.RecvMsg")
+				}
+				if r.GetElem() == nil {
+					continue
+				}
+				// delivery element to client.
+				fn(r.GetElem())
 			}
+			// select end
 		}
-	}(ctx2)
-
-waitLoop:
-	for {
-		select {
-		case <-ctx2.Done():
-			// connection quit?
-			break waitLoop
-		default:
-			if err = stream.RecvMsg(r); err != nil {
-				log.
-					WithFields(log.Fields{
-						"app":      app,
-						"env":      env,
-						"clientId": clientId,
-						"clientIp": clientIp,
-						"keys":     keys,
-						"error":    err,
-					}).
-					Error("clientWrapper.Wait failed to receive message")
-				return errors.Wrap(err, "clientWrapper.Wait.RecvMsg")
-			}
-
-			if r.GetElem() == nil {
-				continue
-			}
-
-			// delivery element to client.
-			fn(r.GetElem())
-		}
-		// select end
-	}
+		return nil
+	})
 
 	return nil
 }
 
-func (cw clientWrapper) renewSelf() {
-	log.Debug("clientWrapper.renewSelf called")
+func (c agentInstanceClient) renewSelf() {
+	log.Debug("agentInstanceClient.renewSelf called")
 	ctx, cancel := context.WithTimeout(context.Background(), _CLIENT_REQ_TIMEOUT)
 	defer cancel()
-	_, err := cw.c.Renew(ctx, &RenewReq{
-		ClientId:     cw.clientId,
-		ClientIp:     cw.clientIp,
-		App:          cw.app,
-		Env:          cw.env,
-		WatchingKeys: cw.keys,
+	_, err := c.agentClient.RegisterOrRenew(ctx, &RegisterReq{
+		ClientId: c.opt.clientId,
+		ClientIp: c.opt.clientIp,
+		Watching: c.watching,
 	})
 
 	if err != nil {
 		log.
 			WithFields(log.Fields{
-				"clientId": cw.clientId,
-				"app":      cw.app,
-				"env":      cw.env,
-				"keys":     cw.keys,
-				"clientIp": cw.clientIp,
+				"clientId": c.opt.clientId,
+				"clientIp": c.opt.clientIp,
+				"watching": c.watching,
 			}).
-			Error("clientWrapper.renewSelf failed")
+			Error("agentInstanceClient.renewSelf failed")
 	}
 }
 
-// GetConfig query those configs could be named by app, env, and keys. It means to
+// GetElement query those configs could be named by app, env, and keys. It means to
 // get values of keys under the namespace(app.env).
-func (cw clientWrapper) GetConfig(
+func (c agentInstanceClient) GetElement(
 	ctx context.Context, app, env string, keys ...string) ([]*concept.Element, error) {
 
 	if _, ok := ctx.Deadline(); !ok {
@@ -170,13 +229,13 @@ func (cw clientWrapper) GetConfig(
 		defer cancel()
 	}
 
-	r, err := cw.c.GetConfig(ctx, &GetConfigReq{
+	r, err := c.agentClient.GetElement(ctx, &GetElementReq{
 		App:  app,
 		Env:  env,
 		Keys: keys,
 	})
 	if err != nil {
-		return nil, errors.Wrap(err, "clientWrapper.GetConfig")
+		return nil, errors.Wrap(err, "agentInstanceClient.GetElement")
 	}
 
 	return r.GetElems(), nil

@@ -365,9 +365,20 @@ func (m *Instance) Validate() error {
 
 	// no validation rules for ClientIp
 
-	// no validation rules for App
+	for idx, item := range m.GetWatching() {
+		_, _ = idx, item
 
-	// no validation rules for Env
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return InstanceValidationError{
+					field:  fmt.Sprintf("Watching[%v]", idx),
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
+	}
 
 	// no validation rules for LastRenewTimestamp
 
@@ -577,3 +588,74 @@ var _ interface {
 	Cause() error
 	ErrorName() string
 } = AgentInstanceChangeValidationError{}
+
+// Validate checks the field values on Instance_Watching with the rules defined
+// in the proto definition for this message. If any rules are violated, an
+// error is returned.
+func (m *Instance_Watching) Validate() error {
+	if m == nil {
+		return nil
+	}
+
+	// no validation rules for App
+
+	// no validation rules for Env
+
+	return nil
+}
+
+// Instance_WatchingValidationError is the validation error returned by
+// Instance_Watching.Validate if the designated constraints aren't met.
+type Instance_WatchingValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e Instance_WatchingValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e Instance_WatchingValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e Instance_WatchingValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e Instance_WatchingValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e Instance_WatchingValidationError) ErrorName() string {
+	return "Instance_WatchingValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e Instance_WatchingValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sInstance_Watching.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = Instance_WatchingValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = Instance_WatchingValidationError{}

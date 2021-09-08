@@ -11,14 +11,14 @@ import (
 	"github.com/yeqown/cassem/pkg/runtime"
 )
 
-// GetConfig execute query request from clients, and also at the same time, agent app is
+// GetElement execute query request from clients, and also at the same time, agent app is
 // a cache-layer for cassemdb, so the request would be queried from cache firstly, cache is not hit
 // query from cassemdb. It failed only when query from local cache and remote both failed.
 //
 // DONE(@yeqown): get from cache first, if not hit send request to cassemdb component, and then refresh caches.
 //
-func (d app) GetConfig(ctx context.Context, req *agent.GetConfigReq) (*agent.GetConfigResp, error) {
-	resp := new(agent.GetConfigResp)
+func (d app) GetElement(ctx context.Context, req *agent.GetElementReq) (*agent.GetElementResp, error) {
+	resp := new(agent.GetElementResp)
 	if len(req.GetKeys()) == 0 {
 		return resp, nil
 	}
@@ -50,71 +50,12 @@ var (
 	_emptyResp = new(agent.EmptyResp)
 )
 
-func (d app) RegisterAndWait(req *agent.RegAndWaitReq, server agent.Agent_RegisterAndWaitServer) error {
-	ctx, cancel := context.WithTimeout(server.Context(), 10*time.Second)
-	ch, err := d.register(ctx, req)
-	if err != nil {
-		cancel()
-		return err
-	}
-	cancel()
-
-	// if connection broken, unregister the instance from app.
-	defer func() {
-		ctx2, cancel2 := context.WithTimeout(context.Background(), 10*time.Second)
-		if _, err2 := d.Unregister(ctx2, &agent.UnregisterReq{
-			ClientId: req.GetClientId(),
-			ClientIp: req.GetClientIp(),
-			App:      req.GetApp(),
-			Env:      req.GetEnv(),
-		}); err2 != nil {
-			log.
-				WithFields(log.Fields{
-					"error": err2,
-					"req":   req,
-				}).
-				Error("app.RegisterAndWait failed to unregister")
-		}
-		cancel2()
-	}()
-
-wait:
-	for {
-		select {
-		case elem := <-ch:
-			// DONE(@yeqown): update cache item while new changes pushed to instance.
-			go d.updateCache(elem.GetMetadata().GetApp(), elem.GetMetadata().GetEnv(), elem)
-			err = server.Send(&agent.WaitResp{
-				Elem: elem,
-			})
-			if err != nil {
-				log.
-					WithFields(log.Fields{"element": elem, "err": err}).
-					Error("app.RegisterAndWait could not send")
-			}
-		// maybe need to judge the error in case of client disconnected.
-		case <-server.Context().Done():
-			log.
-				WithFields(log.Fields{
-					"error": err,
-					"req":   req,
-				}).
-				Warn("app.RegisterAndWait quit")
-			break wait
-		}
-	}
-
-	return nil
-}
-
-func (d app) register(ctx context.Context, req *agent.RegAndWaitReq) (<-chan *concept.Element, error) {
+func (d app) RegisterOrRenew(ctx context.Context, req *agent.RegisterReq) (*agent.EmptyResp, error) {
 	ins := &concept.Instance{
 		ClientId:           req.GetClientId(),
 		AgentId:            d.uniqueId,
 		ClientIp:           req.GetClientIp(),
-		App:                req.GetApp(),
-		Env:                req.GetEnv(),
-		WatchKeys:          req.GetWatchingKeys(),
+		Watching:           req.GetWatching(),
 		LastRenewTimestamp: time.Now().Unix(),
 	}
 
@@ -122,13 +63,14 @@ func (d app) register(ctx context.Context, req *agent.RegAndWaitReq) (<-chan *co
 		return nil, err
 	}
 
-	ch := d.instancePool.Register(ins.Id(), req.GetApp(), req.GetEnv(), req.GetWatchingKeys())
-
-	return ch, nil
+	return _emptyResp, nil
 }
 
 func (d app) Unregister(ctx context.Context, req *agent.UnregisterReq) (*agent.EmptyResp, error) {
-	insId := (&concept.Instance{ClientId: req.GetClientId(), ClientIp: req.GetClientIp()}).Id()
+	insId := (&concept.Instance{
+		ClientId: req.GetClientId(),
+		ClientIp: req.GetClientIp(),
+	}).Id()
 	// make sure unregister instance from memory, avoid memory leaking.
 	d.instancePool.Unregister(insId)
 
@@ -140,18 +82,60 @@ func (d app) Unregister(ctx context.Context, req *agent.UnregisterReq) (*agent.E
 	return _emptyResp, nil
 }
 
-func (d app) Renew(ctx context.Context, req *agent.RenewReq) (*agent.EmptyResp, error) {
-	ins := &concept.Instance{
-		ClientId:           req.GetClientId(),
-		AgentId:            d.uniqueId,
-		ClientIp:           req.GetClientIp(),
-		App:                req.GetApp(),
-		Env:                req.GetEnv(),
-		WatchKeys:          req.GetWatchingKeys(),
-		LastRenewTimestamp: time.Now().Unix(),
+func (d app) Watch(req *agent.WatchReq, server agent.Agent_WatchServer) error {
+	// if connection broken, unregister the instance from app.
+	defer func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		if _, err := d.Unregister(ctx, &agent.UnregisterReq{
+			ClientId: req.GetClientId(),
+			ClientIp: req.GetClientIp(),
+		}); err != nil {
+			log.
+				WithFields(log.Fields{
+					"error": err,
+					"req":   req,
+				}).
+				Error("app.RegisterAndWait failed to unregister")
+		}
+		cancel()
+	}()
+
+	insId := (&concept.Instance{
+		ClientId: req.GetClientId(),
+		ClientIp: req.GetClientIp(),
+	}).Id()
+
+	// register all watching
+	ch := make(<-chan *concept.Element, 10)
+	watchings := req.GetWatching()
+	for _, w := range watchings {
+		ch = d.instancePool.Register(insId, w.GetApp(), w.GetEnv(), w.GetWatchKeys())
 	}
-	err := d.aggregate.RenewInstance(ctx, ins)
-	return _emptyResp, err
+
+wait:
+	for {
+		select {
+		case elem := <-ch:
+			// DONE(@yeqown): update cache item while new changes pushed to instance.
+			go d.updateCache(elem.GetMetadata().GetApp(), elem.GetMetadata().GetEnv(), elem)
+			if err := server.Send(&agent.WatchResp{Elem: elem}); err != nil {
+				log.
+					WithFields(log.Fields{"element": elem, "err": err}).
+					Error("app.RegisterAndWait could not send")
+			}
+		// maybe need to judge the error in case of client disconnected.
+		case <-server.Context().Done():
+			log.
+				WithFields(log.Fields{
+					"error": server.Context().Err(),
+					"req":   req,
+				}).
+				Warn("app.Watch quit")
+			break wait
+		}
+	}
+
+	return nil
 }
 
 var (

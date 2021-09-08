@@ -6,15 +6,13 @@ package agent
 import (
 	context "context"
 	fmt "fmt"
-	math "math"
-
 	_ "github.com/envoyproxy/protoc-gen-validate/validate"
 	proto "github.com/golang/protobuf/proto"
+	concept "github.com/yeqown/cassem/api/concept"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
-
-	concept "github.com/yeqown/cassem/api/concept"
+	math "math"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -28,7 +26,7 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
 
-type GetConfigReq struct {
+type GetElementReq struct {
 	App                  string   `protobuf:"bytes,1,opt,name=app,proto3" json:"app,omitempty"`
 	Env                  string   `protobuf:"bytes,2,opt,name=env,proto3" json:"env,omitempty"`
 	Keys                 []string `protobuf:"bytes,3,rep,name=keys,proto3" json:"keys,omitempty"`
@@ -37,85 +35,85 @@ type GetConfigReq struct {
 	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *GetConfigReq) Reset()         { *m = GetConfigReq{} }
-func (m *GetConfigReq) String() string { return proto.CompactTextString(m) }
-func (*GetConfigReq) ProtoMessage()    {}
-func (*GetConfigReq) Descriptor() ([]byte, []int) {
+func (m *GetElementReq) Reset()         { *m = GetElementReq{} }
+func (m *GetElementReq) String() string { return proto.CompactTextString(m) }
+func (*GetElementReq) ProtoMessage()    {}
+func (*GetElementReq) Descriptor() ([]byte, []int) {
 	return fileDescriptor_55c82b521937e82e, []int{0}
 }
 
-func (m *GetConfigReq) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_GetConfigReq.Unmarshal(m, b)
+func (m *GetElementReq) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_GetElementReq.Unmarshal(m, b)
 }
-func (m *GetConfigReq) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_GetConfigReq.Marshal(b, m, deterministic)
+func (m *GetElementReq) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_GetElementReq.Marshal(b, m, deterministic)
 }
-func (m *GetConfigReq) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_GetConfigReq.Merge(m, src)
+func (m *GetElementReq) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_GetElementReq.Merge(m, src)
 }
-func (m *GetConfigReq) XXX_Size() int {
-	return xxx_messageInfo_GetConfigReq.Size(m)
+func (m *GetElementReq) XXX_Size() int {
+	return xxx_messageInfo_GetElementReq.Size(m)
 }
-func (m *GetConfigReq) XXX_DiscardUnknown() {
-	xxx_messageInfo_GetConfigReq.DiscardUnknown(m)
+func (m *GetElementReq) XXX_DiscardUnknown() {
+	xxx_messageInfo_GetElementReq.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_GetConfigReq proto.InternalMessageInfo
+var xxx_messageInfo_GetElementReq proto.InternalMessageInfo
 
-func (m *GetConfigReq) GetApp() string {
+func (m *GetElementReq) GetApp() string {
 	if m != nil {
 		return m.App
 	}
 	return ""
 }
 
-func (m *GetConfigReq) GetEnv() string {
+func (m *GetElementReq) GetEnv() string {
 	if m != nil {
 		return m.Env
 	}
 	return ""
 }
 
-func (m *GetConfigReq) GetKeys() []string {
+func (m *GetElementReq) GetKeys() []string {
 	if m != nil {
 		return m.Keys
 	}
 	return nil
 }
 
-type GetConfigResp struct {
+type GetElementResp struct {
 	Elems                []*concept.Element `protobuf:"bytes,1,rep,name=elems,proto3" json:"elems,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}           `json:"-"`
 	XXX_unrecognized     []byte             `json:"-"`
 	XXX_sizecache        int32              `json:"-"`
 }
 
-func (m *GetConfigResp) Reset()         { *m = GetConfigResp{} }
-func (m *GetConfigResp) String() string { return proto.CompactTextString(m) }
-func (*GetConfigResp) ProtoMessage()    {}
-func (*GetConfigResp) Descriptor() ([]byte, []int) {
+func (m *GetElementResp) Reset()         { *m = GetElementResp{} }
+func (m *GetElementResp) String() string { return proto.CompactTextString(m) }
+func (*GetElementResp) ProtoMessage()    {}
+func (*GetElementResp) Descriptor() ([]byte, []int) {
 	return fileDescriptor_55c82b521937e82e, []int{1}
 }
 
-func (m *GetConfigResp) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_GetConfigResp.Unmarshal(m, b)
+func (m *GetElementResp) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_GetElementResp.Unmarshal(m, b)
 }
-func (m *GetConfigResp) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_GetConfigResp.Marshal(b, m, deterministic)
+func (m *GetElementResp) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_GetElementResp.Marshal(b, m, deterministic)
 }
-func (m *GetConfigResp) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_GetConfigResp.Merge(m, src)
+func (m *GetElementResp) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_GetElementResp.Merge(m, src)
 }
-func (m *GetConfigResp) XXX_Size() int {
-	return xxx_messageInfo_GetConfigResp.Size(m)
+func (m *GetElementResp) XXX_Size() int {
+	return xxx_messageInfo_GetElementResp.Size(m)
 }
-func (m *GetConfigResp) XXX_DiscardUnknown() {
-	xxx_messageInfo_GetConfigResp.DiscardUnknown(m)
+func (m *GetElementResp) XXX_DiscardUnknown() {
+	xxx_messageInfo_GetElementResp.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_GetConfigResp proto.InternalMessageInfo
+var xxx_messageInfo_GetElementResp proto.InternalMessageInfo
 
-func (m *GetConfigResp) GetElems() []*concept.Element {
+func (m *GetElementResp) GetElems() []*concept.Element {
 	if m != nil {
 		return m.Elems
 	}
@@ -125,8 +123,6 @@ func (m *GetConfigResp) GetElems() []*concept.Element {
 type UnregisterReq struct {
 	ClientId             string   `protobuf:"bytes,1,opt,name=clientId,proto3" json:"clientId,omitempty"`
 	ClientIp             string   `protobuf:"bytes,2,opt,name=clientIp,proto3" json:"clientIp,omitempty"`
-	App                  string   `protobuf:"bytes,3,opt,name=app,proto3" json:"app,omitempty"`
-	Env                  string   `protobuf:"bytes,4,opt,name=env,proto3" json:"env,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -171,87 +167,57 @@ func (m *UnregisterReq) GetClientIp() string {
 	return ""
 }
 
-func (m *UnregisterReq) GetApp() string {
-	if m != nil {
-		return m.App
-	}
-	return ""
+type RegisterReq struct {
+	ClientId             string                       `protobuf:"bytes,1,opt,name=clientId,proto3" json:"clientId,omitempty"`
+	ClientIp             string                       `protobuf:"bytes,2,opt,name=clientIp,proto3" json:"clientIp,omitempty"`
+	Watching             []*concept.Instance_Watching `protobuf:"bytes,3,rep,name=watching,proto3" json:"watching,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}                     `json:"-"`
+	XXX_unrecognized     []byte                       `json:"-"`
+	XXX_sizecache        int32                        `json:"-"`
 }
 
-func (m *UnregisterReq) GetEnv() string {
-	if m != nil {
-		return m.Env
-	}
-	return ""
-}
-
-type RenewReq struct {
-	ClientId             string   `protobuf:"bytes,1,opt,name=clientId,proto3" json:"clientId,omitempty"`
-	ClientIp             string   `protobuf:"bytes,2,opt,name=clientIp,proto3" json:"clientIp,omitempty"`
-	App                  string   `protobuf:"bytes,3,opt,name=app,proto3" json:"app,omitempty"`
-	Env                  string   `protobuf:"bytes,4,opt,name=env,proto3" json:"env,omitempty"`
-	WatchingKeys         []string `protobuf:"bytes,5,rep,name=watchingKeys,proto3" json:"watchingKeys,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
-}
-
-func (m *RenewReq) Reset()         { *m = RenewReq{} }
-func (m *RenewReq) String() string { return proto.CompactTextString(m) }
-func (*RenewReq) ProtoMessage()    {}
-func (*RenewReq) Descriptor() ([]byte, []int) {
+func (m *RegisterReq) Reset()         { *m = RegisterReq{} }
+func (m *RegisterReq) String() string { return proto.CompactTextString(m) }
+func (*RegisterReq) ProtoMessage()    {}
+func (*RegisterReq) Descriptor() ([]byte, []int) {
 	return fileDescriptor_55c82b521937e82e, []int{3}
 }
 
-func (m *RenewReq) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_RenewReq.Unmarshal(m, b)
+func (m *RegisterReq) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_RegisterReq.Unmarshal(m, b)
 }
-func (m *RenewReq) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_RenewReq.Marshal(b, m, deterministic)
+func (m *RegisterReq) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_RegisterReq.Marshal(b, m, deterministic)
 }
-func (m *RenewReq) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_RenewReq.Merge(m, src)
+func (m *RegisterReq) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RegisterReq.Merge(m, src)
 }
-func (m *RenewReq) XXX_Size() int {
-	return xxx_messageInfo_RenewReq.Size(m)
+func (m *RegisterReq) XXX_Size() int {
+	return xxx_messageInfo_RegisterReq.Size(m)
 }
-func (m *RenewReq) XXX_DiscardUnknown() {
-	xxx_messageInfo_RenewReq.DiscardUnknown(m)
+func (m *RegisterReq) XXX_DiscardUnknown() {
+	xxx_messageInfo_RegisterReq.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_RenewReq proto.InternalMessageInfo
+var xxx_messageInfo_RegisterReq proto.InternalMessageInfo
 
-func (m *RenewReq) GetClientId() string {
+func (m *RegisterReq) GetClientId() string {
 	if m != nil {
 		return m.ClientId
 	}
 	return ""
 }
 
-func (m *RenewReq) GetClientIp() string {
+func (m *RegisterReq) GetClientIp() string {
 	if m != nil {
 		return m.ClientIp
 	}
 	return ""
 }
 
-func (m *RenewReq) GetApp() string {
+func (m *RegisterReq) GetWatching() []*concept.Instance_Watching {
 	if m != nil {
-		return m.App
-	}
-	return ""
-}
-
-func (m *RenewReq) GetEnv() string {
-	if m != nil {
-		return m.Env
-	}
-	return ""
-}
-
-func (m *RenewReq) GetWatchingKeys() []string {
-	if m != nil {
-		return m.WatchingKeys
+		return m.Watching
 	}
 	return nil
 }
@@ -287,10 +253,11 @@ func (m *EmptyResp) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_EmptyResp proto.InternalMessageInfo
 
-type RegAndWaitReq struct {
-	App                  string   `protobuf:"bytes,1,opt,name=app,proto3" json:"app,omitempty"`
-	Env                  string   `protobuf:"bytes,2,opt,name=env,proto3" json:"env,omitempty"`
-	WatchingKeys         []string `protobuf:"bytes,3,rep,name=watchingKeys,proto3" json:"watchingKeys,omitempty"`
+type WatchReq struct {
+	Watching []*concept.Instance_Watching `protobuf:"bytes,1,rep,name=watching,proto3" json:"watching,omitempty"`
+	//  string app = 1 [(validate.rules).string = {min_len: 3, max_len: 30}];
+	//  string env = 2 [(validate.rules).string = {min_len: 3, max_len: 30}];
+	//  repeated string watchingKeys = 3 [(validate.rules).repeated = {unique: true, min_items: 1, max_items: 100}];
 	ClientId             string   `protobuf:"bytes,4,opt,name=clientId,proto3" json:"clientId,omitempty"`
 	ClientIp             string   `protobuf:"bytes,5,opt,name=clientIp,proto3" json:"clientIp,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
@@ -298,99 +265,85 @@ type RegAndWaitReq struct {
 	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *RegAndWaitReq) Reset()         { *m = RegAndWaitReq{} }
-func (m *RegAndWaitReq) String() string { return proto.CompactTextString(m) }
-func (*RegAndWaitReq) ProtoMessage()    {}
-func (*RegAndWaitReq) Descriptor() ([]byte, []int) {
+func (m *WatchReq) Reset()         { *m = WatchReq{} }
+func (m *WatchReq) String() string { return proto.CompactTextString(m) }
+func (*WatchReq) ProtoMessage()    {}
+func (*WatchReq) Descriptor() ([]byte, []int) {
 	return fileDescriptor_55c82b521937e82e, []int{5}
 }
 
-func (m *RegAndWaitReq) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_RegAndWaitReq.Unmarshal(m, b)
+func (m *WatchReq) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_WatchReq.Unmarshal(m, b)
 }
-func (m *RegAndWaitReq) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_RegAndWaitReq.Marshal(b, m, deterministic)
+func (m *WatchReq) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_WatchReq.Marshal(b, m, deterministic)
 }
-func (m *RegAndWaitReq) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_RegAndWaitReq.Merge(m, src)
+func (m *WatchReq) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_WatchReq.Merge(m, src)
 }
-func (m *RegAndWaitReq) XXX_Size() int {
-	return xxx_messageInfo_RegAndWaitReq.Size(m)
+func (m *WatchReq) XXX_Size() int {
+	return xxx_messageInfo_WatchReq.Size(m)
 }
-func (m *RegAndWaitReq) XXX_DiscardUnknown() {
-	xxx_messageInfo_RegAndWaitReq.DiscardUnknown(m)
+func (m *WatchReq) XXX_DiscardUnknown() {
+	xxx_messageInfo_WatchReq.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_RegAndWaitReq proto.InternalMessageInfo
+var xxx_messageInfo_WatchReq proto.InternalMessageInfo
 
-func (m *RegAndWaitReq) GetApp() string {
+func (m *WatchReq) GetWatching() []*concept.Instance_Watching {
 	if m != nil {
-		return m.App
-	}
-	return ""
-}
-
-func (m *RegAndWaitReq) GetEnv() string {
-	if m != nil {
-		return m.Env
-	}
-	return ""
-}
-
-func (m *RegAndWaitReq) GetWatchingKeys() []string {
-	if m != nil {
-		return m.WatchingKeys
+		return m.Watching
 	}
 	return nil
 }
 
-func (m *RegAndWaitReq) GetClientId() string {
+func (m *WatchReq) GetClientId() string {
 	if m != nil {
 		return m.ClientId
 	}
 	return ""
 }
 
-func (m *RegAndWaitReq) GetClientIp() string {
+func (m *WatchReq) GetClientIp() string {
 	if m != nil {
 		return m.ClientIp
 	}
 	return ""
 }
 
-type WaitResp struct {
+type WatchResp struct {
 	Elem                 *concept.Element `protobuf:"bytes,1,opt,name=elem,proto3" json:"elem,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}         `json:"-"`
 	XXX_unrecognized     []byte           `json:"-"`
 	XXX_sizecache        int32            `json:"-"`
 }
 
-func (m *WaitResp) Reset()         { *m = WaitResp{} }
-func (m *WaitResp) String() string { return proto.CompactTextString(m) }
-func (*WaitResp) ProtoMessage()    {}
-func (*WaitResp) Descriptor() ([]byte, []int) {
+func (m *WatchResp) Reset()         { *m = WatchResp{} }
+func (m *WatchResp) String() string { return proto.CompactTextString(m) }
+func (*WatchResp) ProtoMessage()    {}
+func (*WatchResp) Descriptor() ([]byte, []int) {
 	return fileDescriptor_55c82b521937e82e, []int{6}
 }
 
-func (m *WaitResp) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_WaitResp.Unmarshal(m, b)
+func (m *WatchResp) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_WatchResp.Unmarshal(m, b)
 }
-func (m *WaitResp) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_WaitResp.Marshal(b, m, deterministic)
+func (m *WatchResp) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_WatchResp.Marshal(b, m, deterministic)
 }
-func (m *WaitResp) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_WaitResp.Merge(m, src)
+func (m *WatchResp) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_WatchResp.Merge(m, src)
 }
-func (m *WaitResp) XXX_Size() int {
-	return xxx_messageInfo_WaitResp.Size(m)
+func (m *WatchResp) XXX_Size() int {
+	return xxx_messageInfo_WatchResp.Size(m)
 }
-func (m *WaitResp) XXX_DiscardUnknown() {
-	xxx_messageInfo_WaitResp.DiscardUnknown(m)
+func (m *WatchResp) XXX_DiscardUnknown() {
+	xxx_messageInfo_WatchResp.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_WaitResp proto.InternalMessageInfo
+var xxx_messageInfo_WatchResp proto.InternalMessageInfo
 
-func (m *WaitResp) GetElem() *concept.Element {
+func (m *WatchResp) GetElem() *concept.Element {
 	if m != nil {
 		return m.Elem
 	}
@@ -468,13 +421,13 @@ func (m *DispatchResp) XXX_DiscardUnknown() {
 var xxx_messageInfo_DispatchResp proto.InternalMessageInfo
 
 func init() {
-	proto.RegisterType((*GetConfigReq)(nil), "cassem.agent.getConfigReq")
-	proto.RegisterType((*GetConfigResp)(nil), "cassem.agent.getConfigResp")
+	proto.RegisterType((*GetElementReq)(nil), "cassem.agent.getElementReq")
+	proto.RegisterType((*GetElementResp)(nil), "cassem.agent.getElementResp")
 	proto.RegisterType((*UnregisterReq)(nil), "cassem.agent.unregisterReq")
-	proto.RegisterType((*RenewReq)(nil), "cassem.agent.renewReq")
+	proto.RegisterType((*RegisterReq)(nil), "cassem.agent.registerReq")
 	proto.RegisterType((*EmptyResp)(nil), "cassem.agent.emptyResp")
-	proto.RegisterType((*RegAndWaitReq)(nil), "cassem.agent.regAndWaitReq")
-	proto.RegisterType((*WaitResp)(nil), "cassem.agent.waitResp")
+	proto.RegisterType((*WatchReq)(nil), "cassem.agent.watchReq")
+	proto.RegisterType((*WatchResp)(nil), "cassem.agent.watchResp")
 	proto.RegisterType((*DispatchReq)(nil), "cassem.agent.dispatchReq")
 	proto.RegisterType((*DispatchResp)(nil), "cassem.agent.dispatchResp")
 }
@@ -482,40 +435,39 @@ func init() {
 func init() { proto.RegisterFile("cassemagent.api.proto", fileDescriptor_55c82b521937e82e) }
 
 var fileDescriptor_55c82b521937e82e = []byte{
-	// 518 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xcc, 0x54, 0x41, 0x8b, 0xd3, 0x40,
-	0x18, 0xed, 0x34, 0x49, 0x4d, 0xbe, 0xb6, 0xba, 0x8c, 0xe8, 0xc6, 0x2c, 0x48, 0x19, 0x11, 0x0a,
-	0xb2, 0xd9, 0xa5, 0x1e, 0x04, 0x11, 0xd1, 0xec, 0xaa, 0xa8, 0x07, 0x21, 0x20, 0x82, 0xb7, 0xd8,
-	0x7c, 0xc6, 0x68, 0x3b, 0x19, 0x33, 0x63, 0x6b, 0xfe, 0x86, 0xe0, 0xd1, 0x3f, 0xe3, 0xc5, 0xff,
-	0xd4, 0x93, 0x4c, 0x9a, 0x74, 0x9b, 0xba, 0xad, 0x8a, 0x17, 0x6f, 0x65, 0xde, 0x9b, 0xce, 0x7b,
-	0xdf, 0xf7, 0x5e, 0xe0, 0xca, 0x38, 0x92, 0x12, 0xa7, 0x51, 0x82, 0x5c, 0xf9, 0x91, 0x48, 0x7d,
-	0x91, 0x67, 0x2a, 0xa3, 0xbd, 0xe5, 0xb1, 0x5f, 0x9e, 0x7b, 0x97, 0xc7, 0x19, 0x1f, 0xa3, 0x50,
-	0x47, 0xaa, 0x10, 0x28, 0x97, 0x14, 0x8f, 0x21, 0x9f, 0x65, 0x85, 0xc8, 0xb3, 0xcf, 0xc5, 0xe1,
-	0x2c, 0x9a, 0xa4, 0x71, 0xa4, 0xf0, 0xa8, 0xfe, 0xb1, 0xe4, 0xb0, 0xf7, 0xd0, 0x4b, 0x50, 0x9d,
-	0x64, 0xfc, 0x6d, 0x9a, 0x84, 0xf8, 0x91, 0x1e, 0x80, 0x11, 0x09, 0xe1, 0x92, 0x01, 0x19, 0x3a,
-	0x81, 0xb3, 0x08, 0x3a, 0xb9, 0xb9, 0x67, 0xb8, 0xd7, 0x43, 0x7d, 0xaa, 0x41, 0xe4, 0x33, 0xb7,
-	0xfd, 0x0b, 0x88, 0x7c, 0x46, 0x07, 0x60, 0x7e, 0xc0, 0x42, 0xba, 0xc6, 0xc0, 0x18, 0x3a, 0x41,
-	0x6f, 0x11, 0x38, 0x5f, 0x48, 0xc7, 0x26, 0x7b, 0xb1, 0x4b, 0xc2, 0x12, 0x61, 0xf7, 0xa1, 0xbf,
-	0xf6, 0x96, 0x14, 0xf4, 0x10, 0x2c, 0x9c, 0xe0, 0x54, 0xba, 0x64, 0x60, 0x0c, 0xbb, 0xa3, 0x7d,
-	0xbf, 0xf2, 0x54, 0x99, 0xf1, 0x1f, 0x4d, 0x70, 0x8a, 0x5c, 0x85, 0x4b, 0x16, 0xfb, 0x4a, 0xa0,
-	0xff, 0x89, 0xe7, 0x98, 0xa4, 0x52, 0x61, 0xae, 0xd5, 0xde, 0x04, 0x7b, 0x3c, 0x49, 0x91, 0xab,
-	0xa7, 0x71, 0x53, 0xb2, 0xe5, 0x3e, 0x08, 0x57, 0x10, 0xbd, 0xb1, 0xa2, 0x89, 0x4a, 0xfc, 0x85,
-	0x45, 0x60, 0xe6, 0x6d, 0x41, 0x56, 0x24, 0x51, 0x3b, 0x37, 0x76, 0x39, 0x37, 0xcf, 0x73, 0xce,
-	0xbe, 0x13, 0xb0, 0x73, 0xe4, 0x38, 0xff, 0x6f, 0x24, 0xd1, 0x63, 0xe8, 0xcd, 0x23, 0x35, 0x7e,
-	0x97, 0xf2, 0xe4, 0xb9, 0x5e, 0x8a, 0x75, 0xce, 0x52, 0x1a, 0x0c, 0xd6, 0x05, 0x07, 0xa7, 0x42,
-	0x15, 0x7a, 0x31, 0xec, 0x07, 0x81, 0x7e, 0x8e, 0xc9, 0x43, 0x1e, 0xbf, 0x8a, 0x52, 0xf5, 0x6f,
-	0xb9, 0xd8, 0x94, 0x62, 0xfc, 0x4e, 0x4a, 0x63, 0x84, 0xe6, 0x9f, 0x8d, 0xd0, 0xda, 0x32, 0x42,
-	0x76, 0x07, 0xec, 0x79, 0x69, 0x41, 0x0a, 0x7a, 0x0b, 0x4c, 0x1d, 0xa4, 0xd2, 0xc4, 0x8e, 0xb4,
-	0x95, 0x24, 0x76, 0x0f, 0xba, 0x71, 0x2a, 0x85, 0xd6, 0xa5, 0xfd, 0xff, 0x65, 0x54, 0x2f, 0x42,
-	0xef, 0xec, 0xb6, 0x14, 0xa3, 0x6f, 0x6d, 0xb0, 0xca, 0xa6, 0xd2, 0xc7, 0xe0, 0x3c, 0xa9, 0x4b,
-	0x40, 0x3d, 0x7f, 0xbd, 0xc5, 0xfe, 0x7a, 0x13, 0xbd, 0x83, 0xad, 0x98, 0x14, 0xac, 0x45, 0x4f,
-	0x01, 0x5e, 0xae, 0xba, 0x40, 0x37, 0xc8, 0x8d, 0x96, 0x78, 0xfb, 0x4d, 0xf0, 0x6c, 0xcd, 0x2d,
-	0x7a, 0x17, 0xac, 0x50, 0x27, 0x97, 0x5e, 0x6d, 0x72, 0xea, 0x38, 0xef, 0xba, 0xfb, 0x0c, 0x2e,
-	0x85, 0xd5, 0x2b, 0x55, 0x50, 0x36, 0x65, 0x34, 0x22, 0xe4, 0x6d, 0x3c, 0x51, 0xaf, 0x85, 0xb5,
-	0x8e, 0xc9, 0xe8, 0x05, 0xd8, 0x31, 0x4e, 0xd2, 0x19, 0xe6, 0x05, 0x3d, 0x01, 0xfb, 0xb4, 0x9a,
-	0x1d, 0xbd, 0xd6, 0xbc, 0xb3, 0xb6, 0x11, 0xcf, 0xdb, 0x06, 0xe9, 0xbf, 0x0c, 0xac, 0xd7, 0x46,
-	0x24, 0xd2, 0x37, 0x9d, 0xf2, 0x2b, 0x77, 0xfb, 0x67, 0x00, 0x00, 0x00, 0xff, 0xff, 0xdb, 0x28,
-	0xd6, 0x7d, 0x45, 0x05, 0x00, 0x00,
+	// 502 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xb4, 0x54, 0x5d, 0x6b, 0xd4, 0x40,
+	0x14, 0xdd, 0xd9, 0x4d, 0xb6, 0xc9, 0xcd, 0xb6, 0x96, 0x11, 0x6d, 0x4c, 0x45, 0xd6, 0x11, 0x61,
+	0x41, 0x9a, 0xca, 0xfa, 0xe2, 0x43, 0x41, 0x89, 0x95, 0x65, 0x9f, 0x0a, 0x01, 0x11, 0xf4, 0x29,
+	0x26, 0x97, 0x35, 0x34, 0x3b, 0x19, 0x33, 0x63, 0x6a, 0xfe, 0x46, 0xff, 0x40, 0xc1, 0x9f, 0xb9,
+	0x4f, 0x92, 0x8f, 0x4d, 0x37, 0x2b, 0x2b, 0x15, 0xf1, 0x2d, 0xcc, 0x39, 0x73, 0xe7, 0x9e, 0x73,
+	0xee, 0x0d, 0x3c, 0x08, 0x03, 0x29, 0x71, 0x19, 0x2c, 0x90, 0x2b, 0x37, 0x10, 0xb1, 0x2b, 0xb2,
+	0x54, 0xa5, 0x74, 0x54, 0x1f, 0xbb, 0xd5, 0xb9, 0x73, 0x3f, 0x4c, 0x79, 0x88, 0x42, 0x9d, 0xaa,
+	0x42, 0xa0, 0xac, 0x29, 0x0e, 0x43, 0x9e, 0xa7, 0x85, 0xc8, 0xd2, 0x1f, 0xc5, 0x49, 0x1e, 0x24,
+	0x71, 0x14, 0x28, 0x3c, 0x5d, 0x7f, 0xd4, 0x1c, 0x76, 0x09, 0xfb, 0x0b, 0x54, 0xef, 0x13, 0x5c,
+	0x22, 0x57, 0x3e, 0x7e, 0xa3, 0xc7, 0x30, 0x08, 0x84, 0xb0, 0xc9, 0x98, 0x4c, 0x4c, 0xcf, 0x5c,
+	0x79, 0xc3, 0x4c, 0x3b, 0x1c, 0xd8, 0x4f, 0xfc, 0xf2, 0xb4, 0x04, 0x91, 0xe7, 0x76, 0xff, 0x37,
+	0x10, 0x79, 0x4e, 0xc7, 0xa0, 0x5d, 0x62, 0x21, 0xed, 0xc1, 0x78, 0x30, 0x31, 0xbd, 0xd1, 0xca,
+	0x33, 0xaf, 0xc9, 0xd0, 0x20, 0x87, 0x91, 0x4d, 0xfc, 0x0a, 0x61, 0x6f, 0xe0, 0x60, 0xf3, 0x31,
+	0x29, 0xe8, 0x09, 0xe8, 0x98, 0xe0, 0x52, 0xda, 0x64, 0x3c, 0x98, 0x58, 0xd3, 0x23, 0xb7, 0x51,
+	0xd5, 0xc8, 0x71, 0xd7, 0xdc, 0x9a, 0xc5, 0x3e, 0xc3, 0xfe, 0x77, 0x9e, 0xe1, 0x22, 0x96, 0x0a,
+	0xb3, 0xb2, 0xdb, 0xe7, 0x60, 0x84, 0x49, 0x8c, 0x5c, 0xcd, 0xa3, 0x6e, 0xcb, 0xba, 0xfd, 0xd6,
+	0x6f, 0x21, 0xfa, 0xac, 0xa5, 0x89, 0xa6, 0xf9, 0xbd, 0x95, 0xa7, 0x65, 0x7d, 0x41, 0x5a, 0x92,
+	0x60, 0x3f, 0x09, 0x58, 0xff, 0xa9, 0x36, 0x9d, 0x81, 0x71, 0x15, 0xa8, 0xf0, 0x6b, 0xcc, 0x17,
+	0x95, 0x3f, 0xd6, 0xf4, 0xe9, 0xb6, 0xd4, 0x39, 0x97, 0x2a, 0xe0, 0x21, 0xba, 0x1f, 0x1b, 0xa2,
+	0x67, 0xac, 0x3c, 0xfd, 0x9a, 0xf4, 0x27, 0xc4, 0x6f, 0x2f, 0x33, 0x0b, 0x4c, 0x5c, 0x0a, 0x55,
+	0x94, 0xee, 0xb1, 0x1b, 0xd2, 0x94, 0x2d, 0xdb, 0xdd, 0x7c, 0x82, 0xfc, 0xc3, 0x13, 0x1d, 0xdd,
+	0xda, 0xdd, 0x74, 0xeb, 0xbb, 0x3c, 0x7d, 0x0d, 0x66, 0xd3, 0xa0, 0x14, 0xf4, 0x05, 0x68, 0x65,
+	0x8c, 0x95, 0x99, 0x7f, 0xc8, 0xba, 0x22, 0xb1, 0x33, 0xb0, 0xa2, 0x58, 0x8a, 0xb5, 0xba, 0xbf,
+	0x1c, 0x94, 0x03, 0x18, 0xdd, 0xde, 0x96, 0x62, 0x7a, 0xd3, 0x07, 0xbd, 0xda, 0x14, 0x3a, 0x07,
+	0x98, 0xb5, 0x33, 0x48, 0x8f, 0xdd, 0xcd, 0x35, 0x72, 0x3b, 0xab, 0xe0, 0x3c, 0xde, 0x0d, 0x4a,
+	0xc1, 0x7a, 0xf4, 0x1c, 0xe0, 0x43, 0x3b, 0x8d, 0xdb, 0xa5, 0x3a, 0x73, 0xea, 0x1c, 0x75, 0xc1,
+	0xdb, 0x08, 0x7b, 0x74, 0x06, 0xf7, 0xfc, 0x86, 0x79, 0x91, 0xf9, 0xc8, 0xf1, 0x8a, 0x3e, 0xea,
+	0xb2, 0xef, 0x58, 0xe8, 0x0c, 0xf4, 0x2a, 0x57, 0xfa, 0xb0, 0xcb, 0x59, 0x4f, 0xc8, 0xf6, 0xdd,
+	0x36, 0x18, 0xd6, 0x7b, 0x49, 0xa6, 0x17, 0x60, 0x44, 0x98, 0xc4, 0x39, 0x66, 0x05, 0x7d, 0x07,
+	0xc6, 0x79, 0xe3, 0xde, 0x76, 0x2f, 0x1b, 0x99, 0x38, 0xce, 0x2e, 0xa8, 0x2c, 0xe9, 0xed, 0x7d,
+	0xaa, 0x1d, 0xff, 0x32, 0xac, 0xfe, 0x34, 0xaf, 0x7e, 0x05, 0x00, 0x00, 0xff, 0xff, 0x6d, 0x64,
+	0x8d, 0x4f, 0xc9, 0x04, 0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -530,10 +482,10 @@ const _ = grpc.SupportPackageIsVersion4
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
 type AgentClient interface {
-	GetConfig(ctx context.Context, in *GetConfigReq, opts ...grpc.CallOption) (*GetConfigResp, error)
+	GetElement(ctx context.Context, in *GetElementReq, opts ...grpc.CallOption) (*GetElementResp, error)
 	Unregister(ctx context.Context, in *UnregisterReq, opts ...grpc.CallOption) (*EmptyResp, error)
-	Renew(ctx context.Context, in *RenewReq, opts ...grpc.CallOption) (*EmptyResp, error)
-	RegisterAndWait(ctx context.Context, in *RegAndWaitReq, opts ...grpc.CallOption) (Agent_RegisterAndWaitClient, error)
+	RegisterOrRenew(ctx context.Context, in *RegisterReq, opts ...grpc.CallOption) (*EmptyResp, error)
+	Watch(ctx context.Context, in *WatchReq, opts ...grpc.CallOption) (Agent_WatchClient, error)
 }
 
 type agentClient struct {
@@ -544,9 +496,9 @@ func NewAgentClient(cc *grpc.ClientConn) AgentClient {
 	return &agentClient{cc}
 }
 
-func (c *agentClient) GetConfig(ctx context.Context, in *GetConfigReq, opts ...grpc.CallOption) (*GetConfigResp, error) {
-	out := new(GetConfigResp)
-	err := c.cc.Invoke(ctx, "/cassem.agent.agent/GetConfig", in, out, opts...)
+func (c *agentClient) GetElement(ctx context.Context, in *GetElementReq, opts ...grpc.CallOption) (*GetElementResp, error) {
+	out := new(GetElementResp)
+	err := c.cc.Invoke(ctx, "/cassem.agent.agent/GetElement", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -562,21 +514,21 @@ func (c *agentClient) Unregister(ctx context.Context, in *UnregisterReq, opts ..
 	return out, nil
 }
 
-func (c *agentClient) Renew(ctx context.Context, in *RenewReq, opts ...grpc.CallOption) (*EmptyResp, error) {
+func (c *agentClient) RegisterOrRenew(ctx context.Context, in *RegisterReq, opts ...grpc.CallOption) (*EmptyResp, error) {
 	out := new(EmptyResp)
-	err := c.cc.Invoke(ctx, "/cassem.agent.agent/Renew", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/cassem.agent.agent/RegisterOrRenew", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *agentClient) RegisterAndWait(ctx context.Context, in *RegAndWaitReq, opts ...grpc.CallOption) (Agent_RegisterAndWaitClient, error) {
-	stream, err := c.cc.NewStream(ctx, &_Agent_serviceDesc.Streams[0], "/cassem.agent.agent/RegisterAndWait", opts...)
+func (c *agentClient) Watch(ctx context.Context, in *WatchReq, opts ...grpc.CallOption) (Agent_WatchClient, error) {
+	stream, err := c.cc.NewStream(ctx, &_Agent_serviceDesc.Streams[0], "/cassem.agent.agent/Watch", opts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &agentRegisterAndWaitClient{stream}
+	x := &agentWatchClient{stream}
 	if err := x.ClientStream.SendMsg(in); err != nil {
 		return nil, err
 	}
@@ -586,17 +538,17 @@ func (c *agentClient) RegisterAndWait(ctx context.Context, in *RegAndWaitReq, op
 	return x, nil
 }
 
-type Agent_RegisterAndWaitClient interface {
-	Recv() (*WaitResp, error)
+type Agent_WatchClient interface {
+	Recv() (*WatchResp, error)
 	grpc.ClientStream
 }
 
-type agentRegisterAndWaitClient struct {
+type agentWatchClient struct {
 	grpc.ClientStream
 }
 
-func (x *agentRegisterAndWaitClient) Recv() (*WaitResp, error) {
-	m := new(WaitResp)
+func (x *agentWatchClient) Recv() (*WatchResp, error) {
+	m := new(WatchResp)
 	if err := x.ClientStream.RecvMsg(m); err != nil {
 		return nil, err
 	}
@@ -605,47 +557,47 @@ func (x *agentRegisterAndWaitClient) Recv() (*WaitResp, error) {
 
 // AgentServer is the server API for Agent service.
 type AgentServer interface {
-	GetConfig(context.Context, *GetConfigReq) (*GetConfigResp, error)
+	GetElement(context.Context, *GetElementReq) (*GetElementResp, error)
 	Unregister(context.Context, *UnregisterReq) (*EmptyResp, error)
-	Renew(context.Context, *RenewReq) (*EmptyResp, error)
-	RegisterAndWait(*RegAndWaitReq, Agent_RegisterAndWaitServer) error
+	RegisterOrRenew(context.Context, *RegisterReq) (*EmptyResp, error)
+	Watch(*WatchReq, Agent_WatchServer) error
 }
 
 // UnimplementedAgentServer can be embedded to have forward compatible implementations.
 type UnimplementedAgentServer struct {
 }
 
-func (*UnimplementedAgentServer) GetConfig(ctx context.Context, req *GetConfigReq) (*GetConfigResp, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetConfig not implemented")
+func (*UnimplementedAgentServer) GetElement(ctx context.Context, req *GetElementReq) (*GetElementResp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetElement not implemented")
 }
 func (*UnimplementedAgentServer) Unregister(ctx context.Context, req *UnregisterReq) (*EmptyResp, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Unregister not implemented")
 }
-func (*UnimplementedAgentServer) Renew(ctx context.Context, req *RenewReq) (*EmptyResp, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Renew not implemented")
+func (*UnimplementedAgentServer) RegisterOrRenew(ctx context.Context, req *RegisterReq) (*EmptyResp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RegisterOrRenew not implemented")
 }
-func (*UnimplementedAgentServer) RegisterAndWait(req *RegAndWaitReq, srv Agent_RegisterAndWaitServer) error {
-	return status.Errorf(codes.Unimplemented, "method RegisterAndWait not implemented")
+func (*UnimplementedAgentServer) Watch(req *WatchReq, srv Agent_WatchServer) error {
+	return status.Errorf(codes.Unimplemented, "method Watch not implemented")
 }
 
 func RegisterAgentServer(s *grpc.Server, srv AgentServer) {
 	s.RegisterService(&_Agent_serviceDesc, srv)
 }
 
-func _Agent_GetConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GetConfigReq)
+func _Agent_GetElement_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetElementReq)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(AgentServer).GetConfig(ctx, in)
+		return srv.(AgentServer).GetElement(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/cassem.agent.agent/GetConfig",
+		FullMethod: "/cassem.agent.agent/GetElement",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AgentServer).GetConfig(ctx, req.(*GetConfigReq))
+		return srv.(AgentServer).GetElement(ctx, req.(*GetElementReq))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -668,42 +620,42 @@ func _Agent_Unregister_Handler(srv interface{}, ctx context.Context, dec func(in
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Agent_Renew_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(RenewReq)
+func _Agent_RegisterOrRenew_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RegisterReq)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(AgentServer).Renew(ctx, in)
+		return srv.(AgentServer).RegisterOrRenew(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/cassem.agent.agent/Renew",
+		FullMethod: "/cassem.agent.agent/RegisterOrRenew",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AgentServer).Renew(ctx, req.(*RenewReq))
+		return srv.(AgentServer).RegisterOrRenew(ctx, req.(*RegisterReq))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Agent_RegisterAndWait_Handler(srv interface{}, stream grpc.ServerStream) error {
-	m := new(RegAndWaitReq)
+func _Agent_Watch_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(WatchReq)
 	if err := stream.RecvMsg(m); err != nil {
 		return err
 	}
-	return srv.(AgentServer).RegisterAndWait(m, &agentRegisterAndWaitServer{stream})
+	return srv.(AgentServer).Watch(m, &agentWatchServer{stream})
 }
 
-type Agent_RegisterAndWaitServer interface {
-	Send(*WaitResp) error
+type Agent_WatchServer interface {
+	Send(*WatchResp) error
 	grpc.ServerStream
 }
 
-type agentRegisterAndWaitServer struct {
+type agentWatchServer struct {
 	grpc.ServerStream
 }
 
-func (x *agentRegisterAndWaitServer) Send(m *WaitResp) error {
+func (x *agentWatchServer) Send(m *WatchResp) error {
 	return x.ServerStream.SendMsg(m)
 }
 
@@ -712,22 +664,22 @@ var _Agent_serviceDesc = grpc.ServiceDesc{
 	HandlerType: (*AgentServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "GetConfig",
-			Handler:    _Agent_GetConfig_Handler,
+			MethodName: "GetElement",
+			Handler:    _Agent_GetElement_Handler,
 		},
 		{
 			MethodName: "Unregister",
 			Handler:    _Agent_Unregister_Handler,
 		},
 		{
-			MethodName: "Renew",
-			Handler:    _Agent_Renew_Handler,
+			MethodName: "RegisterOrRenew",
+			Handler:    _Agent_RegisterOrRenew_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{
 		{
-			StreamName:    "RegisterAndWait",
-			Handler:       _Agent_RegisterAndWait_Handler,
+			StreamName:    "Watch",
+			Handler:       _Agent_Watch_Handler,
 			ServerStreams: true,
 		},
 	},
