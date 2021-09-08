@@ -18,6 +18,10 @@ type CassemAgentConfig struct {
 	// actual renew interval will be calculated while agent start as the following expression:
 	// actualRenewInterval = RenewInterval + randn(TTL - RenewInterval)
 	RenewInterval int32 `toml:"renewInterval"`
+
+	// ElementCacheSize represents how many item can be cached in this agent node. notice
+	// that 'app-env-elemKey' represents a unique item.
+	ElementCacheSize int32 `toml:"elementCacheSize"`
 }
 
 func (c *CassemAgentConfig) Valid() error {
@@ -30,6 +34,10 @@ func (c *CassemAgentConfig) Valid() error {
 	}
 	if c.RenewInterval == 0 {
 		c.TTL = int32(float32(c.TTL) * 0.66666667)
+	}
+
+	if c.ElementCacheSize == 0 {
+		c.ElementCacheSize = 1000
 	}
 
 	if c.RenewInterval > c.TTL {

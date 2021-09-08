@@ -223,8 +223,8 @@ func (d app) PublishAppEnvElement(c *gin.Context) {
 		fallthrough
 	default:
 		// no specific mode, but agentIds is not empty.
-		if len(req.InstanceIds) != 0 {
-			err = d.ap.notifyAgent(elem, req.InstanceIds...)
+		if len(req.AgentIds) != 0 {
+			err = d.ap.notifyAgent(elem, req.AgentIds...)
 		}
 	}
 	if err != nil {

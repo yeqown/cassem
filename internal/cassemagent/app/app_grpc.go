@@ -8,6 +8,7 @@ import (
 
 	"github.com/yeqown/cassem/concept"
 	apiagent "github.com/yeqown/cassem/internal/cassemagent/api"
+	"github.com/yeqown/cassem/pkg/runtime"
 )
 
 // GetConfig execute query request from clients, and also at the same time, agent app is
@@ -121,7 +122,7 @@ func (d app) register(ctx context.Context, req *apiagent.RegAndWaitReq) (<-chan 
 		return nil, err
 	}
 
-	ch := d.instancePool.Register(ins.Id())
+	ch := d.instancePool.Register(ins.Id(), req.GetApp(), req.GetEnv(), req.GetWatchingKeys())
 
 	return ch, nil
 }
@@ -153,11 +154,13 @@ func (d app) Renew(ctx context.Context, req *apiagent.RenewReq) (*apiagent.Empty
 	return _emptyResp, err
 }
 
+var (
+	_dispathResp = new(apiagent.DispatchResp)
+)
+
 // Dispatch implements apiagent.Delivery service
 func (d app) Dispatch(ctx context.Context, req *apiagent.DispatchReq) (*apiagent.DispatchResp, error) {
-	r := new(apiagent.DispatchResp)
-
-	// TODO(@yeqown): implement dispatch rpc call to related client instances.
+	// DONE(@yeqown): implement dispatch rpc call to related client instances.
 	log.
 		WithFields(log.Fields{
 			"elems": req.GetElems(),
@@ -165,5 +168,28 @@ func (d app) Dispatch(ctx context.Context, req *apiagent.DispatchReq) (*apiagent
 		}).
 		Info("dispatch request")
 
-	return r, nil
+	// start a routine to dispatch publish
+	runtime.GoFunc("dispatchChange", func() error {
+		for _, v := range req.GetElems() {
+			insIds := d.instancePool.ListWatchingInstances(
+				v.GetMetadata().GetApp(), v.GetMetadata().GetEnv(), v.GetMetadata().GetKey())
+
+			log.
+				WithFields(log.Fields{
+					"insIds": insIds,
+					"app":    v.GetMetadata().GetApp(),
+					"env":    v.GetMetadata().GetEnv(),
+					"key":    v.GetMetadata().GetKey(),
+				}).
+				Debug("app.Dispatch.dispatchChange to these instance")
+
+			for _, insId := range insIds.Keys() {
+				d.instancePool.Notify(insId, v)
+			}
+		}
+
+		return nil
+	})
+
+	return _dispathResp, nil
 }

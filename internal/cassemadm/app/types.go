@@ -120,7 +120,7 @@ type publishAppEnvElementReq struct {
 	commonAppEnvEltRequest
 
 	Publish     uint32                 `json:"version" form:"version" binding:"required"`
-	InstanceIds []string               `json:"instanceId" form:"instanceId"`
+	AgentIds    []string               `json:"agentId" form:"agentId"`
 	PublishMode concept.PublishingMode `json:"publishMode" form:"publishMode,default=2" binding:"required,oneof=1 2"`
 }
 

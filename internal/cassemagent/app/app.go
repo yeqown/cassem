@@ -54,7 +54,7 @@ func New(c *conf.CassemAgentConfig) (*app, error) {
 		regSuccessC:  make(chan struct{}),
 		conf:         c,
 		aggregate:    agg,
-		cache:        domain.NewCache(1000), // TODO(@yeqown): measure the parameter of 1000
+		cache:        domain.NewCache(uint(c.ElementCacheSize)),
 		instancePool: domain.NewInstancePool(),
 	}
 

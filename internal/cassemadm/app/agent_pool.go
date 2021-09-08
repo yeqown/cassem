@@ -315,6 +315,7 @@ func (n *agentNode) delivery(batch []*concept.Element) {
 	timeoutCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
+	// TODO(@yeqown): support dispatch to specific instance
 	req := &apiagent.DispatchReq{
 		Elems: batch,
 	}
