@@ -13,3 +13,4 @@ addr    = ":2022"
         "http://127.0.0.1:3023"
     ]
     bootstrapCluster = false
+    snapCount = 300

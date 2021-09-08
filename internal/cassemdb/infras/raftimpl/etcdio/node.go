@@ -108,7 +108,7 @@ func newRaftNode(
 		waldir:      fmt.Sprintf("%s/node-%d", cfg.baseDir, cfg.id),
 		snapdir:     fmt.Sprintf("%s/node-%d-snapshots", cfg.baseDir, cfg.id),
 		getSnapshot: cfg.getSnapshot,
-		snapCount:   defaultSnapshotCount,
+		snapCount:   cfg.snapCount,
 		stopc:       make(chan struct{}),
 		httpstopc:   make(chan struct{}),
 		httpdonec:   make(chan struct{}),
