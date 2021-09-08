@@ -1,1 +1,3 @@
 ## Documentation
+
+### [Deploy in k8s](./k8s/README.md)
