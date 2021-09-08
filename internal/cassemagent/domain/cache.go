@@ -7,7 +7,7 @@ import (
 
 	"github.com/yeqown/log"
 
-	"github.com/yeqown/cassem/concept"
+	"github.com/yeqown/cassem/api/concept"
 	"github.com/yeqown/cassem/internal/cassemagent/infras/lru"
 )
 

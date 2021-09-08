@@ -6,7 +6,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/yeqown/cassem/concept"
+	"github.com/yeqown/cassem/api/concept"
 	"github.com/yeqown/cassem/internal/cassemadm/infras"
 	"github.com/yeqown/cassem/pkg/errorx"
 	"github.com/yeqown/cassem/pkg/hash"

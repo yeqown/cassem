@@ -7,7 +7,7 @@ import (
 	dmp "github.com/sergi/go-diff/diffmatchpatch"
 	"github.com/yeqown/log"
 
-	"github.com/yeqown/cassem/concept"
+	"github.com/yeqown/cassem/api/concept"
 	"github.com/yeqown/cassem/pkg/httpx"
 	"github.com/yeqown/cassem/pkg/runtime"
 )

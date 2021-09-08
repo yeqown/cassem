@@ -9,7 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
 
-	"github.com/yeqown/cassem/concept"
+	"github.com/yeqown/cassem/api/concept"
 	"github.com/yeqown/cassem/internal/cassemadm/infras"
 	"github.com/yeqown/cassem/pkg/conf"
 	"github.com/yeqown/cassem/pkg/httpx"

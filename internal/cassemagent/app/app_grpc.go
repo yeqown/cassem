@@ -6,8 +6,8 @@ import (
 
 	"github.com/yeqown/log"
 
-	"github.com/yeqown/cassem/concept"
-	apiagent "github.com/yeqown/cassem/internal/cassemagent/api"
+	"github.com/yeqown/cassem/api/agent"
+	"github.com/yeqown/cassem/api/concept"
 	"github.com/yeqown/cassem/pkg/runtime"
 )
 
@@ -17,8 +17,8 @@ import (
 //
 // DONE(@yeqown): get from cache first, if not hit send request to cassemdb component, and then refresh caches.
 //
-func (d app) GetConfig(ctx context.Context, req *apiagent.GetConfigReq) (*apiagent.GetConfigResp, error) {
-	resp := new(apiagent.GetConfigResp)
+func (d app) GetConfig(ctx context.Context, req *agent.GetConfigReq) (*agent.GetConfigResp, error) {
+	resp := new(agent.GetConfigResp)
 	if len(req.GetKeys()) == 0 {
 		return resp, nil
 	}
@@ -47,10 +47,10 @@ func (d app) GetConfig(ctx context.Context, req *apiagent.GetConfigReq) (*apiage
 }
 
 var (
-	_emptyResp = new(apiagent.EmptyResp)
+	_emptyResp = new(agent.EmptyResp)
 )
 
-func (d app) RegisterAndWait(req *apiagent.RegAndWaitReq, server apiagent.Agent_RegisterAndWaitServer) error {
+func (d app) RegisterAndWait(req *agent.RegAndWaitReq, server agent.Agent_RegisterAndWaitServer) error {
 	ctx, cancel := context.WithTimeout(server.Context(), 10*time.Second)
 	ch, err := d.register(ctx, req)
 	if err != nil {
@@ -62,7 +62,7 @@ func (d app) RegisterAndWait(req *apiagent.RegAndWaitReq, server apiagent.Agent_
 	// if connection broken, unregister the instance from app.
 	defer func() {
 		ctx2, cancel2 := context.WithTimeout(context.Background(), 10*time.Second)
-		if _, err2 := d.Unregister(ctx2, &apiagent.UnregisterReq{
+		if _, err2 := d.Unregister(ctx2, &agent.UnregisterReq{
 			ClientId: req.GetClientId(),
 			ClientIp: req.GetClientIp(),
 			App:      req.GetApp(),
@@ -84,7 +84,7 @@ wait:
 		case elem := <-ch:
 			// DONE(@yeqown): update cache item while new changes pushed to instance.
 			go d.updateCache(elem.GetMetadata().GetApp(), elem.GetMetadata().GetEnv(), elem)
-			err = server.Send(&apiagent.WaitResp{
+			err = server.Send(&agent.WaitResp{
 				Elem: elem,
 			})
 			if err != nil {
@@ -107,7 +107,7 @@ wait:
 	return nil
 }
 
-func (d app) register(ctx context.Context, req *apiagent.RegAndWaitReq) (<-chan *concept.Element, error) {
+func (d app) register(ctx context.Context, req *agent.RegAndWaitReq) (<-chan *concept.Element, error) {
 	ins := &concept.Instance{
 		ClientId:           req.GetClientId(),
 		AgentId:            d.uniqueId,
@@ -127,7 +127,7 @@ func (d app) register(ctx context.Context, req *apiagent.RegAndWaitReq) (<-chan 
 	return ch, nil
 }
 
-func (d app) Unregister(ctx context.Context, req *apiagent.UnregisterReq) (*apiagent.EmptyResp, error) {
+func (d app) Unregister(ctx context.Context, req *agent.UnregisterReq) (*agent.EmptyResp, error) {
 	insId := (&concept.Instance{ClientId: req.GetClientId(), ClientIp: req.GetClientIp()}).Id()
 	// make sure unregister instance from memory, avoid memory leaking.
 	d.instancePool.Unregister(insId)
@@ -140,7 +140,7 @@ func (d app) Unregister(ctx context.Context, req *apiagent.UnregisterReq) (*apia
 	return _emptyResp, nil
 }
 
-func (d app) Renew(ctx context.Context, req *apiagent.RenewReq) (*apiagent.EmptyResp, error) {
+func (d app) Renew(ctx context.Context, req *agent.RenewReq) (*agent.EmptyResp, error) {
 	ins := &concept.Instance{
 		ClientId:           req.GetClientId(),
 		AgentId:            d.uniqueId,
@@ -155,11 +155,11 @@ func (d app) Renew(ctx context.Context, req *apiagent.RenewReq) (*apiagent.Empty
 }
 
 var (
-	_dispathResp = new(apiagent.DispatchResp)
+	_dispathResp = new(agent.DispatchResp)
 )
 
 // Dispatch implements apiagent.Delivery service
-func (d app) Dispatch(ctx context.Context, req *apiagent.DispatchReq) (*apiagent.DispatchResp, error) {
+func (d app) Dispatch(ctx context.Context, req *agent.DispatchReq) (*agent.DispatchResp, error) {
 	// DONE(@yeqown): implement dispatch rpc call to related client instances.
 	log.
 		WithFields(log.Fields{

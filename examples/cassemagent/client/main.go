@@ -5,9 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/yeqown/cassem/concept"
-
-	"github.github.com/yeqown/cassem/client/agent"
+	"github.com/yeqown/cassem/api/agent"
+	"github.com/yeqown/cassem/api/concept"
 )
 
 func main() {
@@ -39,7 +38,7 @@ func main() {
 			panic(err)
 		}
 
-		fmt.Printf("element: %+v", elems)
+		fmt.Printf("element: %+v\n", elems)
 	}
 
 	// blocked here

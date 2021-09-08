@@ -2,14 +2,15 @@ module example
 
 go 1.17
 
-replace (
-	github.com/yeqown/cassem => ../
-	github.github.com/yeqown/cassem/client => ../client
-)
 
 require (
 	github.com/yeqown/cassem v0.2.0-rc2
-	github.github.com/yeqown/cassem/client v0.0.0-00010101000000-000000000000
+	github.com/yeqown/cassem/api v1.0.0
+)
+
+replace (
+	github.com/yeqown/cassem => ../
+	github.com/yeqown/cassem/api => ../api
 )
 
 require (

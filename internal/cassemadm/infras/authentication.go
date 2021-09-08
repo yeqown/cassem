@@ -5,7 +5,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/yeqown/log"
 
-	"github.com/yeqown/cassem/concept"
+	"github.com/yeqown/cassem/api/concept"
 	"github.com/yeqown/cassem/pkg/errorx"
 	"github.com/yeqown/cassem/pkg/httpx"
 )

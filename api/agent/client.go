@@ -9,8 +9,7 @@ import (
 	"github.com/yeqown/log"
 	"google.golang.org/grpc"
 
-	"github.com/yeqown/cassem/concept"
-	"github.com/yeqown/cassem/internal/cassemagent/api"
+	"github.com/yeqown/cassem/api/concept"
 	"github.com/yeqown/cassem/pkg/grpcx"
 )
 
@@ -44,7 +43,7 @@ func Dial(addr string) (*clientWrapper, error) {
 }
 
 type clientWrapper struct {
-	c                  api.AgentClient
+	c                  AgentClient
 	app                string
 	env                string
 	clientId, clientIp string
@@ -53,7 +52,7 @@ type clientWrapper struct {
 
 func newClient(cc *grpc.ClientConn) *clientWrapper {
 	return &clientWrapper{
-		c: api.NewAgentClient(cc),
+		c: NewAgentClient(cc),
 	}
 }
 
@@ -69,7 +68,7 @@ func (cw *clientWrapper) Wait(
 	cw.app, cw.env, cw.keys = app, env, keys
 	cw.clientId, cw.clientIp = clientId, clientIp
 
-	stream, err := cw.c.RegisterAndWait(ctx, &api.RegAndWaitReq{
+	stream, err := cw.c.RegisterAndWait(ctx, &RegAndWaitReq{
 		App:          app,
 		Env:          env,
 		WatchingKeys: keys,
@@ -80,7 +79,7 @@ func (cw *clientWrapper) Wait(
 		return errors.Wrap(err, "clientWrapper.Wait")
 	}
 
-	r := new(api.WaitResp)
+	r := new(WaitResp)
 	ctx2, cancel := context.WithCancel(stream.Context())
 	defer cancel()
 
@@ -138,7 +137,7 @@ func (cw clientWrapper) renewSelf() {
 	log.Debug("clientWrapper.renewSelf called")
 	ctx, cancel := context.WithTimeout(context.Background(), _CLIENT_REQ_TIMEOUT)
 	defer cancel()
-	_, err := cw.c.Renew(ctx, &api.RenewReq{
+	_, err := cw.c.Renew(ctx, &RenewReq{
 		ClientId:     cw.clientId,
 		ClientIp:     cw.clientIp,
 		App:          cw.app,
@@ -171,7 +170,7 @@ func (cw clientWrapper) GetConfig(
 		defer cancel()
 	}
 
-	r, err := cw.c.GetConfig(ctx, &api.GetConfigReq{
+	r, err := cw.c.GetConfig(ctx, &GetConfigReq{
 		App:  app,
 		Env:  env,
 		Keys: keys,

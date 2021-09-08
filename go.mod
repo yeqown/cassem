@@ -3,7 +3,6 @@ module github.com/yeqown/cassem
 go 1.17
 
 require (
-	github.com/casbin/casbin/v2 v2.36.1
 	github.com/envoyproxy/protoc-gen-validate v0.6.1
 	github.com/gin-contrib/cors v1.3.1
 	github.com/gin-contrib/pprof v1.3.0
@@ -14,7 +13,8 @@ require (
 	github.com/sergi/go-diff v1.2.0
 	github.com/stretchr/testify v1.7.0
 	github.com/urfave/cli/v2 v2.3.0
-	github.com/yeqown/log v1.1.0
+	github.com/yeqown/cassem/api v1.0.0
+	github.com/yeqown/log v1.1.1
 	go.etcd.io/bbolt v1.3.6
 	go.etcd.io/etcd/client/pkg/v3 v3.5.0
 	go.etcd.io/etcd/raft/v3 v3.5.0
@@ -22,13 +22,14 @@ require (
 	go.uber.org/zap v1.19.0
 	golang.org/x/crypto v0.0.0-20201002170205-7f63de1d35b0
 	golang.org/x/net v0.0.0-20210405180319-a5a99cb37ef4
-	google.golang.org/grpc v1.38.0
+	google.golang.org/grpc v1.40.0
 	google.golang.org/protobuf v1.27.1
 )
 
 require (
 	github.com/Knetic/govaluate v3.0.1-0.20171022003610-9aa49832a739+incompatible // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
+	github.com/casbin/casbin/v2 v2.36.1 // indirect
 	github.com/cespare/xxhash/v2 v2.1.1 // indirect
 	github.com/coreos/go-semver v0.3.0 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.0 // indirect
@@ -66,3 +67,5 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect
 )
+
+replace github.com/yeqown/cassem/api v1.0.0 => ./api

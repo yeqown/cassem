@@ -14,8 +14,8 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 
-	"github.com/yeqown/cassem/concept"
-	apiagent "github.com/yeqown/cassem/internal/cassemagent/api"
+	"github.com/yeqown/cassem/api/agent"
+	"github.com/yeqown/cassem/api/concept"
 	"github.com/yeqown/cassem/internal/cassemagent/domain"
 	"github.com/yeqown/cassem/pkg/conf"
 	"github.com/yeqown/cassem/pkg/grpcx"
@@ -102,8 +102,8 @@ func (d app) serve() error {
 	)
 
 	// register service and rpcs
-	apiagent.RegisterAgentServer(s, d)
-	apiagent.RegisterDeliveryServer(s, d)
+	agent.RegisterAgentServer(s, d)
+	agent.RegisterDeliveryServer(s, d)
 	reflection.Register(s)
 
 	gate := httpx.NewGateway(d.conf.Server.Addr, nil, s)

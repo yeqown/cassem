@@ -14,8 +14,8 @@ import (
 	"github.com/pkg/errors"
 	"github.com/yeqown/log"
 
-	"github.com/yeqown/cassem/concept"
-	apiagent "github.com/yeqown/cassem/internal/cassemagent/api"
+	"github.com/yeqown/cassem/api/agent"
+	"github.com/yeqown/cassem/api/concept"
 	"github.com/yeqown/cassem/pkg/runtime"
 	"github.com/yeqown/cassem/pkg/set"
 )
@@ -206,7 +206,7 @@ type agentNode struct {
 	*concept.AgentInstance
 
 	ch chan *concept.Element
-	c  apiagent.DeliveryClient
+	c  agent.DeliveryClient
 }
 
 // _SIZE_AGENT_NODE_BUF buf size of agent node notify channel, it indicates the maximum
@@ -316,7 +316,7 @@ func (n *agentNode) delivery(batch []*concept.Element) {
 	defer cancel()
 
 	// TODO(@yeqown): support dispatch to specific instance
-	req := &apiagent.DispatchReq{
+	req := &agent.DispatchReq{
 		Elems: batch,
 	}
 	_, err := n.getClient().Dispatch(timeoutCtx, req)
@@ -333,7 +333,7 @@ func (n *agentNode) delivery(batch []*concept.Element) {
 }
 
 // FIXED(@yeqown): shouldn't retry forever: maxRetryCount = 3
-func (n *agentNode) getClient() apiagent.DeliveryClient {
+func (n *agentNode) getClient() agent.DeliveryClient {
 	if n.c != nil {
 		return n.c
 	}
@@ -343,7 +343,7 @@ func (n *agentNode) getClient() apiagent.DeliveryClient {
 		retryCnt int
 	)
 retry:
-	n.c, err = apiagent.DialDelivery(n.Addr)
+	n.c, err = agent.DialDelivery(n.Addr)
 	if err != nil {
 		log.
 			WithFields(log.Fields{

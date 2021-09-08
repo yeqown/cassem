@@ -3,7 +3,7 @@ package app
 import (
 	"github.com/yeqown/log"
 
-	"github.com/yeqown/cassem/concept"
+	"github.com/yeqown/cassem/api/concept"
 )
 
 // queryCacheResult result of queryFromCache call, it indicates how many elements

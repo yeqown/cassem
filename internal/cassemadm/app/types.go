@@ -1,7 +1,7 @@
 package app
 
 import (
-	"github.com/yeqown/cassem/concept"
+	"github.com/yeqown/cassem/api/concept"
 )
 
 type commonAppEnvRequest struct {
