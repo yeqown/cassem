@@ -22,6 +22,7 @@ import (
 	"go.uber.org/zap"
 
 	apicassemdb "github.com/yeqown/cassem/internal/cassemdb/api"
+	"github.com/yeqown/cassem/pkg/runtime"
 )
 
 type commit struct {
@@ -330,8 +331,8 @@ func (rc *raftNode) startRaft() {
 
 	log.Debug("raftNode.startRaft setup done, starting raft")
 
-	go rc.serveRaft()
-	go rc.serveChannels()
+	runtime.GoFunc("serveRaft", func() error { rc.serveRaft(); return nil })
+	runtime.GoFunc("serveChannels", func() error { rc.serveChannels(); return nil })
 }
 
 // stop closes http, closes all channels, and stops raft.
