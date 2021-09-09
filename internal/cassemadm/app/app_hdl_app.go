@@ -16,7 +16,7 @@ func (d app) GetApps(c *gin.Context) {
 		return
 	}
 
-	out, err := d.aggregate.GetApps(c.Request.Context(), "", 10)
+	out, err := d.aggregate.GetApps(c.Request.Context(), req.Seek, req.Limit)
 	if err != nil {
 		httpx.ResponseError(c, err)
 		return

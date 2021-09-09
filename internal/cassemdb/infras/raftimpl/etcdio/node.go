@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"os"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/yeqown/log"
@@ -65,6 +66,8 @@ type raftNode struct {
 	httpdonec chan struct{} // signals http server shutdown complete
 
 	logger *zap.Logger
+
+	proposalOnce sync.Once
 }
 
 var defaultSnapshotCount uint64 = 10000
@@ -116,6 +119,7 @@ func newRaftNode(
 
 		snapshotterReady: make(chan *snap.Snapshotter, 1),
 		// rest of structure populated after WAL replay
+		proposalOnce: sync.Once{},
 	}
 	go rc.startRaft()
 	return commitC, errorC, rc.snapshotterReady
@@ -390,7 +394,8 @@ func (rc *raftNode) maybeTriggerSnapshot(applyDoneC <-chan struct{}) {
 	}
 	snapshot, err := rc.raftStorage.CreateSnapshot(rc.appliedIndex, &rc.confState, data)
 	if err != nil {
-		panic(err)
+		// panic(err)
+		log.Error(err)
 	}
 	if err := rc.saveSnap(snapshot); err != nil {
 		panic(err)
@@ -401,7 +406,8 @@ func (rc *raftNode) maybeTriggerSnapshot(applyDoneC <-chan struct{}) {
 		compactIndex = rc.appliedIndex - snapshotCatchUpEntriesN
 	}
 	if err := rc.raftStorage.Compact(compactIndex); err != nil {
-		panic(err)
+		//panic(err)
+		log.Error(err)
 	}
 
 	log.Infof("compacted log at index %d", compactIndex)
@@ -422,37 +428,41 @@ func (rc *raftNode) serveChannels() {
 	ticker := time.NewTicker(100 * time.Millisecond)
 	defer ticker.Stop()
 
-	// send proposals over raft
-	go func() {
-		confChangeCount := uint64(0)
+	rc.proposalOnce.Do(func() {
+		// send proposals over raft
+		runtime.GoFunc("sendProposals", func() error {
+			confChangeCount := uint64(0)
 
-		for rc.proposeC != nil && rc.confChangeC != nil {
-			select {
-			case prop, ok := <-rc.proposeC:
-				log.
-					WithFields(log.Fields{"ok": ok, "prop": prop}).
-					Debug("raftNode.serveChannels proposeC called")
-				if !ok {
-					rc.proposeC = nil
-				} else {
-					// blocks until accepted by raft state machine
-					// DONE(@yeqown): return error to request (synchronized?)
-					prop.ErrC <- rc.node.Propose(context.TODO(), apicassemdb.Must(apicassemdb.Marshal(prop.Entry)))
-				}
+			for rc.proposeC != nil && rc.confChangeC != nil {
+				select {
+				case prop, ok := <-rc.proposeC:
+					log.
+						WithFields(log.Fields{"ok": ok, "prop": prop}).
+						Debug("raftNode.serveChannels proposeC called")
+					if !ok {
+						rc.proposeC = nil
+					} else {
+						// blocks until accepted by raft state machine
+						// DONE(@yeqown): return error to request (synchronized?)
+						prop.ErrC <- rc.node.Propose(context.TODO(), apicassemdb.Must(apicassemdb.Marshal(prop.Entry)))
+					}
 
-			case cc, ok := <-rc.confChangeC:
-				if !ok {
-					rc.confChangeC = nil
-				} else {
-					confChangeCount++
-					cc.ID = confChangeCount
-					_ = rc.node.ProposeConfChange(context.TODO(), cc)
+				case cc, ok := <-rc.confChangeC:
+					if !ok {
+						rc.confChangeC = nil
+					} else {
+						confChangeCount++
+						cc.ID = confChangeCount
+						_ = rc.node.ProposeConfChange(context.TODO(), cc)
+					}
 				}
 			}
-		}
-		// client closed channel; shutdown raft if not already
-		close(rc.stopc)
-	}()
+			// client closed channel; shutdown raft if not already
+			close(rc.stopc)
+
+			return nil
+		})
+	})
 
 	// event loop on raft state machine updates
 	for {
