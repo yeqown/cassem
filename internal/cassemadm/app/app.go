@@ -129,14 +129,17 @@ func (d app) initialHTTP(engi *gin.Engine) {
 		}
 	}
 
-	agentIns := auth.Group("/agents")
+	cluster := auth.Group("/cluster")
 	{
-		agentIns.GET("", d.GetAgents)
-	}
+		agentIns := cluster.Group("/agents")
+		{
+			agentIns.GET("", d.GetAgents)
+		}
 
-	instances := auth.Group("/instances")
-	{
-		instances.GET("/:insId", d.GetInstance)
-		instances.GET("", d.GetElementInstance)
+		instances := cluster.Group("/instances")
+		{
+			instances.GET("/:insId", d.GetInstance)
+			instances.GET("", d.GetElementInstance)
+		}
 	}
 }
