@@ -40,7 +40,6 @@ func (_r kvReadOnly) GetElementWithVersion(
 		return nil, err
 	}
 
-	md.Key = key
 	if version <= 0 {
 		version = int(md.UsingVersion)
 	}

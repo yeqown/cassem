@@ -43,7 +43,7 @@ func (_h kvWriteOnly) CreateElement(ctx context.Context,
 		UnpublishedVersion: version,
 		UsingVersion:       0,
 		UsingFingerprint:   "", // hash.MD5(raw)
-		Key:                mdKey,
+		Key:                key,
 		ContentType:        contentTyp,
 		App:                app,
 		Env:                env,

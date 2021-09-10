@@ -57,15 +57,24 @@ func (p *agentPool) run() {
 			return p.agg.Watch(context.Background(), ch)
 		})
 		runtime.GoFunc("updateAgentInstance", p.updateAgentInstanceFromCh(ch))
+		runtime.GoFunc("updateAgentNodesManually.cron", func() error {
+			ticker := time.NewTicker(45 * time.Second)
+			for {
+				// update all ap firstly while cassem adm starting,
+				// in case of which adm recover from panic or exception shutdown.
+				if err := p.updateAgentNodesManually(); err != nil {
+					log.
+						WithFields(log.Fields{"error": err}).
+						Warn("agentPool.run failed to updateAgentNodesManually")
+				}
+				select {
+				case <-ticker.C:
+					break
+				}
+			}
+			// panic("impossible")
+		})
 	})
-
-	// update all ap firstly while cassem adm starting,
-	// in case of which adm recover from panic or exception shutdown.
-	if err := p.updateAgentNodesManually(); err != nil {
-		log.
-			WithFields(log.Fields{"error": err}).
-			Warn("agentPool.run failed to updateAgentNodesManually")
-	}
 }
 
 func (p *agentPool) all() []*concept.AgentInstance {
@@ -138,7 +147,6 @@ func (p *agentPool) updateAgentInstanceFromCh(ch <-chan *concept.AgentInstanceCh
 					// new node
 					node = newAgentNode(change.GetIns())
 					p.nodes[agentId] = node
-					node.run()
 				} else {
 					// node update
 					node.updateAddr(agentAddr)
@@ -160,6 +168,11 @@ func (p *agentPool) updateAgentInstanceFromCh(ch <-chan *concept.AgentInstanceCh
 
 // notifyAll dispatch element to all ap.
 func (p *agentPool) notifyAll(elem *concept.Element) error {
+	log.
+		WithFields(log.Fields{
+			"keys": p.allAgentIds.Keys(),
+		}).
+		Debug("cassemadm.app.agent.notifyAll called")
 	return p.notifyAgent(elem, p.allAgentIds.Keys()...)
 }
 
@@ -181,12 +194,16 @@ func (p *agentPool) notifyAgent(elem *concept.Element, agentIds ...string) error
 	for _, agentId := range agentIds {
 		node, ok := p.nodes[agentId]
 		if !ok {
+			log.
+				WithFields(log.Fields{"agentId": agentId}).
+				Warn("cassemadm.app.agentPool failed to find agentNode")
 			continue
 		}
 
 		// nonblocking post to channel.
 		select {
 		case node.postbox() <- elem:
+			//log.Debug("send to postbox done")
 		default:
 			log.
 				WithFields(log.Fields{
@@ -226,11 +243,15 @@ func newAgentNode(ins *concept.AgentInstance) *agentNode {
 	}
 	_ = u
 
-	return &agentNode{
+	n := &agentNode{
 		AgentInstance: ins,
 		ch:            make(chan *concept.Element, _SIZE_AGENT_NODE_BUF),
 		c:             nil,
 	}
+
+	n.run()
+
+	return n
 }
 
 func (n *agentNode) postbox() chan<- *concept.Element {

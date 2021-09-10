@@ -50,7 +50,7 @@ var (
 	_emptyResp = new(agent.EmptyResp)
 )
 
-func (d app) RegisterOrRenew(ctx context.Context, req *agent.RegisterReq) (*agent.EmptyResp, error) {
+func (d app) Register(ctx context.Context, req *agent.RegisterReq) (*agent.EmptyResp, error) {
 	ins := &concept.Instance{
 		ClientId:           req.GetClientId(),
 		AgentId:            d.uniqueId,
@@ -60,6 +60,22 @@ func (d app) RegisterOrRenew(ctx context.Context, req *agent.RegisterReq) (*agen
 	}
 
 	if err := d.aggregate.RegisterInstance(ctx, ins); err != nil {
+		return nil, err
+	}
+
+	return _emptyResp, nil
+}
+
+func (d app) Renew(ctx context.Context, req *agent.RegisterReq) (*agent.EmptyResp, error) {
+	ins := &concept.Instance{
+		ClientId:           req.GetClientId(),
+		AgentId:            d.uniqueId,
+		ClientIp:           req.GetClientIp(),
+		Watching:           req.GetWatching(),
+		LastRenewTimestamp: time.Now().Unix(),
+	}
+
+	if err := d.aggregate.RenewInstance(ctx, ins); err != nil {
 		return nil, err
 	}
 
@@ -95,7 +111,7 @@ func (d app) Watch(req *agent.WatchReq, server agent.Agent_WatchServer) error {
 					"error": err,
 					"req":   req,
 				}).
-				Error("app.RegisterAndWait failed to unregister")
+				Error("app.Watch failed to unregister")
 		}
 		cancel()
 	}()
@@ -112,6 +128,10 @@ func (d app) Watch(req *agent.WatchReq, server agent.Agent_WatchServer) error {
 		ch = d.instancePool.Register(insId, w.GetApp(), w.GetEnv(), w.GetWatchKeys())
 	}
 
+	log.
+		WithFields(log.Fields{"req": req}).
+		Debug("app.Watch called")
+
 wait:
 	for {
 		select {
@@ -121,7 +141,7 @@ wait:
 			if err := server.Send(&agent.WatchResp{Elem: elem}); err != nil {
 				log.
 					WithFields(log.Fields{"element": elem, "err": err}).
-					Error("app.RegisterAndWait could not send")
+					Error("app.Watch could not send")
 			}
 		// maybe need to judge the error in case of client disconnected.
 		case <-server.Context().Done():
@@ -150,7 +170,7 @@ func (d app) Dispatch(ctx context.Context, req *agent.DispatchReq) (*agent.Dispa
 			"elems": req.GetElems(),
 			"count": len(req.GetElems()),
 		}).
-		Info("dispatch request")
+		Info("cassemagent.app.Dispatch called")
 
 	// start a routine to dispatch publish
 	runtime.GoFunc("dispatchChange", func() error {

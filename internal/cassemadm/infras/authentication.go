@@ -78,10 +78,10 @@ var defMapping = map[string]objectDef{
 	"PUT/api/apps/:appId/envs/:env/elements/:key":    {object: concept.Object_ELEMENT, act: concept.Action_WRITE},
 	"DELETE/api/apps/:appId/envs/:env/elements/:key": {object: concept.Object_ELEMENT, act: concept.Action_DELETE},
 
-	"GET/api/apps/:appId/envs/:env/elements/:key/versions": {object: concept.Object_ELEMENT, act: concept.Action_READ},
-	"GET/api/apps/:appId/envs/:env/elements/:key/diff":     {object: concept.Object_ELEMENT, act: concept.Action_READ},
-	"GET/api/apps/:appId/envs/:env/elements/:key/rollback": {object: concept.Object_ELEMENT, act: concept.Action_PUBLISH},
-	"GET/api/apps/:appId/envs/:env/elements/:key/publish":  {object: concept.Object_ELEMENT, act: concept.Action_PUBLISH},
+	"GET/api/apps/:appId/envs/:env/elements/:key/versions":  {object: concept.Object_ELEMENT, act: concept.Action_READ},
+	"GET/api/apps/:appId/envs/:env/elements/:key/diff":      {object: concept.Object_ELEMENT, act: concept.Action_READ},
+	"POST/api/apps/:appId/envs/:env/elements/:key/rollback": {object: concept.Object_ELEMENT, act: concept.Action_PUBLISH},
+	"POST/api/apps/:appId/envs/:env/elements/:key/publish":  {object: concept.Object_ELEMENT, act: concept.Action_PUBLISH},
 
 	// acl
 	"POST/api/account/add":       {object: concept.Object_USER, act: concept.Action_WRITE},
@@ -91,7 +91,8 @@ var defMapping = map[string]objectDef{
 	"GET/api/account/acl/revoke": {object: concept.Object_ACL, act: concept.Action_WRITE},
 
 	// cluster
-	"GET/api/agents":           {object: concept.Object_CLUSTER, act: concept.Action_READ},
-	"GET/api/instances":        {object: concept.Object_CLUSTER, act: concept.Action_READ},
-	"GET/api/instances/:insId": {object: concept.Object_CLUSTER, act: concept.Action_READ},
+	"GET/api/cluster/agents":                  {object: concept.Object_CLUSTER, act: concept.Action_READ},
+	"GET/api/cluster/instances":               {object: concept.Object_CLUSTER, act: concept.Action_READ},
+	"GET/api/cluster/instances/filter":        {object: concept.Object_CLUSTER, act: concept.Action_READ},
+	"GET/api/cluster/instances/detail/:insId": {object: concept.Object_CLUSTER, act: concept.Action_READ},
 }

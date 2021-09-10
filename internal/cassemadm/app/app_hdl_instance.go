@@ -22,14 +22,30 @@ func (d app) GetInstance(c *gin.Context) {
 	httpx.ResponseJSON(c, out)
 }
 
-func (d app) GetElementInstance(c *gin.Context) {
-	req := new(getEleInstancesReq)
+func (d app) GetInstances(c *gin.Context) {
+	req := new(getInstancesReq)
 	if err := c.ShouldBind(req); err != nil {
 		httpx.ResponseError(c, err)
 		return
 	}
 
-	out, err := d.aggregate.GetElementInstances(c.Request.Context(), req.AppId, req.Env, req.ElementKey)
+	out, err := d.aggregate.GetInstances(c.Request.Context(), req.Seek, req.Limit)
+	if err != nil {
+		httpx.ResponseError(c, err)
+		return
+	}
+
+	httpx.ResponseJSON(c, out)
+}
+
+func (d app) GetInstancesByElement(c *gin.Context) {
+	req := new(getInstancesByElementReq)
+	if err := c.ShouldBind(req); err != nil {
+		httpx.ResponseError(c, err)
+		return
+	}
+
+	out, err := d.aggregate.GetInstancesByElement(c.Request.Context(), req.AppId, req.Env, req.ElementKey)
 	if err != nil {
 		httpx.ResponseError(c, err)
 		return

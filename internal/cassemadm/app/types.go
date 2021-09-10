@@ -106,7 +106,11 @@ type getInstanceReq struct {
 	InsId string `uri:"insId" binding:"required"`
 }
 
-type getEleInstancesReq struct {
+type getInstancesReq struct {
+	commonPagingRequest
+}
+
+type getInstancesByElementReq struct {
 	commonAppEnvEltRequest
 }
 

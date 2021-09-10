@@ -72,7 +72,7 @@ func convertFromEntitiesToMetadata(
 		if err := UnmarshalProto(entity.GetVal(), md); err != nil {
 			continue
 		}
-		md.Key = extractPureKey(k)
+		// md.Key = extractPureKey(k)
 		arr = append(arr, md)
 		mdMapping[k] = md
 		// If current metadata has no using version, so there is no available version

@@ -67,7 +67,12 @@ func New(agentAddress string, opts ...clientOption) (*agentInstanceClient, error
 		panic(err)
 	}
 
-	return newClient(cc, dst), nil
+	c := newClient(cc, dst)
+	if c == nil {
+		return nil, errors.New("create client failed: retrieving stdout to figure out")
+	}
+
+	return c, nil
 }
 
 // dial build a AgentClient to communicate with cassem agent server, it failed
@@ -171,11 +176,12 @@ func (c *agentInstanceClient) Watch(
 		return errors.Wrap(err, "agentInstanceClient.Watch")
 	}
 
-	// DONE(@yeqown): refresh the watching list while current watch goroutine quit.
 	c.watching[app+env] = w
 
 	// start a routine to watch
 	runtime.GoFunc("watching", func() error {
+		// FIXME(@yeqown): If agent server could not be reached, watch goroutine would shutdown.
+		// DONE(@yeqown): refresh the watching list while current watch goroutine quit.
 		defer delete(c.watching, app+env)
 
 		r := new(WatchResp)

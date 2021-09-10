@@ -138,8 +138,9 @@ func (d app) initialHTTP(engi *gin.Engine) {
 
 		instances := cluster.Group("/instances")
 		{
-			instances.GET("/:insId", d.GetInstance)
-			instances.GET("", d.GetElementInstance)
+			instances.GET("", d.GetInstances)
+			instances.GET("/detail/:insId", d.GetInstance)
+			instances.GET("/filter", d.GetInstancesByElement)
 		}
 	}
 }

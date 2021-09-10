@@ -138,24 +138,23 @@ func (p *instancePool) register(insId string, keys []string) <-chan *concept.Ele
 	p.rwMutex.Lock()
 	defer p.rwMutex.Unlock()
 
-	v, ok := p.instances[insId]
-	if ok {
-		return v.ch
+	// make sure instanceNode has been registered
+	_, ok := p.instances[insId]
+	if !ok {
+		ch := make(chan *concept.Element, _SIZE_BUF_ELEM)
+		p.instances[insId] = newInstanceNode(insId, ch, keys)
 	}
-
-	ch := make(chan *concept.Element, _SIZE_BUF_ELEM)
-	p.instances[insId] = newInstanceNode(insId, ch, keys)
 
 	// add instance to watching keys.
 	for _, key := range keys {
-		s, ok := p.watchingSet[key]
+		_, ok := p.watchingSet[key]
 		if !ok {
-			s = set.NewStringSet(4)
+			p.watchingSet[key] = set.NewStringSet(4)
 		}
-		s.Add(insId)
+		p.watchingSet[key].Add(insId)
 	}
 
-	return ch
+	return p.instances[insId].ch
 }
 
 func (p *instancePool) unregister(insId string) {
