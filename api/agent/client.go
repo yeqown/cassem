@@ -27,7 +27,7 @@ const (
 type agentInstanceClient struct {
 	agentClient AgentClient
 	opt         *options
-	watching    []*concept.Instance_Watching
+	watching    map[string]*concept.Instance_Watching
 	quit        chan struct{}
 	ctx         context.Context
 	cancel      context.CancelFunc
@@ -37,8 +37,6 @@ type clientOption func(o *options)
 type options struct {
 	clientId string
 	clientIp string
-
-	watchingKeys []string
 }
 
 func WithClientId(clientId string) clientOption {
@@ -95,10 +93,30 @@ func newClient(cc *grpc.ClientConn, opt *options) *agentInstanceClient {
 	ctx, cancel := context.WithCancel(context.Background())
 	c := &agentInstanceClient{
 		agentClient: NewAgentClient(cc),
+		watching:    make(map[string]*concept.Instance_Watching, 4),
 		opt:         opt,
 		quit:        make(chan struct{}, 1),
 		ctx:         ctx,
 		cancel:      cancel,
+	}
+
+	// register
+	ctx2, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
+	defer cancel()
+	_, err := c.agentClient.Register(ctx2, &RegisterReq{
+		ClientId: c.opt.clientId,
+		ClientIp: c.opt.clientIp,
+		Watching: nil,
+	})
+	if err != nil {
+		log.
+			WithFields(log.Fields{
+				"clientIp": c.opt.clientIp,
+				"clientId": c.opt.clientId,
+				"error":    err,
+			}).
+			Error("newClient failed to register client instance")
+		return nil
 	}
 
 	// start a renew self goroutine.
@@ -138,23 +156,28 @@ func (c *agentInstanceClient) Watch(
 		return nil
 	}
 
+	w := &concept.Instance_Watching{
+		App:       app,
+		Env:       env,
+		WatchKeys: keys,
+	}
+
 	stream, err := c.agentClient.Watch(ctx, &WatchReq{
 		ClientId: c.opt.clientId,
 		ClientIp: c.opt.clientIp,
-		Watching: []*concept.Instance_Watching{
-			{
-				App:       app,
-				Env:       env,
-				WatchKeys: keys,
-			},
-		},
+		Watching: []*concept.Instance_Watching{w},
 	})
 	if err != nil {
 		return errors.Wrap(err, "agentInstanceClient.Watch")
 	}
 
+	// DONE(@yeqown): refresh the watching list while current watch goroutine quit.
+	c.watching[app+env] = w
+
 	// start a routine to watch
 	runtime.GoFunc("watching", func() error {
+		defer delete(c.watching, app+env)
+
 		r := new(WatchResp)
 	waitLoop:
 		for {
@@ -197,13 +220,25 @@ func (c *agentInstanceClient) Watch(
 }
 
 func (c agentInstanceClient) renewSelf() {
-	log.Debug("agentInstanceClient.renewSelf called")
+	watchings := make([]*concept.Instance_Watching, 0, 4)
+	for k := range c.watching {
+		watchings = append(watchings, c.watching[k])
+	}
+
+	log.
+		WithFields(log.Fields{
+			"watchings": watchings,
+			"clientId":  c.opt.clientId,
+			"clientIp":  c.opt.clientIp,
+		}).
+		Debug("agentInstanceClient.renewSelf called")
 	ctx, cancel := context.WithTimeout(context.Background(), _CLIENT_REQ_TIMEOUT)
 	defer cancel()
-	_, err := c.agentClient.RegisterOrRenew(ctx, &RegisterReq{
+
+	_, err := c.agentClient.Renew(ctx, &RegisterReq{
 		ClientId: c.opt.clientId,
 		ClientIp: c.opt.clientIp,
-		Watching: c.watching,
+		Watching: watchings,
 	})
 
 	if err != nil {
@@ -212,6 +247,7 @@ func (c agentInstanceClient) renewSelf() {
 				"clientId": c.opt.clientId,
 				"clientIp": c.opt.clientIp,
 				"watching": c.watching,
+				"error":    err,
 			}).
 			Error("agentInstanceClient.renewSelf failed")
 	}

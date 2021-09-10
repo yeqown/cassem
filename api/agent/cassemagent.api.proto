@@ -50,7 +50,8 @@ message watchResp {
 service agent {
   rpc GetElement(getElementReq) returns (getElementResp){};
   rpc Unregister(unregisterReq) returns (emptyResp){};
-  rpc RegisterOrRenew(registerReq) returns (emptyResp) {};
+  rpc Register(registerReq) returns (emptyResp) {};
+  rpc Renew(registerReq) returns (emptyResp) {};
   rpc Watch(watchReq) returns (stream watchResp) {};
 }
 

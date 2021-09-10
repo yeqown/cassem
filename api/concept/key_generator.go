@@ -23,33 +23,36 @@ const (
 	_METADATA_SUFFIX = "/metadata"
 )
 
+func joint(keys ...string) string {
+	return strings.Join(keys, _SEP)
+}
+
 // genElementKey generate element's key in storage, if any parameter is empty
 // will touch off a panic.
 func genElementKey(app, env, key string) string {
 	if app == "" || env == "" || key == "" {
 		panic("empty string could not be accepted")
 	}
-
-	return strings.Join([]string{_ELT_PREFIX, app, env, key}, _SEP)
+	return joint(_ELT_PREFIX, app, env, key)
 }
 
 func genAppKey(app string) string {
-	return strings.Join([]string{_APP_PREFIX, app}, _SEP)
+	return joint(_APP_PREFIX, app)
 }
 
 func genAppElementKey(app string) string {
-	return strings.Join([]string{_ELT_PREFIX, app}, _SEP)
+	return joint(_ELT_PREFIX, app)
 }
 
 func genAppElementEnvKey(app, env string) string {
-	return strings.Join([]string{_ELT_PREFIX, app, env}, _SEP)
+	return joint(_ELT_PREFIX, app, env)
 }
 
 func withVersion(key string, version int) string {
 	if version < 1 {
 		panic("invalid version: " + strconv.Itoa(version))
 	}
-	return key + "/" + _VERSION_PREFIX + strconv.Itoa(version)
+	return joint(key, _VERSION_PREFIX+strconv.Itoa(version))
 }
 
 func withMetadataSuffix(key string) string {
@@ -84,21 +87,25 @@ func trimMetadata(key string) string {
 }
 
 func genInstanceNormalKey(insId string) string {
-	return strings.Join([]string{_INS_PREFIX, "normalized", insId}, _SEP)
+	return joint(_INS_PREFIX, "normalized", insId)
+}
+
+func genInstanceNormalDirKey() string {
+	return joint(_INS_PREFIX, "normalized")
 }
 
 func genInstanceReversedKey(app, env, key string) string {
 	k := app + "-" + env + "-" + key
-	return strings.Join([]string{_INS_PREFIX, "reversed", k}, _SEP)
+	return joint(_INS_PREFIX, "reversed", k)
 }
 
-func genInstanceReversedKeyWithInsid(app, env, key string, insId string) string {
+func genInstanceReversedKeyWithInsId(app, env, key string, insId string) string {
 	k := app + "-" + env + "-" + key
-	return strings.Join([]string{_INS_PREFIX, "reversed", k, insId}, _SEP)
+	return joint(_INS_PREFIX, "reversed", k, insId)
 }
 
 func withAgentPrefix(agentId string) string {
-	return strings.Join([]string{_AGENT_PREFIX, agentId}, _SEP)
+	return joint(_AGENT_PREFIX, agentId)
 }
 
 func genAclPolicyKey() string {
@@ -110,5 +117,5 @@ func genUserKey(account string) string {
 		return ""
 	}
 
-	return strings.Join([]string{_ACL_USER_PREFIX, account}, _SEP)
+	return joint(_ACL_USER_PREFIX, account)
 }

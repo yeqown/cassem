@@ -31,24 +31,89 @@ type instanceHybrid struct {
 //	}, nil
 //}
 
-func (i instanceHybrid) GetElementInstances(ctx context.Context, app, env, key string) ([]*Instance, error) {
+func (i instanceHybrid) GetInstances(
+	ctx context.Context, seek string, limit int) (*getInstancesResult, error) {
+	k := genInstanceNormalDirKey()
+	log.
+		WithFields(log.Fields{
+			"seek":  seek,
+			"limit": limit,
+			"k":     k,
+		}).
+		Debug("instanceHybrid.GetInstances")
+
+	r, err := i.cassemdb.Range(ctx, &apicassemdb.RangeReq{
+		Key:   k,
+		Seek:  seek,
+		Limit: int32(limit),
+	})
+	if err != nil {
+		return nil, errors.Wrap(err, "instanceHybrid.GetInstances")
+	}
+
+	// insIds := make([]string, 0, len(r.GetEntities()))
+	result := &getInstancesResult{
+		commonPager: commonPager{
+			HasMore:  r.GetHasMore(),
+			NextSeek: r.GetNextSeekKey(),
+		},
+		Instances: make([]*Instance, 0, len(r.GetEntities())),
+	}
+	for _, v := range r.GetEntities() {
+		// insId := genInstanceNormalKey(runtime.ToString(v.GetVal()))
+		// insIds = append(insIds, insId)
+		ins := new(Instance)
+		_ = UnmarshalProto(v.GetVal(), ins)
+		result.Instances = append(result.Instances, ins)
+	}
+
+	//// get all instance detail information.
+	//r2, err2 := i.cassemdb.GetKVs(ctx, &apicassemdb.GetKVsReq{
+	//	Keys: insIds,
+	//})
+	//if err2 != nil {
+	//	return nil, errors.Wrap(err, "instanceHybrid.GetInstances")
+	//}
+	//
+	//for _, v := range r2.GetEntities() {
+	//	ins := new(Instance)
+	//	_ = UnmarshalProto(v.GetVal(), ins)
+	//	instances = append(instances, ins)
+	//}
+
+	return result, nil
+}
+
+func (i instanceHybrid) GetInstancesByElement(
+	ctx context.Context, app, env, key string) (*getInstancesResult, error) {
 	k := genInstanceReversedKey(app, env, key)
 	log.
 		WithFields(log.Fields{
-			"app":         app,
-			"env":         env,
-			"key":         key,
-			"reversedKey": k,
+			"app": app,
+			"env": env,
+			"key": key,
+			"k":   k,
 		}).
-		Debug("instanceHybrid.GetElementInstances")
+		Debug("instanceHybrid.GetInstances")
 
 	r, err := i.cassemdb.Range(ctx, &apicassemdb.RangeReq{
 		Key:   k,
 		Seek:  "",
-		Limit: 100, // TODO(@yeqown): allow limit variable
+		Limit: 100,
 	})
 	if err != nil {
-		return nil, errors.Wrap(err, "instanceHybrid.GetElementInstances")
+		return nil, errors.Wrap(err, "instanceHybrid.GetInstances")
+	}
+
+	result := &getInstancesResult{
+		commonPager: commonPager{
+			HasMore:  r.GetHasMore(),
+			NextSeek: r.GetNextSeekKey(),
+		},
+		Instances: make([]*Instance, 0, len(r.GetEntities())),
+	}
+	if len(r.GetEntities()) == 0 {
+		return result, nil
 	}
 
 	insIds := make([]string, 0, len(r.GetEntities()))
@@ -56,22 +121,21 @@ func (i instanceHybrid) GetElementInstances(ctx context.Context, app, env, key s
 		insId := genInstanceNormalKey(runtime.ToString(v.GetVal()))
 		insIds = append(insIds, insId)
 	}
-
 	// get all instance detail information.
 	r2, err2 := i.cassemdb.GetKVs(ctx, &apicassemdb.GetKVsReq{
 		Keys: insIds,
 	})
 	if err2 != nil {
-		return nil, errors.Wrap(err, "instanceHybrid.GetElementInstances")
+		return nil, errors.Wrap(err, "instanceHybrid.GetInstances")
 	}
-	instances := make([]*Instance, 0, len(r2.GetEntities()))
+
 	for _, v := range r2.GetEntities() {
 		ins := new(Instance)
 		_ = UnmarshalProto(v.GetVal(), ins)
-		instances = append(instances, ins)
+		result.Instances = append(result.Instances, ins)
 	}
 
-	return instances, nil
+	return result, nil
 }
 
 func (i instanceHybrid) GetInstance(ctx context.Context, insId string) (*Instance, error) {
@@ -145,7 +209,7 @@ func (i instanceHybrid) setInstanceInfo(ctx context.Context, ins *Instance) (err
 	// save reversed kv
 	for _, w := range ins.GetWatching() {
 		for _, key := range w.GetWatchKeys() {
-			k2 := genInstanceReversedKeyWithInsid(w.GetApp(), w.GetEnv(), key, insId)
+			k2 := genInstanceReversedKeyWithInsId(w.GetApp(), w.GetEnv(), key, insId)
 			_, err = i.cassemdb.SetKV(ctx, &apicassemdb.SetKVReq{
 				Key:       k2,
 				IsDir:     false,
@@ -218,7 +282,7 @@ func (i instanceHybrid) UnregisterInstance(ctx context.Context, insId string) er
 	// unset reversed kv
 	for _, w := range ins.GetWatching() {
 		for _, key := range w.GetWatchKeys() {
-			k2 := genInstanceReversedKeyWithInsid(w.GetApp(), w.GetEnv(), key, insId)
+			k2 := genInstanceReversedKeyWithInsId(w.GetApp(), w.GetEnv(), key, insId)
 			_, err = i.cassemdb.UnsetKV(ctx, &apicassemdb.UnsetKVReq{
 				Key: k2,
 			})

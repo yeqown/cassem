@@ -51,8 +51,11 @@ type KVWriteOnly interface {
 
 // InstanceHybrid describes all methods to manages instance information.
 type InstanceHybrid interface {
-	// GetElementInstances get all instance those watching this app/env/key.
-	GetElementInstances(ctx context.Context, app, env, key string) ([]*Instance, error)
+	// GetInstances get all instance those have registered into cluster.
+	GetInstances(ctx context.Context, seek string, limit int) (*getInstancesResult, error)
+	// GetInstancesByElement get all instance those watching this app/env/key.
+	GetInstancesByElement(ctx context.Context, app, env, key string) (*getInstancesResult, error)
+
 	// GetInstance describes instance detail by insId.
 	GetInstance(ctx context.Context, insId string) (*Instance, error)
 
@@ -122,4 +125,10 @@ type getAgentsResult struct {
 	commonPager
 
 	Agents []*AgentInstance `json:"agents"`
+}
+
+type getInstancesResult struct {
+	commonPager
+
+	Instances []*Instance `json:"instances"`
 }
