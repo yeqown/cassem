@@ -1,0 +1,69 @@
+# db config
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: db-config
+  namespace: cassem
+  labels:
+    app: cassemdb
+data:
+  cassemdb.toml: |
+    debug = false
+    addr  = ":2021"
+    [bolt]
+            dir       = "./storage"
+            db        = "cassemdb.kv"
+    [raft]
+        base = "./raft"
+        bind = "127.0.0.1:3021"
+        peers = [
+            "http://cassemdb-1.cassem:3021",
+            "http://cassemdb-2.cassem:3021",
+            "http://cassemdb-3.cassem:3021"
+        ]
+        snapCount = 300
+
+# adm config
+---
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: admin-config
+  namespace: cassem
+  labels:
+    app: cassemadmin
+data:
+  cassemadmin.toml: |
+    debug = false
+    cassemdb = [
+        "cassemdb-1.cassem:2021",
+        "cassemdb-2.cassem:2021",
+        "cassemdb-3.cassem:2021"
+    ]
+    [http]
+        addr = ":20218"
+
+# agent config
+---
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: agent-config
+  namespace: cassem
+  labels:
+    app: cassemagent
+data:
+  cassemagent.toml: |
+    debug = false
+    # seconds for agent registration time to live.
+    ttl = 30
+    # renew agent registration interval (base), this is better less than ttl.
+    renewInterval = 20
+
+    cassemdb = [
+        "cassemdb-1.cassem:2021",
+        "cassemdb-2.cassem:2021",
+        "cassemdb-3.cassem:2021"
+    ]
+    [server]
+        addr = "127.0.0.1:20219"
