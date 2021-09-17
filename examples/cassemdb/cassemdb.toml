@@ -1,16 +1,13 @@
 debug = false
-addr    = ":2021"
+addr = ":2021"
 [bolt]
-        dir       = "./debugdata/d1"
-        db        = "cassemdb.kv"
+    db = "cassemdb.kv"
 [raft]
-    nodeId = 1
-    base = "./debugdata/d1"
     bind = "127.0.0.1:3021"
     peers = [
         "http://127.0.0.1:3021",
         "http://127.0.0.1:3022",
         "http://127.0.0.1:3023"
     ]
-    bootstrapCluster = true
+    bootstrapCluster = false
     snapCount = 300

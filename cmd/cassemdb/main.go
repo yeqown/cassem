@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 	"os"
+	"path"
+	"strconv"
 	"time"
 
 	cassemdb "github.com/yeqown/cassem/internal/cassemdb/app"
@@ -50,6 +52,8 @@ func start(ctx *cli.Context) error {
 		return err
 	}
 
+	fixConfig(ctx, c)
+
 	log.
 		WithFields(log.Fields{
 			"conf":      c,
@@ -77,4 +81,51 @@ var _cliGlobalFlags = []cli.Flag{
 		Usage:       "choose which `path/to/file` to load",
 		Required:    false,
 	},
+	&cli.StringFlag{
+		Name:        "storage",
+		Value:       "./storage",
+		DefaultText: "./storage",
+		Usage:       "specific the base directory to store cassemdb's data",
+		Required:    false,
+	},
+	&cli.Uint64Flag{
+		Name:        "nodeId",
+		Aliases:     []string{"n"},
+		Value:       0,
+		DefaultText: "0",
+		Required:    false,
+	},
+}
+
+// fixConfig get nodeId while could not find in config file, next step to determine
+// the value from ENV and flags by order.
+func fixConfig(ctx *cli.Context, c *conf.CassemdbConfig) {
+	var (
+		nodeId uint64
+		err    error
+	)
+
+	if s := os.Getenv("NODE_ID"); s != "" {
+		nodeId, err = strconv.ParseUint(s, 10, 64)
+		if err != nil || nodeId == 0 {
+			log.Warnf("parse NodeId from env failed: err=%v, nodeId=%v", err, nodeId)
+		}
+	}
+
+	if nodeId == 0 {
+		nodeId = ctx.Uint64("nodeId")
+	}
+
+	c.Raft.NodeId = uint(nodeId)
+	c.Raft.BootstrapCluster = c.Raft.NodeId == 1
+	if c.Raft.NodeId == 0 {
+		panic("nodeId is empty")
+	}
+
+	base := ctx.String("storage")
+	if base == "" {
+		base = "./storage"
+	}
+	c.Bolt.Dir = path.Join(base, strconv.Itoa(int(c.Raft.NodeId)))
+	c.Raft.Base = path.Join(base, strconv.Itoa(int(c.Raft.NodeId)))
 }

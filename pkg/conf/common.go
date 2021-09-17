@@ -10,7 +10,7 @@ import (
 
 type Raft struct {
 	NodeId           uint     `toml:"nodeId"`
-	Base             string   `toml:"base"`
+	Base             string   `toml:"-"`
 	Bind             string   `toml:"bind"`
 	Peers            []string `toml:"peers"`
 	BootstrapCluster bool     `toml:"bootstrapCluster"`
@@ -23,7 +23,7 @@ type Server struct {
 }
 
 type Bolt struct {
-	Dir string `toml:"dir"`
+	Dir string `toml:"-"`
 	DB  string `toml:"db"`
 }
 

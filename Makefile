@@ -9,13 +9,13 @@ cassemdb.build:
 					./cmd/cassemdb
 
 cassemdb.run: cassemdb.build cassemdb.kill
-	- mkdir ./debugdata/{d1,d2,d3}
-	DEBUG=1 ./cassemdb --conf=./examples/cassemdb/cassemdb1.toml > ./debugdata/d1/cassemdb.log 2>&1 & \
+	- mkdir ./debugdata/{1,2,3}
+	DEBUG=1 ./cassemdb --conf=./examples/cassemdb/cassemdb.toml --nodeId=1 --storage="./debugdata" > ./debugdata/1/cassemdb.log 2>&1 & \
 		echo $$! >> cassemdb.pids
 	sleep 2
-	DEBUG=1 ./cassemdb --conf=./examples/cassemdb/cassemdb2.toml > ./debugdata/d2/cassemdb.log 2>&1 & \
+	DEBUG=1 ./cassemdb --conf=./examples/cassemdb/cassemdb.toml --nodeId=2 --storage="./debugdata" > ./debugdata/2/cassemdb.log 2>&1 & \
 		echo $$! >> cassemdb.pids
-	DEBUG=1 ./cassemdb --conf=./examples/cassemdb/cassemdb3.toml > ./debugdata/d3/cassemdb.log 2>&1 & \
+	DEBUG=1 ./cassemdb --conf=./examples/cassemdb/cassemdb.toml --nodeId=3 --storage="./debugdata" > ./debugdata/3/cassemdb.log 2>&1 & \
 		echo $$! >> cassemdb.pids
 
 cassemdb.kill:
@@ -32,7 +32,7 @@ cassemdb.kill:
 
 cassemdb.clear:
 	- rm -fr ./cassemdb.pids
-	- rm -fr ./debugdata/d{1,2,3}/*
+	- rm -fr ./debugdata/{1,2,3}/*
 
 cassemadm.build:
 	${GOCMD} build 	-o cassemadm \
