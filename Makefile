@@ -58,6 +58,17 @@ cassemagent.run: cassemagent.build
 
 build-all: cassemadm.build cassemagent.build cassemdb.build
 
+cassemdb.image:
+	docker build -t yeqown/cassemdb:${IMAGE_TAG} -f ./.deploy/dockerfiles/cassemdb.Dockerfile .
+
+cassemadm.image:
+	docker build -t yeqown/cassemadm:${IMAGE_TAG} -f ./.deploy/dockerfiles/cassemadm.Dockerfile .
+
+cassemagent.image:
+	docker build -t yeqown/cassemagent:${IMAGE_TAG} -f ./.deploy/dockerfiles/cassemagent.Dockerfile .
+
+image-all: cassemdb.image cassemadm.image cassemagent.image
+
 proto-all:
 	make -C ./internal/cassemdb/api
 	make -C ./internal/concept
