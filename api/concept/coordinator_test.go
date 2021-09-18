@@ -100,11 +100,15 @@ func (a coordinatorTestSuite) Test_DeleteElement() {
 
 func (a coordinatorTestSuite) Test_RegisterInstance() {
 	err := a.agg.RegisterInstance(a.ctx, &Instance{
-		ClientId:           "clientId",
-		ClientIp:           "172.168.1.1",
-		App:                "app",
-		Env:                "env",
-		WatchKeys:          []string{"k1", "k2", "k3"},
+		ClientId: "clientId",
+		ClientIp: "172.168.1.1",
+		Watching: []*Instance_Watching{
+			{
+				App:       "app",
+				Env:       "env",
+				WatchKeys: []string{"k1", "k2", "k3"},
+			},
+		},
 		LastRenewTimestamp: 0,
 	})
 	a.NoError(err)
@@ -112,11 +116,15 @@ func (a coordinatorTestSuite) Test_RegisterInstance() {
 
 func (a coordinatorTestSuite) Test_RenewInstance() {
 	err := a.agg.RenewInstance(a.ctx, &Instance{
-		ClientId:           "clientId",
-		ClientIp:           "172.168.1.1",
-		App:                "app",
-		Env:                "env",
-		WatchKeys:          []string{"k1", "k2", "k3"},
+		ClientId: "clientId",
+		ClientIp: "172.168.1.1",
+		Watching: []*Instance_Watching{
+			{
+				App:       "app",
+				Env:       "env",
+				WatchKeys: []string{"k1", "k2", "k3"},
+			},
+		},
 		LastRenewTimestamp: 0,
 	})
 	a.NoError(err)
@@ -124,11 +132,15 @@ func (a coordinatorTestSuite) Test_RenewInstance() {
 
 func (a coordinatorTestSuite) Test_UnregisterInstance() {
 	ins := &Instance{
-		ClientId:           "clientId",
-		ClientIp:           "172.168.1.1",
-		App:                "app",
-		Env:                "env",
-		WatchKeys:          []string{"k1", "k2", "k3"},
+		ClientId: "clientId",
+		ClientIp: "172.168.1.1",
+		Watching: []*Instance_Watching{
+			{
+				App:       "app",
+				Env:       "env",
+				WatchKeys: []string{"k1", "k2", "k3"},
+			},
+		},
 		LastRenewTimestamp: 0,
 	}
 	err := a.agg.UnregisterInstance(a.ctx, ins.Id())
