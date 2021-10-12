@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="907px" height="529px" viewBox="0 0 907 529" version="1.1" xmlns="http://www.w3.org/2000/svg">
+    <title>cassem-concept</title>
+    <g id="cassem-concept" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <rect fill="#FFFFFF" x="0" y="0" width="907" height="529"></rect>
+        <g id="cassemagent" transform="translate(366.000000, 140.000000)">
+            <rect id="矩形" stroke="#01579B" fill="#7E57C2" x="0.5" y="0.5" width="213" height="70"></rect>
+            <text id="cassem-agent" font-family="AndaleMono, Andale Mono" font-size="24" font-weight="normal" fill="#FFFFFF">
+                <tspan x="18" y="44">cassem-agent</tspan>
+            </text>
+        </g>
+        <g id="cassemadm" transform="translate(151.000000, 140.000000)">
+            <rect id="矩形" stroke="#01579B" fill="#3F51B5" x="0.5" y="0.5" width="213" height="70"></rect>
+            <text id="cassem-adm" font-family="AndaleMono, Andale Mono" font-size="24" font-weight="normal" fill="#FFFFFF">
+                <tspan x="34" y="44">cassem-adm</tspan>
+            </text>
+        </g>
+        <g id="cassemdb" transform="translate(151.000000, 68.000000)">
+            <rect id="矩形" stroke="#01579B" fill="#1A237E" x="0.5" y="0.5" width="428" height="70"></rect>
+            <text id="cassem-db" font-family="AndaleMono, Andale Mono" font-size="24" font-weight="normal" fill="#FFFFFF">
+                <tspan x="147" y="44">cassem-db</tspan>
+            </text>
+        </g>
+        <g id="ui" transform="translate(151.000000, 213.000000)">
+            <rect id="矩形" stroke="#01579B" fill="#607D8B" x="0.5" y="0.5" width="213" height="67"></rect>
+            <text id="UI" font-family="AndaleMono, Andale Mono" font-size="24" font-weight="normal" fill="#FFFFFF">
+                <tspan x="95" y="43">UI</tspan>
+            </text>
+        </g>
+        <g id="ui备份" transform="translate(366.000000, 213.000000)">
+            <rect id="矩形" stroke="#0D47A1" fill="#607D8B" x="0.5" y="0.5" width="213" height="67"></rect>
+            <text id="CLIENT" font-family="AndaleMono, Andale Mono" font-size="24" font-weight="normal" fill="#FFFFFF">
+                <tspan x="63" y="43">CLIENT</tspan>
+            </text>
+        </g>
+        <text id="Storage-Layer-(distr" font-family="AndaleMono, Andale Mono" font-size="24" font-weight="normal" fill="#000000">
+            <tspan x="151" y="456.10047">Storage Layer (distributed KV store based RAFT)</tspan>
+        </text>
+        <text id="Coordinator-Layer-(s" font-family="AndaleMono, Andale Mono" font-size="24" font-weight="normal" fill="#000000">
+            <tspan x="156" y="389.731492">Coordinator Layer (stateless)</tspan>
+        </text>
+        <text id="Application-Interfac" font-family="AndaleMono, Andale Mono" font-size="24" font-weight="normal" fill="#000000">
+            <tspan x="156" y="322.532902">Application Interface Layer</tspan>
+        </text>
+        <path d="M151,103.5 L87,103.5 L87,445.300235 L138.584855,445.300235" id="路径-7" stroke="#1A237E" stroke-width="2" stroke-dasharray="5"></path>
+        <path d="M151,163.23208 L110.064416,163.23208 L110.064416,378.931257 L139.402136,378.931257" id="路径-8" stroke="#1A237E" stroke-width="2" stroke-dasharray="5"></path>
+        <path d="M151,222.96416 L130.532208,222.96416 L130.532208,311.732667 L151,311.732667" id="路径-9" stroke="#1A237E" stroke-width="2" stroke-dasharray="5"></path>
+    </g>
+</svg>

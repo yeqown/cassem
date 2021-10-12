@@ -1,4 +1,9 @@
 # cassem
+
+<p align="center">
+  <img src="./assets/logo.svg" width="376" height="376"/>
+</p>
+
 [![Go Report Card](https://goreportcard.com/badge/github.com/yeqown/cassem)](https://goreportcard.com/report/github.com/yeqown/cassem) [![go.de
 │ v reference](https://img.shields.io/badge/go.dev-reference-007d9c?logo=go&logoColor=white&style=flat-square)](https://pkg.go.dev/github.com/yeqown/cassem)
 
@@ -34,9 +39,16 @@ same time, it's deployed by `Go` which gives it platform-cross ability and fast-
 
 ## [Documentation](./docs/README.md)
 
-<img src="./assets/cassem-concept.png" width="100%"/>
+<img src="./assets/cassem-concept.svg" width="100%"/>
 
-<img src="./assets/cassem-architecture.png" width="100%"/>
+Explanation: 
+- **_cassemdb_** provide KV storage capacity. 
+- **_cassemadm_** is the manager to whole cassem application. 
+- **_cassemagent_**‘s major duty is helping clients to access config easier,
+   makes cassemdb work transparently to clients.  Importantly, cassemagent
+   is stateless so that it could easily scale up and load balance.
+
+<img src="./assets/cassem-architecture.svg" width="100%" align="center"/>
 
 ### - [cassemdb](./cmd/cassemdb/README.md)
 

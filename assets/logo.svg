@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="376px" height="376px" viewBox="0 0 376 376" version="1.1" xmlns="http://www.w3.org/2000/svg">
+    <title>切片</title>
+    <g id="后台原型设计" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <path d="M295.915322,193 C294.588873,226.321829 280.061884,256.367409 257.264383,278.407578 C233.269862,301.605003 200.11805,315.939351 163.507335,315.939351 C126.896621,315.939351 93.7448083,301.605003 69.7502872,278.407578 C46.9527865,256.367409 32.425797,226.321829 31.0993489,193 L31.0993489,193 Z" id="椭圆形" stroke="#476269" stroke-width="10" fill="#40A798"></path>
+        <g id="编组" transform="translate(26.000000, 65.000000)">
+            <rect id="矩形备份-7" stroke="#476269" stroke-width="10" fill="#F1F1F1" x="132.396502" y="5" width="138.187517" height="122.939351"></rect>
+            <rect id="矩形备份-6" stroke="#476269" stroke-width="10" fill="#F1F1F1" x="115.208085" y="5" width="138.187517" height="122.939351"></rect>
+            <rect id="矩形备份-5" stroke="#476269" stroke-width="10" fill="#F1F1F1" x="97.0085846" y="5" width="138.187517" height="122.939351"></rect>
+            <rect id="矩形备份-4" stroke="#476269" stroke-width="10" fill="#F1F1F1" x="78.8090844" y="5" width="138.187517" height="122.939351"></rect>
+            <rect id="矩形备份-3" stroke="#476269" stroke-width="10" fill="#F1F1F1" x="60.6095841" y="5" width="138.187517" height="122.939351"></rect>
+            <rect id="矩形备份-2" stroke="#476269" stroke-width="10" fill="#F1F1F1" x="41.3990005" y="5" width="138.187517" height="122.939351"></rect>
+            <rect id="矩形备份" stroke="#476269" stroke-width="10" fill="#F1F1F1" x="23.1995003" y="5" width="138.187517" height="122.939351"></rect>
+            <path d="M143.187517,5 L143.187517,127.939351 L5,127.939351 L5,5 L143.187517,5 Z" id="矩形" stroke="#476269" stroke-width="10" fill="#F1F1F1"></path>
+            <line x1="19.7161253" y1="45.453528" x2="128.913127" y2="45.453528" id="直线" stroke="#979797" stroke-linecap="square"></line>
+            <line x1="19.7161253" y1="24.9261283" x2="128.913127" y2="24.9261283" id="直线备份-3" stroke="#979797" stroke-linecap="square"></line>
+            <line x1="19.7161253" y1="65.9809278" x2="128.913127" y2="65.9809278" id="直线备份" stroke="#979797" stroke-linecap="square"></line>
+            <line x1="19.7161253" y1="86.5083276" x2="128.913127" y2="86.5083276" id="直线备份-2" stroke="#979797" stroke-linecap="square"></line>
+            <line x1="19.7161253" y1="107.035727" x2="128.913127" y2="107.035727" id="直线备份-4" stroke="#979797" stroke-linecap="square"></line>
+        </g>
+        <text id="cassem" font-family="AvenirNextCondensed-DemiBold, Avenir Next Condensed" font-size="60" font-style="condensed" font-weight="500">
+            <tspan x="67.5985008" y="254.084169" fill="#FFFFFF">ca</tspan>
+            <tspan x="114.758501" y="254.084169" fill="#476269">ssem</tspan>
+        </text>
+        <path d="M301.584018,194.084169 C332.782105,226.855373 350.539393,243.240975 354.855881,243.240975 C361.330613,243.240975 339.869906,219.0131 339.869906,194.084169 C339.869906,169.155239 367.435607,144.226308 354.855881,144.226308 C346.469396,144.226308 328.712109,160.845595 301.584018,194.084169 Z" id="路径" stroke="#476269" stroke-width="10"></path>
+    </g>
+</svg>

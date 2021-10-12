@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="1105px" height="807px" viewBox="0 0 1105 807" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title>concept-architecture</title>
+    <defs>
+        <rect id="path-1" x="0" y="41" width="935" height="180"></rect>
+        <mask id="mask-2" maskContentUnits="userSpaceOnUse" maskUnits="objectBoundingBox" x="0" y="0" width="935" height="180" fill="white">
+            <use xlink:href="#path-1"></use>
+        </mask>
+        <rect id="path-3" x="0" y="0" width="310" height="177"></rect>
+        <mask id="mask-4" maskContentUnits="userSpaceOnUse" maskUnits="objectBoundingBox" x="0" y="0" width="310" height="177" fill="white">
+            <use xlink:href="#path-3"></use>
+        </mask>
+        <rect id="path-5" x="0" y="0" width="622" height="177"></rect>
+        <mask id="mask-6" maskContentUnits="userSpaceOnUse" maskUnits="objectBoundingBox" x="0" y="0" width="622" height="177" fill="white">
+            <use xlink:href="#path-5"></use>
+        </mask>
+    </defs>
+    <g id="concept-architecture" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <rect fill="#FFFFFF" x="0" y="0" width="1105" height="807"></rect>
+        <g id="dbs-stateful" transform="translate(76.000000, 40.000000)">
+            <use id="矩形" stroke="#1A237E" mask="url(#mask-2)" stroke-width="4" stroke-dasharray="5" xlink:href="#path-1"></use>
+            <g id="编组-2" transform="translate(22.000000, 69.000000)" stroke-width="2">
+                <rect id="矩形" stroke="#311B92" fill="#311B92" x="1" y="1" width="261" height="114"></rect>
+                <text id="DB-2-[F]" stroke="#FFFFFF" font-family="AndaleMono, Andale Mono" font-size="24" font-weight="normal" fill="#FFFFFF">
+                    <tspan x="84" y="66">DB-2 [F]</tspan>
+                </text>
+            </g>
+            <g id="编组-3" transform="translate(330.000000, 69.000000)" stroke-width="2">
+                <rect id="矩形备份" stroke="#311B92" fill="#311B92" x="1" y="1" width="261" height="114"></rect>
+                <text id="DB-1-[M]备份" stroke="#FFFFFF" font-family="AndaleMono, Andale Mono" font-size="24" font-weight="normal" fill="#FFFFFF">
+                    <tspan x="86" y="67">DB-1 [M]</tspan>
+                </text>
+            </g>
+            <g id="编组-4" transform="translate(638.000000, 69.000000)" stroke-width="2">
+                <rect id="矩形备份-2" stroke="#311B92" fill="#311B92" x="1" y="1" width="261" height="114"></rect>
+                <text id="DB-3-[F]" stroke="#FFFFFF" font-family="AndaleMono, Andale Mono" font-size="24" font-weight="normal" fill="#FFFFFF">
+                    <tspan x="80" y="66">DB-3 [F]</tspan>
+                </text>
+            </g>
+            <text id="KV-/-TTL-/-WATCHING" font-family="AndaleMono, Andale Mono" font-size="24" font-weight="normal" fill="#000000">
+                <tspan x="259" y="22">KV / TTL / WATCHING MECHANISM</tspan>
+            </text>
+        </g>
+        <g id="adm-dashboard" transform="translate(76.000000, 335.000000)">
+            <use id="矩形" stroke="#1A237E" mask="url(#mask-4)" stroke-width="4" stroke-dasharray="5" xlink:href="#path-3"></use>
+            <g id="编组" transform="translate(22.000000, 32.000000)">
+                <rect id="矩形备份-3" stroke="#311B92" stroke-width="2" fill="#81C784" x="1" y="1" width="261" height="114"></rect>
+                <text id="ADM" font-family="PingFangSC-Regular, PingFang SC" font-size="24" font-weight="normal" fill="#FFFFFF">
+                    <tspan x="104" y="65">ADM</tspan>
+                </text>
+            </g>
+        </g>
+        <g id="agents" transform="translate(389.000000, 335.000000)">
+            <use id="矩形备份-6" stroke="#1A237E" mask="url(#mask-6)" stroke-width="4" stroke-dasharray="5" xlink:href="#path-5"></use>
+            <g id="编组-7" transform="translate(17.000000, 32.000000)">
+                <rect id="矩形备份-4" stroke="#311B92" stroke-width="2" fill="#FF8A65" x="1" y="1" width="261" height="114"></rect>
+                <text id="AGENT.1" font-family="PingFangSC-Regular, PingFang SC" font-size="24" font-weight="normal" fill="#FFFFFF">
+                    <tspan x="82" y="65">AGENT.1</tspan>
+                </text>
+            </g>
+            <g id="编组-8" transform="translate(325.000000, 32.000000)">
+                <rect id="矩形备份-5" stroke="#311B92" stroke-width="2" fill="#FF8A65" x="1" y="1" width="261" height="114"></rect>
+                <text id="AGENT.N" font-family="PingFangSC-Regular, PingFang SC" font-size="24" font-weight="normal" fill="#FFFFFF">
+                    <tspan x="82" y="66">AGENT.N</tspan>
+                </text>
+            </g>
+        </g>
+        <path id="直线" d="M545.244803,260.297807 L545.702193,262.244803 L544.728695,262.473498 L236.474223,334.889423 C236.777349,338.302569 234.533684,341.508047 231.100864,342.314487 C227.337326,343.19862 223.569645,340.864401 222.685513,337.100864 C221.80138,333.337326 224.135599,329.569645 227.899136,328.685513 C231.332141,327.879029 234.768594,329.750418 236.016772,332.941825 L544.271305,260.526502 L545.244803,260.297807 Z" fill="#000000" fill-rule="nonzero"></path>
+        <path id="直线-2" d="M537.002824,260.17606 L537.913382,260.589442 L694.604329,331.724599 C696.448577,328.83665 700.182793,327.668396 703.393674,329.126096 C706.913884,330.724228 708.472036,334.873464 706.873904,338.393674 C705.275772,341.913884 701.126536,343.472036 697.606326,341.873904 C694.395435,340.416199 692.816942,336.836022 693.777114,333.546697 L537.086618,262.410558 L536.17606,261.997176 L537.002824,260.17606 Z" fill="#000000" fill-rule="nonzero"></path>
+        <g id="编组" transform="translate(100.000000, 601.000000)">
+            <rect id="矩形备份-3" stroke="#311B92" stroke-width="2" fill="#BBDEFB" x="1" y="1" width="261" height="114"></rect>
+            <text id="DASHBOARD-UI" font-family="PingFangSC-Regular, PingFang SC" font-size="24" font-weight="normal" fill="#1A237E">
+                <tspan x="38" y="67">DASHBOARD-UI</tspan>
+            </text>
+        </g>
+        <g id="编组备份" transform="translate(580.000000, 634.000000)">
+            <rect id="矩形备份-3" stroke="#311B92" stroke-width="2" fill="#90A4AE" x="1" y="1" width="261" height="114"></rect>
+            <text id="CLIENT" font-family="PingFangSC-Regular, PingFang SC" font-size="24" font-weight="normal" fill="#311B92">
+                <tspan x="89" y="67">CLIENT</tspan>
+            </text>
+        </g>
+        <g id="编组备份-2" transform="translate(569.000000, 619.000000)">
+            <rect id="矩形备份-3" stroke="#311B92" stroke-width="2" fill="#90A4AE" x="1" y="1" width="261" height="114"></rect>
+            <text id="CLIENT" font-family="PingFangSC-Regular, PingFang SC" font-size="24" font-weight="normal" fill="#311B92">
+                <tspan x="89" y="67">CLIENT</tspan>
+            </text>
+        </g>
+        <g id="编组备份-3" transform="translate(557.000000, 601.000000)">
+            <rect id="矩形备份-3" stroke="#311B92" stroke-width="2" fill="#90A4AE" x="1" y="1" width="261" height="114"></rect>
+            <text id="CLIENT" font-family="PingFangSC-Regular, PingFang SC" font-size="24" font-weight="normal" fill="#311B92">
+                <tspan x="89" y="67">CLIENT</tspan>
+            </text>
+        </g>
+        <path id="直线-3" d="M232.5,511.5 L232.50101,594.571033 C235.892812,595.056698 238.5,597.973878 238.5,601.5 C238.5,605.365993 235.365993,608.5 231.5,608.5 C227.634007,608.5 224.5,605.365993 224.5,601.5 C224.5,597.973531 227.107702,595.056123 230.499992,594.57089 L230.5,511.5 L232.5,511.5 Z" fill="#000000" fill-rule="nonzero"></path>
+        <path id="直线-4" d="M701.5,511.5 L701.50101,594.571033 C704.892812,595.056698 707.5,597.973878 707.5,601.5 C707.5,605.365993 704.365993,608.5 700.5,608.5 C696.634007,608.5 693.5,605.365993 693.5,601.5 C693.5,597.973531 696.107702,595.056123 699.499992,594.57089 L699.5,511.5 L701.5,511.5 Z" fill="#000000" fill-rule="nonzero"></path>
+        <line x1="50" y1="568" x2="1050" y2="568" id="直线-5" stroke="#000000" stroke-width="4" stroke-linecap="square"></line>
+        <text id="read/set/unset" font-family="AndaleMono, Andale Mono" font-size="24" font-weight="normal" fill="#000000">
+            <tspan x="112" y="307">read/set/unset</tspan>
+        </text>
+        <text id="get/watch" font-family="AndaleMono, Andale Mono" font-size="24" font-weight="normal" fill="#000000">
+            <tspan x="689" y="307">get/watch</tspan>
+        </text>
+        <text id="Reverse-Load-Balanci" font-family="AndaleMono, Andale Mono" font-size="24" font-weight="normal" fill="#000000">
+            <tspan x="351" y="547">Reverse Load Balancing</tspan>
+        </text>
+    </g>
+</svg>
