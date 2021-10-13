@@ -3,8 +3,6 @@ package main
 import (
 	"fmt"
 	"os"
-	"path"
-	"strconv"
 	"time"
 
 	cassemdb "github.com/yeqown/cassem/internal/cassemdb/app"
@@ -85,47 +83,51 @@ var _cliGlobalFlags = []cli.Flag{
 		Name:        "storage",
 		Value:       "./storage",
 		DefaultText: "./storage",
-		Usage:       "specific the base directory to store cassemdb's data",
+		Usage:       "specify the directory to store cassemdb data",
 		Required:    false,
 	},
-	&cli.Uint64Flag{
-		Name:        "nodeId",
-		Aliases:     []string{"n"},
-		Value:       0,
-		DefaultText: "0",
+	&cli.StringFlag{
+		Name:        "endpoint",
+		Value:       "0.0.0.0:2021",
+		DefaultText: "0.0.0.0:2021",
+		Usage:       "specify the endpoint to connect to",
 		Required:    false,
+	},
+	&cli.StringFlag{
+		Name:     "raft.cluster",
+		Value:    "",
+		Usage:    "specify all of the cluster nodes urls, split by comma ','",
+		Required: false,
+	},
+	&cli.StringFlag{
+		Name:     "raft.bind",
+		Value:    "",
+		Usage:    "specify the address of current node to serve raft server.",
+		Required: false,
 	},
 }
 
 // fixConfig get nodeId while could not find in config file, next step to determine
 // the value from ENV and flags by order.
 func fixConfig(ctx *cli.Context, c *conf.CassemdbConfig) {
-	var (
-		nodeId uint64
-		err    error
-	)
-
-	if s := os.Getenv("NODE_ID"); s != "" {
-		nodeId, err = strconv.ParseUint(s, 10, 64)
-		if err != nil || nodeId == 0 {
-			log.Warnf("parse NodeId from env failed: err=%v, nodeId=%v", err, nodeId)
-		}
-	}
-
-	if nodeId == 0 {
-		nodeId = ctx.Uint64("nodeId")
-	}
-
-	c.Raft.NodeId = uint(nodeId)
-	c.Raft.BootstrapCluster = c.Raft.NodeId == 1
-	if c.Raft.NodeId == 0 {
-		panic("nodeId is empty")
-	}
-
 	base := ctx.String("storage")
-	if base == "" {
+	if base == "" && c.Raft.Base == "" {
 		base = "./storage"
 	}
-	c.Bolt.Dir = path.Join(base, strconv.Itoa(int(c.Raft.NodeId)))
-	c.Raft.Base = path.Join(base, strconv.Itoa(int(c.Raft.NodeId)))
+	if base != "" {
+		c.Bolt.Dir = base
+		c.Raft.Base = base
+	}
+
+	if endpoint := ctx.String("endpoint"); endpoint != "" {
+		c.Addr = endpoint
+	}
+
+	if bind := ctx.String("raft.bind"); bind != "" {
+		c.Raft.Bind = bind
+	}
+
+	if cluster := ctx.String("raft.cluster"); cluster != "" {
+		c.Raft.Cluster = cluster
+	}
 }

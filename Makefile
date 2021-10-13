@@ -10,12 +10,27 @@ cassemdb.build:
 
 cassemdb.run: cassemdb.build cassemdb.kill
 	- mkdir ./debugdata/{1,2,3}
-	DEBUG=1 ./cassemdb --conf=./examples/cassemdb/cassemdb.toml --nodeId=1 --storage="./debugdata" > ./debugdata/1/cassemdb.log 2>&1 & \
+	DEBUG=1 ./cassemdb \
+		--conf=./examples/cassemdb/cassemdb.toml \
+		--endpoint=127.0.0.1:2021 \
+		--raft.cluster=http://127.0.0.1:3021,http://127.0.0.1:3022,http://127.0.0.1:3023 \
+		--raft.bind=http://127.0.0.1:3021 \
+		--storage="./debugdata/1" > ./debugdata/1/cassemdb.log 2>&1 & \
 		echo $$! >> cassemdb.pids
 	sleep 2
-	DEBUG=1 ./cassemdb --conf=./examples/cassemdb/cassemdb.toml --nodeId=2 --storage="./debugdata" > ./debugdata/2/cassemdb.log 2>&1 & \
+	DEBUG=1 ./cassemdb \
+		--conf=./examples/cassemdb/cassemdb.toml \
+		--endpoint=127.0.0.1:2022 \
+		--raft.cluster=http://127.0.0.1:3021,http://127.0.0.1:3022,http://127.0.0.1:3023 \
+		--raft.bind=http://127.0.0.1:3022 \
+		--storage="./debugdata/2" > ./debugdata/2/cassemdb.log 2>&1 & \
 		echo $$! >> cassemdb.pids
-	DEBUG=1 ./cassemdb --conf=./examples/cassemdb/cassemdb.toml --nodeId=3 --storage="./debugdata" > ./debugdata/3/cassemdb.log 2>&1 & \
+	DEBUG=1 ./cassemdb \
+		--conf=./examples/cassemdb/cassemdb.toml \
+		--endpoint=127.0.0.1:2023 \
+		--raft.cluster=http://127.0.0.1:3021,http://127.0.0.1:3022,http://127.0.0.1:3023 \
+		--raft.bind=http://127.0.0.1:3023 \
+		--storage="./debugdata/3" > ./debugdata/3/cassemdb.log 2>&1 & \
 		echo $$! >> cassemdb.pids
 
 cassemdb.kill:

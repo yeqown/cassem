@@ -10,9 +10,16 @@ import (
 )
 
 // Setup creates a new health.Server for you and registers it on s.
-// It's a convenience wrapper around report.
-func Setup(isLeader bool, leadershipChangeCh <-chan bool, s *grpc.Server, services []string) {
+// It's a convenience wrapper around report. Notice that, services is the
+// set of gRPC services in current gRPC server instance.
+func Setup(isLeader bool, leadershipChangeCh <-chan bool, s *grpc.Server) {
 	h := health.NewServer()
+
+	services := []string{
+		"cassem.db.KV",
+		"cassem.db.Cluster",
+	}
+
 	report(isLeader, leadershipChangeCh, h, services)
 	grpc_health_v1.RegisterHealthServer(s, h)
 }
@@ -43,12 +50,12 @@ func updateServingStatus(h *health.Server, services []string, isLeader bool) {
 	if isLeader {
 		status = grpc_health_v1.HealthCheckResponse_SERVING
 	}
-	for _, srv := range services {
-		h.SetServingStatus(srv, status)
+	for _, svc := range services {
+		h.SetServingStatus(svc, status)
 	}
-	h.SetServingStatus(_gRPC_HEALTH_SERVICE, status)
+	// h.SetServingStatus(_gRPC_HEALTH_SERVICE, status)
 }
 
-const (
-	_gRPC_HEALTH_SERVICE = "cassemdb.RaftLeader"
-)
+//const (
+//	_gRPC_HEALTH_SERVICE = "cassemdb.RaftLeader"
+//)

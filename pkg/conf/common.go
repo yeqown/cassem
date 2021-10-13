@@ -1,20 +1,44 @@
 package conf
 
 import (
+	"fmt"
 	"io"
 	"os"
+	"strings"
 
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
+
+	"github.com/yeqown/cassem/pkg/runtime"
 )
 
 type Raft struct {
-	NodeId           uint     `toml:"nodeId"`
-	Base             string   `toml:"-"`
-	Bind             string   `toml:"bind"`
-	Peers            []string `toml:"peers"`
-	BootstrapCluster bool     `toml:"bootstrapCluster"`
-	SnapCount        uint     `toml:"snapCount"`
+	Base string `toml:"-"`
+	Bind string `toml:"bind"`
+	// Cluster "http://node1:3021,http://node2:3021,http://node3:3021", if the cluster is empty,
+	// cluster is "$Bind" as default value.
+	Cluster string `toml:"cluster"`
+	// NodeID is the index of the Bind address in Cluster.
+	NodeID    uint64 `toml:"-"`
+	SnapCount uint   `toml:"snapCount"`
+}
+
+func (r *Raft) Fix() error {
+	if r.Bind == "" {
+		return fmt.Errorf("raft.bind address is required")
+	}
+
+	if r.Cluster == "" {
+		r.Cluster = r.Bind
+	}
+	arr := strings.Split(r.Cluster, ",")
+	pos := runtime.IndexOf(r.Bind, arr)
+	if pos < 0 {
+		return fmt.Errorf("raft.bind could not found in raft.cluster")
+	}
+
+	r.NodeID = uint64(pos + 1)
+	return nil
 }
 
 type Server struct {

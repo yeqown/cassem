@@ -32,6 +32,7 @@ func gRPC(coord ICoordinator) *grpc.Server {
 		),
 	)
 	apicassemdb.RegisterKVServer(s, srv)
+	apicassemdb.RegisterClusterServer(s, srv)
 	reflection.Register(s)
 
 	return s
@@ -186,6 +187,20 @@ func translateChange(change watcher.IChange) *apicassemdb.Change {
 		return nil
 	}
 	return c
+}
+
+func (s grpcServer) AddNode(
+	ctx context.Context, req *apicassemdb.AddNodeRequest) (resp *apicassemdb.AddNodeResponse, err error) {
+	resp = new(apicassemdb.AddNodeResponse)
+	resp.NodeId, resp.Peers, err = s.coord.addNode(req.GetAddr())
+	return
+}
+
+func (s grpcServer) RemoveNode(
+	ctx context.Context, req *apicassemdb.RemoveNodeRequest) (resp *apicassemdb.RemoveNodeResponse, err error) {
+	err = s.coord.removeNode(req.GetNodeId())
+	resp = new(apicassemdb.RemoveNodeResponse)
+	return
 }
 
 //// isClientClosed check whether the error contains any code which indicates client is offline.

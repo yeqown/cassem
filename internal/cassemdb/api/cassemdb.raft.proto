@@ -1,11 +1,11 @@
 syntax = "proto3";
 
 package cassem.db;
-option go_package = "api";
+option go_package = "github.com/yeqown/cassem/internal/cassemdb/api;api";
 
 //import "cassemdb/api/cassemdb.api.proto";
 import "cassemdb.api.proto";
-
+import "envoyproxy-validate/validate.proto";
 
 message LogEntry  {
   enum Action {
@@ -29,4 +29,23 @@ message SetCommand {
 
 message ChangeCommand {
   cassem.db.Change change = 1;
+}
+
+message addNodeRequest {
+  string addr = 1 [(validate.rules).string = {prefix: "http"}];
+}
+message addNodeResponse {
+  uint64 node_id = 1;
+  repeated string peers = 2;
+}
+
+message removeNodeRequest {
+  uint64 node_id = 1 [(validate.rules).uint64 = {gt: 0}];
+}
+message removeNodeResponse {}
+
+// Cluster is a service that manage members in the cassemdb raft cluster.
+service Cluster {
+  rpc AddNode(addNodeRequest) returns(addNodeResponse) {};
+  rpc RemoveNode(removeNodeRequest) returns(removeNodeResponse) {};
 }
