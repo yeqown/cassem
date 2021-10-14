@@ -68,4 +68,7 @@ require (
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect
 )
 
-replace github.com/yeqown/cassem/api v1.0.0 => ./api
+// use standalone version of 'github.com/yeqown/cassem/api'
+// git tag api/@api-version
+// go list -m -versions github.com/yeqown/cassem/api
+//replace github.com/yeqown/cassem/api v1.0.0 => ./api
