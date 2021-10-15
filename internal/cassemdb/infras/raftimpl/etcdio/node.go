@@ -25,6 +25,7 @@ import (
 	"go.uber.org/zap"
 
 	apicassemdb "github.com/yeqown/cassem/internal/cassemdb/api"
+	"github.com/yeqown/cassem/pkg/retry"
 	"github.com/yeqown/cassem/pkg/runtime"
 )
 
@@ -348,7 +349,10 @@ func (rc *raftNode) startRaft() {
 		}
 	}
 
-	runtime.GoFunc("serveRaft", func() error { rc.serveRaft(); return nil })
+	runtime.GoFunc("serveRaft", func() error {
+		r := retry.DefaultExponential()
+		return r.Do(context.TODO(), rc.serveRaft)
+	})
 	runtime.GoFunc("serveChannels", func() error { rc.serveChannels(); return nil })
 
 	log.Debug("raftNode.startRaft setup done, starting raft")
@@ -510,24 +514,40 @@ func (rc *raftNode) serveChannels() {
 	}
 }
 
-func (rc *raftNode) serveRaft() {
-	u, err := url.Parse(rc.bindAddress)
+func (rc *raftNode) serveRaft() (err error) {
+	defer func() {
+		if err != nil {
+			log.Errorf("raftNode.serveRaft() error: %v", err)
+		}
+	}()
+	log.Info("serving raft called")
+
+	var u *url.URL
+	u, err = url.Parse(rc.bindAddress)
 	if err != nil {
-		log.Fatalf("raftNode: Failed parsing URL (%v)", err)
+		err = errors.Wrap(err, "raftNode: Failed parsing URL")
+		return err
 	}
 
-	ln, err := newStoppableListener(u.Host, rc.httpstopc)
+	var ln *stoppableListener
+	ln, err = newStoppableListener(u.Host, rc.httpstopc)
 	if err != nil {
-		log.Fatalf("raftNode: Failed to listen rafthttp (%v)", err)
+		err = errors.Wrap(err, "raftNode: Failed to listen rafthttp")
+		return err
 	}
 
-	err = (&http.Server{Handler: rc.transport.Handler()}).Serve(ln)
+	err = (&http.Server{
+		Handler: rc.transport.Handler(),
+	}).Serve(ln)
+
 	select {
 	case <-rc.httpstopc:
 	default:
-		log.Fatalf("raftNode: Failed to serve rafthttp (%v)", err)
+		err = errors.Wrap(err, "raftNode: Failed to serve rafthttp")
 	}
 	close(rc.httpdonec)
+
+	return err
 }
 
 func (rc *raftNode) addPeer(peer string) (nodeID uint64, peers []string, err error) {

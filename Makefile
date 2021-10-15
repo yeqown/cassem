@@ -1,7 +1,16 @@
 GOCMD=CGO_ENABLED=0 GOARCH=amd64 GOOS=darwin go1.17
+GOCMD_LINUX=CGO_ENABLED=0 GOARCH=amd64 GOOS=linux go1.17
 
 cassemdb.build:
 	${GOCMD} build 	-o cassemdb \
+					-ldflags "-s \
+							  -X main.Version=`git tag --list | tail -n 1` \
+							  -X main.BuildTime=`TZ=UTC date -u '+%Y-%m-%dT%H:%M:%SZ'` \
+							  -X main.GitHash=`git rev-parse HEAD`" \
+					./cmd/cassemdb
+
+cassemdb.build-linux:
+	${GOCMD_LINUX} build 	-o cassemdb \
 					-ldflags "-s \
 							  -X main.Version=`git tag --list | tail -n 1` \
 							  -X main.BuildTime=`TZ=UTC date -u '+%Y-%m-%dT%H:%M:%SZ'` \
@@ -73,8 +82,9 @@ cassemagent.run: cassemagent.build
 
 build-all: cassemadm.build cassemagent.build cassemdb.build
 
-cassemdb.image:
+cassemdb.image: cassemdb.build-linux
 	docker build -t yeqown/cassemdb:${IMAGE_TAG} -f ./.deploy/dockerfiles/cassemdb.Dockerfile .
+	docker push yeqown/cassemdb:${IMAGE_TAG}
 
 cassemadm.image:
 	docker build -t yeqown/cassemadm:${IMAGE_TAG} -f ./.deploy/dockerfiles/cassemadm.Dockerfile .

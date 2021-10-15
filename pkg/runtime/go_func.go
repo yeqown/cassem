@@ -8,7 +8,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-// GoFunc runs invoker in a independent goroutine and the goroutine will automatically recover from panic,
+// GoFunc runs invoker in an independent goroutine and the goroutine will automatically recover from panic,
 // and restart invoker under control of backoff algorithm.
 func GoFunc(invokerName string, invoker func() error) {
 	fn := func() {

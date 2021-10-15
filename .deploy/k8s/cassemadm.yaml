@@ -1,60 +1,66 @@
-apiVersion: v1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: casemadm
+  name: cassemadm
   namespace: cassem
   labels:
-    app: casemadm 
+    app: cassemadm
 spec:
   selector:
     matchLabels:
-      app: cassemdb
+      app: cassemadm
   replicas: 1
   template:
     metadata:
+      namespace: cassem
+      name: cassemadm
       labels:
-        app: casemadm
+        app: cassemadm
     spec:
       containers:
-        - name: casemadm
-          image: docker.io/yeqown/casemadm:v0.1
+        - name: cassemadm
+          image: docker.io/yeqown/cassemadm:v0.1
           imagePullPolicy: IfNotPresent
+          command:
+            - sh
+            - "-c"
+            - |
+              cat /etc/cassemadm/cassemadmin.toml
+              ./cassemadm -c /etc/cassemadm/cassemadmin.toml
           ports:
             - containerPort: 20218
               name: http
           volumeMounts:
-            - name: casemadm-config
-              mountPath: /app/cassemadm
+            - name: cassemadm-config
+              mountPath: /etc/cassemadm
               readOnly: true
+          livenessProbe:
+            tcpSocket:
+              port: 20218
+            initialDelaySeconds: 10
+            timeoutSeconds: 5
+          readinessProbe:
+            tcpSocket:
+              port: 20218
+            initialDelaySeconds: 30
+            timeoutSeconds: 15
       volumes:
-        - name: casemadm-config
+        - name: cassemadm-config
           configMap:
-            name: casemadm-config
-      livenessProbe:
-        tcpSocket:
-          port: 20218
-          initialDelaySeconds: 10
-          timeoutSeconds: 5
-      readinessProbe:
-        tcpSocket:
-          port: 20218
-          initialDelaySeconds: 30
-          timeoutSeconds: 15
+            name: cassemadm-config
 
 # cassemadm service
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: casemadm
+  name: cassemadm
   namespace: cassem
   labels:
-    app: casemadm
+    app: cassemadm
 spec:
   selector:
-    matchLabels:
-      app: casemadm
+    app: cassemadm
   ports:
     - port: 20218
       protocol: TCP
-      targetPort: 20218
