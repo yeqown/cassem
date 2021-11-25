@@ -29,9 +29,9 @@ data:
   cassemadmin.toml: |
     debug = true
     cassemdb = [
-        "cassemdb-0.cassemdb.cassem:2021",
-        "cassemdb-1.cassemdb.cassem:2021",
-        "cassemdb-2.cassemdb.cassem:2021"
+        "cassemdb-0.cassemdb.cassem.svc.cluster.local:2021",
+        "cassemdb-1.cassemdb.cassem.svc.cluster.local:2021",
+        "cassemdb-2.cassemdb.cassem.svc.cluster.local:2021"
     ]
     [http]
         addr = ":20218"
@@ -54,9 +54,9 @@ data:
     renewInterval = 20
 
     cassemdb = [
-        "cassemdb-0.cassemdb.cassem:2021",
-        "cassemdb-1.cassemdb.cassem:2021",
-        "cassemdb-2.cassemdb.cassem:2021"
+        "cassemdb-0.cassemdb.cassem.svc.cluster.local:2021",
+        "cassemdb-1.cassemdb.cassem.svc.cluster.local:2021",
+        "cassemdb-2.cassemdb.cassem.svc.cluster.local:2021"
     ]
     [server]
         addr = "127.0.0.1:20219"

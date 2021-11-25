@@ -35,7 +35,7 @@ func watchAsync(isLeader bool, leadershipChangeCh <-chan bool, h *health.Server,
 		for _, svc := range services {
 			h.SetServingStatus(svc, status)
 		}
-		// h.SetServingStatus(_gRPC_HEALTH_SERVICE, status)
+		h.SetServingStatus(_gRPC_HEALTH_SERVICE, status)
 	}
 
 	updateServingStatus(h, services, isLeader)
@@ -50,6 +50,6 @@ func watchAsync(isLeader bool, leadershipChangeCh <-chan bool, h *health.Server,
 	})
 }
 
-//const (
-//	_gRPC_HEALTH_SERVICE = "cassemdb.RaftLeader"
-//)
+const (
+	_gRPC_HEALTH_SERVICE = "cassemdb.RaftLeader"
+)
