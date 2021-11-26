@@ -20,6 +20,8 @@ type RaftNode interface {
 	IsLeader() bool
 	LeaderChangeCh(chan<- bool)
 	ChangeNotifyCh() <-chan watcher.IChange
+	AddNode(addr string) (nodeID uint64, peers []string, err error)
+	RemoveNode(nodeID uint64) error
 
 	Shutdown() error
 }

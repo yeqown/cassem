@@ -8,8 +8,10 @@ import (
 	"os"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 
+	"github.com/pkg/errors"
 	"github.com/yeqown/log"
 	"go.etcd.io/etcd/client/pkg/v3/fileutil"
 	"go.etcd.io/etcd/client/pkg/v3/types"
@@ -23,6 +25,7 @@ import (
 	"go.uber.org/zap"
 
 	apicassemdb "github.com/yeqown/cassem/internal/cassemdb/api"
+	"github.com/yeqown/cassem/pkg/retry"
 	"github.com/yeqown/cassem/pkg/runtime"
 )
 
@@ -34,17 +37,19 @@ type commit struct {
 // A key-value stream backed by raft
 type raftNode struct {
 	proposeC    <-chan *apicassemdb.Propose // proposed messages (k,v)
-	confChangeC <-chan raftpb.ConfChange    // proposed cluster config changes
 	commitC     chan<- *commit              // entries committed to log (k,v)
 	errorC      chan<- error                // errors from raft session
 	leadershipC chan<- raft.StateType
 
-	id          int      // client ID for raft session
-	peers       []string // raft peer URLs
-	join        bool     // node is joining an existing cluster
-	waldir      string   // path to WAL directory
-	snapdir     string   // path to snapshot directory
-	getSnapshot func() ([]byte, error)
+	confChangeCount uint64
+	id              uint64       // client ID for raft session
+	bindAddress     string       // address of node [raft].
+	peers           []string     // raft peer URLs
+	muPeers         sync.RWMutex // mutex protects peers read and write access.
+	join            bool         // node is joining an existing cluster
+	waldir          string       // path to WAL directory
+	snapdir         string       // path to snapshot directory
+	getSnapshot     func() ([]byte, error)
 
 	confState     raftpb.ConfState
 	snapshotIndex uint64
@@ -73,25 +78,31 @@ type raftNode struct {
 var defaultSnapshotCount uint64 = 10000
 
 type config struct {
-	id          int
+	id          uint64
 	peers       []string
+	bindAddress string
 	join        bool
 	baseDir     string
 	snapCount   uint64
 	getSnapshot func() ([]byte, error)
 }
 
+type peerOperator interface {
+	addPeer(peer string) (nodeID uint64, peers []string, err error)
+	removePeer(nodeID uint64) error
+	getPeers() []string
+}
+
 // newRaftNode initiates a raft instance and returns a committed log entry
 // channel and error channel. Proposals for log updates are sent over the
 // provided the proposal channel. All log entries are replayed over the
 // commit channel, followed by a nil message (to indicate the channel is
-// current), then new log entries. To shutdown, close proposeC and read errorC.
+// current), then new log entries. To shut it down, close proposeC and read errorC.
 func newRaftNode(
 	cfg *config,
 	proposeC <-chan *apicassemdb.Propose,
-	confChangeC <-chan raftpb.ConfChange,
 	leadershipC chan<- raft.StateType,
-) (<-chan *commit, <-chan error, <-chan *snap.Snapshotter) {
+) (<-chan *commit, <-chan error, <-chan *snap.Snapshotter, peerOperator) {
 
 	commitC := make(chan *commit)
 	errorC := make(chan error)
@@ -102,15 +113,15 @@ func newRaftNode(
 
 	rc := &raftNode{
 		proposeC:    proposeC,
-		confChangeC: confChangeC,
 		commitC:     commitC,
 		errorC:      errorC,
 		leadershipC: leadershipC,
 		id:          cfg.id,
+		bindAddress: cfg.bindAddress,
 		peers:       cfg.peers,
 		join:        cfg.join,
-		waldir:      fmt.Sprintf("%s/node-%d", cfg.baseDir, cfg.id),
-		snapdir:     fmt.Sprintf("%s/node-%d-snapshots", cfg.baseDir, cfg.id),
+		waldir:      fmt.Sprintf("%s/wal", cfg.baseDir),
+		snapdir:     fmt.Sprintf("%s/snap", cfg.baseDir),
 		getSnapshot: cfg.getSnapshot,
 		snapCount:   cfg.snapCount,
 		stopc:       make(chan struct{}),
@@ -122,7 +133,7 @@ func newRaftNode(
 		proposalOnce: sync.Once{},
 	}
 	go rc.startRaft()
-	return commitC, errorC, rc.snapshotterReady
+	return commitC, errorC, rc.snapshotterReady, rc
 }
 
 func (rc *raftNode) saveSnap(snap raftpb.Snapshot) error {
@@ -185,7 +196,7 @@ func (rc *raftNode) publishEntries(ents []raftpb.Entry) (<-chan struct{}, bool) 
 					rc.transport.AddPeer(types.ID(cc.NodeID), []string{string(cc.Context)})
 				}
 			case raftpb.ConfChangeRemoveNode:
-				if cc.NodeID == uint64(rc.id) {
+				if cc.NodeID == rc.id {
 					log.Info("I've been removed from the cluster! Shutting down.")
 					return nil, false
 				}
@@ -289,19 +300,13 @@ func (rc *raftNode) startRaft() {
 		}
 	}
 	rc.snapshotter = snap.New(zap.NewExample(), rc.snapdir)
-
 	oldwal := wal.Exist(rc.waldir)
 	rc.wal = rc.replayWAL()
-
 	// signal replay has finished
 	rc.snapshotterReady <- rc.snapshotter
 
-	rpeers := make([]raft.Peer, len(rc.peers))
-	for i := range rpeers {
-		rpeers[i] = raft.Peer{ID: uint64(i + 1)}
-	}
 	c := &raft.Config{
-		ID:                        uint64(rc.id),
+		ID:                        rc.id,
 		ElectionTick:              10,
 		HeartbeatTick:             1,
 		Storage:                   rc.raftStorage,
@@ -310,9 +315,21 @@ func (rc *raftNode) startRaft() {
 		MaxUncommittedEntriesSize: 1 << 30,
 	}
 
+	log.
+		WithFields(log.Fields{
+			"oldwal":                  oldwal,
+			"join":                    rc.join,
+			"isRestart(oldwal||join)": oldwal || rc.join,
+		}).
+		Debug("startRaft")
+
 	if oldwal || rc.join {
 		rc.node = raft.RestartNode(c)
 	} else {
+		rpeers := make([]raft.Peer, len(rc.peers))
+		for i := range rpeers {
+			rpeers[i] = raft.Peer{ID: uint64(i + 1)}
+		}
 		rc.node = raft.StartNode(c, rpeers)
 	}
 
@@ -322,21 +339,23 @@ func (rc *raftNode) startRaft() {
 		ClusterID:   0x1000,
 		Raft:        rc,
 		ServerStats: stats.NewServerStats("", ""),
-		LeaderStats: stats.NewLeaderStats(zap.NewExample(), strconv.Itoa(rc.id)),
+		LeaderStats: stats.NewLeaderStats(zap.NewExample(), strconv.FormatUint(rc.id, 10)),
 		ErrorC:      make(chan error),
 	}
-
 	_ = rc.transport.Start()
 	for i := range rc.peers {
-		if i+1 != rc.id {
+		if uint64(i+1) != rc.id {
 			rc.transport.AddPeer(types.ID(i+1), []string{rc.peers[i]})
 		}
 	}
 
-	log.Debug("raftNode.startRaft setup done, starting raft")
-
-	runtime.GoFunc("serveRaft", func() error { rc.serveRaft(); return nil })
+	runtime.GoFunc("serveRaft", func() error {
+		r := retry.DefaultExponential()
+		return r.Do(context.TODO(), rc.serveRaft)
+	})
 	runtime.GoFunc("serveChannels", func() error { rc.serveChannels(); return nil })
+
+	log.Debug("raftNode.startRaft setup done, starting raft")
 }
 
 // stop closes http, closes all channels, and stops raft.
@@ -431,13 +450,11 @@ func (rc *raftNode) serveChannels() {
 	rc.proposalOnce.Do(func() {
 		// send proposals over raft
 		runtime.GoFunc("sendProposals", func() error {
-			confChangeCount := uint64(0)
-
-			for rc.proposeC != nil && rc.confChangeC != nil {
+			for rc.proposeC != nil {
 				select {
 				case prop, ok := <-rc.proposeC:
 					log.
-						WithFields(log.Fields{"ok": ok, "prop": prop}).
+						WithFields(log.Fields{"ok": ok, "propose": prop}).
 						Debug("raftNode.serveChannels proposeC called")
 					if !ok {
 						rc.proposeC = nil
@@ -445,15 +462,6 @@ func (rc *raftNode) serveChannels() {
 						// blocks until accepted by raft state machine
 						// DONE(@yeqown): return error to request (synchronized?)
 						prop.ErrC <- rc.node.Propose(context.TODO(), apicassemdb.Must(apicassemdb.Marshal(prop.Entry)))
-					}
-
-				case cc, ok := <-rc.confChangeC:
-					if !ok {
-						rc.confChangeC = nil
-					} else {
-						confChangeCount++
-						cc.ID = confChangeCount
-						_ = rc.node.ProposeConfChange(context.TODO(), cc)
 					}
 				}
 			}
@@ -506,24 +514,140 @@ func (rc *raftNode) serveChannels() {
 	}
 }
 
-func (rc *raftNode) serveRaft() {
-	u, err := url.Parse(rc.peers[rc.id-1])
+func (rc *raftNode) serveRaft() (err error) {
+	defer func() {
+		if err != nil {
+			log.Errorf("raftNode.serveRaft() error: %v", err)
+		}
+	}()
+	log.Info("serving raft called")
+
+	var u *url.URL
+	u, err = url.Parse(rc.bindAddress)
 	if err != nil {
-		log.Fatalf("raftNode: Failed parsing URL (%v)", err)
+		err = errors.Wrap(err, "raftNode: Failed parsing URL")
+		return err
 	}
 
-	ln, err := newStoppableListener(u.Host, rc.httpstopc)
+	var ln *stoppableListener
+	ln, err = newStoppableListener(u.Host, rc.httpstopc)
 	if err != nil {
-		log.Fatalf("raftNode: Failed to listen rafthttp (%v)", err)
+		err = errors.Wrap(err, "raftNode: Failed to listen rafthttp")
+		return err
 	}
 
-	err = (&http.Server{Handler: rc.transport.Handler()}).Serve(ln)
+	err = (&http.Server{
+		Handler: rc.transport.Handler(),
+	}).Serve(ln)
+
 	select {
 	case <-rc.httpstopc:
 	default:
-		log.Fatalf("raftNode: Failed to serve rafthttp (%v)", err)
+		err = errors.Wrap(err, "raftNode: Failed to serve rafthttp")
 	}
 	close(rc.httpdonec)
+
+	return err
+}
+
+func (rc *raftNode) addPeer(peer string) (nodeID uint64, peers []string, err error) {
+	log.
+		WithFields(log.Fields{
+			"addr":    peer,
+			"current": rc.peers,
+		}).
+		Infof("raftNodeImpl.AddNode received a request from remote node")
+
+	tryAdd := func(peer string) (tryNodeID uint64, tryPeers []string) {
+		rc.muPeers.Lock()
+		for idx, p := range rc.peers {
+			// ignore duplicate peer
+			if peer != p {
+				continue
+			}
+
+			// hit duplicated
+			tryNodeID = uint64(idx + 1)
+			tryPeers = rc.peers
+			rc.muPeers.Unlock()
+			return
+		}
+
+		// not found in before peers
+		rc.peers = append(rc.peers, peer)
+		tryPeers = rc.peers
+		tryNodeID = uint64(len(rc.peers))
+		rc.muPeers.Unlock()
+
+		return
+	}
+
+	rollback := func(idx uint64) {
+		rc.muPeers.Lock()
+		rc.peers = append(rc.peers[:idx], rc.peers[idx+1:]...)
+		rc.muPeers.RLock()
+	}
+
+	nodeID, peers = tryAdd(peer)
+	if err = rc.changeConf(raftpb.ConfChange{
+		Type:    raftpb.ConfChangeAddNode,
+		NodeID:  nodeID,
+		Context: []byte(peer),
+		ID:      0,
+	}); err != nil {
+		rollback(nodeID)
+		err = errors.Wrap(err, "raftNode failed to add peer")
+	}
+
+	return
+}
+
+func (rc *raftNode) removePeer(nodeID uint64) error {
+	rc.muPeers.RUnlock()
+	length := len(rc.peers)
+	rc.muPeers.RUnlock()
+
+	if length <= int(nodeID) {
+		return errors.New("invalid nodeID")
+	}
+
+	// TODO(@yeqown): remove peer from peers.
+
+	log.
+		WithFields(log.Fields{
+			"nodeID":   nodeID,
+			"nodeAddr": rc.peers[nodeID],
+			"current":  rc.peers,
+		}).
+		Infof("raftNodeImpl.RemoveNode received a request from remote node")
+
+	if err := rc.changeConf(raftpb.ConfChange{
+		Type:    raftpb.ConfChangeRemoveNode,
+		NodeID:  nodeID,
+		Context: nil,
+		ID:      0,
+	}); err != nil {
+		return errors.Wrap(err, "raftNode failed to remove peer")
+
+	}
+
+	return nil
+}
+
+func (rc *raftNode) getPeers() []string {
+	rc.muPeers.RLock()
+	peers := rc.peers
+	rc.muPeers.RUnlock()
+	return peers
+}
+
+func (rc *raftNode) changeConf(cc raftpb.ConfChange) error {
+	cc.ID = atomic.AddUint64(&rc.confChangeCount, 1)
+	if err := rc.node.ProposeConfChange(context.TODO(), cc); err != nil {
+		return errors.Wrap(err, "raftNode failed to changeConf")
+	}
+
+	return nil
 }
 
 func (rc *raftNode) Process(ctx context.Context, m raftpb.Message) error {

@@ -34,38 +34,52 @@ type raftNodeImpl struct {
 
 	// proposeC to propose a commit to raft cluster.
 	proposeC          chan *apicassemdb.Propose
-	confChangeC       chan raftpb.ConfChange
 	changeC           chan watcher.IChange
 	leadershipFanOutC []chan<- bool
 	snapshotter       *snap.Snapshotter
+	peersOp           peerOperator
 
-	mu sync.Mutex
+	muLeaderChangeC sync.Mutex
 }
 
-func NewRaftNode(cfg *conf.CassemdbConfig) (rc *raftNodeImpl) {
-	rc = new(raftNodeImpl)
-	rc.proposeC = make(chan *apicassemdb.Propose, 4)
-	rc.confChangeC = make(chan raftpb.ConfChange, 1)
-	rc.changeC = make(chan watcher.IChange, 64)
-	rc.leadershipFanOutC = make([]chan<- bool, 4)
-	raftStateChangeC := make(chan raft.StateType, 4)
+func NewRaftNode(bolt *conf.Bolt, raftc *conf.Raft) (rc *raftNodeImpl) {
+	rc = &raftNodeImpl{
+		kvstore:           nil, // fill later
+		raftState:         0,   // fill later
+		proposeC:          make(chan *apicassemdb.Propose, 4),
+		changeC:           make(chan watcher.IChange, 64),
+		leadershipFanOutC: make([]chan<- bool, 4),
+		snapshotter:       nil, // fill later
+		muLeaderChangeC:   sync.Mutex{},
+	}
+
 	var err error
-	if rc.kvstore, err = storage.NewRepository(cfg.Bolt); err != nil {
+	if rc.kvstore, err = storage.NewRepository(bolt); err != nil {
 		panic(err)
 	}
 
 	//start raft raftNode
 	c := &config{
-		id:          int(cfg.Raft.NodeId),
-		peers:       cfg.Raft.Peers,
-		join:        !cfg.Raft.BootstrapCluster,
-		baseDir:     cfg.Raft.Base,
-		snapCount:   uint64(cfg.Raft.SnapCount),
+		id:          raftc.NodeID,
+		peers:       strings.Split(raftc.Cluster, ","),
+		join:        false,
+		bindAddress: raftc.Bind,
+		baseDir:     raftc.Base,
+		snapCount:   uint64(raftc.SnapCount),
 		getSnapshot: func() ([]byte, error) { return rc.getSnapshot() },
 	}
-	commitC, errorC, snapshotterReady := newRaftNode(c, rc.proposeC, rc.confChangeC, raftStateChangeC)
-	rc.snapshotter = <-snapshotterReady
 
+	log.
+		WithFields(log.Fields{
+			"config":   c,
+			"raftConf": raftc,
+		}).
+		Debug("NewRaftNode called")
+
+	raftStateChangeC := make(chan raft.StateType, 4)
+	commitC, errorC, snapshotterReady, peersOp := newRaftNode(c, rc.proposeC, raftStateChangeC)
+	rc.snapshotter = <-snapshotterReady
+	rc.peersOp = peersOp
 	rc.setup()
 
 	// apply commits
@@ -73,7 +87,7 @@ func NewRaftNode(cfg *conf.CassemdbConfig) (rc *raftNodeImpl) {
 		return rc.applyCommits(commitC, errorC)
 	})
 
-	// fanout leader change signal.
+	// fan-out leader change signal.
 	runtime.GoFunc("raftNodeImpl.leaderChangeFanOut", func() error {
 		for {
 			select {
@@ -96,7 +110,7 @@ func NewRaftNode(cfg *conf.CassemdbConfig) (rc *raftNodeImpl) {
 
 func (r *raftNodeImpl) Shutdown() error {
 	close(r.proposeC)
-	close(r.confChangeC)
+	//close(r.confChangeC)
 
 	return nil
 }
@@ -261,7 +275,7 @@ func (r *raftNodeImpl) SetKV(req *apicassemdb.SetKVReq) (err error) {
 				"key":   req.GetKey(),
 				"error": err.Error(),
 			}).
-			Warn("raftNodeImpl.SetKV could to load last value of key")
+			Warn("raftNodeImpl.SetKV couldn't load last value of key")
 	}
 
 	// remove expired value automatically.
@@ -481,12 +495,20 @@ func (r *raftNodeImpl) IsLeader() bool {
 
 func (r *raftNodeImpl) LeaderChangeCh(c chan<- bool) {
 	// lock
-	r.mu.Lock()
-	defer r.mu.Unlock()
+	r.muLeaderChangeC.Lock()
+	defer r.muLeaderChangeC.Unlock()
 
 	r.leadershipFanOutC = append(r.leadershipFanOutC, c)
 }
 
 func (r *raftNodeImpl) ChangeNotifyCh() <-chan watcher.IChange {
 	return r.changeC
+}
+
+func (r *raftNodeImpl) AddNode(addr string) (nodeID uint64, peers []string, err error) {
+	return r.peersOp.addPeer(addr)
+}
+
+func (r *raftNodeImpl) RemoveNode(nodeID uint64) error {
+	return r.peersOp.removePeer(nodeID)
 }

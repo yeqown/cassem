@@ -1,3 +1,21 @@
+kind: Service
+apiVersion: v1
+metadata:
+  name: cassemdb
+  labels:
+    app: cassemdb
+spec:
+  ports:
+    - port: 2021
+      name: grpc
+      protocol: TCP
+    - port: 2022
+      name: raft
+      protocol: TCP
+  clusterIP: None
+  selector:
+    app: cassemdb
+---
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
@@ -11,7 +29,7 @@ spec:
   selector:
     matchLabels:
       app: cassemdb
-  serviceName: storage
+  serviceName: "cassemdb" # cassemdb-0.cassemdb.cassem.svc.cluster.local
   replicas: 3
   updateStrategy:
     type: RollingUpdate
@@ -44,43 +62,41 @@ spec:
 #              mountPath: /etc/cassemdb
       containers:
         - name: db
-          image: docker.io/yeqown/cassemdb:v0.2
-          imagePullPolicy: Always
+          image: docker.io/yeqown/cassemdb:v0.4.3
+          imagePullPolicy: IfNotPresent
           command:
             - sh
             - "-c"
             - |
-              sleep 30
-              ./cassemdb -c ./cassemdb.toml --storage ./data --nodeId=${HOSTNAME##*-}
+              hostname
+              echo ${HOSTNAME}
+              mkdir -p ./storage/${HOSTNAME##*-}
+              ./cassemdb \
+                -c /etc/cassemdb/cassemdb.toml \
+                --endpoint=0.0.0.0:2021 \
+                --raft.cluster=http://cassemdb-0.cassemdb.cassem:2022,http://cassemdb-1.cassemdb.cassem:2022,http://cassemdb-2.cassemdb.cassem:2022 \
+                --raft.bind=http://${HOSTNAME}.cassemdb.cassem:2022 \
+                --storage="./storage/${HOSTNAME##*-}"
           ports:
             - containerPort: 2021
               name: api
+            - containerPort: 2022
+              name: raft
           volumeMounts:
             - name: storage
               mountPath: /app/cassemdb/storage
             - name: config
               mountPath: /etc/cassemdb
-          lifecycle:
-            postStart:
-              exec:
-                command:
-                  - sh
-                  - "-c"
-                  - |
-                    cp /etc/cassemdb/cassemdb.toml /app/cassemdb/cassemdb.toml
-#                    echo "hostname is: `hostname`"
-#                    export NODE_ID=${HOSTNAME##*-}
-#                    echo "nodeId=$NODE_ID"
           readinessProbe:
             tcpSocket:
               port: 2021
-            initialDelaySeconds: 5
+            initialDelaySeconds: 10
             periodSeconds: 10
           livenessProbe:
             tcpSocket:
               port: 2021
-            initialDelaySeconds: 15
-            periodSeconds: 20
+            initialDelaySeconds: 5
+            periodSeconds: 10
       volumes:
         - name: config
           configMap:
@@ -89,23 +105,3 @@ spec:
           hostPath:
             path: /etc/cassemdb
             type: Directory
-
-# cassemdb service
----
-kind: Service
-apiVersion: v1
-metadata:
-  name: cassemdb
-  labels:
-    app: cassemdb
-spec:
-  ports:
-    - port: 2021
-      name: gRPC
-      protocol: TCP
-    - port: 3021
-      name: raft
-      protocol: TCP
-  clusterIP: None
-  selector:
-    app: cassemdb

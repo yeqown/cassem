@@ -3,11 +3,7 @@ addr = ":2021"
 [bolt]
     db = "cassemdb.kv"
 [raft]
-    bind = "127.0.0.1:3021"
-    peers = [
-        "http://127.0.0.1:3021",
-        "http://127.0.0.1:3022",
-        "http://127.0.0.1:3023"
-    ]
+    bind = "http://127.0.0.1:3021"
+    join = ""
     bootstrapCluster = false
     snapCount = 300

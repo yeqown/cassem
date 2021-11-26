@@ -3,6 +3,7 @@ package app
 import (
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
@@ -33,32 +34,93 @@ type app struct {
 
 	// raft is a customized raft node for cassem.
 	raft raftimpl.RaftNode
+
+	// peers maintains all members in cluster.
+	peers   []string
+	muPeers sync.RWMutex
 }
 
 func New(cfg *conf.CassemdbConfig) (*app, error) {
-	d := new(app)
-	if err := d.bootstrap(cfg); err != nil {
+	d := &app{
+		config:  cfg,
+		watcher: nil,
+		raft:    nil,
+		peers:   make([]string, 0, 8),
+		muPeers: sync.RWMutex{},
+	}
+
+	if err := cfg.Raft.Fix(); err != nil {
+		return nil, errors.Wrap(err, "failed to fixRaftConfig in New")
+	}
+
+	if err := d.bootstrap(); err != nil {
 		return nil, err
 	}
 
 	return d, nil
 }
 
-func (d *app) bootstrap(cfg *conf.CassemdbConfig) (err error) {
-	d.config = cfg
+func (d *app) bootstrap() (err error) {
+	//// joinCluster cluster would be blocked here until joined the cluster
+	//nodeId, peers := d.joinCluster()
+	//d.config.Raft.NodeID = nodeId
+	//d.config.Raft.Peers = peers
 	d.watcher = watcher.NewChannelWatcher(100)
-	//d.raft, err = hashicorp.NewMyRaft(cfg)
-	d.raft = etcdio.NewRaftNode(cfg)
-
-	if err != nil {
-		return errors.Wrapf(err, "app.bootstrap failed to load raft")
-	}
-	log.Info("app: raft component loaded")
+	d.raft = etcdio.NewRaftNode(d.config.Bolt, d.config.Raft)
 
 	d.startRoutines()
 
+	log.Info("app: raft component loaded")
 	return nil
 }
+
+//// joinCluster FIXME(@yeqown): if node restarts self (oldwal existed), should return directly.
+//func (d *app) joinCluster() (nodeID uint64, peers []string) {
+//	if d.config.Raft.Join == "" {
+//		// judge current node should join or boot a cluster in case of
+//		// current node is specified to join by config.Raft.Join
+//		nodeID = 1
+//		peers = []string{d.config.Raft.Bind}
+//		return
+//	}
+//
+//dialAgain:
+//	cc, err := apicassemdb.DialWithMode([]string{d.config.Raft.Join}, apicassemdb.Mode_X)
+//	if err != nil {
+//		time.Sleep(3 * time.Second)
+//		goto dialAgain
+//	}
+//
+//	cluster := apicassemdb.NewClusterClient(cc)
+//	retry := 1
+//joinAgain:
+//	log.
+//		WithFields(log.Fields{"join": d.config.Raft.Join}).
+//		Infof("app.joinCluster join the cluster, try...%d", retry)
+//
+//	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+//	resp, err := cluster.AddNode(ctx, &apicassemdb.AddNodeRequest{Addr: d.config.Raft.Bind})
+//	if err != nil {
+//		log.
+//			WithFields(log.Fields{"resp": resp, "error": err}).
+//			Warnf("app.joinCluster failed: %v", err)
+//
+//		time.Sleep(3 * time.Second)
+//		retry++
+//		cancel()
+//		goto joinAgain
+//	}
+//	cancel()
+//
+//	log.
+//		WithFields(log.Fields{
+//			"resp": resp,
+//			"join": d.config.Raft.Join,
+//		}).
+//		Debug("app.joinCluster done")
+//
+//	return resp.GetNodeId(), resp.GetPeers()
+//}
 
 // Run start a ticker to print log and check healthy of each component in core.app.
 // The second purpose is to watch the QUIT / KILL signal to release resources of core.app, the most important work is to
@@ -122,7 +184,7 @@ func (d *app) startRoutines() {
 	runtime.GoFunc("serving-grpc-api", d.servingAPI)
 }
 
-func (d app) propagateChangesSignal() error {
+func (d *app) propagateChangesSignal() error {
 	ch := d.raft.ChangeNotifyCh()
 
 	for change := range ch {
@@ -141,7 +203,7 @@ func (d *app) servingAPI() error {
 
 	leadershipC := make(chan bool, 4)
 	d.raft.LeaderChangeCh(leadershipC)
-	raftleader.Setup(d.raft.IsLeader(), leadershipC, s, d.config.Raft.Peers)
+	raftleader.Setup(d.raft.IsLeader(), leadershipC, s)
 
 	if runtime.IsDebug() {
 		g := httpx.NewGateway(d.config.Addr, debugHTTP(d), s)
@@ -152,16 +214,14 @@ func (d *app) servingAPI() error {
 }
 
 // addNode only leader node would receive such request. MAYBE?
-func (d app) addNode(serverId, addr string) error {
-	log.Infof("received addNode request for remote node %s, addr %s", serverId, addr)
-	// return d.raft.addNode(serverId, addr)
-	panic("TODO")
+func (d *app) addNode(addr string) (nodeID uint64, peers []string, err error) {
+	nodeID, peers, err = d.raft.AddNode(addr)
+	return nodeID, peers, err
 }
 
 // removeNode only leader node would receive such request.
-func (d app) removeNode(nodeID string) error {
-	// return d.raft.removeNode(nodeID)
-	panic("TODO")
+func (d *app) removeNode(nodeID uint64) error {
+	return d.raft.RemoveNode(nodeID)
 }
 
 func (d *app) getKV(key string) (*apicassemdb.Entity, error) {
