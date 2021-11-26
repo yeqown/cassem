@@ -4,7 +4,7 @@ import "concept/types.proto";
 import "envoyproxy-validate/validate.proto";
 
 package cassem.agent;
-option go_package = "agent";
+option go_package = "github.com/yeqown/cassem/api/agent;agent";
 
 message getElementReq {
   string          app = 1 [(validate.rules).string = {min_len: 3, max_len: 30}];

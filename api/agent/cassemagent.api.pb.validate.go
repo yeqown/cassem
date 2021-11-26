@@ -11,6 +11,7 @@ import (
 	"net/mail"
 	"net/url"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -31,35 +32,62 @@ var (
 	_ = (*url.URL)(nil)
 	_ = (*mail.Address)(nil)
 	_ = anypb.Any{}
+	_ = sort.Sort
 )
 
 // Validate checks the field values on GetElementReq with the rules defined in
-// the proto definition for this message. If any rules are violated, an error
-// is returned.
+// the proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *GetElementReq) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on GetElementReq with the rules defined
+// in the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in GetElementReqMultiError, or
+// nil if none found.
+func (m *GetElementReq) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *GetElementReq) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	if l := utf8.RuneCountInString(m.GetApp()); l < 3 || l > 30 {
-		return GetElementReqValidationError{
+		err := GetElementReqValidationError{
 			field:  "App",
 			reason: "value length must be between 3 and 30 runes, inclusive",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
 	if l := utf8.RuneCountInString(m.GetEnv()); l < 3 || l > 30 {
-		return GetElementReqValidationError{
+		err := GetElementReqValidationError{
 			field:  "Env",
 			reason: "value length must be between 3 and 30 runes, inclusive",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
 	if l := len(m.GetKeys()); l < 1 || l > 100 {
-		return GetElementReqValidationError{
+		err := GetElementReqValidationError{
 			field:  "Keys",
 			reason: "value must contain between 1 and 100 items, inclusive",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
 	_GetElementReq_Keys_Unique := make(map[string]struct{}, len(m.GetKeys()))
@@ -68,10 +96,14 @@ func (m *GetElementReq) Validate() error {
 		_, _ = idx, item
 
 		if _, exists := _GetElementReq_Keys_Unique[item]; exists {
-			return GetElementReqValidationError{
+			err := GetElementReqValidationError{
 				field:  fmt.Sprintf("Keys[%v]", idx),
 				reason: "repeated value must contain unique items",
 			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
 		} else {
 			_GetElementReq_Keys_Unique[item] = struct{}{}
 		}
@@ -79,8 +111,28 @@ func (m *GetElementReq) Validate() error {
 		// no validation rules for Keys[idx]
 	}
 
+	if len(errors) > 0 {
+		return GetElementReqMultiError(errors)
+	}
 	return nil
 }
+
+// GetElementReqMultiError is an error wrapping multiple validation errors
+// returned by GetElementReq.ValidateAll() if the designated constraints
+// aren't met.
+type GetElementReqMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m GetElementReqMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m GetElementReqMultiError) AllErrors() []error { return m }
 
 // GetElementReqValidationError is the validation error returned by
 // GetElementReq.Validate if the designated constraints aren't met.
@@ -137,17 +189,50 @@ var _ interface {
 } = GetElementReqValidationError{}
 
 // Validate checks the field values on GetElementResp with the rules defined in
-// the proto definition for this message. If any rules are violated, an error
-// is returned.
+// the proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *GetElementResp) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on GetElementResp with the rules defined
+// in the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in GetElementRespMultiError,
+// or nil if none found.
+func (m *GetElementResp) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *GetElementResp) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	for idx, item := range m.GetElems() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, GetElementRespValidationError{
+						field:  fmt.Sprintf("Elems[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, GetElementRespValidationError{
+						field:  fmt.Sprintf("Elems[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return GetElementRespValidationError{
 					field:  fmt.Sprintf("Elems[%v]", idx),
@@ -159,8 +244,28 @@ func (m *GetElementResp) Validate() error {
 
 	}
 
+	if len(errors) > 0 {
+		return GetElementRespMultiError(errors)
+	}
 	return nil
 }
+
+// GetElementRespMultiError is an error wrapping multiple validation errors
+// returned by GetElementResp.ValidateAll() if the designated constraints
+// aren't met.
+type GetElementRespMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m GetElementRespMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m GetElementRespMultiError) AllErrors() []error { return m }
 
 // GetElementRespValidationError is the validation error returned by
 // GetElementResp.Validate if the designated constraints aren't met.
@@ -217,29 +322,71 @@ var _ interface {
 } = GetElementRespValidationError{}
 
 // Validate checks the field values on UnregisterReq with the rules defined in
-// the proto definition for this message. If any rules are violated, an error
-// is returned.
+// the proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *UnregisterReq) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on UnregisterReq with the rules defined
+// in the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in UnregisterReqMultiError, or
+// nil if none found.
+func (m *UnregisterReq) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *UnregisterReq) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	if l := utf8.RuneCountInString(m.GetClientId()); l < 5 || l > 64 {
-		return UnregisterReqValidationError{
+		err := UnregisterReqValidationError{
 			field:  "ClientId",
 			reason: "value length must be between 5 and 64 runes, inclusive",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
 	if ip := net.ParseIP(m.GetClientIp()); ip == nil {
-		return UnregisterReqValidationError{
+		err := UnregisterReqValidationError{
 			field:  "ClientIp",
 			reason: "value must be a valid IP address",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
+	if len(errors) > 0 {
+		return UnregisterReqMultiError(errors)
+	}
 	return nil
 }
+
+// UnregisterReqMultiError is an error wrapping multiple validation errors
+// returned by UnregisterReq.ValidateAll() if the designated constraints
+// aren't met.
+type UnregisterReqMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m UnregisterReqMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m UnregisterReqMultiError) AllErrors() []error { return m }
 
 // UnregisterReqValidationError is the validation error returned by
 // UnregisterReq.Validate if the designated constraints aren't met.
@@ -296,25 +443,47 @@ var _ interface {
 } = UnregisterReqValidationError{}
 
 // Validate checks the field values on RegisterReq with the rules defined in
-// the proto definition for this message. If any rules are violated, an error
-// is returned.
+// the proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *RegisterReq) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on RegisterReq with the rules defined in
+// the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in RegisterReqMultiError, or
+// nil if none found.
+func (m *RegisterReq) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *RegisterReq) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	if l := utf8.RuneCountInString(m.GetClientId()); l < 5 || l > 64 {
-		return RegisterReqValidationError{
+		err := RegisterReqValidationError{
 			field:  "ClientId",
 			reason: "value length must be between 5 and 64 runes, inclusive",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
 	if ip := net.ParseIP(m.GetClientIp()); ip == nil {
-		return RegisterReqValidationError{
+		err := RegisterReqValidationError{
 			field:  "ClientIp",
 			reason: "value must be a valid IP address",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
 	if len(m.GetWatching()) > 0 {
@@ -322,7 +491,26 @@ func (m *RegisterReq) Validate() error {
 		for idx, item := range m.GetWatching() {
 			_, _ = idx, item
 
-			if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if all {
+				switch v := interface{}(item).(type) {
+				case interface{ ValidateAll() error }:
+					if err := v.ValidateAll(); err != nil {
+						errors = append(errors, RegisterReqValidationError{
+							field:  fmt.Sprintf("Watching[%v]", idx),
+							reason: "embedded message failed validation",
+							cause:  err,
+						})
+					}
+				case interface{ Validate() error }:
+					if err := v.Validate(); err != nil {
+						errors = append(errors, RegisterReqValidationError{
+							field:  fmt.Sprintf("Watching[%v]", idx),
+							reason: "embedded message failed validation",
+							cause:  err,
+						})
+					}
+				}
+			} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 				if err := v.Validate(); err != nil {
 					return RegisterReqValidationError{
 						field:  fmt.Sprintf("Watching[%v]", idx),
@@ -336,8 +524,27 @@ func (m *RegisterReq) Validate() error {
 
 	}
 
+	if len(errors) > 0 {
+		return RegisterReqMultiError(errors)
+	}
 	return nil
 }
+
+// RegisterReqMultiError is an error wrapping multiple validation errors
+// returned by RegisterReq.ValidateAll() if the designated constraints aren't met.
+type RegisterReqMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m RegisterReqMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m RegisterReqMultiError) AllErrors() []error { return m }
 
 // RegisterReqValidationError is the validation error returned by
 // RegisterReq.Validate if the designated constraints aren't met.
@@ -394,14 +601,48 @@ var _ interface {
 } = RegisterReqValidationError{}
 
 // Validate checks the field values on EmptyResp with the rules defined in the
-// proto definition for this message. If any rules are violated, an error is returned.
+// proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *EmptyResp) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on EmptyResp with the rules defined in
+// the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in EmptyRespMultiError, or nil
+// if none found.
+func (m *EmptyResp) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *EmptyResp) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
+	if len(errors) > 0 {
+		return EmptyRespMultiError(errors)
+	}
 	return nil
 }
+
+// EmptyRespMultiError is an error wrapping multiple validation errors returned
+// by EmptyResp.ValidateAll() if the designated constraints aren't met.
+type EmptyRespMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m EmptyRespMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m EmptyRespMultiError) AllErrors() []error { return m }
 
 // EmptyRespValidationError is the validation error returned by
 // EmptyResp.Validate if the designated constraints aren't met.
@@ -458,18 +699,52 @@ var _ interface {
 } = EmptyRespValidationError{}
 
 // Validate checks the field values on WatchReq with the rules defined in the
-// proto definition for this message. If any rules are violated, an error is returned.
+// proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *WatchReq) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on WatchReq with the rules defined in
+// the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in WatchReqMultiError, or nil
+// if none found.
+func (m *WatchReq) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *WatchReq) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
+
+	var errors []error
 
 	if len(m.GetWatching()) > 0 {
 
 		for idx, item := range m.GetWatching() {
 			_, _ = idx, item
 
-			if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if all {
+				switch v := interface{}(item).(type) {
+				case interface{ ValidateAll() error }:
+					if err := v.ValidateAll(); err != nil {
+						errors = append(errors, WatchReqValidationError{
+							field:  fmt.Sprintf("Watching[%v]", idx),
+							reason: "embedded message failed validation",
+							cause:  err,
+						})
+					}
+				case interface{ Validate() error }:
+					if err := v.Validate(); err != nil {
+						errors = append(errors, WatchReqValidationError{
+							field:  fmt.Sprintf("Watching[%v]", idx),
+							reason: "embedded message failed validation",
+							cause:  err,
+						})
+					}
+				}
+			} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 				if err := v.Validate(); err != nil {
 					return WatchReqValidationError{
 						field:  fmt.Sprintf("Watching[%v]", idx),
@@ -484,21 +759,48 @@ func (m *WatchReq) Validate() error {
 	}
 
 	if l := utf8.RuneCountInString(m.GetClientId()); l < 5 || l > 64 {
-		return WatchReqValidationError{
+		err := WatchReqValidationError{
 			field:  "ClientId",
 			reason: "value length must be between 5 and 64 runes, inclusive",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
 	if ip := net.ParseIP(m.GetClientIp()); ip == nil {
-		return WatchReqValidationError{
+		err := WatchReqValidationError{
 			field:  "ClientIp",
 			reason: "value must be a valid IP address",
 		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
+	if len(errors) > 0 {
+		return WatchReqMultiError(errors)
+	}
 	return nil
 }
+
+// WatchReqMultiError is an error wrapping multiple validation errors returned
+// by WatchReq.ValidateAll() if the designated constraints aren't met.
+type WatchReqMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m WatchReqMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m WatchReqMultiError) AllErrors() []error { return m }
 
 // WatchReqValidationError is the validation error returned by
 // WatchReq.Validate if the designated constraints aren't met.
@@ -555,13 +857,47 @@ var _ interface {
 } = WatchReqValidationError{}
 
 // Validate checks the field values on WatchResp with the rules defined in the
-// proto definition for this message. If any rules are violated, an error is returned.
+// proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *WatchResp) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on WatchResp with the rules defined in
+// the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in WatchRespMultiError, or nil
+// if none found.
+func (m *WatchResp) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *WatchResp) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetElem()).(interface{ Validate() error }); ok {
+	var errors []error
+
+	if all {
+		switch v := interface{}(m.GetElem()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, WatchRespValidationError{
+					field:  "Elem",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, WatchRespValidationError{
+					field:  "Elem",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetElem()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return WatchRespValidationError{
 				field:  "Elem",
@@ -571,8 +907,27 @@ func (m *WatchResp) Validate() error {
 		}
 	}
 
+	if len(errors) > 0 {
+		return WatchRespMultiError(errors)
+	}
 	return nil
 }
+
+// WatchRespMultiError is an error wrapping multiple validation errors returned
+// by WatchResp.ValidateAll() if the designated constraints aren't met.
+type WatchRespMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m WatchRespMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m WatchRespMultiError) AllErrors() []error { return m }
 
 // WatchRespValidationError is the validation error returned by
 // WatchResp.Validate if the designated constraints aren't met.
@@ -629,17 +984,50 @@ var _ interface {
 } = WatchRespValidationError{}
 
 // Validate checks the field values on DispatchReq with the rules defined in
-// the proto definition for this message. If any rules are violated, an error
-// is returned.
+// the proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *DispatchReq) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on DispatchReq with the rules defined in
+// the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in DispatchReqMultiError, or
+// nil if none found.
+func (m *DispatchReq) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *DispatchReq) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
 	for idx, item := range m.GetElems() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, DispatchReqValidationError{
+						field:  fmt.Sprintf("Elems[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, DispatchReqValidationError{
+						field:  fmt.Sprintf("Elems[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return DispatchReqValidationError{
 					field:  fmt.Sprintf("Elems[%v]", idx),
@@ -651,8 +1039,27 @@ func (m *DispatchReq) Validate() error {
 
 	}
 
+	if len(errors) > 0 {
+		return DispatchReqMultiError(errors)
+	}
 	return nil
 }
+
+// DispatchReqMultiError is an error wrapping multiple validation errors
+// returned by DispatchReq.ValidateAll() if the designated constraints aren't met.
+type DispatchReqMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m DispatchReqMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m DispatchReqMultiError) AllErrors() []error { return m }
 
 // DispatchReqValidationError is the validation error returned by
 // DispatchReq.Validate if the designated constraints aren't met.
@@ -709,15 +1116,48 @@ var _ interface {
 } = DispatchReqValidationError{}
 
 // Validate checks the field values on DispatchResp with the rules defined in
-// the proto definition for this message. If any rules are violated, an error
-// is returned.
+// the proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *DispatchResp) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on DispatchResp with the rules defined
+// in the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in DispatchRespMultiError, or
+// nil if none found.
+func (m *DispatchResp) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *DispatchResp) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
+	var errors []error
+
+	if len(errors) > 0 {
+		return DispatchRespMultiError(errors)
+	}
 	return nil
 }
+
+// DispatchRespMultiError is an error wrapping multiple validation errors
+// returned by DispatchResp.ValidateAll() if the designated constraints aren't met.
+type DispatchRespMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m DispatchRespMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m DispatchRespMultiError) AllErrors() []error { return m }
 
 // DispatchRespValidationError is the validation error returned by
 // DispatchResp.Validate if the designated constraints aren't met.

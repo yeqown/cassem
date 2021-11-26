@@ -105,10 +105,9 @@ type validator interface {
 	// Validate which returns the first error encountered during validation.
 	Validate() error
 
-	// TODO(@yeqown): figure out how to enable ValidateAll method.
+	// ValidateAll which returns all errors encountered during validation.
 	// https://github.com/envoyproxy/protoc-gen-validate/issues/508
-	//// ValidateAll which returns all errors encountered during validation.
-	//ValidateAll() error
+	ValidateAll() error
 }
 
 // ServerValidation check all requests from clients. In order to save the server's compute resources,
@@ -117,8 +116,7 @@ func ServerValidation() grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo,
 		handler grpc.UnaryHandler) (resp interface{}, err error) {
 
-		v, ok := req.(validator)
-		if ok {
+		if v, ok := req.(validator); ok {
 			if err = v.Validate(); err != nil {
 				err = errorx.New(errorx.Code_INVALID_ARGUMENT, err.Error())
 				return nil, err

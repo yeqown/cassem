@@ -11,6 +11,7 @@ import (
 	"net/mail"
 	"net/url"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -31,16 +32,50 @@ var (
 	_ = (*url.URL)(nil)
 	_ = (*mail.Address)(nil)
 	_ = anypb.Any{}
+	_ = sort.Sort
 )
 
 // Validate checks the field values on Element with the rules defined in the
-// proto definition for this message. If any rules are violated, an error is returned.
+// proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *Element) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on Element with the rules defined in the
+// proto definition for this message. If any rules are violated, the result is
+// a list of violation errors wrapped in ElementMultiError, or nil if none found.
+func (m *Element) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *Element) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetMetadata()).(interface{ Validate() error }); ok {
+	var errors []error
+
+	if all {
+		switch v := interface{}(m.GetMetadata()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, ElementValidationError{
+					field:  "Metadata",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, ElementValidationError{
+					field:  "Metadata",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetMetadata()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return ElementValidationError{
 				field:  "Metadata",
@@ -56,8 +91,27 @@ func (m *Element) Validate() error {
 
 	// no validation rules for Published
 
+	if len(errors) > 0 {
+		return ElementMultiError(errors)
+	}
 	return nil
 }
+
+// ElementMultiError is an error wrapping multiple validation errors returned
+// by Element.ValidateAll() if the designated constraints aren't met.
+type ElementMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m ElementMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m ElementMultiError) AllErrors() []error { return m }
 
 // ElementValidationError is the validation error returned by Element.Validate
 // if the designated constraints aren't met.
@@ -114,12 +168,26 @@ var _ interface {
 } = ElementValidationError{}
 
 // Validate checks the field values on ElementMetadata with the rules defined
-// in the proto definition for this message. If any rules are violated, an
-// error is returned.
+// in the proto definition for this message. If any rules are violated, the
+// first error encountered is returned, or nil if there are no violations.
 func (m *ElementMetadata) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on ElementMetadata with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// ElementMetadataMultiError, or nil if none found.
+func (m *ElementMetadata) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *ElementMetadata) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
+
+	var errors []error
 
 	// no validation rules for Key
 
@@ -137,8 +205,28 @@ func (m *ElementMetadata) Validate() error {
 
 	// no validation rules for ContentType
 
+	if len(errors) > 0 {
+		return ElementMetadataMultiError(errors)
+	}
 	return nil
 }
+
+// ElementMetadataMultiError is an error wrapping multiple validation errors
+// returned by ElementMetadata.ValidateAll() if the designated constraints
+// aren't met.
+type ElementMetadataMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m ElementMetadataMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m ElementMetadataMultiError) AllErrors() []error { return m }
 
 // ElementMetadataValidationError is the validation error returned by
 // ElementMetadata.Validate if the designated constraints aren't met.
@@ -195,12 +283,26 @@ var _ interface {
 } = ElementMetadataValidationError{}
 
 // Validate checks the field values on AppMetadata with the rules defined in
-// the proto definition for this message. If any rules are violated, an error
-// is returned.
+// the proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *AppMetadata) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on AppMetadata with the rules defined in
+// the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in AppMetadataMultiError, or
+// nil if none found.
+func (m *AppMetadata) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *AppMetadata) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
+
+	var errors []error
 
 	// no validation rules for Id
 
@@ -216,8 +318,27 @@ func (m *AppMetadata) Validate() error {
 
 	// no validation rules for Secrets
 
+	if len(errors) > 0 {
+		return AppMetadataMultiError(errors)
+	}
 	return nil
 }
+
+// AppMetadataMultiError is an error wrapping multiple validation errors
+// returned by AppMetadata.ValidateAll() if the designated constraints aren't met.
+type AppMetadataMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m AppMetadataMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m AppMetadataMultiError) AllErrors() []error { return m }
 
 // AppMetadataValidationError is the validation error returned by
 // AppMetadata.Validate if the designated constraints aren't met.
@@ -274,12 +395,26 @@ var _ interface {
 } = AppMetadataValidationError{}
 
 // Validate checks the field values on ElementOperation with the rules defined
-// in the proto definition for this message. If any rules are violated, an
-// error is returned.
+// in the proto definition for this message. If any rules are violated, the
+// first error encountered is returned, or nil if there are no violations.
 func (m *ElementOperation) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on ElementOperation with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// ElementOperationMultiError, or nil if none found.
+func (m *ElementOperation) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *ElementOperation) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
+
+	var errors []error
 
 	// no validation rules for Operator
 
@@ -295,8 +430,28 @@ func (m *ElementOperation) Validate() error {
 
 	// no validation rules for Remark
 
+	if len(errors) > 0 {
+		return ElementOperationMultiError(errors)
+	}
 	return nil
 }
+
+// ElementOperationMultiError is an error wrapping multiple validation errors
+// returned by ElementOperation.ValidateAll() if the designated constraints
+// aren't met.
+type ElementOperationMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m ElementOperationMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m ElementOperationMultiError) AllErrors() []error { return m }
 
 // ElementOperationValidationError is the validation error returned by
 // ElementOperation.Validate if the designated constraints aren't met.
@@ -353,11 +508,26 @@ var _ interface {
 } = ElementOperationValidationError{}
 
 // Validate checks the field values on Instance with the rules defined in the
-// proto definition for this message. If any rules are violated, an error is returned.
+// proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *Instance) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on Instance with the rules defined in
+// the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in InstanceMultiError, or nil
+// if none found.
+func (m *Instance) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *Instance) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
+
+	var errors []error
 
 	// no validation rules for ClientId
 
@@ -368,7 +538,26 @@ func (m *Instance) Validate() error {
 	for idx, item := range m.GetWatching() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, InstanceValidationError{
+						field:  fmt.Sprintf("Watching[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, InstanceValidationError{
+						field:  fmt.Sprintf("Watching[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return InstanceValidationError{
 					field:  fmt.Sprintf("Watching[%v]", idx),
@@ -382,8 +571,27 @@ func (m *Instance) Validate() error {
 
 	// no validation rules for LastRenewTimestamp
 
+	if len(errors) > 0 {
+		return InstanceMultiError(errors)
+	}
 	return nil
 }
+
+// InstanceMultiError is an error wrapping multiple validation errors returned
+// by Instance.ValidateAll() if the designated constraints aren't met.
+type InstanceMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m InstanceMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m InstanceMultiError) AllErrors() []error { return m }
 
 // InstanceValidationError is the validation error returned by
 // Instance.Validate if the designated constraints aren't met.
@@ -440,12 +648,26 @@ var _ interface {
 } = InstanceValidationError{}
 
 // Validate checks the field values on AgentInstance with the rules defined in
-// the proto definition for this message. If any rules are violated, an error
-// is returned.
+// the proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
 func (m *AgentInstance) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on AgentInstance with the rules defined
+// in the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in AgentInstanceMultiError, or
+// nil if none found.
+func (m *AgentInstance) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *AgentInstance) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
+
+	var errors []error
 
 	// no validation rules for AgentId
 
@@ -453,8 +675,28 @@ func (m *AgentInstance) Validate() error {
 
 	// no validation rules for Annotations
 
+	if len(errors) > 0 {
+		return AgentInstanceMultiError(errors)
+	}
 	return nil
 }
+
+// AgentInstanceMultiError is an error wrapping multiple validation errors
+// returned by AgentInstance.ValidateAll() if the designated constraints
+// aren't met.
+type AgentInstanceMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m AgentInstanceMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m AgentInstanceMultiError) AllErrors() []error { return m }
 
 // AgentInstanceValidationError is the validation error returned by
 // AgentInstance.Validate if the designated constraints aren't met.
@@ -512,13 +754,46 @@ var _ interface {
 
 // Validate checks the field values on AgentInstanceChange with the rules
 // defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
+// violated, the first error encountered is returned, or nil if there are no violations.
 func (m *AgentInstanceChange) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on AgentInstanceChange with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// AgentInstanceChangeMultiError, or nil if none found.
+func (m *AgentInstanceChange) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *AgentInstanceChange) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetIns()).(interface{ Validate() error }); ok {
+	var errors []error
+
+	if all {
+		switch v := interface{}(m.GetIns()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, AgentInstanceChangeValidationError{
+					field:  "Ins",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, AgentInstanceChangeValidationError{
+					field:  "Ins",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetIns()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return AgentInstanceChangeValidationError{
 				field:  "Ins",
@@ -530,8 +805,28 @@ func (m *AgentInstanceChange) Validate() error {
 
 	// no validation rules for Op
 
+	if len(errors) > 0 {
+		return AgentInstanceChangeMultiError(errors)
+	}
 	return nil
 }
+
+// AgentInstanceChangeMultiError is an error wrapping multiple validation
+// errors returned by AgentInstanceChange.ValidateAll() if the designated
+// constraints aren't met.
+type AgentInstanceChangeMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m AgentInstanceChangeMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m AgentInstanceChangeMultiError) AllErrors() []error { return m }
 
 // AgentInstanceChangeValidationError is the validation error returned by
 // AgentInstanceChange.Validate if the designated constraints aren't met.
@@ -590,19 +885,53 @@ var _ interface {
 } = AgentInstanceChangeValidationError{}
 
 // Validate checks the field values on Instance_Watching with the rules defined
-// in the proto definition for this message. If any rules are violated, an
-// error is returned.
+// in the proto definition for this message. If any rules are violated, the
+// first error encountered is returned, or nil if there are no violations.
 func (m *Instance_Watching) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on Instance_Watching with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// Instance_WatchingMultiError, or nil if none found.
+func (m *Instance_Watching) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *Instance_Watching) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
+
+	var errors []error
 
 	// no validation rules for App
 
 	// no validation rules for Env
 
+	if len(errors) > 0 {
+		return Instance_WatchingMultiError(errors)
+	}
 	return nil
 }
+
+// Instance_WatchingMultiError is an error wrapping multiple validation errors
+// returned by Instance_Watching.ValidateAll() if the designated constraints
+// aren't met.
+type Instance_WatchingMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m Instance_WatchingMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m Instance_WatchingMultiError) AllErrors() []error { return m }
 
 // Instance_WatchingValidationError is the validation error returned by
 // Instance_Watching.Validate if the designated constraints aren't met.

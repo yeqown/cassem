@@ -1,7 +1,7 @@
 syntax = "proto3";
 
 package cassem.concept;
-option go_package = "concept";
+option go_package = "github.com/yeqown/cassem/api/concept;concept";
 
 import "envoyproxy-validate/validate.proto";
 
