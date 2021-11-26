@@ -62,7 +62,7 @@ spec:
 #              mountPath: /etc/cassemdb
       containers:
         - name: db
-          image: docker.io/yeqown/cassemdb:v0.4.2
+          image: docker.io/yeqown/cassemdb:v0.4.3
           imagePullPolicy: IfNotPresent
           command:
             - sh

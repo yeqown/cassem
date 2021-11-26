@@ -66,11 +66,27 @@ cassemadm.build:
 							  -X main.GitHash=`git rev-parse HEAD`" \
 					./cmd/cassemadm
 
+cassemadm.build-linux:
+	${GOCMD_LINUX} build 	-o cassemadm \
+					-ldflags "-s \
+							  -X main.Version=`git tag --list | tail -n 1` \
+							  -X main.BuildTime=`TZ=UTC date -u '+%Y-%m-%dT%H:%M:%SZ'` \
+							  -X main.GitHash=`git rev-parse HEAD`" \
+					./cmd/cassemadm
+
 cassemadm.run: cassemadm.build
 	DEBUG=1 ./cassemadm --conf=./examples/cassemadm/cassemadm.toml
 
 cassemagent.build:
 	${GOCMD} build 	-o cassemagent \
+					-ldflags "-s \
+							  -X main.Version=`git tag --list | tail -n 1` \
+							  -X main.BuildTime=`TZ=UTC date -u '+%Y-%m-%dT%H:%M:%SZ'` \
+							  -X main.GitHash=`git rev-parse HEAD`" \
+					./cmd/cassemagent
+
+cassemagent.linux-build:
+	${GOCMD_LINUX} 	-o cassemagent \
 					-ldflags "-s \
 							  -X main.Version=`git tag --list | tail -n 1` \
 							  -X main.BuildTime=`TZ=UTC date -u '+%Y-%m-%dT%H:%M:%SZ'` \
@@ -86,11 +102,14 @@ cassemdb.image: cassemdb.build-linux
 	docker build -t yeqown/cassemdb:${IMAGE_TAG} -f ./.deploy/dockerfiles/cassemdb.Dockerfile .
 	docker push yeqown/cassemdb:${IMAGE_TAG}
 
-cassemadm.image:
+cassemadm.image: cassemadm.build-linux
 	docker build -t yeqown/cassemadm:${IMAGE_TAG} -f ./.deploy/dockerfiles/cassemadm.Dockerfile .
+	docker push yeqown/cassemadm:${IMAGE_TAG}
 
-cassemagent.image:
+
+cassemagent.image: cassemadm.build-linux
 	docker build -t yeqown/cassemagent:${IMAGE_TAG} -f ./.deploy/dockerfiles/cassemagent.Dockerfile .
+	docker push yeqown/cassemagent:${IMAGE_TAG}
 
 image-all: cassemdb.image cassemadm.image cassemagent.image
 
