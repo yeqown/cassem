@@ -3,7 +3,6 @@ package app
 import (
 	"os"
 	"os/signal"
-	"sync"
 	"syscall"
 	"time"
 
@@ -34,10 +33,6 @@ type app struct {
 
 	// raft is a customized raft node for cassem.
 	raft raftimpl.RaftNode
-
-	// peers maintains all members in cluster.
-	peers   []string
-	muPeers sync.RWMutex
 }
 
 func New(cfg *conf.CassemdbConfig) (*app, error) {
@@ -45,8 +40,6 @@ func New(cfg *conf.CassemdbConfig) (*app, error) {
 		config:  cfg,
 		watcher: nil,
 		raft:    nil,
-		peers:   make([]string, 0, 8),
-		muPeers: sync.RWMutex{},
 	}
 
 	if err := cfg.Raft.Fix(); err != nil {
@@ -61,10 +54,6 @@ func New(cfg *conf.CassemdbConfig) (*app, error) {
 }
 
 func (d *app) bootstrap() (err error) {
-	//// joinCluster cluster would be blocked here until joined the cluster
-	//nodeId, peers := d.joinCluster()
-	//d.config.Raft.NodeID = nodeId
-	//d.config.Raft.Peers = peers
 	d.watcher = watcher.NewChannelWatcher(100)
 	d.raft = etcdio.NewRaftNode(d.config.Bolt, d.config.Raft)
 
@@ -73,54 +62,6 @@ func (d *app) bootstrap() (err error) {
 	log.Info("app: raft component loaded")
 	return nil
 }
-
-//// joinCluster FIXME(@yeqown): if node restarts self (oldwal existed), should return directly.
-//func (d *app) joinCluster() (nodeID uint64, peers []string) {
-//	if d.config.Raft.Join == "" {
-//		// judge current node should join or boot a cluster in case of
-//		// current node is specified to join by config.Raft.Join
-//		nodeID = 1
-//		peers = []string{d.config.Raft.Bind}
-//		return
-//	}
-//
-//dialAgain:
-//	cc, err := apicassemdb.DialWithMode([]string{d.config.Raft.Join}, apicassemdb.Mode_X)
-//	if err != nil {
-//		time.Sleep(3 * time.Second)
-//		goto dialAgain
-//	}
-//
-//	cluster := apicassemdb.NewClusterClient(cc)
-//	retry := 1
-//joinAgain:
-//	log.
-//		WithFields(log.Fields{"join": d.config.Raft.Join}).
-//		Infof("app.joinCluster join the cluster, try...%d", retry)
-//
-//	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-//	resp, err := cluster.AddNode(ctx, &apicassemdb.AddNodeRequest{Addr: d.config.Raft.Bind})
-//	if err != nil {
-//		log.
-//			WithFields(log.Fields{"resp": resp, "error": err}).
-//			Warnf("app.joinCluster failed: %v", err)
-//
-//		time.Sleep(3 * time.Second)
-//		retry++
-//		cancel()
-//		goto joinAgain
-//	}
-//	cancel()
-//
-//	log.
-//		WithFields(log.Fields{
-//			"resp": resp,
-//			"join": d.config.Raft.Join,
-//		}).
-//		Debug("app.joinCluster done")
-//
-//	return resp.GetNodeId(), resp.GetPeers()
-//}
 
 // Run start a ticker to print log and check healthy of each component in core.app.
 // The second purpose is to watch the QUIT / KILL signal to release resources of core.app, the most important work is to
