@@ -89,11 +89,11 @@ type testRepositoryBBoltSuite struct {
 	repo KV
 }
 
-func (s testRepositoryBBoltSuite) TearDownSuite() {
+func (s *testRepositoryBBoltSuite) TearDownSuite() {
 	// clear testdata
 }
 
-func (s testRepositoryBBoltSuite) Test_locateBucket() {
+func (s *testRepositoryBBoltSuite) Test_locateBucket() {
 	impl := s.repo.(boltRepoImpl)
 	_ = impl
 }
@@ -108,7 +108,7 @@ var _setkv = &apicassemdb.Entity{
 	Ttl:         123,
 }
 
-func (s testRepositoryBBoltSuite) Test_Set_Get_Unset_DIR() {
+func (s *testRepositoryBBoltSuite) Test_Set_Get_Unset_DIR() {
 	var dirVal *apicassemdb.Entity
 	err := s.repo.SetKV("dir/b", dirVal, true)
 	s.NoError(err)
@@ -127,7 +127,7 @@ func (s testRepositoryBBoltSuite) Test_Set_Get_Unset_DIR() {
 	s.Equal(ErrNoSuchBucket, err)
 }
 
-func (s testRepositoryBBoltSuite) Test_Set_Get_Unset_KV() {
+func (s *testRepositoryBBoltSuite) Test_Set_Get_Unset_KV() {
 	err := s.repo.SetKV("kv/b", _setkv, false)
 	s.NoError(err)
 
@@ -143,7 +143,7 @@ func (s testRepositoryBBoltSuite) Test_Set_Get_Unset_KV() {
 	s.Equal(ErrNotFound, err)
 }
 
-func (s testRepositoryBBoltSuite) Test_Range() {
+func (s *testRepositoryBBoltSuite) Test_Range() {
 	err := s.repo.UnsetKV("range/dir", true)
 	s.Require().NoError(err)
 

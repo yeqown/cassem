@@ -19,7 +19,7 @@ func (t *testCacheSuite) SetupSuite() {
 	t.cache = NewCache(10)
 }
 
-func (t testCacheSuite) Test_GetSet() {
+func (t *testCacheSuite) Test_GetSet() {
 	app := "app"
 	env := "env"
 	key := "key"
@@ -50,7 +50,7 @@ func (t testCacheSuite) Test_GetSet() {
 	t.NotEmpty(elem.Raw)
 }
 
-func (t testCacheSuite) Test_CacheReplacing() {
+func (t *testCacheSuite) Test_CacheReplacing() {
 	// fill cache full
 	app := "app"
 	env := "env"

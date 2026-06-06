@@ -72,7 +72,7 @@ func (t *testAgentPoolSuite) Test_consumeAgentInstanceChange() {
 	t.Equal(1, len(t.ap.nodes))
 }
 
-func (t testAgentPoolSuite) Test_agentNode_zip() {
+func (t *testAgentPoolSuite) Test_agentNode_zip() {
 	err := t.ap.notifyAgent(&concept.Element{
 		Metadata:  nil,
 		Raw:       []byte("this is raw"),

@@ -19,7 +19,7 @@ func (t *testInstancePoolSuite) SetupSuite() {
 	t.pool = NewInstancePool()
 }
 
-func (t testInstancePoolSuite) Test_Register_Unregister() {
+func (t *testInstancePoolSuite) Test_Register_Unregister() {
 	var insId = "insId"
 	for i := 0; i < 1000; i++ {
 		_ = t.pool.Register(insId, "app", "env", []string{"key1", "key2"})
@@ -39,7 +39,7 @@ func (t testInstancePoolSuite) Test_Register_Unregister() {
 	t.NotContains(insIds, "insId")
 }
 
-func (t testInstancePoolSuite) Test_Notify() {
+func (t *testInstancePoolSuite) Test_Notify() {
 	ins1 := "ins1"
 	ch := t.pool.Register(ins1, "app", "env", []string{""})
 	_ = t.pool.Register(ins1, "app", "env", []string{"key1"})

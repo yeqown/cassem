@@ -14,9 +14,9 @@ func Test_lock(t *testing.T) {
 
 	kv := NewKVClient(conn)
 	wg := sync.WaitGroup{}
+	wg.Add(2)
 
 	go func() {
-		wg.Add(1)
 		defer wg.Done()
 		assert.NotPanics(t, func() {
 			WithLock(kv, "locks/Test_lock", 10, func() {
@@ -26,7 +26,6 @@ func Test_lock(t *testing.T) {
 	}()
 
 	go func() {
-		wg.Add(1)
 		defer wg.Done()
 		assert.Panics(t, func() {
 			WithLock(kv, "locks/Test_lock", 10, func() {

@@ -4,7 +4,7 @@ package api
 import (
 	"time"
 
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/yeqown/cassem/pkg/hash"
 )
@@ -52,7 +52,7 @@ const (
 	EXPIRED       = -1
 )
 
-func (m Entity) Type() EntityType {
+func (m *Entity) Type() EntityType {
 	if m.Val == nil && m.Size == 0 {
 		return EntityType_DIR
 	}
