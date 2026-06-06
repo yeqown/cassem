@@ -2,10 +2,9 @@ package concept
 
 import (
 	"context"
-	"strconv"
+	"fmt"
 
-	proto "github.com/golang/protobuf/proto"
-	"github.com/pkg/errors"
+	proto "google.golang.org/protobuf/proto"
 
 	apicassemdb "github.com/yeqown/cassem/internal/cassemdb/api"
 	"github.com/yeqown/cassem/pkg/errorx"
@@ -23,7 +22,7 @@ type kvWriteOnly struct {
 func NewKVHybrid(endpoints []string) (KVWriteOnly, error) {
 	cc, err := apicassemdb.DialWithMode(endpoints, apicassemdb.Mode_X)
 	if err != nil {
-		return nil, errors.Wrap(err, "NewWriter")
+		return nil, fmt.Errorf("NewWriter: %w", err)
 	}
 
 	return kvWriteOnly{
@@ -77,8 +76,7 @@ func (_h kvWriteOnly) UpdateElement(ctx context.Context, app, env, key string, r
 	}
 	// if there is an unpublished version, update is not allowed.
 	if unpublished := md.GetUnpublishedVersion(); unpublished != 0 {
-		return errors.Wrap(errorx.Err_ALREADY_EXISTS,
-			"unpublished version: "+strconv.Itoa(int(unpublished)))
+		return fmt.Errorf("unpublished version: %d: %w", int(unpublished), errorx.Err_ALREADY_EXISTS)
 	}
 
 	// marking version and update
@@ -156,7 +154,7 @@ func (_h kvWriteOnly) RollbackElementVersion(ctx context.Context, app string, en
 
 	// could not roll back to bigger version than now using version.
 	if md.GetUsingVersion() <= int32(rollbackVersion) {
-		return errors.Wrap(errorx.Err_INVALID_ARGUMENT, "rollback version lte using version")
+		return fmt.Errorf("rollback version lte using version: %w", errorx.Err_INVALID_ARGUMENT)
 	}
 
 	md.UsingVersion = rollback.GetVersion()
@@ -233,7 +231,7 @@ func (_h kvWriteOnly) DeleteApp(ctx context.Context, appId string) error {
 // getElementMetadata returns element by specified version without metadata.
 func (_h kvWriteOnly) getElementWithoutMetadata(ctx context.Context, key string, version uint32) (*Element, error) {
 	if version == 0 {
-		return nil, errors.Wrap(errorx.Err_INVALID_ARGUMENT, "version could not be 0")
+		return nil, fmt.Errorf("version could not be 0: %w", errorx.Err_INVALID_ARGUMENT)
 	}
 
 	r, err := _h.cassemdb.GetKV(ctx, &apicassemdb.GetKVReq{Key: withVersion(key, int(version))})
@@ -267,7 +265,7 @@ func (_h kvWriteOnly) getElementMetadata(ctx context.Context, key string) (*Elem
 func (_h kvWriteOnly) saveRaw(ctx context.Context, key string, val proto.Message, ttl int32, overwrite bool) error {
 	bytes, err := MarshalProto(val)
 	if err != nil {
-		return errors.Wrap(errorx.Err_INTERNAL, err.Error())
+		return fmt.Errorf("%s: %w", err.Error(), errorx.Err_INTERNAL)
 	}
 
 	if _, err = _h.cassemdb.SetKV(ctx, &apicassemdb.SetKVReq{
@@ -277,7 +275,7 @@ func (_h kvWriteOnly) saveRaw(ctx context.Context, key string, val proto.Message
 		Overwrite: overwrite,
 		//IsDir:     false,
 	}); err != nil {
-		return errors.Wrap(err, "kvWrite.saveRaw")
+		return fmt.Errorf("kvWrite.saveRaw: %w", err)
 	}
 
 	return err

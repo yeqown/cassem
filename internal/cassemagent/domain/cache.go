@@ -23,7 +23,7 @@ type Cache interface {
 // appPool is the root of cache object, managing apps and their envPool objects.
 type appPool struct {
 	pool sync.Map // map[app]*envPool
-	cp   lru.CacheReplacing
+	cp   lru.CacheReplacing[string, struct{}]
 }
 
 // NewCache construct a cache instance to help app manages caches.
@@ -36,7 +36,7 @@ func NewCache(size uint) Cache {
 		pool: sync.Map{},
 	}
 
-	c.cp, _ = lru.NewLRUK(2, size, size-1, c.evictCallback)
+	c.cp, _ = lru.NewLRUK[string, struct{}](2, size, size-1, c.evictCallback)
 
 	return c
 }
@@ -79,18 +79,8 @@ func (p *appPool) parseKey(k string) (app string, env string, key string, ok boo
 // evictCallback will be called while an eviction happened which means one old
 // cache is replaced by a new one, so here need to remove the evicted element
 // from appPool.pool.
-func (p *appPool) evictCallback(k interface{}, v interface{}) {
-	key, ok := k.(string)
-	if !ok {
-		log.
-			WithFields(log.Fields{
-				"k": k,
-			}).
-			Warn("appPool.evictCallback received invalid key (not string type)")
-		return
-	}
-
-	app, env, key, ok := p.parseKey(key)
+func (p *appPool) evictCallback(k string, _ struct{}) {
+	app, env, key, ok := p.parseKey(k)
 	if !ok {
 		log.
 			WithFields(log.Fields{
@@ -132,7 +122,7 @@ func (p *appPool) unset(app, env, key string) {
 }
 
 func (p *appPool) get(app string, createIfNotExists bool) (b *envPool, ok bool) {
-	var v interface{}
+	var v any
 	if createIfNotExists {
 		v, _ = p.pool.LoadOrStore(app, newEnvPool())
 		ok = true
@@ -158,7 +148,7 @@ func newEnvPool() *envPool {
 }
 
 func (b *envPool) get(env string, createIfNotExists bool) (e *elemPool, ok bool) {
-	var v interface{}
+	var v any
 	if createIfNotExists {
 		v, _ = b.pool.LoadOrStore(env, newElemPool())
 		ok = true

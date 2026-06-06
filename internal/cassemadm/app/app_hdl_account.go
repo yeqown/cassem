@@ -1,7 +1,6 @@
 package app
 
 import (
-	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -32,7 +31,7 @@ func (d app) UserLogin(c *gin.Context) {
 	}
 
 	// compare password with salt
-	if strings.Compare(hash.WithSalt(req.Password, u.Salt), u.GetHashedPassword()) != 0 {
+	if hash.WithSalt(req.Password, u.Salt) != u.GetHashedPassword() {
 		httpx.ResponseError(c, errorx.New(errorx.Code_NOT_FOUND, "login failed"))
 		return
 	}

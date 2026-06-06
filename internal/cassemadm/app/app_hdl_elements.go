@@ -21,7 +21,7 @@ func (d app) GetAppEnvElements(c *gin.Context) {
 	}
 
 	var (
-		elements interface{}
+		elements any
 		err      error
 	)
 

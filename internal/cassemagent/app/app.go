@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"fmt"
 	"math/rand"
 	"os"
 	"os/signal"
@@ -9,7 +10,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/pkg/errors"
 	"github.com/yeqown/log"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
@@ -40,12 +40,12 @@ type app struct {
 
 func New(c *conf.CassemAgentConfig) (*app, error) {
 	if err := c.Valid(); err != nil {
-		return nil, errors.Wrap(err, "cassemagent.New failed")
+		return nil, fmt.Errorf("cassemagent.New failed: %w", err)
 	}
 
 	agg, err := concept.NewAgentAggregate(c.CassemDBEndpoints)
 	if err != nil {
-		return nil, errors.Wrap(err, "cassemagent.New")
+		return nil, fmt.Errorf("cassemagent.New: %w", err)
 	}
 
 	d := &app{
@@ -131,13 +131,12 @@ func (d app) renew() error {
 			},
 		}, d.conf.TTL)
 		if err != nil {
-			return errors.Wrap(err, "cassemagent.app.renewSelf")
+			return fmt.Errorf("cassemagent.app.renewSelf: %w", err)
 		}
 		return err
 	}
 
 	// calculate renew interval
-	rand.Seed(time.Now().UnixNano())
 	d.actualRenewInterval = d.conf.RenewInterval + rand.Int31n(d.conf.TTL-d.conf.RenewInterval)
 	timeoutCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 retryReg:

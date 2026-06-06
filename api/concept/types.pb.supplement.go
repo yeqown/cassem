@@ -1,24 +1,23 @@
 package concept
 
 import (
-	"github.com/golang/protobuf/jsonpb"
-	"github.com/golang/protobuf/proto"
 	"github.com/yeqown/log"
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
 
 	apicassemdb "github.com/yeqown/cassem/internal/cassemdb/api"
-	"github.com/yeqown/cassem/pkg/runtime"
 )
 
-var _marshaler = jsonpb.Marshaler{EmitDefaults: true, EnumsAsInts: true}
+var _marshaler = protojson.MarshalOptions{EmitDefaultValues: true}
 
 func (m *Element) MarshalJSON() ([]byte, error) {
-	s, err := _marshaler.MarshalToString(m)
-	return runtime.ToBytes(s), err
+	b, err := _marshaler.Marshal(m)
+	return b, err
 }
 
 func (m *ElementMetadata) MarshalJSON() ([]byte, error) {
-	s, err := _marshaler.MarshalToString(m)
-	return runtime.ToBytes(s), err
+	b, err := _marshaler.Marshal(m)
+	return b, err
 }
 
 func (m *Instance) Id() string {

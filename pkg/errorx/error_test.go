@@ -1,9 +1,10 @@
 package errorx
 
 import (
+	"errors"
+	"fmt"
 	"testing"
 
-	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -23,19 +24,19 @@ import (
 
 func Test_errorx(t *testing.T) {
 	err := New(1, "mockCode")
-	err2 := errors.Wrap(err, "layer1")
-	err3 := errors.Wrap(err2, "layer2")
+	err2 := fmt.Errorf("layer1: %w", err)
+	err3 := fmt.Errorf("layer2: %w", err2)
 
 	assert.True(t, errors.Is(err3, err))
 
-	err4 := errors.Cause(err3)
+	err4 := unwrapChain(err3)
 	t.Logf("err4=%+v, err=%+v", err4, err)
 	assert.True(t, err4 == err)
 }
 
 func Test_error_ToStatus(t *testing.T) {
 	err := New(Code_UNKNOWN, "unknown")
-	err2 := errors.Wrapf(err, "wrap1")
+	err2 := fmt.Errorf("wrap1: %w", err)
 
 	err3, ok := FromError(err2)
 	require.True(t, ok)

@@ -2,12 +2,11 @@ package retry
 
 import (
 	"context"
+	"errors"
 	"math/rand"
 	"time"
 
 	"github.com/yeqown/cassem/pkg/runtime"
-
-	"github.com/pkg/errors"
 )
 
 var ErrNilFunc = errors.New("retry: func is nil")

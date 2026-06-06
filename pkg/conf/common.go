@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/pelletier/go-toml"
-	"github.com/pkg/errors"
 
 	"github.com/yeqown/cassem/pkg/runtime"
 )
@@ -57,18 +56,18 @@ func openFile(path string, flag int) (r io.ReadWriteCloser, err error) {
 
 // Load decode into config(struct pointer) from path (config filepath)
 // in TOML format.
-func Load(path string, c interface{}) (err error) {
+func Load(path string, c any) (err error) {
 	if path == "" {
 		panic("todo load conf automatically")
 	}
 
 	r, err := openFile(path, os.O_RDONLY)
 	if err != nil {
-		return errors.Wrapf(err, "could not open `%s`", path)
+		return fmt.Errorf("could not open `%s`: %w", path, err)
 	}
 	defer r.Close()
 	if err = toml.NewDecoder(r).Decode(c); err != nil {
-		return errors.Wrap(err, "decode TOML file failed")
+		return fmt.Errorf("decode TOML file failed: %w", err)
 	}
 
 	return nil

@@ -19,7 +19,7 @@ const (
 type CommonResponse struct {
 	ErrCode    ErrorCode   `json:"errcode"`
 	ErrMessage string      `json:"errmsg,omitempty"`
-	Data       interface{} `json:"data,omitempty"`
+	Data       any `json:"data,omitempty"`
 }
 
 func responseWithStatusAndError(c *gin.Context, status int, err error, abort bool) {
@@ -63,7 +63,7 @@ func ResponseErrorStatusAndAbort(c *gin.Context, status int, err error) {
 	responseWithStatusAndError(c, status, err, true)
 }
 
-func ResponseJSON(c *gin.Context, data interface{}) {
+func ResponseJSON(c *gin.Context, data any) {
 	c.JSON(http.StatusOK, CommonResponse{
 		ErrCode:    OK,
 		ErrMessage: "success",

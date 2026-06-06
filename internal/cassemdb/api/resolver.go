@@ -29,7 +29,7 @@ func (c cassemdbResolverBuilder) Build(
 		}).
 		Debug("cassemdbResolverBuilder called")
 
-	endpoints := strings.Split(target.Endpoint, ",")
+	endpoints := strings.Split(target.URL.Host, ",")
 	addrs := make([]resolver.Address, 0, len(endpoints))
 	for _, v := range endpoints {
 		addrs = append(addrs, resolver.Address{

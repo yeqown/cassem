@@ -3,7 +3,7 @@ package agent
 import (
 	"context"
 
-	"github.com/pkg/errors"
+	"fmt"
 	"google.golang.org/grpc"
 
 	"github.com/yeqown/cassem/pkg/grpcx"
@@ -19,7 +19,7 @@ func DialDelivery(addr string) (DeliveryClient, error) {
 		grpc.WithChainUnaryInterceptor(grpcx.ClientRecovery(), grpcx.ClientErrorx(), grpcx.ClientValidation()),
 	)
 	if err != nil {
-		return nil, errors.Wrap(err, "cassemagent.api.Dial")
+		return nil, fmt.Errorf("cassemagent.api.Dial: %w", err)
 	}
 
 	return NewDeliveryClient(cc), nil

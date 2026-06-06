@@ -1,13 +1,14 @@
 package etcdio
 
 import (
+	"errors"
+	"fmt"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/golang/protobuf/proto"
-	"github.com/pkg/errors"
 	"github.com/yeqown/log"
+	"google.golang.org/protobuf/proto"
 	"go.etcd.io/etcd/raft/v3"
 	"go.etcd.io/etcd/raft/v3/raftpb"
 	"go.etcd.io/etcd/server/v3/etcdserver/api/snap"
@@ -299,7 +300,7 @@ func (r *raftNodeImpl) SetKV(req *apicassemdb.SetKVReq) (err error) {
 		SetKey:    req.GetKey(),
 		Value:     v,
 	}); err != nil {
-		return errors.Wrap(err, "raftNodeImpl.SetKV")
+		return fmt.Errorf("raftNodeImpl.SetKV: %w", err)
 	}
 
 	// touch off change signal to cassemdb cluster.
@@ -325,7 +326,7 @@ func (r *raftNodeImpl) UnsetKV(req *apicassemdb.UnsetKVReq) error {
 		SetKey:    "",
 		Value:     nil,
 	}); err != nil {
-		return errors.Wrap(err, "raftNodeImpl.UnsetKV")
+		return fmt.Errorf("raftNodeImpl.UnsetKV: %w", err)
 	}
 
 	// touch off change signal to cassemdb cluster.
@@ -352,7 +353,7 @@ func (r *raftNodeImpl) triggerWatchingMechanism(op apicassemdb.Change_Op, key st
 	//	return
 	//}
 
-	if last != nil && cur != nil && strings.Compare(last.Fingerprint, cur.Fingerprint) == 0 {
+	if last != nil && cur != nil && last.Fingerprint == cur.Fingerprint {
 		// set kv but cur is same to old value, so no need to touch off a change notification.
 		return
 	}
@@ -432,7 +433,7 @@ func (r *raftNodeImpl) Range(req *apicassemdb.RangeReq) (*apicassemdb.RangeResp,
 			return emptyRangeResp, nil
 		}
 
-		return nil, errors.Wrap(err, "raftNodeImpl.Range")
+		return nil, fmt.Errorf("raftNodeImpl.Range: %w", err)
 	}
 
 	if len(result.ExpiredKeys) != 0 {
@@ -470,7 +471,7 @@ func (r *raftNodeImpl) Expire(req *apicassemdb.ExpireReq) error {
 			return nil
 		}
 
-		return errors.Wrap(err, "cassemdb.raftNodeImpl.Expire")
+		return fmt.Errorf("cassemdb.raftNodeImpl.Expire: %w", err)
 	}
 
 	switch v.GetTtl() {

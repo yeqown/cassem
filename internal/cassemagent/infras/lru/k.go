@@ -6,96 +6,73 @@ import (
 	"sync"
 )
 
-var (
-	_                CacheReplacing = &K{}
-	historyEntryPool                = sync.Pool{
-		New: func() interface{} {
-			return new(historyEntry)
-		},
-	}
-	entryPool = sync.Pool{
-		New: func() interface{} {
-			return new(entry)
-		},
-	}
-)
-
-// K . means lru-k
-type K struct {
-	K       uint          // the K setting
-	onEvict EvictCallback // evict callback
+// K means lru-k. K is the type parameter for keys, V for values.
+type LRU[K comparable, V any] struct {
+	K       uint                 // the K setting
+	onEvict EvictCallback[K, V] // evict callback
 
 	hMutex       sync.RWMutex
-	hSize        uint                          // historyMax - used = historyRest
-	history      *list.List                    // history doubly linked list
-	historyItems map[interface{}]*list.Element // history get op O(1)
+	hSize        uint                  // historyMax - used = historyRest
+	history      *list.List            // history doubly linked list
+	historyItems map[K]*list.Element   // history get op O(1)
 
 	mutex      sync.RWMutex
-	size       uint                          // max - used = rest
-	cache      *list.List                    // cache doubly linked list, save
-	cacheItems map[interface{}]*list.Element // cache get op O(1)
+	size       uint                // max - used = rest
+	cache      *list.List          // cache doubly linked list
+	cacheItems map[K]*list.Element // cache get op O(1)
 }
 
-// NewLRUK .
-func NewLRUK(k, size, hSize uint, onEvict EvictCallback) (*K, error) {
-
+// NewLRUK creates a new LRU-K cache.
+func NewLRUK[K comparable, V any](k, size, hSize uint, onEvict EvictCallback[K, V]) (*LRU[K, V], error) {
 	if k < 2 {
 		return nil, errors.New("k is suggested bigger than 1, otherwise using LRU")
 	}
 
 	if hSize < size {
-		hSize = size * ((size % 3) + 1) // why would I set this?
+		hSize = size * ((size % 3) + 1)
 	}
 
-	return &K{
+	return &LRU[K, V]{
 		K:            k,
 		onEvict:      onEvict,
 		hMutex:       sync.RWMutex{},
 		hSize:        hSize,
 		history:      list.New(),
-		historyItems: make(map[interface{}]*list.Element),
+		historyItems: make(map[K]*list.Element),
 		mutex:        sync.RWMutex{},
 		size:         size,
 		cache:        list.New(),
-		cacheItems:   make(map[interface{}]*list.Element),
+		cacheItems:   make(map[K]*list.Element),
 	}, nil
 }
 
-// Put of K cache add or update
-func (c *K) Put(key, value interface{}) (set, evicted bool) {
+// Put adds or updates a value in the cache.
+func (c *LRU[K, V]) Put(key K, value V) (set, evicted bool) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 	if item, ok := c.cacheItems[key]; ok {
-		item.Value.(*entry).Value = value
+		item.Value.(*entry[K, V]).Value = value
 		c.cache.MoveToFront(item)
 		set = true
 		return
 	}
 
-	// if not hit in cache, then add to history
-	var hEnt = historyEntryPool.Get().(*historyEntry)
+	var hEnt = &historyEntry[K, V]{}
 	c.hMutex.Lock()
 	defer c.hMutex.Unlock()
 	item, ok := c.historyItems[key]
 	if ok {
-		hEnt = item.Value.(*historyEntry)
-		// fmt.Printf("hit hEnt: %v\n", hEnt)
-		hEnt = item.Value.(*historyEntry)
+		hEnt = item.Value.(*historyEntry[K, V])
 		hEnt.Visited++
 		item.Value = hEnt
 		if hEnt.Visited >= c.K {
-			// true: move from history into cache
 			c.removeHistoryElement(item)
 
-			e := entryPool.Get().(*entry)
-			e.Key = key
-			e.Value = value
+			e := &entry[K, V]{Key: key, Value: value}
 			return true, c.addElement(e)
 		}
-		// refresh history order
 		c.history.MoveToFront(item)
 	} else {
-		// true: not exists
 		hEnt.Key = key
 		hEnt.Value = value
 		hEnt.Visited = 1
@@ -105,22 +82,21 @@ func (c *K) Put(key, value interface{}) (set, evicted bool) {
 	return false, false
 }
 
-// Get of K cache
-func (c *K) Get(key interface{}) (value interface{}, ok bool) {
+// Get returns key's value from the cache.
+func (c *LRU[K, V]) Get(key K) (value V, ok bool) {
 	c.mutex.Lock()
-	// defer c.mutex.Unlock()
-	// fmt.Println(c.cacheItems)
 	if item, ok := c.cacheItems[key]; ok {
 		c.cache.MoveToFront(item)
 		c.mutex.Unlock()
-		return item.Value.(*entry).Value, true
+		return item.Value.(*entry[K, V]).Value, true
 	}
 	c.mutex.Unlock()
-	return nil, false
+	var zero V
+	return zero, false
 }
 
-// Remove of K cache
-func (c *K) Remove(key interface{}) bool {
+// Remove removes a key from the cache.
+func (c *LRU[K, V]) Remove(key K) bool {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 	if item, ok := c.cacheItems[key]; ok {
@@ -130,45 +106,48 @@ func (c *K) Remove(key interface{}) bool {
 	return false
 }
 
-// Peek of K cache
-func (c *K) Peek(key interface{}) (value interface{}, ok bool) {
+// Peek returns key's value without updating the recently used order.
+func (c *LRU[K, V]) Peek(key K) (value V, ok bool) {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 	var item *list.Element
 	if item, ok = c.cacheItems[key]; ok {
-		return item.Value.(*entry).Value, true
+		return item.Value.(*entry[K, V]).Value, true
 	}
-	return nil, ok
+	var zero V
+	return zero, ok
 }
 
-// Oldest of K cache
-func (c *K) Oldest() (key, value interface{}, ok bool) {
+// Oldest returns the oldest entry in the cache.
+func (c *LRU[K, V]) Oldest() (key K, value V, ok bool) {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 	if c.cache == nil || c.cache.Len() == 0 {
-		return nil, nil, false
+		var zeroK K
+		var zeroV V
+		return zeroK, zeroV, false
 	}
 
 	item := c.cache.Back()
-	ent := item.Value.(*entry)
-	return ent.Value, ent.Value, true
+	ent := item.Value.(*entry[K, V])
+	return ent.Key, ent.Value, true
 }
 
-// Keys of K cache
-func (c *K) Keys() []interface{} {
+// Keys returns all keys in the cache (oldest first).
+func (c *LRU[K, V]) Keys() []K {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
-	keys := make([]interface{}, len(c.cacheItems))
+	keys := make([]K, len(c.cacheItems))
 	i := 0
 	for item := c.cache.Back(); item != nil; item = item.Prev() {
-		keys[i] = item.Value.(*entry).Key
+		keys[i] = item.Value.(*entry[K, V]).Key
 		i++
 	}
 	return keys
 }
 
-// Len of K cache
-func (c *K) Len() int {
+// Len returns the number of items in the cache.
+func (c *LRU[K, V]) Len() int {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 	if c.cache == nil {
@@ -177,22 +156,12 @@ func (c *K) Len() int {
 	return c.cache.Len()
 }
 
-//// Iter of K cache
-//func (c *K) Iter(f IterFunc) {
-//	c.mutex.RLock()
-//	defer c.mutex.RUnlock()
-//	for item := c.cache.Back(); item != nil; item = item.Prev() {
-//		ent := item.Value.(*entry)
-//		f(ent.Key, ent.Value)
-//	}
-//}
-
-// Purge of K cache
-func (c *K) Purge() {
+// Purge clears all cache entries.
+func (c *LRU[K, V]) Purge() {
 	c.mutex.Lock()
 	for k, v := range c.cacheItems {
 		if c.onEvict != nil {
-			c.onEvict(k, v.Value.(*entry).Value)
+			c.onEvict(k, v.Value.(*entry[K, V]).Value)
 		}
 		delete(c.cacheItems, k)
 	}
@@ -207,30 +176,25 @@ func (c *K) Purge() {
 	c.hMutex.Unlock()
 }
 
-func (c *K) removeHistoryElement(item *list.Element) {
+func (c *LRU[K, V]) removeHistoryElement(item *list.Element) {
 	c.hSize++
-	ent := item.Value.(*historyEntry)
-	historyEntryPool.Put(ent)
+	ent := item.Value.(*historyEntry[K, V])
 	c.history.Remove(item)
 	delete(c.historyItems, ent.Key)
 }
 
-func (c *K) addHistoryElement(hEnt *historyEntry) *list.Element {
+func (c *LRU[K, V]) addHistoryElement(hEnt *historyEntry[K, V]) *list.Element {
 	if c.hSize == 0 {
 		c.removeHistoryElement(c.history.Back())
 	}
 	c.hSize--
-	// item := c.history.PushFront(hEnt)
-	// c.historyItems[hEnt.Key] = item
-	// return item
 	c.historyItems[hEnt.Key] = c.history.PushFront(hEnt)
 	return c.historyItems[hEnt.Key]
 }
 
-func (c *K) removeElement(item *list.Element) {
+func (c *LRU[K, V]) removeElement(item *list.Element) {
 	c.size++
-	ent := item.Value.(*entry)
-	entryPool.Put(ent)
+	ent := item.Value.(*entry[K, V])
 	c.cache.Remove(item)
 	delete(c.cacheItems, ent.Key)
 	if c.onEvict != nil {
@@ -238,8 +202,7 @@ func (c *K) removeElement(item *list.Element) {
 	}
 }
 
-func (c *K) addElement(ent *entry) (evicted bool) {
-	// println(c.size)
+func (c *LRU[K, V]) addElement(ent *entry[K, V]) (evicted bool) {
 	if c.size == 0 {
 		evicted = true
 		c.removeElement(c.cache.Back())

@@ -2,10 +2,11 @@ package agent
 
 import (
 	"context"
+	"errors"
 	"math/rand"
 	"time"
 
-	"github.com/pkg/errors"
+	"fmt"
 	"github.com/yeqown/log"
 	"google.golang.org/grpc"
 
@@ -88,7 +89,7 @@ func dial(addr string) (*grpc.ClientConn, error) {
 		grpc.WithChainUnaryInterceptor(grpcx.ClientRecovery(), grpcx.ClientErrorx(), grpcx.ClientValidation()),
 	)
 	if err != nil {
-		return nil, errors.Wrap(err, "cassemagent.api.Dial")
+		return nil, fmt.Errorf("cassemagent.api.Dial: %w", err)
 	}
 
 	return cc, nil
@@ -173,7 +174,7 @@ func (c *agentInstanceClient) Watch(
 		Watching: []*concept.Instance_Watching{w},
 	})
 	if err != nil {
-		return errors.Wrap(err, "agentInstanceClient.Watch")
+		return fmt.Errorf("agentInstanceClient.Watch: %w", err)
 	}
 
 	c.watching[app+env] = w
@@ -209,7 +210,7 @@ func (c *agentInstanceClient) Watch(
 							"error":    err,
 						}).
 						Error("agentInstanceClient.Watch failed to receive message")
-					return errors.Wrap(err, "agentInstanceClient.Watch.RecvMsg")
+					return fmt.Errorf("agentInstanceClient.Watch.RecvMsg: %w", err)
 				}
 				if r.GetElem() == nil {
 					continue
@@ -277,7 +278,7 @@ func (c agentInstanceClient) GetElement(
 		Keys: keys,
 	})
 	if err != nil {
-		return nil, errors.Wrap(err, "agentInstanceClient.GetElement")
+		return nil, fmt.Errorf("agentInstanceClient.GetElement: %w", err)
 	}
 
 	return r.GetElems(), nil

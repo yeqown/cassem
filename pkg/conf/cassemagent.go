@@ -1,6 +1,6 @@
 package conf
 
-import "github.com/pkg/errors"
+import "errors"
 
 // CassemAgentConfig contains all config to cassemadm.
 type CassemAgentConfig struct {

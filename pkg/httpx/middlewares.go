@@ -3,7 +3,7 @@ package httpx
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httputil"
 	"os"
@@ -57,7 +57,7 @@ func Logger() gin.HandlerFunc {
 		//c.Writer = rbw
 		body, err := c.GetRawData()
 		if err == nil && len(body) != 0 {
-			c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(body))
+			c.Request.Body = io.NopCloser(bytes.NewBuffer(body))
 		}
 
 		start := time.Now()

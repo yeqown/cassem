@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"github.com/alecthomas/kingpin"
-	"github.com/boltdb/bolt"
+	bolt "go.etcd.io/bbolt"
 	"github.com/peterh/liner"
 )
 

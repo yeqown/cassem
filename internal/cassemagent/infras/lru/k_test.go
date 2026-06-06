@@ -8,7 +8,7 @@ import (
 )
 
 func Test_LRUK(t *testing.T) {
-	cache, err := lru.NewLRUK(2, 2, 4, func(k, v interface{}) {
+	cache, err := lru.NewLRUK[int, int](2, 2, 4, func(k, v int) {
 		fmt.Printf("onEvict: k: %v, v: %v\n", k, v)
 	})
 	if err != nil {
@@ -36,7 +36,7 @@ func Test_LRUK(t *testing.T) {
 
 	// update cache
 	cache.Put(4, 2)
-	if v, hit := cache.Get(4); !hit || v.(int) != 2 {
+	if v, hit := cache.Get(4); !hit || v != 2 {
 		t.Error("should get 4 hit and value shoult be 2")
 	}
 	if _, hit := cache.Get(3); !hit {
@@ -56,7 +56,7 @@ func Test_LRUK(t *testing.T) {
 }
 
 func Benchmark_LRUK_100_100(b *testing.B) {
-	cache, err := lru.NewLRUK(2, 100, 100, nil)
+	cache, err := lru.NewLRUK[int, int](2, 100, 100, nil)
 	// size: 50
 	// hSize: 100
 	if err != nil {
@@ -73,7 +73,7 @@ func Benchmark_LRUK_100_100(b *testing.B) {
 // Benchmark_LRUK-4   	10000000	       159 ns/op	      15 B/op	       1 allocs/op
 
 func Benchmark_LRUK_50_100(b *testing.B) {
-	cache, err := lru.NewLRUK(2, 50, 100, nil)
+	cache, err := lru.NewLRUK[int, int](2, 50, 100, nil)
 	// size: 50
 	// hSize: 100
 	if err != nil {
@@ -90,6 +90,4 @@ func Benchmark_LRUK_50_100(b *testing.B) {
 // Benchmark_LRUK_50_100-4   	 3000000	       536 ns/op	      90 B/op	       3 allocs/op
 // To analyze:
 //
-// go test -bench=. -benchmem -memprofile memprofile.out -cpuprofile profile.out
-//
-//
+//	go test -bench=. -benchmem -memprofile memprofile.out -cpuprofile profile.out

@@ -1,11 +1,10 @@
 package runtime
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"time"
-
-	"github.com/pkg/errors"
 )
 
 // GoFunc runs invoker in an independent goroutine and the goroutine will automatically recover from panic,
@@ -40,11 +39,11 @@ func GoFunc(invokerName string, invoker func() error) {
 	go fn()
 }
 
-func recoverFrom(v interface{}) (err error) {
+func recoverFrom(v any) (err error) {
 	if v == nil {
 		return errors.New("nil panic")
 	}
 
-	err = errors.Wrap(err, "server panic")
+	err = fmt.Errorf("server panic: %w", err)
 	return
 }

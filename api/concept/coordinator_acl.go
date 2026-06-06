@@ -2,13 +2,14 @@ package concept
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"strings"
 
 	"github.com/casbin/casbin/v2"
 	"github.com/casbin/casbin/v2/model"
 	"github.com/casbin/casbin/v2/persist"
 	defaultrolemanager "github.com/casbin/casbin/v2/rbac/default-role-manager"
-	"github.com/pkg/errors"
 	"github.com/yeqown/log"
 
 	apicassemdb "github.com/yeqown/cassem/internal/cassemdb/api"
@@ -100,11 +101,11 @@ func newRBAC(c apicassemdb.KVClient) (RBAC, error) {
 
 	m, err := model.NewModelFromString(_casbinModel)
 	if err != nil {
-		return nil, errors.Wrap(err, "concept.newRBAC.parseModel")
+		return nil, fmt.Errorf("concept.newRBAC.parseModel: %w", err)
 	}
 	e, err := casbin.NewEnforcer(m, a)
 	if err != nil {
-		return nil, errors.Wrap(err, "concept.newRBAC.newEnforcer")
+		return nil, fmt.Errorf("concept.newRBAC.newEnforcer: %w", err)
 	}
 
 	// use 1-layer RBAC
@@ -154,7 +155,7 @@ func (a aclImpl) GetUser(account string) (*User, error) {
 
 	r, err := a.c.GetKV(context.TODO(), &apicassemdb.GetKVReq{Key: genUserKey(account)})
 	if err != nil {
-		return nil, errors.Wrap(err, "aclImpl.GetUser")
+		return nil, fmt.Errorf("aclImpl.GetUser: %w", err)
 	}
 
 	u := new(User)
@@ -186,7 +187,7 @@ func (a aclImpl) AddUser(u *User) error {
 		Overwrite: false,
 	})
 	if err != nil {
-		return errors.Wrap(err, "aclImpl.AddUser")
+		return fmt.Errorf("aclImpl.AddUser: %w", err)
 	}
 	_ = r
 
@@ -196,7 +197,7 @@ func (a aclImpl) AddUser(u *User) error {
 func (a aclImpl) DisableUser(account string) error {
 	r, err := a.c.GetKV(context.TODO(), &apicassemdb.GetKVReq{Key: genUserKey(account)})
 	if err != nil {
-		return errors.Wrap(err, "aclImpl.DisableUser")
+		return fmt.Errorf("aclImpl.DisableUser: %w", err)
 	}
 
 	u := new(User)
@@ -216,7 +217,7 @@ func (a aclImpl) saveUser(u *User) error {
 		Overwrite: true,
 	})
 	if err != nil {
-		return errors.Wrap(err, "aclImpl.saveUser")
+		return fmt.Errorf("aclImpl.saveUser: %w", err)
 	}
 	_ = r
 
@@ -226,7 +227,7 @@ func (a aclImpl) saveUser(u *User) error {
 func (a aclImpl) AssignRole(account, role string, domain ...string) error {
 	assigned, err := a.e.AddRoleForUser(account, role, domain...)
 	if err != nil {
-		return errors.Wrap(err, "aclImpl.AssignRole")
+		return fmt.Errorf("aclImpl.AssignRole: %w", err)
 	}
 
 	if !assigned {
@@ -249,7 +250,7 @@ func (a aclImpl) AssignRole(account, role string, domain ...string) error {
 func (a aclImpl) RevokeRole(account, role string, domain ...string) error {
 	assigned, err := a.e.DeleteRoleForUser(account, role, domain...)
 	if err != nil {
-		return errors.Wrap(err, "aclImpl.RevokeRole")
+		return fmt.Errorf("aclImpl.RevokeRole: %w", err)
 	}
 
 	if !assigned {
@@ -320,7 +321,7 @@ func (c cassemAdapter) LoadPolicy(model model.Model) error {
 			return nil
 		}
 
-		return errors.Wrap(err, "cassemAdapter.LoadPolicy")
+		return fmt.Errorf("cassemAdapter.LoadPolicy: %w", err)
 	}
 
 	// c.casbinEntity = r.GetEntity()
@@ -386,7 +387,7 @@ func (c cassemAdapter) SavePolicy(model model.Model) error {
 		Overwrite: true,
 	})
 	if err != nil {
-		return errors.Wrap(err, "cassemAdapter.SavePolicy")
+		return fmt.Errorf("cassemAdapter.SavePolicy: %w", err)
 	}
 
 	return nil

@@ -2,9 +2,10 @@ package concept
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"time"
 
-	"github.com/pkg/errors"
 	"github.com/yeqown/log"
 
 	apicassemdb "github.com/yeqown/cassem/internal/cassemdb/api"
@@ -48,7 +49,7 @@ func (i instanceHybrid) GetInstances(
 		Limit: int32(limit),
 	})
 	if err != nil {
-		return nil, errors.Wrap(err, "instanceHybrid.GetInstances")
+		return nil, fmt.Errorf("instanceHybrid.GetInstances: %w", err)
 	}
 
 	// insIds := make([]string, 0, len(r.GetEntities()))
@@ -72,7 +73,7 @@ func (i instanceHybrid) GetInstances(
 	//	Keys: insIds,
 	//})
 	//if err2 != nil {
-	//	return nil, errors.Wrap(err, "instanceHybrid.GetInstances")
+	//	return nil, fmt.Errorf("instanceHybrid.GetInstances: %w", err)
 	//}
 	//
 	//for _, v := range r2.GetEntities() {
@@ -102,7 +103,7 @@ func (i instanceHybrid) GetInstancesByElement(
 		Limit: 100,
 	})
 	if err != nil {
-		return nil, errors.Wrap(err, "instanceHybrid.GetInstances")
+		return nil, fmt.Errorf("instanceHybrid.GetInstances: %w", err)
 	}
 
 	result := &getInstancesResult{
@@ -126,7 +127,7 @@ func (i instanceHybrid) GetInstancesByElement(
 		Keys: insIds,
 	})
 	if err2 != nil {
-		return nil, errors.Wrap(err, "instanceHybrid.GetInstances")
+		return nil, fmt.Errorf("instanceHybrid.GetInstances: %w", err)
 	}
 
 	for _, v := range r2.GetEntities() {
@@ -203,7 +204,7 @@ func (i instanceHybrid) setInstanceInfo(ctx context.Context, ins *Instance) (err
 		Overwrite: true,
 	})
 	if err != nil {
-		return errors.Wrap(err, "instanceHybrid.GetInstance")
+		return fmt.Errorf("instanceHybrid.GetInstance: %w", err)
 	}
 
 	// save reversed kv
@@ -265,12 +266,12 @@ func (i instanceHybrid) UnregisterInstance(ctx context.Context, insId string) er
 			return nil
 		}
 
-		return errors.Wrap(err, "instanceHybrid.UnregisterInstance")
+		return fmt.Errorf("instanceHybrid.UnregisterInstance: %w", err)
 	}
 
 	ins := new(Instance)
 	if err = UnmarshalProto(r.GetEntity().GetVal(), ins); err != nil {
-		return errors.Wrap(err, "instanceHybrid.UnregisterInstance")
+		return fmt.Errorf("instanceHybrid.UnregisterInstance: %w", err)
 	}
 
 	// unset normalized kv

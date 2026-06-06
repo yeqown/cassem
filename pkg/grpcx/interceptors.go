@@ -20,11 +20,11 @@ func ChainUnaryServer(
 	interceptors ...grpc.UnaryServerInterceptor) grpc.UnaryServerInterceptor {
 	n := len(interceptors)
 
-	return func(ctx context.Context, req interface{},
-		info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+	return func(ctx context.Context, req any,
+		info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
 
 		chainer := func(currentInter grpc.UnaryServerInterceptor, currentHandler grpc.UnaryHandler) grpc.UnaryHandler {
-			return func(currentCtx context.Context, currentReq interface{}) (interface{}, error) {
+			return func(currentCtx context.Context, currentReq any) (any, error) {
 				return currentInter(currentCtx, currentReq, info, currentHandler)
 			}
 		}
@@ -39,14 +39,14 @@ func ChainUnaryServer(
 }
 
 func ServerRecovery() grpc.UnaryServerInterceptor {
-	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo,
-		handler grpc.UnaryHandler) (resp interface{}, err error) {
+	return func(ctx context.Context, req any, info *grpc.UnaryServerInfo,
+		handler grpc.UnaryHandler) (resp any, err error) {
 
 		panicked := true
 		defer func() {
 			if v := recover(); v != nil || panicked {
 				formatted := fmt.Sprintf("server panic: %v %v", req, v)
-				log.Errorf(formatted)
+				log.Error(formatted)
 				fmt.Println(string(runtime.Stack()))
 				err = runtime.RecoverFrom(v)
 			}
@@ -60,8 +60,8 @@ func ServerRecovery() grpc.UnaryServerInterceptor {
 }
 
 func ServerLogger() grpc.UnaryServerInterceptor {
-	return func(ctx context.Context, req interface{},
-		info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
+	return func(ctx context.Context, req any,
+		info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp any, err error) {
 
 		fields := log.Fields{
 			"method": info.FullMethod,
@@ -90,8 +90,8 @@ func ServerLogger() grpc.UnaryServerInterceptor {
 }
 
 func SevrerErrorx() grpc.UnaryServerInterceptor {
-	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo,
-		handler grpc.UnaryHandler) (resp interface{}, err error) {
+	return func(ctx context.Context, req any, info *grpc.UnaryServerInfo,
+		handler grpc.UnaryHandler) (resp any, err error) {
 		resp, err = handler(ctx, req)
 		if err != nil {
 			err = errorx.ToStatus(err)
@@ -113,8 +113,8 @@ type validator interface {
 // ServerValidation check all requests from clients. In order to save the server's compute resources,
 // validation process will be aborted if any invalidation is encountered.
 func ServerValidation() grpc.UnaryServerInterceptor {
-	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo,
-		handler grpc.UnaryHandler) (resp interface{}, err error) {
+	return func(ctx context.Context, req any, info *grpc.UnaryServerInfo,
+		handler grpc.UnaryHandler) (resp any, err error) {
 
 		if v, ok := req.(validator); ok {
 			if err = v.Validate(); err != nil {
@@ -128,14 +128,14 @@ func ServerValidation() grpc.UnaryServerInterceptor {
 }
 
 func ClientRecovery() grpc.UnaryClientInterceptor {
-	return func(ctx context.Context, method string, req, reply interface{},
+	return func(ctx context.Context, method string, req, reply any,
 		cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) (err error) {
 
 		panicked := true
 		defer func() {
 			if v := recover(); v != nil || panicked {
 				formatted := fmt.Sprintf("client panic: %v %v", req, v)
-				log.Errorf(formatted)
+				log.Error(formatted)
 				fmt.Println(runtime.Stack())
 				err = runtime.RecoverFrom(v)
 			}
@@ -149,7 +149,7 @@ func ClientRecovery() grpc.UnaryClientInterceptor {
 }
 
 func ClientErrorx() grpc.UnaryClientInterceptor {
-	return func(ctx context.Context, method string, req, reply interface{},
+	return func(ctx context.Context, method string, req, reply any,
 		cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
 
 		err := invoker(ctx, method, req, reply, cc, opts...)
@@ -168,7 +168,7 @@ func ClientErrorx() grpc.UnaryClientInterceptor {
 // and server is that client check all fields in the request, but server aborts the validation immediately,
 // since any invalid field is encountered.
 func ClientValidation() grpc.UnaryClientInterceptor {
-	return func(ctx context.Context, method string, req, reply interface{},
+	return func(ctx context.Context, method string, req, reply any,
 		cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
 		v, ok := req.(validator)
 		if ok {

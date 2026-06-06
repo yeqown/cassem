@@ -2,10 +2,10 @@ package api
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 
-	"github.com/pkg/errors"
 	"github.com/yeqown/log"
 	"google.golang.org/grpc"
 	_ "google.golang.org/grpc/health"
@@ -66,7 +66,7 @@ func DialWithMode(endpoints []string, mode Mode) (*grpc.ClientConn, error) {
 		grpc.WithChainUnaryInterceptor(grpcx.ClientRecovery(), grpcx.ClientErrorx(), grpcx.ClientValidation()),
 	)
 	if err != nil {
-		return nil, errors.Wrap(err, "DialWithMode failed")
+		return nil, fmt.Errorf("DialWithMode failed: %w", err)
 	}
 
 	return cc, nil

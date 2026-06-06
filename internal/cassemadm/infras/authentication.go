@@ -1,8 +1,9 @@
 package infras
 
 import (
+	"fmt"
+
 	"github.com/gin-gonic/gin"
-	"github.com/pkg/errors"
 	"github.com/yeqown/log"
 
 	"github.com/yeqown/cassem/api/concept"
@@ -19,7 +20,7 @@ func Authentication(rbac concept.RBAC) gin.HandlerFunc {
 		sess, ok := GetSessionFromContext(c)
 		if !ok {
 			log.Debug("Authentication session not found")
-			httpx.ResponseErrorAndAbort(c, errors.Wrap(errorx.Err_PERMISSION_DENIED, "session not found"))
+			httpx.ResponseErrorAndAbort(c, fmt.Errorf("session not found: %w", errorx.Err_PERMISSION_DENIED))
 			return
 		}
 
@@ -49,7 +50,7 @@ func Authentication(rbac concept.RBAC) gin.HandlerFunc {
 		}
 
 		if !allow {
-			httpx.ResponseErrorAndAbort(c, errors.Wrap(errorx.Err_PERMISSION_DENIED, "not allowed"))
+			httpx.ResponseErrorAndAbort(c, fmt.Errorf("not allowed: %w", errorx.Err_PERMISSION_DENIED))
 			return
 		}
 

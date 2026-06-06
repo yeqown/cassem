@@ -1,12 +1,13 @@
 package app
 
 import (
+	"errors"
+	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
-	"github.com/pkg/errors"
 	"github.com/yeqown/log"
 
 	apicassemdb "github.com/yeqown/cassem/internal/cassemdb/api"
@@ -43,7 +44,7 @@ func New(cfg *conf.CassemdbConfig) (*app, error) {
 	}
 
 	if err := cfg.Raft.Fix(); err != nil {
-		return nil, errors.Wrap(err, "failed to fixRaftConfig in New")
+		return nil, fmt.Errorf("failed to fixRaftConfig in New: %w", err)
 	}
 
 	if err := d.bootstrap(); err != nil {

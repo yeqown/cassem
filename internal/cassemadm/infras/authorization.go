@@ -3,11 +3,11 @@ package infras
 import (
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/pkg/errors"
 	"github.com/yeqown/log"
 
 	"github.com/yeqown/cassem/api/concept"
@@ -42,12 +42,12 @@ func Authorization(rbac concept.RBAC) gin.HandlerFunc {
 		user, err := rbac.GetUser(sess.Account)
 		if err != nil {
 			log.Warnf("Authentication get user failed: %v", err)
-			httpx.ResponseErrorAndAbort(c, errors.Wrap(errorx.Err_INTERNAL, err.Error()))
+			httpx.ResponseErrorAndAbort(c, fmt.Errorf("%s: %w", err.Error(), errorx.Err_INTERNAL))
 			return
 		}
 
 		if err = validSession(sess, user); err != nil {
-			httpx.ResponseErrorAndAbort(c, errors.Wrap(errorx.Err_UNAUTHENTICATED, err.Error()))
+			httpx.ResponseErrorAndAbort(c, fmt.Errorf("%s: %w", err.Error(), errorx.Err_UNAUTHENTICATED))
 			return
 		}
 
@@ -69,14 +69,14 @@ func GetSessionFromContext(c *gin.Context) (*Session, bool) {
 func validSession(sess *Session, user *concept.User) error {
 	// valid session status
 	if user.GetStatus() != concept.User_NORMAL {
-		return errors.Wrap(errorx.Err_UNAUTHENTICATED, "status disabled")
+		return fmt.Errorf("status disabled: %w", errorx.Err_UNAUTHENTICATED)
 	}
 	if user.GetSalt() != sess.Salt {
-		return errors.Wrap(errorx.Err_UNAUTHENTICATED, "invalid session header")
+		return fmt.Errorf("invalid session header: %w", errorx.Err_UNAUTHENTICATED)
 	}
 
 	if sub := time.Now().Unix() - sess.ExpiredAt; sub >= 0 {
-		return errors.Wrap(errorx.Err_UNAUTHENTICATED, "session expired")
+		return fmt.Errorf("session expired: %w", errorx.Err_UNAUTHENTICATED)
 	}
 
 	return nil
@@ -89,12 +89,12 @@ func parseSession(s string) (*Session, error) {
 
 	val, err := base64.StdEncoding.DecodeString(s)
 	if err != nil {
-		return nil, errors.Wrap(errorx.Err_INVALID_ARGUMENT, err.Error())
+		return nil, fmt.Errorf("%s: %w", err.Error(), errorx.Err_INVALID_ARGUMENT)
 	}
 
 	sess := new(Session)
 	if err = json.Unmarshal(val, sess); err != nil {
-		return nil, errors.Wrap(errorx.Err_INVALID_ARGUMENT, err.Error())
+		return nil, fmt.Errorf("%s: %w", err.Error(), errorx.Err_INVALID_ARGUMENT)
 	}
 
 	return sess, nil
@@ -103,7 +103,7 @@ func parseSession(s string) (*Session, error) {
 func EncodeSession(sess *Session) (string, error) {
 	val, err := json.Marshal(sess)
 	if err != nil {
-		return "", errors.Wrap(err, "EncodeSession")
+		return "", fmt.Errorf("EncodeSession: %w", err)
 	}
 
 	//out := make([]byte, base64.StdEncoding.EncodedLen(len(val)))

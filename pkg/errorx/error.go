@@ -1,9 +1,7 @@
 package errorx
 
 import (
-	"strings"
-
-	"github.com/pkg/errors"
+	"errors"
 )
 
 type errorx struct {
@@ -25,15 +23,27 @@ func (e errorx) Is(target error) bool {
 		return false
 	}
 
-	return e.Code == t.Code && strings.Compare(e.Message, t.Message) == 0
+	return e.Code == t.Code && e.Message == t.Message
 }
 
 func New(code Code, msg string) error {
 	return &errorx{Code: code, Message: msg}
 }
 
+// unwrapChain traverses the error chain to find the root error.
+func unwrapChain(err error) error {
+	for err != nil {
+		if u := errors.Unwrap(err); u != nil {
+			err = u
+		} else {
+			break
+		}
+	}
+	return err
+}
+
 func FromError(err error) (*errorx, bool) {
-	err = errors.Cause(err)
+	err = unwrapChain(err)
 	if e, ok := err.(*errorx); ok {
 		return e, ok
 	}

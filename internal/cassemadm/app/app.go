@@ -1,13 +1,13 @@
 package app
 
 import (
+	"fmt"
 	"log"
 	"time"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-contrib/pprof"
 	"github.com/gin-gonic/gin"
-	"github.com/pkg/errors"
 
 	"github.com/yeqown/cassem/api/concept"
 	"github.com/yeqown/cassem/internal/cassemadm/infras"
@@ -30,12 +30,12 @@ type app struct {
 
 func New(c *conf.CassemAdminConfig) (*app, error) {
 	if err := c.Valid(); err != nil {
-		return nil, errors.Wrap(err, "cassemadm.New failed")
+		return nil, fmt.Errorf("cassemadm.New failed: %w", err)
 	}
 
 	agg, err := concept.NewAdmAggregate(c.CassemDBEndpoints)
 	if err != nil {
-		return nil, errors.Wrap(err, "cassemadm.New")
+		return nil, fmt.Errorf("cassemadm.New: %w", err)
 	}
 
 	d := &app{

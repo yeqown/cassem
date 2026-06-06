@@ -1,7 +1,6 @@
 package runtime
 
 import (
-	"strings"
 	"unsafe"
 )
 
@@ -20,7 +19,7 @@ func ToString(b []byte) string {
 func IndexOf(target string, arr []string) (pos int) {
 	pos = -1
 	for idx, v := range arr {
-		if strings.Compare(v, target) == 0 {
+		if v == target {
 			pos = idx
 			break
 		}

@@ -2,9 +2,10 @@ package concept
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"io"
 
-	"github.com/pkg/errors"
 	"github.com/yeqown/log"
 
 	apicassemdb "github.com/yeqown/cassem/internal/cassemdb/api"
@@ -87,7 +88,7 @@ loop:
 func (_h agentInsHybrid) Register(ctx context.Context, ins *AgentInstance, ttl int32) error {
 	bytes, err := MarshalProto(ins)
 	if err != nil {
-		return errors.Wrap(err, "cassem.concept.agentInsHybrid.Register")
+		return fmt.Errorf("cassem.concept.agentInsHybrid.Register: %w", err)
 	}
 
 	_, err = _h.cassemdb.SetKV(ctx, &apicassemdb.SetKVReq{
@@ -104,7 +105,7 @@ func (_h agentInsHybrid) Register(ctx context.Context, ins *AgentInstance, ttl i
 func (_h agentInsHybrid) Renew(ctx context.Context, ins *AgentInstance, ttl int32) error {
 	bytes, err := MarshalProto(ins)
 	if err != nil {
-		return errors.Wrap(err, "cassem.concept.agentInsHybrid.Renew")
+		return fmt.Errorf("cassem.concept.agentInsHybrid.Renew: %w", err)
 	}
 
 	_, err = _h.cassemdb.SetKV(ctx, &apicassemdb.SetKVReq{
@@ -134,7 +135,7 @@ func (_h agentInsHybrid) GetAgents(ctx context.Context, seek string, limit int) 
 		Limit: int32(limit),
 	})
 	if err != nil {
-		return nil, errors.Wrap(err, "agentInsHybrid.GetAgents")
+		return nil, fmt.Errorf("agentInsHybrid.GetAgents: %w", err)
 	}
 
 	result := &getAgentsResult{

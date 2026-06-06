@@ -1,7 +1,7 @@
 package concept
 
 import (
-	"github.com/pkg/errors"
+	"fmt"
 
 	apicassemdb "github.com/yeqown/cassem/internal/cassemdb/api"
 )
@@ -24,7 +24,7 @@ func NewAdmAggregate(endpoints []string) (AdmAggregate, error) {
 
 	acl, err := newRBAC(c)
 	if err != nil {
-		return nil, errors.Wrap(err, "NewAdmAggregate")
+		return nil, fmt.Errorf("NewAdmAggregate: %w", err)
 	}
 
 	return admAggregate{

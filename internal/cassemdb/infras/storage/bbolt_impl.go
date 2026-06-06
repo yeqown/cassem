@@ -1,10 +1,10 @@
 package storage
 
 import (
+	"errors"
+	"fmt"
 	"path"
-	"strings"
 
-	"github.com/pkg/errors"
 	"github.com/yeqown/log"
 	bolt "go.etcd.io/bbolt"
 
@@ -15,12 +15,12 @@ import (
 )
 
 var (
-	ErrNotFound       = errors.Wrap(errorx.Err_NOT_FOUND, "record not found")
-	ErrExists         = errors.Wrap(errorx.Err_ALREADY_EXISTS, "key/bucket exists")
-	ErrEmptyNode      = errors.Wrap(errorx.Err_INVALID_ARGUMENT, "empty node")
-	ErrEmptyLeaf      = errors.Wrap(errorx.Err_INVALID_ARGUMENT, "empty leaf")
-	ErrNoSuchBucket   = errors.Wrap(errorx.Err_NOT_FOUND, "no such bucket")
-	ErrNoParentBucket = errors.Wrap(errorx.Err_INVALID_ARGUMENT, "no parent bucket")
+	ErrNotFound       = fmt.Errorf("record not found: %w", errorx.Err_NOT_FOUND)
+	ErrExists         = fmt.Errorf("key/bucket exists: %w", errorx.Err_ALREADY_EXISTS)
+	ErrEmptyNode      = fmt.Errorf("empty node: %w", errorx.Err_INVALID_ARGUMENT)
+	ErrEmptyLeaf      = fmt.Errorf("empty leaf: %w", errorx.Err_INVALID_ARGUMENT)
+	ErrNoSuchBucket   = fmt.Errorf("no such bucket: %w", errorx.Err_NOT_FOUND)
+	ErrNoParentBucket = fmt.Errorf("no parent bucket: %w", errorx.Err_INVALID_ARGUMENT)
 )
 
 type boltRepoImpl struct {
@@ -37,7 +37,7 @@ func NewRepository(c *conf.Bolt) (KV, error) {
 		NoFreelistSync: true,
 	})
 	if err != nil {
-		return nil, errors.Wrap(err, "open bolt.DB failed")
+		return nil, fmt.Errorf("open bolt.DB failed: %w", err)
 	}
 
 	return newRepositoryWithDB(db), nil
@@ -78,7 +78,7 @@ func (b boltRepoImpl) locateBucket(
 	}
 
 	for idx, node := range nodes {
-		if strings.Compare(node, "") == 0 {
+		if node == "" {
 			return nil, leaf, ErrEmptyNode
 		}
 
@@ -209,11 +209,11 @@ func (b boltRepoImpl) Range(key string, seek string, limit int) (*RangeResult, e
 	err = b.db.View(func(tx *bolt.Tx) error {
 		bucket, leaf, err2 := b.locateBucket(tx, key, false)
 		if err2 != nil {
-			return errors.Wrap(err2, "range.locateBucket")
+			return fmt.Errorf("range.locateBucket: %w", err2)
 		}
 		bucket = bucket.Bucket(runtime.ToBytes(leaf))
 		if bucket == nil {
-			return errors.Wrap(ErrNoSuchBucket, "range.locateLeafBuck")
+			return fmt.Errorf("range.locateLeafBuck: %w", ErrNoSuchBucket)
 		}
 
 		var (

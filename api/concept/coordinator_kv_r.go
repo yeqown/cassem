@@ -2,8 +2,8 @@ package concept
 
 import (
 	"context"
+	"fmt"
 
-	"github.com/pkg/errors"
 	"github.com/yeqown/log"
 
 	apicassemdb "github.com/yeqown/cassem/internal/cassemdb/api"
@@ -19,7 +19,7 @@ type kvReadOnly struct {
 func NewKVReader(endpoints []string) (KVReadOnly, error) {
 	cc, err := apicassemdb.DialWithMode(endpoints, apicassemdb.Mode_R)
 	if err != nil {
-		return nil, errors.Wrap(err, "NewWriter")
+		return nil, fmt.Errorf("NewWriter: %w", err)
 	}
 
 	return kvReadOnly{
@@ -45,8 +45,7 @@ func (_r kvReadOnly) GetElementWithVersion(
 	}
 	if version <= 0 {
 		// if there's not using version, NOT_FOUND
-		return nil, errors.Wrap(errorx.Err_NOT_FOUND,
-			"kvReadOnly.GetElementVersions: no available using version")
+		return nil, fmt.Errorf("kvReadOnly.GetElementVersions: no available using version: %w", errorx.Err_NOT_FOUND)
 	}
 
 	// get element with specified version
@@ -80,7 +79,7 @@ func (_r kvReadOnly) GetElementVersions(
 		Keys: []string{withMetadataSuffix(k)},
 	})
 	if err != nil {
-		return nil, errors.Wrap(err, "kvReadOnly.GetElementVersions")
+		return nil, fmt.Errorf("kvReadOnly.GetElementVersions: %w", err)
 	}
 
 	if len(seek) == 0 {
@@ -176,7 +175,7 @@ func (_r kvReadOnly) getElementsByKeys(
 		Keys: mdKeys,
 	})
 	if err != nil {
-		return nil, errors.Wrap(err, "kvReadOnly.getElementsByKeys")
+		return nil, fmt.Errorf("kvReadOnly.getElementsByKeys: %w", err)
 	}
 
 	// DONE(@yeqown): replace this part of code with convertFromEntitiesToMetadata
@@ -185,7 +184,7 @@ func (_r kvReadOnly) getElementsByKeys(
 		Keys: eleVersionKeys,
 	})
 	if err2 != nil {
-		return nil, errors.Wrap(err, "kvReadOnly.getElementsByKeys")
+		return nil, fmt.Errorf("kvReadOnly.getElementsByKeys: %w", err)
 	}
 
 	out := convertFromEntitiesToElements(r2.GetEntities(), metadataMapping)

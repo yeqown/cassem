@@ -1,34 +1,31 @@
 package lru
 
-// EvictCallback .
-type EvictCallback func(k, v interface{})
+// EvictCallback is called when an item is evicted from the cache.
+type EvictCallback[K comparable, V any] func(k K, v V)
 
-//// IterFunc .
-//type IterFunc func(k, v interface{})
-
-type entry struct {
-	Key   interface{}
-	Value interface{}
+type entry[K comparable, V any] struct {
+	Key   K
+	Value V
 }
 
-type historyEntry struct {
-	Key     interface{}
-	Value   interface{}
+type historyEntry[K comparable, V any] struct {
+	Key     K
+	Value   V
 	Visited uint
 }
 
 // CacheReplacing is the interface for simple LRU cache.
-type CacheReplacing interface {
+type CacheReplacing[K comparable, V any] interface {
 	// Put a value to the cache, returns true if an eviction occurred and
 	// updates the "recently used"-ness of the key.
-	Put(key, value interface{}) (set, evicted bool)
+	Put(key K, value V) (set, evicted bool)
 
 	// Get returns key's value from the cache and
-	// updates the "recently used"-ness of the key. #value, isFound
-	Get(key interface{}) (value interface{}, ok bool)
+	// updates the "recently used"-ness of the key.
+	Get(key K) (value V, ok bool)
 
 	// Remove a key from the cache.
-	Remove(key interface{}) bool
+	Remove(key K) bool
 
 	// Purge Clears all cache entries.
 	Purge()

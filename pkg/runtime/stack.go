@@ -13,7 +13,7 @@ func Stack() []byte {
 	return buf[:n]
 }
 
-func RecoverFrom(v interface{}) (err error) {
+func RecoverFrom(v any) (err error) {
 	err = fmt.Errorf("panic: %v", v)
 	return
 }

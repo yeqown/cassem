@@ -2,6 +2,7 @@ package etcdio
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -11,7 +12,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/pkg/errors"
 	"github.com/yeqown/log"
 	"go.etcd.io/etcd/client/pkg/v3/fileutil"
 	"go.etcd.io/etcd/client/pkg/v3/types"
@@ -525,14 +525,14 @@ func (rc *raftNode) serveRaft() (err error) {
 	var u *url.URL
 	u, err = url.Parse(rc.bindAddress)
 	if err != nil {
-		err = errors.Wrap(err, "raftNode: Failed parsing URL")
+		err = fmt.Errorf("raftNode: Failed parsing URL: %w", err)
 		return err
 	}
 
 	var ln *stoppableListener
 	ln, err = newStoppableListener(u.Host, rc.httpstopc)
 	if err != nil {
-		err = errors.Wrap(err, "raftNode: Failed to listen rafthttp")
+		err = fmt.Errorf("raftNode: Failed to listen rafthttp: %w", err)
 		return err
 	}
 
@@ -543,7 +543,7 @@ func (rc *raftNode) serveRaft() (err error) {
 	select {
 	case <-rc.httpstopc:
 	default:
-		err = errors.Wrap(err, "raftNode: Failed to serve rafthttp")
+		err = fmt.Errorf("raftNode: Failed to serve rafthttp: %w", err)
 	}
 	close(rc.httpdonec)
 
@@ -596,7 +596,7 @@ func (rc *raftNode) addPeer(peer string) (nodeID uint64, peers []string, err err
 		ID:      0,
 	}); err != nil {
 		rollback(nodeID)
-		err = errors.Wrap(err, "raftNode failed to add peer")
+		err = fmt.Errorf("raftNode failed to add peer: %w", err)
 	}
 
 	return
@@ -627,7 +627,7 @@ func (rc *raftNode) removePeer(nodeID uint64) error {
 		Context: nil,
 		ID:      0,
 	}); err != nil {
-		return errors.Wrap(err, "raftNode failed to remove peer")
+		return fmt.Errorf("raftNode failed to remove peer: %w", err)
 
 	}
 
@@ -644,7 +644,7 @@ func (rc *raftNode) getPeers() []string {
 func (rc *raftNode) changeConf(cc raftpb.ConfChange) error {
 	cc.ID = atomic.AddUint64(&rc.confChangeCount, 1)
 	if err := rc.node.ProposeConfChange(context.TODO(), cc); err != nil {
-		return errors.Wrap(err, "raftNode failed to changeConf")
+		return fmt.Errorf("raftNode failed to changeConf: %w", err)
 	}
 
 	return nil

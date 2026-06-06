@@ -6,12 +6,12 @@ package app
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"net/url"
-	"strings"
 	"sync"
 	"time"
 
-	"github.com/pkg/errors"
 	"github.com/yeqown/log"
 
 	"github.com/yeqown/cassem/api/agent"
@@ -98,7 +98,7 @@ func (p *agentPool) updateAgentNodesManually() error {
 	defer cancel()
 	r, err := p.agg.GetAgents(ctx, "", 100)
 	if err != nil {
-		return errors.Wrap(err, "agentPool.updateAgentNodesManually")
+		return fmt.Errorf("agentPool.updateAgentNodesManually: %w", err)
 	}
 
 	if r.HasMore {
@@ -384,7 +384,7 @@ retry:
 }
 
 func (n *agentNode) updateAddr(addr string) {
-	if strings.Compare(addr, n.Addr) == 0 {
+	if addr == n.Addr {
 		return
 	}
 

@@ -1,5 +1,5 @@
-GOCMD=CGO_ENABLED=0 GOARCH=amd64 GOOS=darwin go1.17
-GOCMD_LINUX=CGO_ENABLED=0 GOARCH=amd64 GOOS=linux go1.17
+GOCMD=CGO_ENABLED=0 GOARCH=amd64 GOOS=darwin go
+GOCMD_LINUX=CGO_ENABLED=0 GOARCH=amd64 GOOS=linux go
 
 cassemdb.build:
 	${GOCMD} build 	-o cassemdb \
