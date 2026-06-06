@@ -80,8 +80,3 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260226221140-a57be14db171 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
-
-// use standalone version of 'github.com/yeqown/cassem/api'
-// git tag api/@api-version
-// go list -m -versions github.com/yeqown/cassem/api
-replace github.com/yeqown/cassem/api v1.0.0 => ./api

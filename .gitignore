@@ -17,6 +17,7 @@ cassemdb.pids
 # Dependency directories (remove the comment below to include it)
 # vendor/
 go.sum
+go.work.sum
 
 # Folders
 .idea/
