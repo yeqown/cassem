@@ -63,7 +63,8 @@ func (t *testAgentPoolSuite) Test_consumeAgentInstanceChange() {
 	t.Equal(0, len(t.ap.allAgentIds))
 	t.Equal(0, len(t.ap.nodes))
 
-	// new
+	// new again - reset operation to NEW
+	change.Op = concept.ChangeOp_NEW
 	ch <- change
 	time.Sleep(10 * time.Millisecond)
 	t.NotEmpty(t.ap.nodes)
