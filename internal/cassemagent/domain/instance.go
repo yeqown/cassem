@@ -7,7 +7,6 @@ import (
 	"github.com/yeqown/log"
 
 	"github.com/yeqown/cassem/api/concept"
-	"github.com/yeqown/cassem/pkg/set"
 )
 
 // InstancePool is a pool provide open API ability to Register / Unregister / Notify instances.
@@ -18,7 +17,7 @@ type InstancePool interface {
 
 	Notify(insId string, element *concept.Element)
 
-	ListWatchingInstances(app, env, key string) set.StringSet
+	ListWatchingInstances(app, env, key string) []string
 }
 
 var (
@@ -59,15 +58,15 @@ type instancePool struct {
 	// map[insId]*instanceNode
 	instances map[string]*instanceNode
 
-	// map[app-env-key]set.StringSet
-	watchingSet map[string]set.StringSet
+	// map[app-env-key]map[insId]struct{}
+	watchingSet map[string]map[string]struct{}
 }
 
 func NewInstancePool() InstancePool {
 	return &instancePool{
 		rwMutex:     sync.RWMutex{},
 		instances:   make(map[string]*instanceNode, _SIZE_INIT_CAP),
-		watchingSet: make(map[string]set.StringSet, _SIZE_INIT_CAP),
+		watchingSet: make(map[string]map[string]struct{}, _SIZE_INIT_CAP),
 	}
 }
 
@@ -89,7 +88,7 @@ func (p *instancePool) Unregister(insId string) {
 	p.unregister(insId)
 }
 
-func (p *instancePool) ListWatchingInstances(app, env, key string) set.StringSet {
+func (p *instancePool) ListWatchingInstances(app, env, key string) []string {
 	p.rwMutex.RLock()
 	defer p.rwMutex.RUnlock()
 
@@ -99,7 +98,11 @@ func (p *instancePool) ListWatchingInstances(app, env, key string) set.StringSet
 		return nil
 	}
 
-	return v
+	insIds := make([]string, 0, len(v))
+	for insId := range v {
+		insIds = append(insIds, insId)
+	}
+	return insIds
 }
 
 func (p *instancePool) Notify(insId string, element *concept.Element) {
@@ -149,9 +152,9 @@ func (p *instancePool) register(insId string, keys []string) <-chan *concept.Ele
 	for _, key := range keys {
 		_, ok := p.watchingSet[key]
 		if !ok {
-			p.watchingSet[key] = set.NewStringSet(4)
+			p.watchingSet[key] = make(map[string]struct{}, 4)
 		}
-		p.watchingSet[key].Add(insId)
+		p.watchingSet[key][insId] = struct{}{}
 	}
 
 	return p.instances[insId].ch
@@ -172,7 +175,7 @@ func (p *instancePool) unregister(insId string) {
 		if !ok {
 			continue
 		}
-		s.Del(insId)
+		delete(s, insId)
 	}
 
 	close(i.ch)

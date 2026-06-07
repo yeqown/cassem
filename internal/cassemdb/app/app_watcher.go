@@ -2,7 +2,6 @@ package app
 
 import (
 	"github.com/yeqown/cassem/pkg/hash"
-	"github.com/yeqown/cassem/pkg/set"
 	"github.com/yeqown/cassem/pkg/watcher"
 )
 
@@ -30,11 +29,16 @@ func (t *builtinObserver) Inbound() chan<- watcher.IChange  { return t.ch }
 func (t *builtinObserver) Outbound() <-chan watcher.IChange { return t.ch }
 func (t *builtinObserver) Close()                           { t.close() }
 func (t *builtinObserver) Topics() []string {
-	s := set.NewStringSet(len(t.keys))
+	// deduplicate keys
+	seen := make(map[string]struct{}, len(t.keys))
+	result := make([]string, 0, len(t.keys))
 
 	for _, key := range t.keys {
-		s.Add(key)
+		if _, exists := seen[key]; !exists {
+			seen[key] = struct{}{}
+			result = append(result, key)
+		}
 	}
 
-	return s.Keys()
+	return result
 }

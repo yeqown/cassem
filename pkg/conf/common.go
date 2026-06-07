@@ -7,8 +7,6 @@ import (
 	"strings"
 
 	"github.com/pelletier/go-toml"
-
-	"github.com/yeqown/cassem/pkg/runtime"
 )
 
 type Raft struct {
@@ -31,7 +29,13 @@ func (r *Raft) Fix() error {
 		r.Cluster = r.Bind
 	}
 	arr := strings.Split(r.Cluster, ",")
-	pos := runtime.IndexOf(r.Bind, arr)
+	pos := -1
+	for idx, v := range arr {
+		if v == r.Bind {
+			pos = idx
+			break
+		}
+	}
 	if pos < 0 {
 		return fmt.Errorf("raft.bind could not found in raft.cluster")
 	}

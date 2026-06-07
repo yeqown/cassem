@@ -4,12 +4,17 @@ import (
 	"context"
 	"errors"
 	"math/rand"
+	"os"
 	"time"
-
-	"github.com/yeqown/cassem/pkg/runtime"
 )
 
 var ErrNilFunc = errors.New("retry: func is nil")
+
+// isDebug checks if debug mode is enabled via DEBUG environment variable.
+func isDebug() bool {
+	v := os.Getenv("DEBUG")
+	return v == "1" || v == "TRUE" || v == "true"
+}
 
 // exponentialBackoffRetry 指数回退重试策略
 // DONE(@yeqiang): 注意这里不能有状态，测试时考虑并发场景
@@ -65,7 +70,7 @@ retry:
 		r := randomDuration(e.randomInterval)
 		t := time.NewTimer(next + r)
 
-		if runtime.IsDebug() {
+		if isDebug() {
 			println((next + r).Milliseconds())
 		}
 

@@ -187,7 +187,7 @@ func (d app) Dispatch(ctx context.Context, req *agent.DispatchReq) (*agent.Dispa
 				}).
 				Debug("app.Dispatch.dispatchChange to these instance")
 
-			for _, insId := range insIds.Keys() {
+			for _, insId := range insIds {
 				d.instancePool.Notify(insId, v)
 			}
 		}

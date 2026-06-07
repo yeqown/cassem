@@ -8,13 +8,17 @@ import (
 
 	cassemadm "github.com/yeqown/cassem/internal/cassemadm/app"
 	"github.com/yeqown/cassem/pkg/conf"
-	"github.com/yeqown/cassem/pkg/runtime"
 )
+
+func isDebug() bool {
+	v := os.Getenv("DEBUG")
+	return v == "1" || v == "TRUE" || v == "true"
+}
 
 func init() {
 	log.SetLogLevel(log.LevelInfo)
 
-	if runtime.IsDebug() {
+	if isDebug() {
 		log.SetCallerReporter(true)
 		log.SetLogLevel(log.LevelDebug)
 	}

@@ -20,6 +20,11 @@ import (
 	"github.com/yeqown/cassem/pkg/watcher"
 )
 
+func isDebug() bool {
+	v := os.Getenv("DEBUG")
+	return v == "1" || v == "TRUE" || v == "true"
+}
+
 // app is the storage server that would guard api server running and alas controls other components.
 // Especially, raft protocol which supports the architecture of cassemdb (master-slave).
 //
@@ -147,7 +152,7 @@ func (d *app) servingAPI() error {
 	d.raft.LeaderChangeCh(leadershipC)
 	raftleader.Setup(d.raft.IsLeader(), leadershipC, s)
 
-	if runtime.IsDebug() {
+	if isDebug() {
 		g := httpx.NewGateway(d.config.Addr, debugHTTP(d), s)
 		return g.ListenAndServe()
 	}

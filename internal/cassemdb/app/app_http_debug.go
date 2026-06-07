@@ -9,7 +9,6 @@ import (
 	"github.com/yeqown/log"
 
 	"github.com/yeqown/cassem/pkg/httpx"
-	"github.com/yeqown/cassem/pkg/runtime"
 	"github.com/yeqown/cassem/pkg/watcher"
 )
 
@@ -32,7 +31,7 @@ func debugHTTP(coord ICoordinator) *httpServer {
 
 func (srv *httpServer) initialize() {
 	gin.EnableJsonDecoderUseNumber()
-	if !runtime.IsDebug() {
+	if !isDebug() {
 		gin.SetMode(gin.ReleaseMode)
 	}
 
@@ -41,7 +40,7 @@ func (srv *httpServer) initialize() {
 	srv.engi.Use(httpx.Recovery())
 	srv.engi.Use(gin.Logger())
 
-	if runtime.IsDebug() {
+	if isDebug() {
 		pprof.Register(srv.engi, "/debug/pprof")
 	}
 

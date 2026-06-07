@@ -2,11 +2,11 @@ package api
 
 //import "google.golang.org/protobuf/proto"
 import (
+	"crypto/md5"
+	"encoding/hex"
 	"time"
 
 	"google.golang.org/protobuf/proto"
-
-	"github.com/yeqown/cassem/pkg/hash"
 )
 
 func Marshal(m proto.Message) ([]byte, error) {
@@ -36,8 +36,10 @@ func (*SetCommand) Action() LogEntry_Action    { return LogEntry_Set }
 func (*ChangeCommand) Action() LogEntry_Action { return LogEntry_ChangeSpread }
 
 func NewEntityWithCreated(key string, val []byte, ttl int32, created int64) *Entity {
+	h := md5.New()
+	h.Write(val)
 	return &Entity{
-		Fingerprint: hash.MD5(val),
+		Fingerprint: hex.EncodeToString(h.Sum(nil)),
 		Key:         key,
 		Val:         val,
 		CreatedAt:   created,

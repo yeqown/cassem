@@ -3,6 +3,7 @@ package grpcx
 import (
 	"context"
 	"fmt"
+	"os"
 
 	"github.com/yeqown/cassem/pkg/errorx"
 	"github.com/yeqown/cassem/pkg/runtime"
@@ -10,6 +11,12 @@ import (
 	"github.com/yeqown/log"
 	"google.golang.org/grpc"
 )
+
+// isDebug checks if debug mode is enabled via DEBUG environment variable.
+func isDebug() bool {
+	v := os.Getenv("DEBUG")
+	return v == "1" || v == "TRUE" || v == "true"
+}
 
 // ChainUnaryServer creates a single interceptor out of a chain of many interceptors.
 //
@@ -79,7 +86,7 @@ func ServerLogger() grpc.UnaryServerInterceptor {
 			return
 		}
 
-		if runtime.IsDebug() {
+		if isDebug() {
 			fields["response"] = resp
 		}
 		log.

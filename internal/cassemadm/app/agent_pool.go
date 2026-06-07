@@ -17,7 +17,6 @@ import (
 	"github.com/yeqown/cassem/api/agent"
 	"github.com/yeqown/cassem/api/concept"
 	"github.com/yeqown/cassem/pkg/runtime"
-	"github.com/yeqown/cassem/pkg/set"
 )
 
 // agentPool manages all ap those registered in cassemdb.
@@ -25,7 +24,7 @@ type agentPool struct {
 	// nodes indicates map[agentId]*agentNode
 	nodes map[string]*agentNode
 	// allAgentIds contains all agent ids, it is maintained as nodes.
-	allAgentIds set.StringSet
+	allAgentIds map[string]struct{}
 	// rwMutex protects goroutines accessing nodes.
 	rwMutex sync.RWMutex
 
@@ -38,7 +37,7 @@ type agentPool struct {
 func newAgentPool(agg concept.AgentHybrid) *agentPool {
 	p := &agentPool{
 		nodes:       make(map[string]*agentNode, 16),
-		allAgentIds: set.NewStringSet(16),
+		allAgentIds: make(map[string]struct{}, 16),
 		rwMutex:     sync.RWMutex{},
 		agg:         agg,
 		once:        sync.Once{},
@@ -151,12 +150,12 @@ func (p *agentPool) updateAgentInstanceFromCh(ch <-chan *concept.AgentInstanceCh
 					// node update
 					node.updateAddr(agentAddr)
 				}
-				p.allAgentIds.Add(agentId)
+				p.allAgentIds[agentId] = struct{}{}
 				p.rwMutex.Unlock()
 			case concept.ChangeOp_DELETE:
 				p.rwMutex.Lock()
 				delete(p.nodes, agentId)
-				p.allAgentIds.Del(agentId)
+				delete(p.allAgentIds, agentId)
 				p.rwMutex.Unlock()
 			default:
 				continue
@@ -168,12 +167,22 @@ func (p *agentPool) updateAgentInstanceFromCh(ch <-chan *concept.AgentInstanceCh
 
 // notifyAll dispatch element to all ap.
 func (p *agentPool) notifyAll(elem *concept.Element) error {
+	keys := p.getAgentIdKeys()
 	log.
 		WithFields(log.Fields{
-			"keys": p.allAgentIds.Keys(),
+			"keys": keys,
 		}).
 		Debug("cassemadm.app.agent.notifyAll called")
-	return p.notifyAgent(elem, p.allAgentIds.Keys()...)
+	return p.notifyAgent(elem, keys...)
+}
+
+// getAgentIdKeys returns all agent ids as a slice.
+func (p *agentPool) getAgentIdKeys() []string {
+	keys := make([]string, 0, len(p.allAgentIds))
+	for k := range p.allAgentIds {
+		keys = append(keys, k)
+	}
+	return keys
 }
 
 // notifyAgent helps app notify agent by agent ids.

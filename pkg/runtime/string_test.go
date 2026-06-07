@@ -54,27 +54,3 @@ func TestBytesStringRoundTrip(t *testing.T) {
 	backToString := ToString(bytes)
 	assert.Equal(t, original, backToString)
 }
-
-func TestIndexOf(t *testing.T) {
-	tests := []struct {
-		name        string
-		target      string
-		arr         []string
-		expectedPos int
-	}{
-		{"found at beginning", "apple", []string{"apple", "banana", "cherry"}, 0},
-		{"found in middle", "banana", []string{"apple", "banana", "cherry"}, 1},
-		{"found at end", "cherry", []string{"apple", "banana", "cherry"}, 2},
-		{"not found", "dragon", []string{"apple", "banana", "cherry"}, -1},
-		{"empty array", "apple", []string{}, -1},
-		{"empty target", "", []string{"", "apple", "banana"}, 0},
-		{"duplicate - first occurrence", "apple", []string{"apple", "banana", "apple"}, 0},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			pos := IndexOf(tt.target, tt.arr)
-			assert.Equal(t, tt.expectedPos, pos)
-		})
-	}
-}

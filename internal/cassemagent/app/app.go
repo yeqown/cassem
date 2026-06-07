@@ -25,6 +25,15 @@ import (
 	"github.com/yeqown/cassem/pkg/runtime"
 )
 
+// getHostname returns the hostname or "unknown" if error occurs.
+func getHostname() string {
+	hostname, err := os.Hostname()
+	if err != nil {
+		return "unknown"
+	}
+	return hostname
+}
+
 type app struct {
 	uniqueId    string
 	quit        chan struct{}
@@ -125,7 +134,7 @@ func (d app) renew() error {
 			Addr:    d.conf.Server.Addr,
 			Annotations: map[string]string{
 				"op":            "renew",
-				"hostname":      runtime.Hostname(),
+				"hostname":      getHostname(),
 				"ttl":           strconv.Itoa(int(d.conf.TTL)),
 				"renewInterval": strconv.Itoa(int(d.actualRenewInterval)),
 				// "timestamp": time.Now().Format(time.RFC3339),
@@ -146,7 +155,7 @@ retryReg:
 		Addr:    d.conf.Server.Addr,
 		Annotations: map[string]string{
 			"op":            "renew",
-			"hostname":      runtime.Hostname(),
+			"hostname":      getHostname(),
 			"ttl":           strconv.Itoa(int(d.conf.TTL)),
 			"renewInterval": strconv.Itoa(int(d.actualRenewInterval)),
 			// "timestamp": time.Now().Format(time.RFC3339),

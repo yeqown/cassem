@@ -2,6 +2,8 @@ package coordinator
 
 import (
 	"context"
+	"crypto/md5"
+	"encoding/hex"
 	"fmt"
 
 	proto "google.golang.org/protobuf/proto"
@@ -9,7 +11,6 @@ import (
 	"github.com/yeqown/cassem/api/concept"
 	apicassemdb "github.com/yeqown/cassem/internal/cassemdb/api"
 	"github.com/yeqown/cassem/pkg/errorx"
-	"github.com/yeqown/cassem/pkg/hash"
 )
 
 var _ concept.KVWriteOnly = kvWriteOnly{}
@@ -159,7 +160,9 @@ func (_h kvWriteOnly) RollbackElementVersion(ctx context.Context, app string, en
 	}
 
 	md.UsingVersion = rollback.GetVersion()
-	md.UsingFingerprint = hash.MD5(rollback.GetRaw())
+	h := md5.New()
+	h.Write(rollback.GetRaw())
+	md.UsingFingerprint = hex.EncodeToString(h.Sum(nil))
 	return _h.saveRaw(ctx, concept.WithMetadataSuffix(k), md, 0, true)
 }
 
@@ -189,7 +192,9 @@ func (_h kvWriteOnly) PublishElementVersion(ctx context.Context, app string, env
 
 	// update metadata UsingVersion, UsingFingerprint, reset UnpublishedVersion.
 	md.UsingVersion = publish.Version
-	md.UsingFingerprint = hash.MD5(publish.GetRaw())
+	h := md5.New()
+	h.Write(publish.GetRaw())
+	md.UsingFingerprint = hex.EncodeToString(h.Sum(nil))
 	md.UnpublishedVersion = 0
 	if err = _h.saveRaw(ctx, concept.WithMetadataSuffix(k), md, 0, true); err != nil {
 		return nil, err

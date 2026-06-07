@@ -7,17 +7,21 @@ import (
 
 	cassemdb "github.com/yeqown/cassem/internal/cassemdb/app"
 	"github.com/yeqown/cassem/pkg/conf"
-	"github.com/yeqown/cassem/pkg/runtime"
 
 	"github.com/urfave/cli/v2"
 	"github.com/yeqown/log"
 )
 
+func isDebug() bool {
+	v := os.Getenv("DEBUG")
+	return v == "1" || v == "TRUE" || v == "true"
+}
+
 func init() {
 	log.SetLogLevel(log.LevelInfo)
 	log.SetTimeFormat(true, time.RFC3339)
 
-	if runtime.IsDebug() {
+	if isDebug() {
 		log.SetCallerReporter(true)
 		log.SetLogLevel(log.LevelDebug)
 	}

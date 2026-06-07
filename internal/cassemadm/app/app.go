@@ -3,6 +3,7 @@ package app
 import (
 	"fmt"
 	"log"
+	"os"
 	"time"
 
 	"github.com/gin-contrib/cors"
@@ -14,8 +15,12 @@ import (
 	"github.com/yeqown/cassem/internal/cassemadm/infras"
 	"github.com/yeqown/cassem/pkg/conf"
 	"github.com/yeqown/cassem/pkg/httpx"
-	"github.com/yeqown/cassem/pkg/runtime"
 )
+
+func isDebug() bool {
+	v := os.Getenv("DEBUG")
+	return v == "1" || v == "TRUE" || v == "true"
+}
 
 type app struct {
 	conf *conf.CassemAdminConfig
@@ -60,7 +65,7 @@ func (d app) Run() {
 
 func (d app) initialHTTP(engi *gin.Engine) {
 	gin.EnableJsonDecoderUseNumber()
-	if !runtime.IsDebug() {
+	if !isDebug() {
 		gin.SetMode(gin.ReleaseMode)
 	}
 
@@ -75,7 +80,7 @@ func (d app) initialHTTP(engi *gin.Engine) {
 	}
 	engi.Use(cors.New(corsConfig))
 
-	if runtime.IsDebug() {
+	if isDebug() {
 		pprof.Register(engi, "/debug/pprof")
 	}
 
