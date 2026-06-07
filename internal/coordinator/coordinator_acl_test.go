@@ -1,4 +1,4 @@
-package concept
+package coordinator
 
 import (
 	"context"
@@ -7,13 +7,14 @@ import (
 	"github.com/casbin/casbin/v2/log"
 	"github.com/stretchr/testify/suite"
 
+	"github.com/yeqown/cassem/api/concept"
 	apicassemdb "github.com/yeqown/cassem/internal/cassemdb/api"
 )
 
 type rbacTestSuite struct {
 	suite.Suite
 
-	rbac RBAC
+	rbac concept.RBAC
 	ctx  context.Context
 }
 
@@ -29,9 +30,12 @@ func (s *rbacTestSuite) SetupSuite() {
 	if err != nil {
 		panic(err)
 	}
+
+	// Initialize with default policy
+	_ = s.rbac.(aclImpl)
 }
 
-func (s rbacTestSuite) print() {
+func (s *rbacTestSuite) print() {
 	s.T().Log("casbin model:")
 	l := &log.DefaultLogger{}
 	l.EnableLog(true)
@@ -40,18 +44,18 @@ func (s rbacTestSuite) print() {
 	s.rbac.(aclImpl).e.GetModel().PrintPolicy()
 }
 
-func (s rbacTestSuite) Test_AddUser() {
-	err := s.rbac.AddUser(&User{
+func (s *rbacTestSuite) Test_AddUser() {
+	err := s.rbac.AddUser(&concept.User{
 		Account:        "yeqown@gmail.com",
 		Nickname:       "yeqown",
 		HashedPassword: "123456",
 		Salt:           "",
-		Status:         User_NORMAL,
+		Status:         concept.User_NORMAL,
 	})
 	s.NoError(err)
 }
 
-func (s rbacTestSuite) Test_DisableUser() {
+func (s *rbacTestSuite) Test_DisableUser() {
 	err := s.rbac.DisableUser("yeqown@gmail.com")
 	s.NoError(err)
 
@@ -60,40 +64,40 @@ func (s rbacTestSuite) Test_DisableUser() {
 	s.NoError(err2)
 }
 
-func (s rbacTestSuite) Test_AssignRoleToUser() {
-	err := s.rbac.AssignRole("yeqown", "admin", Domain_ALL)
+func (s *rbacTestSuite) Test_AssignRoleToUser() {
+	err := s.rbac.AssignRole("yeqown", "admin", concept.Domain_ALL)
 	s.NoError(err)
 	s.print()
 }
 
-func (s rbacTestSuite) Test_RevokeRoleFromUser() {
-	err := s.rbac.RevokeRole("yeqown", "admin", Domain_ALL)
+func (s *rbacTestSuite) Test_RevokeRoleFromUser() {
+	err := s.rbac.RevokeRole("yeqown", "admin", concept.Domain_ALL)
 	s.NoError(err)
 }
 
-func (s rbacTestSuite) Test_Enforce() {
-	//_ = s.rbac.AssignRole("yeqown", "admin", Domain_ALL)
+func (s *rbacTestSuite) Test_Enforce() {
+	//_ = s.rbac.AssignRole("yeqown", "admin", concept.Domain_ALL)
 	s.print()
 
-	allow, err := s.rbac.Enforce("superadmin", Domain_ALL, Object_ELEMENT, Action_READ)
+	allow, err := s.rbac.Enforce("superadmin", concept.Domain_ALL, concept.Object_ELEMENT, concept.Action_READ)
 	s.NoError(err)
 	s.True(allow)
-	// _ = s.rbac.AssignRole("yeqown", "admin", Domain_ALL)
+	// _ = s.rbac.AssignRole("yeqown", "admin", concept.Domain_ALL)
 
-	allow, err = s.rbac.Enforce("admin", Domain_ALL, Object_ELEMENT, Action_READ)
-	s.NoError(err)
-	s.True(allow)
-
-	allow, err = s.rbac.Enforce("yeqown@gmail.com", Domain_CLUSTER, Object_APP, Action_READ)
+	allow, err = s.rbac.Enforce("admin", concept.Domain_ALL, concept.Object_ELEMENT, concept.Action_READ)
 	s.NoError(err)
 	s.True(allow)
 
-	allow, err = s.rbac.Enforce("yeqown2", Domain_ALL, Object_ELEMENT, Action_READ)
+	allow, err = s.rbac.Enforce("yeqown@gmail.com", concept.Domain_CLUSTER, concept.Object_APP, concept.Action_READ)
+	s.NoError(err)
+	s.True(allow)
+
+	allow, err = s.rbac.Enforce("yeqown2", concept.Domain_ALL, concept.Object_ELEMENT, concept.Action_READ)
 	s.NoError(err)
 	s.False(allow)
 }
 
-func (s rbacTestSuite) Test_AutoMigrate() {
+func (s *rbacTestSuite) Test_AutoMigrate() {
 	err := s.rbac.(aclImpl).AutoMigrate()
 	s.NoError(err)
 

@@ -1,4 +1,4 @@
-package concept
+package coordinator
 
 import (
 	"context"
@@ -8,7 +8,12 @@ import (
 
 	"github.com/yeqown/log"
 
+	"github.com/yeqown/cassem/api/concept"
 	apicassemdb "github.com/yeqown/cassem/internal/cassemdb/api"
+)
+
+const (
+	_AGENT_PREFIX = "cassem/agents"
 )
 
 type agentInsHybrid struct {
@@ -23,7 +28,7 @@ type agentInsHybrid struct {
 //	return &agentInsHybrid{cassemdb: apicassemdb.NewKVClient(cc)}, nil
 //}
 
-func (_h agentInsHybrid) Watch(ctx context.Context, ch chan<- *AgentInstanceChange) error {
+func (_h agentInsHybrid) Watch(ctx context.Context, ch chan<- *concept.AgentInstanceChange) error {
 	stream, err := _h.cassemdb.Watch(ctx, &apicassemdb.WatchReq{
 		Keys: []string{_AGENT_PREFIX},
 	})
@@ -56,7 +61,7 @@ loop:
 			log.
 				WithFields(log.Fields{"change": change}).
 				Debug("cassem.concept.agentInsHybrid received message")
-			c, ok := convertChangeToChange(change)
+			c, ok := ConvertChangeToChange(change)
 			if !ok {
 				continue
 			}
@@ -85,14 +90,14 @@ loop:
 	return err
 }
 
-func (_h agentInsHybrid) Register(ctx context.Context, ins *AgentInstance, ttl int32) error {
-	bytes, err := MarshalProto(ins)
+func (_h agentInsHybrid) Register(ctx context.Context, ins *concept.AgentInstance, ttl int32) error {
+	bytes, err := concept.MarshalProto(ins)
 	if err != nil {
 		return fmt.Errorf("cassem.concept.agentInsHybrid.Register: %w", err)
 	}
 
 	_, err = _h.cassemdb.SetKV(ctx, &apicassemdb.SetKVReq{
-		Key:       withAgentPrefix(ins.AgentId),
+		Key:       concept.WithAgentPrefix(ins.AgentId),
 		IsDir:     false,
 		Ttl:       ttl,
 		Val:       bytes,
@@ -102,14 +107,14 @@ func (_h agentInsHybrid) Register(ctx context.Context, ins *AgentInstance, ttl i
 	return err
 }
 
-func (_h agentInsHybrid) Renew(ctx context.Context, ins *AgentInstance, ttl int32) error {
-	bytes, err := MarshalProto(ins)
+func (_h agentInsHybrid) Renew(ctx context.Context, ins *concept.AgentInstance, ttl int32) error {
+	bytes, err := concept.MarshalProto(ins)
 	if err != nil {
 		return fmt.Errorf("cassem.concept.agentInsHybrid.Renew: %w", err)
 	}
 
 	_, err = _h.cassemdb.SetKV(ctx, &apicassemdb.SetKVReq{
-		Key:       withAgentPrefix(ins.AgentId),
+		Key:       concept.WithAgentPrefix(ins.AgentId),
 		IsDir:     false,
 		Ttl:       ttl,
 		Val:       bytes,
@@ -121,14 +126,14 @@ func (_h agentInsHybrid) Renew(ctx context.Context, ins *AgentInstance, ttl int3
 
 func (_h agentInsHybrid) Unregister(ctx context.Context, agentId string) error {
 	_, err := _h.cassemdb.UnsetKV(ctx, &apicassemdb.UnsetKVReq{
-		Key:   withAgentPrefix(agentId),
+		Key:   concept.WithAgentPrefix(agentId),
 		IsDir: false,
 	})
 
 	return err
 }
 
-func (_h agentInsHybrid) GetAgents(ctx context.Context, seek string, limit int) (*getAgentsResult, error) {
+func (_h agentInsHybrid) GetAgents(ctx context.Context, seek string, limit int) (*concept.GetAgentsResult, error) {
 	r, err := _h.cassemdb.Range(ctx, &apicassemdb.RangeReq{
 		Key:   _AGENT_PREFIX,
 		Seek:  seek,
@@ -138,16 +143,16 @@ func (_h agentInsHybrid) GetAgents(ctx context.Context, seek string, limit int) 
 		return nil, fmt.Errorf("agentInsHybrid.GetAgents: %w", err)
 	}
 
-	result := &getAgentsResult{
-		commonPager: commonPager{
+	result := &concept.GetAgentsResult{
+		CommonPager: concept.CommonPager{
 			HasMore:  r.GetHasMore(),
 			NextSeek: r.GetNextSeekKey(),
 		},
-		Agents: make([]*AgentInstance, 0, len(r.GetEntities())),
+		Agents: make([]*concept.AgentInstance,0, len(r.GetEntities())),
 	}
 	for _, v := range r.GetEntities() {
-		agent := new(AgentInstance)
-		if err2 := UnmarshalProto(v.GetVal(), agent); err2 != nil {
+		agent := new(concept.AgentInstance)
+		if err2 := concept.UnmarshalProto(v.GetVal(), agent); err2 != nil {
 			log.
 				WithFields(log.Fields{
 					"error":  err,

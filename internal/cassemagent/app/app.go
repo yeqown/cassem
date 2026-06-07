@@ -16,6 +16,7 @@ import (
 
 	"github.com/yeqown/cassem/api/agent"
 	"github.com/yeqown/cassem/api/concept"
+	"github.com/yeqown/cassem/internal/coordinator"
 	"github.com/yeqown/cassem/internal/cassemagent/domain"
 	"github.com/yeqown/cassem/pkg/conf"
 	"github.com/yeqown/cassem/pkg/grpcx"
@@ -43,7 +44,7 @@ func New(c *conf.CassemAgentConfig) (*app, error) {
 		return nil, fmt.Errorf("cassemagent.New failed: %w", err)
 	}
 
-	agg, err := concept.NewAgentAggregate(c.CassemDBEndpoints)
+	agg, err := coordinator.NewAgentAggregate(c.CassemDBEndpoints)
 	if err != nil {
 		return nil, fmt.Errorf("cassemagent.New: %w", err)
 	}

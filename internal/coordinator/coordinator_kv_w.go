@@ -1,4 +1,4 @@
-package concept
+package coordinator
 
 import (
 	"context"
@@ -6,12 +6,13 @@ import (
 
 	proto "google.golang.org/protobuf/proto"
 
+	"github.com/yeqown/cassem/api/concept"
 	apicassemdb "github.com/yeqown/cassem/internal/cassemdb/api"
 	"github.com/yeqown/cassem/pkg/errorx"
 	"github.com/yeqown/cassem/pkg/hash"
 )
 
-var _ KVWriteOnly = kvWriteOnly{}
+var _ concept.KVWriteOnly = kvWriteOnly{}
 
 // kvWriteOnly can read and write to cassemdb.
 type kvWriteOnly struct {
@@ -19,7 +20,7 @@ type kvWriteOnly struct {
 }
 
 // NewKVHybrid with endpoints these endpoints of cassemdb.
-func NewKVHybrid(endpoints []string) (KVWriteOnly, error) {
+func NewKVHybrid(endpoints []string) (concept.KVWriteOnly, error) {
 	cc, err := apicassemdb.DialWithMode(endpoints, apicassemdb.Mode_X)
 	if err != nil {
 		return nil, fmt.Errorf("NewWriter: %w", err)
@@ -31,13 +32,13 @@ func NewKVHybrid(endpoints []string) (KVWriteOnly, error) {
 }
 
 func (_h kvWriteOnly) CreateElement(ctx context.Context,
-	app, env, key string, raw []byte, contentTyp ContentType) error {
-	k := genElementKey(app, env, key)
-	mdKey := withMetadataSuffix(k)
+	app, env, key string, raw []byte, contentTyp concept.ContentType) error {
+	k := concept.GenElementKey(app, env, key)
+	mdKey := concept.WithMetadataSuffix(k)
 	version := int32(1)
 
 	// set metadata of element
-	md := &ElementMetadata{
+	md := &concept.ElementMetadata{
 		LatestVersion:      version,
 		UnpublishedVersion: version,
 		UsingVersion:       0,
@@ -52,12 +53,12 @@ func (_h kvWriteOnly) CreateElement(ctx context.Context,
 	}
 
 	// set element with specified version
-	ele := &Element{
+	ele := &concept.Element{
 		Version:   version,
 		Raw:       raw,
 		Published: false,
 	}
-	if err := _h.saveRaw(ctx, withVersion(k, int(version)), ele, 0, false); err != nil {
+	if err := _h.saveRaw(ctx, concept.WithVersion(k, int(version)), ele, 0, false); err != nil {
 		return err
 	}
 
@@ -69,7 +70,7 @@ func (_h kvWriteOnly) CreateElement(ctx context.Context,
 // 2. lock element W operations to prevent concurrent writing operation.
 // 3. create a Element
 func (_h kvWriteOnly) UpdateElement(ctx context.Context, app, env, key string, raw []byte) error {
-	k := genElementKey(app, env, key)
+	k := concept.GenElementKey(app, env, key)
 	md, err := _h.getElementMetadata(ctx, k)
 	if err != nil {
 		return err
@@ -85,21 +86,21 @@ func (_h kvWriteOnly) UpdateElement(ctx context.Context, app, env, key string, r
 	md.UnpublishedVersion = version
 
 	// save new element version.
-	ele := &Element{
+	ele := &concept.Element{
 		Version:   version,
 		Raw:       raw,
 		Published: false,
 	}
-	if err = _h.saveRaw(ctx, withVersion(k, int(version)), ele, 0, false); err != nil {
+	if err = _h.saveRaw(ctx, concept.WithVersion(k, int(version)), ele, 0, false); err != nil {
 		return err
 	}
 
 	// save metadata of element.
-	return _h.saveRaw(ctx, withMetadataSuffix(k), md, 0, true)
+	return _h.saveRaw(ctx, concept.WithMetadataSuffix(k), md, 0, true)
 }
 
 func (_h kvWriteOnly) DeleteElement(ctx context.Context, app, env, eltKey string) error {
-	k := genElementKey(app, env, eltKey)
+	k := concept.GenElementKey(app, env, eltKey)
 	_, err := _h.cassemdb.UnsetKV(ctx, &apicassemdb.UnsetKVReq{
 		Key:   k,
 		IsDir: true,
@@ -109,7 +110,7 @@ func (_h kvWriteOnly) DeleteElement(ctx context.Context, app, env, eltKey string
 }
 
 func (_h kvWriteOnly) CreateEnvironment(ctx context.Context, app, env string) error {
-	k := genAppElementEnvKey(app, env)
+	k := concept.GenAppElementEnvKey(app, env)
 	_, err := _h.cassemdb.SetKV(ctx, &apicassemdb.SetKVReq{
 		Key:   k,
 		IsDir: true,
@@ -122,7 +123,7 @@ func (_h kvWriteOnly) CreateEnvironment(ctx context.Context, app, env string) er
 }
 
 func (_h kvWriteOnly) DeleteEnvironment(ctx context.Context, app, env string) error {
-	k := genAppElementEnvKey(app, env)
+	k := concept.GenAppElementEnvKey(app, env)
 	_, err := _h.cassemdb.UnsetKV(ctx, &apicassemdb.UnsetKVReq{
 		Key:   k,
 		IsDir: true,
@@ -140,7 +141,7 @@ func (_h kvWriteOnly) DeleteEnvironment(ctx context.Context, app, env string) er
 //
 func (_h kvWriteOnly) RollbackElementVersion(ctx context.Context, app string, env string, key string,
 	rollbackVersion uint32) error {
-	k := genElementKey(app, env, key)
+	k := concept.GenElementKey(app, env, key)
 	md, err := _h.getElementMetadata(ctx, k)
 	if err != nil {
 		return err
@@ -159,13 +160,13 @@ func (_h kvWriteOnly) RollbackElementVersion(ctx context.Context, app string, en
 
 	md.UsingVersion = rollback.GetVersion()
 	md.UsingFingerprint = hash.MD5(rollback.GetRaw())
-	return _h.saveRaw(ctx, withMetadataSuffix(k), md, 0, true)
+	return _h.saveRaw(ctx, concept.WithMetadataSuffix(k), md, 0, true)
 }
 
 // PublishElementVersion publish element version.
 func (_h kvWriteOnly) PublishElementVersion(ctx context.Context, app string, env string, key string,
-	publishVersion uint32) (*Element, error) {
-	k := genElementKey(app, env, key)
+	publishVersion uint32) (*concept.Element, error) {
+	k := concept.GenElementKey(app, env, key)
 	md, err := _h.getElementMetadata(ctx, k)
 	if err != nil {
 		return nil, err
@@ -190,25 +191,25 @@ func (_h kvWriteOnly) PublishElementVersion(ctx context.Context, app string, env
 	md.UsingVersion = publish.Version
 	md.UsingFingerprint = hash.MD5(publish.GetRaw())
 	md.UnpublishedVersion = 0
-	if err = _h.saveRaw(ctx, withMetadataSuffix(k), md, 0, true); err != nil {
+	if err = _h.saveRaw(ctx, concept.WithMetadataSuffix(k), md, 0, true); err != nil {
 		return nil, err
 	}
 
 	// Update  version's published be TRUE.
 	publish.Published = true
-	err = _h.saveRaw(ctx, withVersion(k, int(publishVersion)), publish, 0, true)
+	err = _h.saveRaw(ctx, concept.WithVersion(k, int(publishVersion)), publish, 0, true)
 	publish.Metadata = md
 	return publish, err
 }
 
-func (_h kvWriteOnly) CreateApp(ctx context.Context, md *AppMetadata) error {
-	k := genAppKey(md.Id)
+func (_h kvWriteOnly) CreateApp(ctx context.Context, md *concept.AppMetadata) error {
+	k := concept.GenAppKey(md.Id)
 	return _h.saveRaw(ctx, k, md, 0, false)
 }
 
 func (_h kvWriteOnly) DeleteApp(ctx context.Context, appId string) error {
-	k := genAppKey(appId)
-	eleKey := genAppElementKey(appId)
+	k := concept.GenAppKey(appId)
+	eleKey := concept.GenAppElementKey(appId)
 
 	_, err := _h.cassemdb.UnsetKV(ctx, &apicassemdb.UnsetKVReq{
 		Key:   eleKey,
@@ -229,17 +230,17 @@ func (_h kvWriteOnly) DeleteApp(ctx context.Context, appId string) error {
 }
 
 // getElementMetadata returns element by specified version without metadata.
-func (_h kvWriteOnly) getElementWithoutMetadata(ctx context.Context, key string, version uint32) (*Element, error) {
+func (_h kvWriteOnly) getElementWithoutMetadata(ctx context.Context, key string, version uint32) (*concept.Element, error) {
 	if version == 0 {
 		return nil, fmt.Errorf("version could not be 0: %w", errorx.Err_INVALID_ARGUMENT)
 	}
 
-	r, err := _h.cassemdb.GetKV(ctx, &apicassemdb.GetKVReq{Key: withVersion(key, int(version))})
+	r, err := _h.cassemdb.GetKV(ctx, &apicassemdb.GetKVReq{Key: concept.WithVersion(key, int(version))})
 	if err != nil {
 		return nil, err
 	}
-	ele := new(Element)
-	if err = UnmarshalProto(r.GetEntity().GetVal(), ele); err != nil {
+	ele := new(concept.Element)
+	if err = concept.UnmarshalProto(r.GetEntity().GetVal(), ele); err != nil {
 		return nil, err
 	}
 
@@ -247,13 +248,13 @@ func (_h kvWriteOnly) getElementWithoutMetadata(ctx context.Context, key string,
 }
 
 // getElementMetadata returns metadata of specified element.
-func (_h kvWriteOnly) getElementMetadata(ctx context.Context, key string) (*ElementMetadata, error) {
-	r, err := _h.cassemdb.GetKV(ctx, &apicassemdb.GetKVReq{Key: withMetadataSuffix(key)})
+func (_h kvWriteOnly) getElementMetadata(ctx context.Context, key string) (*concept.ElementMetadata, error) {
+	r, err := _h.cassemdb.GetKV(ctx, &apicassemdb.GetKVReq{Key: concept.WithMetadataSuffix(key)})
 	if err != nil {
 		return nil, err
 	}
-	md := new(ElementMetadata)
-	if err = UnmarshalProto(r.GetEntity().GetVal(), md); err != nil {
+	md := new(concept.ElementMetadata)
+	if err = concept.UnmarshalProto(r.GetEntity().GetVal(), md); err != nil {
 		return nil, err
 	}
 
@@ -263,7 +264,7 @@ func (_h kvWriteOnly) getElementMetadata(ctx context.Context, key string) (*Elem
 // saveRaw calls cassemdb.SetKV to save val.
 // Notice that this method could not create directory which means SetKVReq{IsDir: false}.
 func (_h kvWriteOnly) saveRaw(ctx context.Context, key string, val proto.Message, ttl int32, overwrite bool) error {
-	bytes, err := MarshalProto(val)
+	bytes, err := concept.MarshalProto(val)
 	if err != nil {
 		return fmt.Errorf("%s: %w", err.Error(), errorx.Err_INTERNAL)
 	}

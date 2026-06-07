@@ -1,16 +1,17 @@
-package concept
+package coordinator
 
 import (
 	"context"
 	"testing"
 
+	"github.com/yeqown/cassem/api/concept"
 	"github.com/stretchr/testify/suite"
 )
 
 type coordinatorTestSuite struct {
 	suite.Suite
 
-	agg AdmAggregate
+	agg concept.AdmAggregate
 	ctx context.Context
 }
 
@@ -24,19 +25,19 @@ func (a *coordinatorTestSuite) SetupSuite() {
 	}
 }
 
-func (a coordinatorTestSuite) Test_CreateElement() {
+func (a *coordinatorTestSuite) Test_CreateElement() {
 	err := a.agg.CreateElement(
 		a.ctx,
 		"app",
 		"env",
 		"Test_CreateElement",
 		[]byte("this is a text"),
-		ContentType_PLAINTEXT,
+		concept.ContentType_PLAINTEXT,
 	)
 	a.NoError(err)
 }
 
-func (a coordinatorTestSuite) Test_UpdateElement() {
+func (a *coordinatorTestSuite) Test_UpdateElement() {
 	err := a.agg.UpdateElement(
 		a.ctx,
 		"app",
@@ -47,7 +48,7 @@ func (a coordinatorTestSuite) Test_UpdateElement() {
 	a.NoError(err)
 }
 
-func (a coordinatorTestSuite) Test_GetElementLatest() {
+func (a *coordinatorTestSuite) Test_GetElementLatest() {
 	elt, err := a.agg.GetElementWithVersion(
 		a.ctx,
 		"app",
@@ -61,7 +62,7 @@ func (a coordinatorTestSuite) Test_GetElementLatest() {
 	a.T().Logf("%v", elt.Raw)
 }
 
-func (a coordinatorTestSuite) Test_GetElementWithVersion() {
+func (a *coordinatorTestSuite) Test_GetElementWithVersion() {
 	elt, err := a.agg.GetElementWithVersion(
 		a.ctx,
 		"app",
@@ -75,7 +76,7 @@ func (a coordinatorTestSuite) Test_GetElementWithVersion() {
 	a.T().Logf("%v", elt.Raw)
 }
 
-func (a coordinatorTestSuite) Test_GetElement_NotExists() {
+func (a *coordinatorTestSuite) Test_GetElement_NotExists() {
 	elt, err := a.agg.GetElementWithVersion(
 		a.ctx,
 		"app",
@@ -88,7 +89,7 @@ func (a coordinatorTestSuite) Test_GetElement_NotExists() {
 	a.Nil(elt)
 }
 
-func (a coordinatorTestSuite) Test_DeleteElement() {
+func (a *coordinatorTestSuite) Test_DeleteElement() {
 	err := a.agg.DeleteElement(
 		a.ctx,
 		"app",
@@ -98,11 +99,11 @@ func (a coordinatorTestSuite) Test_DeleteElement() {
 	a.NoError(err)
 }
 
-func (a coordinatorTestSuite) Test_RegisterInstance() {
-	err := a.agg.RegisterInstance(a.ctx, &Instance{
+func (a *coordinatorTestSuite) Test_RegisterInstance() {
+	err := a.agg.RegisterInstance(a.ctx, &concept.Instance{
 		ClientId: "clientId",
 		ClientIp: "172.168.1.1",
-		Watching: []*Instance_Watching{
+		Watching: []*concept.Instance_Watching{
 			{
 				App:       "app",
 				Env:       "env",
@@ -114,11 +115,11 @@ func (a coordinatorTestSuite) Test_RegisterInstance() {
 	a.NoError(err)
 }
 
-func (a coordinatorTestSuite) Test_RenewInstance() {
-	err := a.agg.RenewInstance(a.ctx, &Instance{
+func (a *coordinatorTestSuite) Test_RenewInstance() {
+	err := a.agg.RenewInstance(a.ctx, &concept.Instance{
 		ClientId: "clientId",
 		ClientIp: "172.168.1.1",
-		Watching: []*Instance_Watching{
+		Watching: []*concept.Instance_Watching{
 			{
 				App:       "app",
 				Env:       "env",
@@ -130,11 +131,11 @@ func (a coordinatorTestSuite) Test_RenewInstance() {
 	a.NoError(err)
 }
 
-func (a coordinatorTestSuite) Test_UnregisterInstance() {
-	ins := &Instance{
+func (a *coordinatorTestSuite) Test_UnregisterInstance() {
+	ins := &concept.Instance{
 		ClientId: "clientId",
 		ClientIp: "172.168.1.1",
-		Watching: []*Instance_Watching{
+		Watching: []*concept.Instance_Watching{
 			{
 				App:       "app",
 				Env:       "env",

@@ -1,4 +1,4 @@
-package concept
+package coordinator
 
 import (
 	"context"
@@ -8,13 +8,14 @@ import (
 
 	"github.com/yeqown/log"
 
+	"github.com/yeqown/cassem/api/concept"
 	apicassemdb "github.com/yeqown/cassem/internal/cassemdb/api"
 	"github.com/yeqown/cassem/pkg/errorx"
 	"github.com/yeqown/cassem/pkg/runtime"
 )
 
 var (
-	_ InstanceHybrid = instanceHybrid{}
+	_ concept.InstanceHybrid = instanceHybrid{}
 )
 
 type instanceHybrid struct {
@@ -33,8 +34,8 @@ type instanceHybrid struct {
 //}
 
 func (i instanceHybrid) GetInstances(
-	ctx context.Context, seek string, limit int) (*getInstancesResult, error) {
-	k := genInstanceNormalDirKey()
+	ctx context.Context, seek string, limit int) (*concept.GetInstancesResult, error) {
+	k := concept.GenInstanceNormalDirKey()
 	log.
 		WithFields(log.Fields{
 			"seek":  seek,
@@ -53,18 +54,18 @@ func (i instanceHybrid) GetInstances(
 	}
 
 	// insIds := make([]string, 0, len(r.GetEntities()))
-	result := &getInstancesResult{
-		commonPager: commonPager{
+	result := &concept.GetInstancesResult{
+		CommonPager: concept.CommonPager{
 			HasMore:  r.GetHasMore(),
 			NextSeek: r.GetNextSeekKey(),
 		},
-		Instances: make([]*Instance, 0, len(r.GetEntities())),
+		Instances: make([]*concept.Instance,0, len(r.GetEntities())),
 	}
 	for _, v := range r.GetEntities() {
-		// insId := genInstanceNormalKey(runtime.ToString(v.GetVal()))
+		// insId := concept.GenInstanceNormalKey(runtime.ToString(v.GetVal()))
 		// insIds = append(insIds, insId)
-		ins := new(Instance)
-		_ = UnmarshalProto(v.GetVal(), ins)
+		ins := new(concept.Instance)
+		_ = concept.UnmarshalProto(v.GetVal(), ins)
 		result.Instances = append(result.Instances, ins)
 	}
 
@@ -77,8 +78,8 @@ func (i instanceHybrid) GetInstances(
 	//}
 	//
 	//for _, v := range r2.GetEntities() {
-	//	ins := new(Instance)
-	//	_ = UnmarshalProto(v.GetVal(), ins)
+	//	ins := new(concept.Instance)
+	//	_ = concept.UnmarshalProto(v.GetVal(), ins)
 	//	instances = append(instances, ins)
 	//}
 
@@ -86,8 +87,8 @@ func (i instanceHybrid) GetInstances(
 }
 
 func (i instanceHybrid) GetInstancesByElement(
-	ctx context.Context, app, env, key string) (*getInstancesResult, error) {
-	k := genInstanceReversedKey(app, env, key)
+	ctx context.Context, app, env, key string) (*concept.GetInstancesResult, error) {
+	k := concept.GenInstanceReversedKey(app, env, key)
 	log.
 		WithFields(log.Fields{
 			"app": app,
@@ -106,12 +107,12 @@ func (i instanceHybrid) GetInstancesByElement(
 		return nil, fmt.Errorf("instanceHybrid.GetInstances: %w", err)
 	}
 
-	result := &getInstancesResult{
-		commonPager: commonPager{
+	result := &concept.GetInstancesResult{
+		CommonPager: concept.CommonPager{
 			HasMore:  r.GetHasMore(),
 			NextSeek: r.GetNextSeekKey(),
 		},
-		Instances: make([]*Instance, 0, len(r.GetEntities())),
+		Instances: make([]*concept.Instance,0, len(r.GetEntities())),
 	}
 	if len(r.GetEntities()) == 0 {
 		return result, nil
@@ -119,7 +120,7 @@ func (i instanceHybrid) GetInstancesByElement(
 
 	insIds := make([]string, 0, len(r.GetEntities()))
 	for _, v := range r.GetEntities() {
-		insId := genInstanceNormalKey(runtime.ToString(v.GetVal()))
+		insId := concept.GenInstanceNormalKey(runtime.ToString(v.GetVal()))
 		insIds = append(insIds, insId)
 	}
 	// get all instance detail information.
@@ -131,16 +132,16 @@ func (i instanceHybrid) GetInstancesByElement(
 	}
 
 	for _, v := range r2.GetEntities() {
-		ins := new(Instance)
-		_ = UnmarshalProto(v.GetVal(), ins)
+		ins := new(concept.Instance)
+		_ = concept.UnmarshalProto(v.GetVal(), ins)
 		result.Instances = append(result.Instances, ins)
 	}
 
 	return result, nil
 }
 
-func (i instanceHybrid) GetInstance(ctx context.Context, insId string) (*Instance, error) {
-	k := genInstanceNormalKey(insId)
+func (i instanceHybrid) GetInstance(ctx context.Context, insId string) (*concept.Instance, error) {
+	k := concept.GenInstanceNormalKey(insId)
 	r, err := i.cassemdb.GetKV(ctx, &apicassemdb.GetKVReq{
 		Key: k,
 	})
@@ -148,18 +149,18 @@ func (i instanceHybrid) GetInstance(ctx context.Context, insId string) (*Instanc
 		return nil, err
 	}
 
-	ins := new(Instance)
-	err = UnmarshalProto(r.GetEntity().GetVal(), ins)
+	ins := new(concept.Instance)
+	err = concept.UnmarshalProto(r.GetEntity().GetVal(), ins)
 	return ins, err
 }
 
 // RegisterInstance registers a new instance.
 // DONE(@yeqown): keep insId unique in cluster, if register duplicated just return
 // duplicated error to client.
-func (i instanceHybrid) RegisterInstance(ctx context.Context, ins *Instance) (err error) {
+func (i instanceHybrid) RegisterInstance(ctx context.Context, ins *concept.Instance) (err error) {
 	// check duplicate instance
 	insId := ins.Id()
-	k := genInstanceNormalKey(insId)
+	k := concept.GenInstanceNormalKey(insId)
 
 	r, err := i.cassemdb.GetKV(ctx, &apicassemdb.GetKVReq{
 		Key: k,
@@ -178,7 +179,7 @@ func (i instanceHybrid) RegisterInstance(ctx context.Context, ins *Instance) (er
 	return i.setInstanceInfo(ctx, ins)
 }
 
-func (i instanceHybrid) setInstanceInfo(ctx context.Context, ins *Instance) (err error) {
+func (i instanceHybrid) setInstanceInfo(ctx context.Context, ins *concept.Instance) (err error) {
 	if ins == nil {
 		log.
 			Warn("InstanceHybrid.RegisterInstance get nil instance, skipped")
@@ -187,7 +188,7 @@ func (i instanceHybrid) setInstanceInfo(ctx context.Context, ins *Instance) (err
 	insId := ins.Id()
 
 	// save normalized kv
-	k := genInstanceNormalKey(insId)
+	k := concept.GenInstanceNormalKey(insId)
 	log.
 		WithFields(log.Fields{
 			"insId":         insId,
@@ -195,7 +196,7 @@ func (i instanceHybrid) setInstanceInfo(ctx context.Context, ins *Instance) (err
 		}).
 		Debug("instanceHybrid.UnregisterInstance")
 
-	bytes, _ := MarshalProto(ins)
+	bytes, _ := concept.MarshalProto(ins)
 	_, err = i.cassemdb.SetKV(ctx, &apicassemdb.SetKVReq{
 		Key:       k,
 		IsDir:     false,
@@ -210,7 +211,7 @@ func (i instanceHybrid) setInstanceInfo(ctx context.Context, ins *Instance) (err
 	// save reversed kv
 	for _, w := range ins.GetWatching() {
 		for _, key := range w.GetWatchKeys() {
-			k2 := genInstanceReversedKeyWithInsId(w.GetApp(), w.GetEnv(), key, insId)
+			k2 := concept.GenInstanceReversedKeyWithInsId(w.GetApp(), w.GetEnv(), key, insId)
 			_, err = i.cassemdb.SetKV(ctx, &apicassemdb.SetKVReq{
 				Key:       k2,
 				IsDir:     false,
@@ -232,10 +233,10 @@ func (i instanceHybrid) setInstanceInfo(ctx context.Context, ins *Instance) (err
 	return nil
 }
 
-func (i instanceHybrid) RenewInstance(ctx context.Context, ins *Instance) error {
+func (i instanceHybrid) RenewInstance(ctx context.Context, ins *concept.Instance) error {
 	// check duplicate instance
 	//insId := ins.Id()
-	//k := genInstanceNormalKey(insId)
+	//k := concept.GenInstanceNormalKey(insId)
 	//r, _ := i.cassemdb.GetKV(ctx, &apicassemdb.GetKVReq{
 	//	Key: k,
 	//})
@@ -249,7 +250,7 @@ func (i instanceHybrid) RenewInstance(ctx context.Context, ins *Instance) error 
 }
 
 func (i instanceHybrid) UnregisterInstance(ctx context.Context, insId string) error {
-	k := genInstanceNormalKey(insId)
+	k := concept.GenInstanceNormalKey(insId)
 	log.
 		WithFields(log.Fields{
 			"insId":         insId,
@@ -269,8 +270,8 @@ func (i instanceHybrid) UnregisterInstance(ctx context.Context, insId string) er
 		return fmt.Errorf("instanceHybrid.UnregisterInstance: %w", err)
 	}
 
-	ins := new(Instance)
-	if err = UnmarshalProto(r.GetEntity().GetVal(), ins); err != nil {
+	ins := new(concept.Instance)
+	if err = concept.UnmarshalProto(r.GetEntity().GetVal(), ins); err != nil {
 		return fmt.Errorf("instanceHybrid.UnregisterInstance: %w", err)
 	}
 
@@ -283,7 +284,7 @@ func (i instanceHybrid) UnregisterInstance(ctx context.Context, insId string) er
 	// unset reversed kv
 	for _, w := range ins.GetWatching() {
 		for _, key := range w.GetWatchKeys() {
-			k2 := genInstanceReversedKeyWithInsId(w.GetApp(), w.GetEnv(), key, insId)
+			k2 := concept.GenInstanceReversedKeyWithInsId(w.GetApp(), w.GetEnv(), key, insId)
 			_, err = i.cassemdb.UnsetKV(ctx, &apicassemdb.UnsetKVReq{
 				Key: k2,
 			})

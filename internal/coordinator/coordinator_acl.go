@@ -1,4 +1,4 @@
-package concept
+package coordinator
 
 import (
 	"context"
@@ -12,57 +12,14 @@ import (
 	defaultrolemanager "github.com/casbin/casbin/v2/rbac/default-role-manager"
 	"github.com/yeqown/log"
 
+	"github.com/yeqown/cassem/api/concept"
 	apicassemdb "github.com/yeqown/cassem/internal/cassemdb/api"
 	"github.com/yeqown/cassem/pkg/errorx"
 	"github.com/yeqown/cassem/pkg/hash"
 )
 
-const (
-	Action_READ    = "r"
-	Action_WRITE   = "w"
-	Action_DELETE  = "d"
-	Action_PUBLISH = "p"
-	Action_ANY     = "*"
-)
-
-// domain is equal to app/env
-const (
-	Domain_ALL     = "*"
-	Domain_CLUSTER = "cluster"
-	// Domain_APP MUST NOT be used, this only represents the format of
-	// app domain.
-	Domain_APP = "app/env"
-	// Domain_APP_ENV = "ae:appName/envName"
-)
-
-const (
-	// Role_SUPERADMIN can control whole resources.
-	// p superadmin * * *
-	Role_SUPERADMIN = "superadmin"
-	// Role_ADMIN is an admin role who owns all apps' all permissions.
-	Role_ADMIN = "admin"
-	// Role_APPOWNER can only control the app's resources which belong to him
-	// and visit other apps's resources.
-	Role_APPOWNER = "appowner"
-	// Role_DEVELOPER can only access(except delete, publish, rollback permissions)
-	// the app's resources which belong to him and visit other apps's resources.
-	Role_DEVELOPER = "appdeveloper"
-	// Role_VISITOR can only access(readonly) app's resources.
-	Role_VISITOR = "visitor"
-)
-
-const (
-	Object_USER    = "user"
-	Object_ACL     = "acl"
-	Object_APP     = "app"
-	Object_ENV     = "env"
-	Object_ELEMENT = "elem"
-	Object_CLUSTER = "cluster"
-	Object_ALL     = "*"
-)
-
 var (
-	_ RBAC            = aclImpl{}
+	_ concept.RBAC            = aclImpl{}
 	_ persist.Adapter = cassemAdapter{}
 )
 
@@ -96,7 +53,7 @@ type aclImpl struct {
 }
 
 // newRBAC construct a RBAC ACL interface.
-func newRBAC(c apicassemdb.KVClient) (RBAC, error) {
+func newRBAC(c apicassemdb.KVClient) (concept.RBAC, error) {
 	a := &cassemAdapter{cassemdb: c}
 
 	m, err := model.NewModelFromString(_casbinModel)
@@ -112,9 +69,9 @@ func newRBAC(c apicassemdb.KVClient) (RBAC, error) {
 	e.SetRoleManager(defaultrolemanager.NewRoleManager(1))
 	e.AddNamedDomainMatchingFunc("g", "", func(r, p string) bool {
 		switch p {
-		case Domain_ALL:
+		case concept.Domain_ALL:
 			return true
-		case Domain_CLUSTER:
+		case concept.Domain_CLUSTER:
 			return r == p
 		}
 
@@ -142,26 +99,26 @@ func newRBAC(c apicassemdb.KVClient) (RBAC, error) {
 	return aclImpl{a: a, c: c, e: e}, nil
 }
 
-func (a aclImpl) GetUser(account string) (*User, error) {
+func (a aclImpl) GetUser(account string) (*concept.User, error) {
 	if strings.HasPrefix(account, "superadmin") {
-		return &User{
+		return &concept.User{
 			Account:        "superadmin",
 			Nickname:       "superadmin",
 			HashedPassword: "7c46f88749d0b4f39c0b089e67553361846cf9a0fa0213012ce345a5cfcea689",
 			Salt:           "Y2Fzc2VuCg==",
-			Status:         User_NORMAL,
+			Status:         concept.User_NORMAL,
 		}, nil
 	}
 
-	r, err := a.c.GetKV(context.TODO(), &apicassemdb.GetKVReq{Key: genUserKey(account)})
+	r, err := a.c.GetKV(context.TODO(), &apicassemdb.GetKVReq{Key: concept.GenUserKey(account)})
 	if err != nil {
 		return nil, fmt.Errorf("aclImpl.GetUser: %w", err)
 	}
 
-	u := new(User)
+	u := new(concept.User)
 	apicassemdb.MustUnmarshal(r.GetEntity().GetVal(), u)
 
-	roles, err := a.e.GetRolesForUser(account, Domain_ALL)
+	roles, err := a.e.GetRolesForUser(account, concept.Domain_ALL)
 	log.
 		WithFields(log.Fields{
 			"roles": roles,
@@ -172,7 +129,7 @@ func (a aclImpl) GetUser(account string) (*User, error) {
 	return u, nil
 }
 
-func (a aclImpl) AddUser(u *User) error {
+func (a aclImpl) AddUser(u *concept.User) error {
 	// encrypt user's password
 	u.Salt = hash.RandKey(8)
 	u.HashedPassword = hash.WithSalt(u.HashedPassword, u.Salt)
@@ -180,7 +137,7 @@ func (a aclImpl) AddUser(u *User) error {
 	// save
 	data := apicassemdb.Must(apicassemdb.Marshal(u))
 	r, err := a.c.SetKV(context.TODO(), &apicassemdb.SetKVReq{
-		Key:       genUserKey(u.GetAccount()),
+		Key:       concept.GenUserKey(u.GetAccount()),
 		IsDir:     false,
 		Ttl:       apicassemdb.NEVER_EXPIRED,
 		Val:       data,
@@ -195,22 +152,22 @@ func (a aclImpl) AddUser(u *User) error {
 }
 
 func (a aclImpl) DisableUser(account string) error {
-	r, err := a.c.GetKV(context.TODO(), &apicassemdb.GetKVReq{Key: genUserKey(account)})
+	r, err := a.c.GetKV(context.TODO(), &apicassemdb.GetKVReq{Key: concept.GenUserKey(account)})
 	if err != nil {
 		return fmt.Errorf("aclImpl.DisableUser: %w", err)
 	}
 
-	u := new(User)
+	u := new(concept.User)
 	apicassemdb.MustUnmarshal(r.GetEntity().GetVal(), u)
-	u.Status = User_FORBIDDEN
+	u.Status = concept.User_FORBIDDEN
 
 	return a.saveUser(u)
 }
 
-func (a aclImpl) saveUser(u *User) error {
+func (a aclImpl) saveUser(u *concept.User) error {
 	data := apicassemdb.Must(apicassemdb.Marshal(u))
 	r, err := a.c.SetKV(context.TODO(), &apicassemdb.SetKVReq{
-		Key:       genUserKey(u.Account),
+		Key:       concept.GenUserKey(u.Account),
 		IsDir:     false,
 		Ttl:       apicassemdb.NEVER_EXPIRED,
 		Val:       data,
@@ -299,9 +256,9 @@ func (a aclImpl) Enforce(subject, domain, object, act string) (bool, error) {
 // AutoMigrate initialize builtin-role and permissions.
 func (a aclImpl) AutoMigrate() error {
 	_, err := a.e.AddPolicies([][]string{
-		{"superadmin", Domain_ALL, Object_ALL, Action_ANY},
-		{"admin", Domain_ALL, Object_ALL, Action_READ},
-		{"admin", Domain_ALL, Object_ALL, Action_WRITE},
+		{"superadmin", concept.Domain_ALL, concept.Object_ALL, concept.Action_ANY},
+		{"admin", concept.Domain_ALL, concept.Object_ALL, concept.Action_READ},
+		{"admin", concept.Domain_ALL, concept.Object_ALL, concept.Action_WRITE},
 	})
 	return err
 }
@@ -314,7 +271,7 @@ type cassemAdapter struct {
 func (c cassemAdapter) LoadPolicy(model model.Model) error {
 	r, err := c.cassemdb.GetKV(
 		context.TODO(),
-		&apicassemdb.GetKVReq{Key: genAclPolicyKey()},
+		&apicassemdb.GetKVReq{Key: concept.GenAclPolicyKey()},
 	)
 	if err != nil {
 		if errors.Is(err, errorx.Err_NOT_FOUND) {
@@ -325,7 +282,7 @@ func (c cassemAdapter) LoadPolicy(model model.Model) error {
 	}
 
 	// c.casbinEntity = r.GetEntity()
-	s := new(Casbin)
+	s := new(concept.Casbin)
 	apicassemdb.MustUnmarshal(r.GetEntity().GetVal(), s)
 
 	for _, p := range s.GetPolicies() {
@@ -335,7 +292,7 @@ func (c cassemAdapter) LoadPolicy(model model.Model) error {
 	return nil
 }
 
-func loadPolicyLine(policy *Casbin_Policy, model model.Model) {
+func loadPolicyLine(policy *concept.Casbin_Policy, model model.Model) {
 	lineText := policy.Ptype
 	if policy.V0 != "" {
 		lineText += ", " + policy.V0
@@ -360,8 +317,8 @@ func loadPolicyLine(policy *Casbin_Policy, model model.Model) {
 }
 
 func (c cassemAdapter) SavePolicy(model model.Model) error {
-	s := &Casbin{
-		Policies: make([]*Casbin_Policy, 0, len(model["p"])+len(model["g"])),
+	s := &concept.Casbin{
+		Policies: make([]*concept.Casbin_Policy, 0, len(model["p"])+len(model["g"])),
 	}
 
 	for ptype, ast := range model["p"] {
@@ -380,7 +337,7 @@ func (c cassemAdapter) SavePolicy(model model.Model) error {
 
 	data := apicassemdb.Must(apicassemdb.Marshal(s))
 	_, err := c.cassemdb.SetKV(context.TODO(), &apicassemdb.SetKVReq{
-		Key:       genAclPolicyKey(),
+		Key:       concept.GenAclPolicyKey(),
 		IsDir:     false,
 		Ttl:       0,
 		Val:       data,
@@ -393,8 +350,8 @@ func (c cassemAdapter) SavePolicy(model model.Model) error {
 	return nil
 }
 
-func savePolicyLine(ptype string, rule []string) *Casbin_Policy {
-	line := new(Casbin_Policy)
+func savePolicyLine(ptype string, rule []string) *concept.Casbin_Policy {
+	line := new(concept.Casbin_Policy)
 
 	line.Ptype = ptype
 	if len(rule) > 0 {

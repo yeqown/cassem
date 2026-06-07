@@ -10,6 +10,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/yeqown/cassem/api/concept"
+	"github.com/yeqown/cassem/internal/coordinator"
 	"github.com/yeqown/cassem/internal/cassemadm/infras"
 	"github.com/yeqown/cassem/pkg/conf"
 	"github.com/yeqown/cassem/pkg/httpx"
@@ -33,7 +34,7 @@ func New(c *conf.CassemAdminConfig) (*app, error) {
 		return nil, fmt.Errorf("cassemadm.New failed: %w", err)
 	}
 
-	agg, err := concept.NewAdmAggregate(c.CassemDBEndpoints)
+	agg, err := coordinator.NewAdmAggregate(c.CassemDBEndpoints)
 	if err != nil {
 		return nil, fmt.Errorf("cassemadm.New: %w", err)
 	}

@@ -20,16 +20,16 @@ type AgentAggregate interface {
 type KVReadOnly interface {
 	GetElementWithVersion(ctx context.Context, app, env, key string, version int) (*Element, error)
 	GetElementVersions(ctx context.Context, app, env, key string,
-		seek string, limit int) (*getElementsResult, error)
-	GetElements(ctx context.Context, app, env string, seek string, limit int) (*getElementsResult, error)
-	GetElementsByKeys(ctx context.Context, app, env string, keys []string) (*getElementsResult, error)
+		seek string, limit int) (*GetElementsResult, error)
+	GetElements(ctx context.Context, app, env string, seek string, limit int) (*GetElementsResult, error)
+	GetElementsByKeys(ctx context.Context, app, env string, keys []string) (*GetElementsResult, error)
 	GetElementOperations(
 		ctx context.Context, app, env, key string, start int) (ops []*ElementOperation, next int, err error)
 
 	GetApp(ctx context.Context, app string) (*AppMetadata, error)
-	GetApps(ctx context.Context, seek string, limit int) (*getAppsResult, error)
+	GetApps(ctx context.Context, seek string, limit int) (*GetAppsResult, error)
 
-	GetEnvironments(ctx context.Context, app, seek string, limit int) (*getAppEnvsResult, error)
+	GetEnvironments(ctx context.Context, app, seek string, limit int) (*GetAppEnvsResult, error)
 }
 
 type KVWriteOnly interface {
@@ -52,9 +52,9 @@ type KVWriteOnly interface {
 // InstanceHybrid describes all methods to manages instance information.
 type InstanceHybrid interface {
 	// GetInstances get all instance those have registered into cluster.
-	GetInstances(ctx context.Context, seek string, limit int) (*getInstancesResult, error)
+	GetInstances(ctx context.Context, seek string, limit int) (*GetInstancesResult, error)
 	// GetInstancesByElement get all instance those watching this app/env/key.
-	GetInstancesByElement(ctx context.Context, app, env, key string) (*getInstancesResult, error)
+	GetInstancesByElement(ctx context.Context, app, env, key string) (*GetInstancesResult, error)
 
 	// GetInstance describes instance detail by insId.
 	GetInstance(ctx context.Context, insId string) (*Instance, error)
@@ -75,7 +75,7 @@ type AgentHybrid interface {
 	Renew(ctx context.Context, ins *AgentInstance, ttl int32) error
 	// Unregister helps agent unregister itself.
 	Unregister(ctx context.Context, agentId string) error
-	GetAgents(ctx context.Context, seek string, limit int) (*getAgentsResult, error)
+	GetAgents(ctx context.Context, seek string, limit int) (*GetAgentsResult, error)
 }
 
 // RBAC is an ACL model to implement authentication permission management.
@@ -88,25 +88,25 @@ type RBAC interface {
 	Enforce(subject, domain, object, act string) (bool, error)
 }
 
-type commonPager struct {
+type CommonPager struct {
 	HasMore  bool   `json:"hasMore"`
 	NextSeek string `json:"nextSeek"`
 }
 
-type getAppsResult struct {
-	commonPager
+type GetAppsResult struct {
+	CommonPager
 
 	Apps []*AppMetadata `json:"apps"`
 }
 
-type getAppEnvsResult struct {
-	commonPager
+type GetAppEnvsResult struct {
+	CommonPager
 
 	Environments []string `json:"envs"`
 }
 
-type getElementsResult struct {
-	commonPager
+type GetElementsResult struct {
+	CommonPager
 
 	Elements []*Element `json:"elements"`
 }
@@ -121,14 +121,14 @@ const (
 	PublishMode_FULL
 )
 
-type getAgentsResult struct {
-	commonPager
+type GetAgentsResult struct {
+	CommonPager
 
 	Agents []*AgentInstance `json:"agents"`
 }
 
-type getInstancesResult struct {
-	commonPager
+type GetInstancesResult struct {
+	CommonPager
 
 	Instances []*Instance `json:"instances"`
 }
