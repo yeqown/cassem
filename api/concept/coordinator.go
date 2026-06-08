@@ -23,8 +23,8 @@ type KVReadOnly interface {
 		seek string, limit int) (*GetElementsResult, error)
 	GetElements(ctx context.Context, app, env string, seek string, limit int) (*GetElementsResult, error)
 	GetElementsByKeys(ctx context.Context, app, env string, keys []string) (*GetElementsResult, error)
-	GetElementOperations(
-		ctx context.Context, app, env, key string, start int) (ops []*ElementOperation, next int, err error)
+	GetElementOperations(ctx context.Context, app, env, key string,
+		seek string, limit int) (*GetElementOperationsResult, error)
 
 	GetApp(ctx context.Context, app string) (*AppMetadata, error)
 	GetApps(ctx context.Context, seek string, limit int) (*GetAppsResult, error)
@@ -83,6 +83,7 @@ type RBAC interface {
 	GetUser(account string) (*User, error)
 	AddUser(u *User) error
 	DisableUser(account string) error
+	ResetUser(account, password string) error
 	AssignRole(account, role string, domain ...string) error
 	RevokeRole(account, role string, domain ...string) error
 	Enforce(subject, domain, object, act string) (bool, error)
@@ -109,6 +110,12 @@ type GetElementsResult struct {
 	CommonPager
 
 	Elements []*Element `json:"elements"`
+}
+
+type GetElementOperationsResult struct {
+	CommonPager
+
+	Operations []*ElementOperation `json:"operations"`
 }
 
 // PublishingMode indicates how to publish the element's update.

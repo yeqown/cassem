@@ -20,6 +20,7 @@ go.work.sum
 
 # Folders
 .idea/
+.superpowers/
 debugdata/
 
 # Binaries
@@ -34,3 +35,6 @@ cassemadm
 !debugdata/cassemdb1.toml
 !debugdata/cassemdb2.toml
 !debugdata/cassemdb3.toml
+
+# AI agentic
+docs/superpowers/

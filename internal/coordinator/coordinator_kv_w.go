@@ -5,6 +5,7 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"fmt"
+	"time"
 
 	proto "google.golang.org/protobuf/proto"
 
@@ -63,7 +64,7 @@ func (_h kvWriteOnly) CreateElement(ctx context.Context,
 		return err
 	}
 
-	return nil
+	return _h.saveElementOperation(ctx, app, env, key, concept.ElementOperation_SET, 0, version, "")
 }
 
 // UpdateElement add a new version to element, and update element's metadata info.
@@ -82,6 +83,7 @@ func (_h kvWriteOnly) UpdateElement(ctx context.Context, app, env, key string, r
 	}
 
 	// marking version and update
+	lastVersion := md.GetLatestVersion()
 	version := md.LatestVersion + 1
 	md.LatestVersion = version
 	md.UnpublishedVersion = version
@@ -97,17 +99,29 @@ func (_h kvWriteOnly) UpdateElement(ctx context.Context, app, env, key string, r
 	}
 
 	// save metadata of element.
-	return _h.saveRaw(ctx, concept.WithMetadataSuffix(k), md, 0, true)
+	if err = _h.saveRaw(ctx, concept.WithMetadataSuffix(k), md, 0, true); err != nil {
+		return err
+	}
+
+	return _h.saveElementOperation(ctx, app, env, key, concept.ElementOperation_SET, lastVersion, version, "")
 }
 
 func (_h kvWriteOnly) DeleteElement(ctx context.Context, app, env, eltKey string) error {
 	k := concept.GenElementKey(app, env, eltKey)
+	md, _ := _h.getElementMetadata(ctx, k)
 	_, err := _h.cassemdb.UnsetKV(ctx, &apicassemdb.UnsetKVReq{
 		Key:   k,
 		IsDir: true,
 	})
+	if err != nil {
+		return err
+	}
 
-	return err
+	var lastVersion int32
+	if md != nil {
+		lastVersion = md.GetLatestVersion()
+	}
+	return _h.saveElementOperation(ctx, app, env, eltKey, concept.ElementOperation_UNSET, lastVersion, 0, "")
 }
 
 func (_h kvWriteOnly) CreateEnvironment(ctx context.Context, app, env string) error {
@@ -139,7 +153,6 @@ func (_h kvWriteOnly) DeleteEnvironment(ctx context.Context, app, env string) er
 // RollbackElementVersion reset element's latest published version as rollbackVersion
 // elementMetadata.usingVersion => rollbackVersion
 // elementMetadata.usingFingerprint = md5(rollbackVersion.raw)
-//
 func (_h kvWriteOnly) RollbackElementVersion(ctx context.Context, app string, env string, key string,
 	rollbackVersion uint32) error {
 	k := concept.GenElementKey(app, env, key)
@@ -159,11 +172,17 @@ func (_h kvWriteOnly) RollbackElementVersion(ctx context.Context, app string, en
 		return fmt.Errorf("rollback version lte using version: %w", errorx.Err_INVALID_ARGUMENT)
 	}
 
+	lastUsingVersion := md.GetUsingVersion()
 	md.UsingVersion = rollback.GetVersion()
 	h := md5.New()
 	h.Write(rollback.GetRaw())
 	md.UsingFingerprint = hex.EncodeToString(h.Sum(nil))
-	return _h.saveRaw(ctx, concept.WithMetadataSuffix(k), md, 0, true)
+	if err = _h.saveRaw(ctx, concept.WithMetadataSuffix(k), md, 0, true); err != nil {
+		return err
+	}
+
+	return _h.saveElementOperation(ctx, app, env, key, concept.ElementOperation_PUBLISH,
+		lastUsingVersion, rollback.GetVersion(), fmt.Sprintf("rollback to version %d", rollbackVersion))
 }
 
 // PublishElementVersion publish element version.
@@ -190,6 +209,8 @@ func (_h kvWriteOnly) PublishElementVersion(ctx context.Context, app string, env
 		return nil, err
 	}
 
+	lastUsingVersion := md.GetUsingVersion()
+
 	// update metadata UsingVersion, UsingFingerprint, reset UnpublishedVersion.
 	md.UsingVersion = publish.Version
 	h := md5.New()
@@ -202,9 +223,15 @@ func (_h kvWriteOnly) PublishElementVersion(ctx context.Context, app string, env
 
 	// Update  version's published be TRUE.
 	publish.Published = true
-	err = _h.saveRaw(ctx, concept.WithVersion(k, int(publishVersion)), publish, 0, true)
+	if err = _h.saveRaw(ctx, concept.WithVersion(k, int(publishVersion)), publish, 0, true); err != nil {
+		return nil, err
+	}
 	publish.Metadata = md
-	return publish, err
+	if err = _h.saveElementOperation(ctx, app, env, key, concept.ElementOperation_PUBLISH,
+		lastUsingVersion, publish.GetVersion(), ""); err != nil {
+		return nil, err
+	}
+	return publish, nil
 }
 
 func (_h kvWriteOnly) CreateApp(ctx context.Context, md *concept.AppMetadata) error {
@@ -264,6 +291,23 @@ func (_h kvWriteOnly) getElementMetadata(ctx context.Context, key string) (*conc
 	}
 
 	return md, nil
+}
+
+func (_h kvWriteOnly) saveElementOperation(ctx context.Context, app, env, key string,
+	op concept.ElementOperation_Op, lastVersion, currentVersion int32, remark string) error {
+	operatedAt := time.Now().UnixNano()
+	opKey := concept.GenElementOperationKey(app, env, key, operatedAt)
+	operation := &concept.ElementOperation{
+		Operator:       concept.OperatorFromContext(ctx),
+		OperatedAt:     operatedAt,
+		OperatedKey:    key,
+		Op:             op,
+		LastVersion:    lastVersion,
+		CurrentVersion: currentVersion,
+		Remark:         remark,
+	}
+
+	return _h.saveRaw(ctx, opKey, operation, 0, false)
 }
 
 // saveRaw calls cassemdb.SetKV to save val.

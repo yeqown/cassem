@@ -57,6 +57,7 @@ service agent {
 
 message dispatchReq {
   repeated cassem.concept.Element elems = 1;
+  repeated string instanceIds = 2;
 }
 
 message dispatchResp {}

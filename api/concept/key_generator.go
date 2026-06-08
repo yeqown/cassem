@@ -9,6 +9,7 @@ const (
 	_ROOT_PREFIX = "cassem/"
 	_ELT_PREFIX  = _ROOT_PREFIX + "elements"
 	_APP_PREFIX  = _ROOT_PREFIX + "apps"
+	_OP_PREFIX   = _ROOT_PREFIX + "operations"
 	// _INS_PREFIX will be divided into two part, one is forward storage, another is reversed index.
 	// 1. root/instances/normalized/instance-id => instance in detail
 	// 2. root/instances/reversed/app-env-key => instances{instance-id}
@@ -19,8 +20,9 @@ const (
 	_ACL_USER_PREFIX   = _ROOT_PREFIX + "acl/users"
 
 	// utility constants, helps key to be more expressive.
-	_SEP             = "/"
-	_METADATA_SUFFIX = "/metadata"
+	_SEP               = "/"
+	_METADATA_SUFFIX   = "/metadata"
+	_OPERATIONS_SUFFIX = "operations"
 )
 
 func joint(keys ...string) string {
@@ -57,6 +59,14 @@ func WithVersion(key string, version int) string {
 
 func WithMetadataSuffix(key string) string {
 	return key + _METADATA_SUFFIX
+}
+
+func GenElementOperationDirKey(app, env, key string) string {
+	return joint(_OP_PREFIX, app, env, key, _OPERATIONS_SUFFIX)
+}
+
+func GenElementOperationKey(app, env, key string, operatedAt int64) string {
+	return joint(GenElementOperationDirKey(app, env, key), strconv.FormatInt(operatedAt, 10))
 }
 
 func trimVersion(key string) string {

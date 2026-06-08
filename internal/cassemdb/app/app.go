@@ -29,7 +29,6 @@ func isDebug() bool {
 // Especially, raft protocol which supports the architecture of cassemdb (master-slave).
 //
 // Notice that all writes must be operated on master node, salve nodes could execute read operations.
-//
 type app struct {
 	config *conf.CassemdbConfig
 
@@ -186,6 +185,9 @@ const (
 )
 
 func (d *app) setKV(param *setKVParam) (err error) {
+	if param.ttl < 0 {
+		return errors.New("ttl must be non-negative")
+	}
 	if param.ttl > MAX_TTL {
 		return errors.New("ttl overflow: maximum is 172800(2*24*3600)")
 	}

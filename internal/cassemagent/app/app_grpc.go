@@ -16,7 +16,6 @@ import (
 // query from cassemdb. It failed only when query from local cache and remote both failed.
 //
 // DONE(@yeqown): get from cache first, if not hit send request to cassemdb component, and then refresh caches.
-//
 func (d app) GetElement(ctx context.Context, req *agent.GetElementReq) (*agent.GetElementResp, error) {
 	resp := new(agent.GetElementResp)
 	if len(req.GetKeys()) == 0 {
@@ -167,16 +166,31 @@ func (d app) Dispatch(ctx context.Context, req *agent.DispatchReq) (*agent.Dispa
 	// DONE(@yeqown): implement dispatch rpc call to related client instances.
 	log.
 		WithFields(log.Fields{
-			"elems": req.GetElems(),
-			"count": len(req.GetElems()),
+			"elems":       req.GetElems(),
+			"count":       len(req.GetElems()),
+			"instanceIds": req.GetInstanceIds(),
 		}).
 		Info("cassemagent.app.Dispatch called")
 
 	// start a routine to dispatch publish
 	runtime.GoFunc("dispatchChange", func() error {
+		targets := make(map[string]struct{}, len(req.GetInstanceIds()))
+		for _, insId := range req.GetInstanceIds() {
+			targets[insId] = struct{}{}
+		}
+
 		for _, v := range req.GetElems() {
 			insIds := d.instancePool.ListWatchingInstances(
 				v.GetMetadata().GetApp(), v.GetMetadata().GetEnv(), v.GetMetadata().GetKey())
+			if len(targets) != 0 {
+				filtered := make([]string, 0, len(insIds))
+				for _, insId := range insIds {
+					if _, ok := targets[insId]; ok {
+						filtered = append(filtered, insId)
+					}
+				}
+				insIds = filtered
+			}
 
 			log.
 				WithFields(log.Fields{

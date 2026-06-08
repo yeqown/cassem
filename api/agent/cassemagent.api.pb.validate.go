@@ -114,6 +114,7 @@ func (m *GetElementReq) validate(all bool) error {
 	if len(errors) > 0 {
 		return GetElementReqMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -124,7 +125,7 @@ type GetElementReqMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m GetElementReqMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -247,6 +248,7 @@ func (m *GetElementResp) validate(all bool) error {
 	if len(errors) > 0 {
 		return GetElementRespMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -257,7 +259,7 @@ type GetElementRespMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m GetElementRespMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -368,6 +370,7 @@ func (m *UnregisterReq) validate(all bool) error {
 	if len(errors) > 0 {
 		return UnregisterReqMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -378,7 +381,7 @@ type UnregisterReqMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m UnregisterReqMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -527,6 +530,7 @@ func (m *RegisterReq) validate(all bool) error {
 	if len(errors) > 0 {
 		return RegisterReqMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -536,7 +540,7 @@ type RegisterReqMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m RegisterReqMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -625,6 +629,7 @@ func (m *EmptyResp) validate(all bool) error {
 	if len(errors) > 0 {
 		return EmptyRespMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -634,7 +639,7 @@ type EmptyRespMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m EmptyRespMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -783,6 +788,7 @@ func (m *WatchReq) validate(all bool) error {
 	if len(errors) > 0 {
 		return WatchReqMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -792,7 +798,7 @@ type WatchReqMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m WatchReqMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -910,6 +916,7 @@ func (m *WatchResp) validate(all bool) error {
 	if len(errors) > 0 {
 		return WatchRespMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -919,7 +926,7 @@ type WatchRespMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m WatchRespMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -1042,6 +1049,7 @@ func (m *DispatchReq) validate(all bool) error {
 	if len(errors) > 0 {
 		return DispatchReqMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -1051,7 +1059,7 @@ type DispatchReqMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m DispatchReqMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -1140,6 +1148,7 @@ func (m *DispatchResp) validate(all bool) error {
 	if len(errors) > 0 {
 		return DispatchRespMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -1149,7 +1158,7 @@ type DispatchRespMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m DispatchRespMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}

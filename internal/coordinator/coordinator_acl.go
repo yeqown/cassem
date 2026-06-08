@@ -19,7 +19,7 @@ import (
 )
 
 var (
-	_ concept.RBAC            = aclImpl{}
+	_ concept.RBAC    = aclImpl{}
 	_ persist.Adapter = cassemAdapter{}
 )
 
@@ -139,7 +139,7 @@ func (a aclImpl) AddUser(u *concept.User) error {
 	r, err := a.c.SetKV(context.TODO(), &apicassemdb.SetKVReq{
 		Key:       concept.GenUserKey(u.GetAccount()),
 		IsDir:     false,
-		Ttl:       apicassemdb.NEVER_EXPIRED,
+		Ttl:       0,
 		Val:       data,
 		Overwrite: false,
 	})
@@ -164,12 +164,31 @@ func (a aclImpl) DisableUser(account string) error {
 	return a.saveUser(u)
 }
 
+func (a aclImpl) ResetUser(account, password string) error {
+	if strings.HasPrefix(account, "superadmin") {
+		return fmt.Errorf("could not reset superadmin: %w", errorx.Err_PERMISSION_DENIED)
+	}
+
+	r, err := a.c.GetKV(context.TODO(), &apicassemdb.GetKVReq{Key: concept.GenUserKey(account)})
+	if err != nil {
+		return fmt.Errorf("aclImpl.ResetUser: %w", err)
+	}
+
+	u := new(concept.User)
+	apicassemdb.MustUnmarshal(r.GetEntity().GetVal(), u)
+	u.Salt = hash.RandKey(8)
+	u.HashedPassword = hash.WithSalt(password, u.Salt)
+	u.Status = concept.User_NORMAL
+
+	return a.saveUser(u)
+}
+
 func (a aclImpl) saveUser(u *concept.User) error {
 	data := apicassemdb.Must(apicassemdb.Marshal(u))
 	r, err := a.c.SetKV(context.TODO(), &apicassemdb.SetKVReq{
 		Key:       concept.GenUserKey(u.Account),
 		IsDir:     false,
-		Ttl:       apicassemdb.NEVER_EXPIRED,
+		Ttl:       0,
 		Val:       data,
 		Overwrite: true,
 	})
@@ -313,7 +332,9 @@ func loadPolicyLine(policy *concept.Casbin_Policy, model model.Model) {
 		lineText += ", " + policy.V5
 	}
 
-	persist.LoadPolicyLine(lineText, model)
+	if err := persist.LoadPolicyLine(lineText, model); err != nil {
+		log.WithFields(log.Fields{"policy": lineText, "error": err}).Warn("cassemAdapter.loadPolicyLine failed")
+	}
 }
 
 func (c cassemAdapter) SavePolicy(model model.Model) error {

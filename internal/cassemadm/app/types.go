@@ -53,6 +53,11 @@ type getAppEnvElementVersionsReq struct {
 	Versions []uint `form:"version"`
 }
 
+type getAppEnvElementOperationsReq struct {
+	commonAppEnvEltRequest
+	commonPagingRequest
+}
+
 type deleteAppEnvElementsReq struct {
 	commonAppEnvEltRequest
 }
@@ -125,6 +130,7 @@ type publishAppEnvElementReq struct {
 
 	Publish     uint32                 `json:"version" form:"version" binding:"required"`
 	AgentIds    []string               `json:"agentId" form:"agentId"`
+	InstanceIds []string               `json:"instanceId" form:"instanceId"`
 	PublishMode concept.PublishingMode `json:"publishMode" form:"publishMode,default=2" binding:"required,oneof=1 2"`
 }
 
@@ -140,6 +146,11 @@ type addUserReq struct {
 
 type disableUserReq struct {
 	Account string `form:"account" binding:"email,required"`
+}
+
+type resetUserReq struct {
+	Account  string `json:"account" form:"account" binding:"email,required"`
+	Password string `json:"password" form:"password" binding:"required"`
 }
 
 type userLoginReq struct {

@@ -11,8 +11,8 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/yeqown/cassem/api/concept"
-	"github.com/yeqown/cassem/internal/coordinator"
 	"github.com/yeqown/cassem/internal/cassemadm/infras"
+	"github.com/yeqown/cassem/internal/coordinator"
 	"github.com/yeqown/cassem/pkg/conf"
 	"github.com/yeqown/cassem/pkg/httpx"
 )
@@ -99,6 +99,7 @@ func (d app) initialHTTP(engi *gin.Engine) {
 		accounta.POST("/add", d.AddUser)
 		accounta.GET("/disable", d.DisableUser)
 		accounta.GET("/reset", d.ResetUser)
+		accounta.POST("/reset", d.ResetUser)
 		accounta.GET("/acl/assign", d.AssignRole)
 		accounta.GET("/acl/revoke", d.RevokeRole)
 	}
@@ -130,7 +131,7 @@ func (d app) initialHTTP(engi *gin.Engine) {
 				elt.GET("/:key/diff", d.DiffAppEnvElement)
 				elt.POST("/:key/rollback", d.RollbackAppEnvElement)
 				elt.POST("/:key/publish", d.PublishAppEnvElement)
-				//elt.GET("/:key/operations", d.GetAppEnvElementOperations)
+				elt.GET("/:key/operations", d.GetAppEnvElementOperations)
 			}
 		}
 	}

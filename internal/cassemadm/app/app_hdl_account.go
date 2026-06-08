@@ -41,6 +41,10 @@ func (d app) UserLogin(c *gin.Context) {
 		Salt:      u.GetSalt(),
 		ExpiredAt: time.Now().AddDate(0, 0, 1).Unix(), // after 1 day to expire
 	})
+	if err != nil {
+		httpx.ResponseError(c, err)
+		return
+	}
 
 	httpx.ResponseJSON(c, userLoginResp{User: u, Session: sess})
 }
@@ -84,8 +88,18 @@ func (d app) DisableUser(c *gin.Context) {
 }
 
 func (d app) ResetUser(c *gin.Context) {
-	// TODO(@yeqown):
-	panic("implement me")
+	req := new(resetUserReq)
+	if err := c.ShouldBind(req); err != nil {
+		httpx.ResponseError(c, err)
+		return
+	}
+
+	if err := d.aggregate.ResetUser(req.Account, req.Password); err != nil {
+		httpx.ResponseError(c, err)
+		return
+	}
+
+	httpx.ResponseJSON(c, nil)
 }
 
 func (d app) AssignRole(c *gin.Context) {

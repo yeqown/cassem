@@ -52,6 +52,7 @@ func Authorization(rbac concept.RBAC) gin.HandlerFunc {
 		}
 
 		c.Set("sess", sess)
+		c.Request = c.Request.WithContext(concept.WithOperator(c.Request.Context(), sess.Account))
 		c.Next()
 	}
 }

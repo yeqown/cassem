@@ -8,6 +8,7 @@ import (
 	"github.com/yeqown/log"
 
 	"github.com/yeqown/cassem/api/concept"
+	"github.com/yeqown/cassem/pkg/errorx"
 	"github.com/yeqown/cassem/pkg/httpx"
 	"github.com/yeqown/cassem/pkg/runtime"
 )
@@ -173,6 +174,24 @@ func diff(src1, src2 string) string {
 	return _dmp.DiffText1(diffs)
 }
 
+func (d app) GetAppEnvElementOperations(c *gin.Context) {
+	req := new(getAppEnvElementOperationsReq)
+	_ = c.ShouldBindUri(req)
+	if err := c.ShouldBind(req); err != nil {
+		httpx.ResponseError(c, err)
+		return
+	}
+
+	operations, err := d.aggregate.GetElementOperations(
+		c.Request.Context(), req.AppId, req.Env, req.ElementKey, req.Seek, req.Limit)
+	if err != nil {
+		httpx.ResponseError(c, err)
+		return
+	}
+
+	httpx.ResponseJSON(c, operations)
+}
+
 func (d app) RollbackAppEnvElement(c *gin.Context) {
 	req := new(rollbackAppEnvElementReq)
 	_ = c.ShouldBindUri(req)
@@ -219,12 +238,14 @@ func (d app) PublishAppEnvElement(c *gin.Context) {
 	case concept.PublishMode_FULL:
 		err = d.ap.notifyAll(elem)
 	case concept.PublishMode_GRAY:
-		// gray mode with agentIds
-		fallthrough
-	default:
-		// no specific mode, but agentIds is not empty.
-		if len(req.AgentIds) != 0 {
-			err = d.ap.notifyAgent(elem, req.AgentIds...)
+		if len(req.AgentIds) == 0 && len(req.InstanceIds) == 0 {
+			httpx.ResponseError(c, errorx.Err_INVALID_ARGUMENT)
+			return
+		}
+		if len(req.AgentIds) == 0 {
+			err = d.ap.notifyAgentInstances(elem, req.InstanceIds, d.ap.getAgentIdKeys()...)
+		} else {
+			err = d.ap.notifyAgentInstances(elem, req.InstanceIds, req.AgentIds...)
 		}
 	}
 	if err != nil {

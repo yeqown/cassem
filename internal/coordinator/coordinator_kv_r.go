@@ -16,7 +16,6 @@ const (
 	_APP_PREFIX     = "cassem/apps"
 )
 
-
 // kvReadOnly manages all read operation from cassemdb, it is allowed to read only.
 type kvReadOnly struct {
 	cassemdb apicassemdb.KVClient
@@ -200,9 +199,32 @@ func (_r kvReadOnly) getElementsByKeys(
 }
 
 func (_r kvReadOnly) GetElementOperations(
-	ctx context.Context, app, env, eltKey string, start int) (ops []*concept.ElementOperation, next int, err error) {
-	// TODO(@yeqown): implement this
-	panic("implement me")
+	ctx context.Context, app, env, eltKey string, seek string, limit int) (*concept.GetElementOperationsResult, error) {
+	r, err := _r.cassemdb.Range(ctx, &apicassemdb.RangeReq{
+		Key:   concept.GenElementOperationDirKey(app, env, eltKey),
+		Seek:  seek,
+		Limit: int32(limit),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("kvReadOnly.GetElementOperations: %w", err)
+	}
+
+	result := &concept.GetElementOperationsResult{
+		CommonPager: concept.CommonPager{
+			HasMore:  r.GetHasMore(),
+			NextSeek: r.GetNextSeekKey(),
+		},
+		Operations: make([]*concept.ElementOperation, 0, len(r.GetEntities())),
+	}
+	for _, entity := range r.GetEntities() {
+		op := new(concept.ElementOperation)
+		if err = concept.UnmarshalProto(entity.GetVal(), op); err != nil {
+			continue
+		}
+		result.Operations = append(result.Operations, op)
+	}
+
+	return result, nil
 }
 
 func (_r kvReadOnly) GetApp(ctx context.Context, app string) (*concept.AppMetadata, error) {

@@ -24,18 +24,26 @@ same time, it's deployed by `Go` which gives it platform-cross ability and fast-
   - [ ] `CTL` / `UI` tool support these are constructing on `cassemadm` RESTful API.
     - [ ] [Web UI](https://github.com/yeqown/cassem-ui) is developing.
     - [ ] [CTL](#) tool to debug and manage config from terminal. 
+  - [ ] OpenTelemetry metrics support
 - [x] Distributed storage component `cassemdb`, based on raft consensus algorithm.
   - [x] Master can read and write.
   - [x] Slave node can only respond to read request.
   - [x] Use `gRPC` protocol to communicate.
   - [x] `Watch` `TTL` features support.
   - [ ] `Lazy Deletion` the expired KV. There is a deleting working thread to delete KV from queue, the queue's data is from
+  - [ ] OpenTelemetry metrics support
   two part, one is `operation check`, another is `timer check`.
 - [x] Stateless agent component `cassemagent` to improve client's usability.
   - [x] Cache config elements, and using `LRU-K` replacing algorithm.
   - [ ] Language independent support `HTTP` and `gRPC` protocol.
   - [x] Client SDK, easy to use.
   - [x] `Change Push` ability, gray released also built on this.
+  - [ ] OpenTelemetry metrics support
+
+- [ ] Fully test cases.
+- [ ] One-liner deploy sh script.
+- [ ] Docker-Compose deploy YAML script.
+- [ ] GitHub CI Actions automate.
 
 ## [Documentation](./docs/README.md)
 

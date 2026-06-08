@@ -16,8 +16,8 @@ import (
 
 	"github.com/yeqown/cassem/api/agent"
 	"github.com/yeqown/cassem/api/concept"
-	"github.com/yeqown/cassem/internal/coordinator"
 	"github.com/yeqown/cassem/internal/cassemagent/domain"
+	"github.com/yeqown/cassem/internal/coordinator"
 	"github.com/yeqown/cassem/pkg/conf"
 	"github.com/yeqown/cassem/pkg/grpcx"
 	"github.com/yeqown/cassem/pkg/hash"
@@ -35,6 +35,9 @@ func getHostname() string {
 }
 
 type app struct {
+	agent.UnimplementedAgentServer
+	agent.UnimplementedDeliveryServer
+
 	uniqueId    string
 	quit        chan struct{}
 	regSuccessC chan struct{}

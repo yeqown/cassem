@@ -9,6 +9,8 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -43,7 +45,9 @@ func newAgentPool(agg concept.AgentHybrid) *agentPool {
 		once:        sync.Once{},
 	}
 
-	p.run()
+	if agg != nil {
+		p.run()
+	}
 
 	return p
 }
@@ -66,10 +70,7 @@ func (p *agentPool) run() {
 						WithFields(log.Fields{"error": err}).
 						Warn("agentPool.run failed to updateAgentNodesManually")
 				}
-				select {
-				case <-ticker.C:
-					break
-				}
+				<-ticker.C
 			}
 			// panic("impossible")
 		})
@@ -77,15 +78,15 @@ func (p *agentPool) run() {
 }
 
 func (p *agentPool) all() []*concept.AgentInstance {
-	out := make([]*concept.AgentInstance, 0, len(p.nodes))
 	p.rwMutex.RLock()
 	defer p.rwMutex.RUnlock()
 
-	for key, v := range p.nodes {
-		if v == nil {
+	out := make([]*concept.AgentInstance, 0, len(p.nodes))
+	for _, node := range p.nodes {
+		if node == nil {
 			continue
 		}
-		out = append(out, p.nodes[key].AgentInstance)
+		out = append(out, node.snapshot())
 	}
 
 	return out
@@ -113,16 +114,31 @@ func (p *agentPool) updateAgentNodesManually() error {
 		}).
 		Debug("agentPool.updateAgentNodesManually called")
 
-	// update whole ap
-	p.rwMutex.Lock()
-	for idx, v := range r.Agents {
-		no, ok := p.nodes[v.GetAgentId()]
-		if !ok {
-			p.nodes[v.GetAgentId()] = newAgentNode(r.Agents[idx])
-		} else {
-			no.updateAddr(v.GetAddr())
-		}
+	newNodes := make(map[string]*agentNode, len(r.Agents))
+	newAgentIds := make(map[string]struct{}, len(r.Agents))
+
+	p.rwMutex.RLock()
+	existing := make(map[string]*agentNode, len(p.nodes))
+	for agentId, node := range p.nodes {
+		existing[agentId] = node
 	}
+	p.rwMutex.RUnlock()
+
+	for _, ins := range r.Agents {
+		agentId := ins.GetAgentId()
+		node, ok := existing[agentId]
+		if ok {
+			node.updateInstance(ins)
+		} else {
+			node = newAgentNode(ins)
+		}
+		newNodes[agentId] = node
+		newAgentIds[agentId] = struct{}{}
+	}
+
+	p.rwMutex.Lock()
+	p.nodes = newNodes
+	p.allAgentIds = newAgentIds
 	p.rwMutex.Unlock()
 
 	return nil
@@ -137,7 +153,6 @@ func (p *agentPool) updateAgentInstanceFromCh(ch <-chan *concept.AgentInstanceCh
 			}
 
 			agentId := change.GetIns().GetAgentId()
-			agentAddr := change.GetIns().GetAddr()
 			switch change.Op {
 			case concept.ChangeOp_NEW, concept.ChangeOp_UPDATE:
 				p.rwMutex.Lock()
@@ -148,7 +163,7 @@ func (p *agentPool) updateAgentInstanceFromCh(ch <-chan *concept.AgentInstanceCh
 					p.nodes[agentId] = node
 				} else {
 					// node update
-					node.updateAddr(agentAddr)
+					node.updateInstance(change.GetIns())
 				}
 				p.allAgentIds[agentId] = struct{}{}
 				p.rwMutex.Unlock()
@@ -178,6 +193,9 @@ func (p *agentPool) notifyAll(elem *concept.Element) error {
 
 // getAgentIdKeys returns all agent ids as a slice.
 func (p *agentPool) getAgentIdKeys() []string {
+	p.rwMutex.RLock()
+	defer p.rwMutex.RUnlock()
+
 	keys := make([]string, 0, len(p.allAgentIds))
 	for k := range p.allAgentIds {
 		keys = append(keys, k)
@@ -187,19 +205,24 @@ func (p *agentPool) getAgentIdKeys() []string {
 
 // notifyAgent helps app notify agent by agent ids.
 func (p *agentPool) notifyAgent(elem *concept.Element, agentIds ...string) error {
+	return p.notifyAgentInstances(elem, nil, agentIds...)
+}
+
+func (p *agentPool) notifyAgentInstances(elem *concept.Element, instanceIds []string, agentIds ...string) error {
 	log.
 		WithFields(log.Fields{
-			"elem":     elem,
-			"agentIds": agentIds,
+			"elem":        elem,
+			"agentIds":    agentIds,
+			"instanceIds": instanceIds,
 		}).
-		Debug("cassemamd.app.agent.notifyAgent called")
+		Debug("cassemamd.app.agent.notifyAgentInstances called")
 
 	if len(agentIds) == 0 {
 		return nil
 	}
 
 	p.rwMutex.RLock()
-	defer p.rwMutex.RUnlock()
+	nodes := make(map[string]*agentNode, len(agentIds))
 	for _, agentId := range agentIds {
 		node, ok := p.nodes[agentId]
 		if !ok {
@@ -208,11 +231,17 @@ func (p *agentPool) notifyAgent(elem *concept.Element, agentIds ...string) error
 				Warn("cassemadm.app.agentPool failed to find agentNode")
 			continue
 		}
+		nodes[agentId] = node
+	}
+	p.rwMutex.RUnlock()
 
-		// nonblocking post to channel.
+	item := agentDispatchItem{
+		elem:        elem,
+		instanceIds: append([]string(nil), instanceIds...),
+	}
+	for agentId, node := range nodes {
 		select {
-		case node.postbox() <- elem:
-			//log.Debug("send to postbox done")
+		case node.postbox() <- item:
 		default:
 			log.
 				WithFields(log.Fields{
@@ -226,12 +255,18 @@ func (p *agentPool) notifyAgent(elem *concept.Element, agentIds ...string) error
 	return nil
 }
 
+type agentDispatchItem struct {
+	elem        *concept.Element
+	instanceIds []string
+}
+
 // agentNode contains agent node information, includes the address to
 // agent node.
 type agentNode struct {
 	*concept.AgentInstance
 
-	ch chan *concept.Element
+	mu sync.RWMutex
+	ch chan agentDispatchItem
 	c  agent.DeliveryClient
 }
 
@@ -254,7 +289,8 @@ func newAgentNode(ins *concept.AgentInstance) *agentNode {
 
 	n := &agentNode{
 		AgentInstance: ins,
-		ch:            make(chan *concept.Element, _SIZE_AGENT_NODE_BUF),
+		mu:            sync.RWMutex{},
+		ch:            make(chan agentDispatchItem, _SIZE_AGENT_NODE_BUF),
 		c:             nil,
 	}
 
@@ -263,8 +299,34 @@ func newAgentNode(ins *concept.AgentInstance) *agentNode {
 	return n
 }
 
-func (n *agentNode) postbox() chan<- *concept.Element {
+func (n *agentNode) postbox() chan<- agentDispatchItem {
 	return n.ch
+}
+
+func (n *agentNode) snapshot() *concept.AgentInstance {
+	n.mu.RLock()
+	defer n.mu.RUnlock()
+	if n.AgentInstance == nil {
+		return nil
+	}
+	annotations := make(map[string]string, len(n.AgentInstance.GetAnnotations()))
+	for k, v := range n.AgentInstance.GetAnnotations() {
+		annotations[k] = v
+	}
+	return &concept.AgentInstance{
+		AgentId:     n.AgentInstance.GetAgentId(),
+		Addr:        n.AgentInstance.GetAddr(),
+		Annotations: annotations,
+	}
+}
+
+func (n *agentNode) agentId() string {
+	n.mu.RLock()
+	defer n.mu.RUnlock()
+	if n.AgentInstance == nil {
+		return ""
+	}
+	return n.AgentInstance.GetAgentId()
 }
 
 // run starts a new goroutine to consume agent node's channel. delivery goroutine
@@ -279,7 +341,7 @@ func (n *agentNode) run() {
 	// delivery is a goroutine for agent node to consume agentNode.ch(channel signal)
 	delivery := func() error {
 		var (
-			batch     []*concept.Element
+			batch     []agentDispatchItem
 			t         = time.NewTicker(_WAIT_DURATION)
 			waitTimes = 0
 		)
@@ -288,7 +350,7 @@ func (n *agentNode) run() {
 		reset := func() {
 			t.Reset(_WAIT_DURATION)
 			waitTimes = 0
-			batch = make([]*concept.Element, 0, _MAX_SIZE)
+			batch = make([]agentDispatchItem, 0, _MAX_SIZE)
 		}
 
 	loop:
@@ -334,70 +396,128 @@ func (n *agentNode) run() {
 }
 
 // delivery send dispatch request to agent.
-func (n *agentNode) delivery(batch []*concept.Element) {
+func (n *agentNode) delivery(batch []agentDispatchItem) {
 	log.
 		WithFields(log.Fields{
 			"batchSize": len(batch),
-			"agentId":   n.GetAgentId(),
+			"agentId":   n.agentId(),
 		}).
 		Debug("agentNode.delivery called")
 
-	timeoutCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
+	grouped := make(map[string]*agent.DispatchReq, len(batch))
+	for _, item := range batch {
+		key := normalizeInstanceIds(item.instanceIds)
+		req, ok := grouped[key]
+		if !ok {
+			req = &agent.DispatchReq{
+				Elems:       make([]*concept.Element, 0, len(batch)),
+				InstanceIds: append([]string(nil), item.instanceIds...),
+			}
+			grouped[key] = req
+		}
+		req.Elems = append(req.Elems, item.elem)
+	}
 
-	// TODO(@yeqown): support dispatch to specific instance
-	req := &agent.DispatchReq{
-		Elems: batch,
+	for _, req := range grouped {
+		client := n.getClient()
+		if client == nil {
+			log.
+				WithFields(log.Fields{"req": req, "agentId": n.agentId()}).
+				Warn("agentNode.delivery skip dispatch without client")
+			continue
+		}
+		timeoutCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		_, err := client.Dispatch(timeoutCtx, req)
+		cancel()
+		if err != nil {
+			log.
+				WithFields(log.Fields{
+					"req":     req,
+					"error":   err,
+					"agentId": n.agentId(),
+				}).
+				Warn("agentNode.delivery failed dispatch")
+		}
 	}
-	_, err := n.getClient().Dispatch(timeoutCtx, req)
-	if err != nil {
-		// message missed
-		log.
-			WithFields(log.Fields{
-				"req":     req,
-				"error":   err,
-				"agentId": n.GetAgentId(),
-			}).
-			Warn("agentNode.delivery failed dispatch")
+}
+
+func normalizeInstanceIds(instanceIds []string) string {
+	if len(instanceIds) == 0 {
+		return ""
 	}
+
+	ids := append([]string(nil), instanceIds...)
+	sort.Strings(ids)
+	return strings.Join(ids, ",")
 }
 
 // FIXED(@yeqown): shouldn't retry forever: maxRetryCount = 3
 func (n *agentNode) getClient() agent.DeliveryClient {
+	n.mu.RLock()
+	if n.c != nil {
+		c := n.c
+		n.mu.RUnlock()
+		return c
+	}
+	n.mu.RUnlock()
+
+	n.mu.Lock()
+	defer n.mu.Unlock()
 	if n.c != nil {
 		return n.c
 	}
 
+	addr := ""
+	if n.AgentInstance != nil {
+		addr = n.AgentInstance.GetAddr()
+	}
 	var (
 		err      error
 		retryCnt int
 	)
-retry:
-	n.c, err = agent.DialDelivery(n.Addr)
-	if err != nil {
+	for {
+		n.c, err = agent.DialDelivery(addr)
+		if err == nil {
+			return n.c
+		}
+
 		log.
 			WithFields(log.Fields{
-				"addr":  n.Addr,
+				"addr":  addr,
 				"error": err,
 			}).
 			Error("agentNode.updateAddr re-init failed")
-		time.Sleep(time.Second)
-		// maxRetryCount set to 3
-		if retryCnt <= 3 {
-			retryCnt++
-			goto retry
+		if retryCnt >= 3 {
+			return n.c
 		}
+		retryCnt++
+		time.Sleep(time.Second)
 	}
-
-	return n.c
 }
 
-func (n *agentNode) updateAddr(addr string) {
-	if addr == n.Addr {
+func (n *agentNode) updateInstance(ins *concept.AgentInstance) {
+	if ins == nil {
 		return
 	}
 
-	// FIXME(@yeqown): maybe data race
-	n.Addr = addr
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	if n.AgentInstance != nil && ins.GetAddr() != n.AgentInstance.GetAddr() {
+		n.c = nil
+	}
+	n.AgentInstance = ins
+}
+
+func (n *agentNode) updateAddr(addr string) {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	if n.AgentInstance != nil && addr == n.AgentInstance.GetAddr() {
+		return
+	}
+
+	if n.AgentInstance == nil {
+		n.AgentInstance = &concept.AgentInstance{}
+	}
+	n.AgentInstance.Addr = addr
 	n.c = nil
 }

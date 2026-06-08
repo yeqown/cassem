@@ -29,7 +29,6 @@ func MustUnmarshal(data []byte, m proto.Message) {
 	if err := Unmarshal(data, m); err != nil {
 		panic(err)
 	}
-	return
 }
 
 func (*SetCommand) Action() LogEntry_Action    { return LogEntry_Set }
@@ -74,8 +73,9 @@ func (m *Entity) Expired() bool {
 }
 
 func (m *Entity) recalculateTTL() int32 {
-	if m.Ttl == NEVER_EXPIRED {
-		return NEVER_EXPIRED
+	switch m.Ttl {
+	case NEVER_EXPIRED, EXPIRED:
+		return m.Ttl
 	}
 
 	m.Ttl -= int32(time.Now().Unix() - m.UpdatedAt)
@@ -87,11 +87,14 @@ func (m *Entity) recalculateTTL() int32 {
 }
 
 func calculateTTL(ttl int32) int32 {
-	if ttl <= 0 {
+	switch ttl {
+	case EXPIRED, NEVER_EXPIRED:
+		return ttl
+	case 0:
 		return NEVER_EXPIRED
+	default:
+		return ttl
 	}
-
-	return ttl
 }
 
 const (
@@ -103,11 +106,7 @@ const (
 // this method should only be used in some case which cares about duplicate log entries applied.
 func (m *LogEntry) Expired() bool {
 	now := time.Now().Unix()
-	if now-m.CreatedAt > _expiredInterval {
-		return true
-	}
-
-	return false
+	return now-m.CreatedAt > _expiredInterval
 }
 
 // Propose is wrapper of log entry, and only used by node internal.

@@ -79,15 +79,17 @@ var defMapping = map[string]objectDef{
 	"PUT/api/apps/:appId/envs/:env/elements/:key":    {object: concept.Object_ELEMENT, act: concept.Action_WRITE},
 	"DELETE/api/apps/:appId/envs/:env/elements/:key": {object: concept.Object_ELEMENT, act: concept.Action_DELETE},
 
-	"GET/api/apps/:appId/envs/:env/elements/:key/versions":  {object: concept.Object_ELEMENT, act: concept.Action_READ},
-	"GET/api/apps/:appId/envs/:env/elements/:key/diff":      {object: concept.Object_ELEMENT, act: concept.Action_READ},
-	"POST/api/apps/:appId/envs/:env/elements/:key/rollback": {object: concept.Object_ELEMENT, act: concept.Action_PUBLISH},
-	"POST/api/apps/:appId/envs/:env/elements/:key/publish":  {object: concept.Object_ELEMENT, act: concept.Action_PUBLISH},
+	"GET/api/apps/:appId/envs/:env/elements/:key/versions":   {object: concept.Object_ELEMENT, act: concept.Action_READ},
+	"GET/api/apps/:appId/envs/:env/elements/:key/diff":       {object: concept.Object_ELEMENT, act: concept.Action_READ},
+	"GET/api/apps/:appId/envs/:env/elements/:key/operations": {object: concept.Object_ELEMENT, act: concept.Action_READ},
+	"POST/api/apps/:appId/envs/:env/elements/:key/rollback":  {object: concept.Object_ELEMENT, act: concept.Action_PUBLISH},
+	"POST/api/apps/:appId/envs/:env/elements/:key/publish":   {object: concept.Object_ELEMENT, act: concept.Action_PUBLISH},
 
 	// acl
 	"POST/api/account/add":       {object: concept.Object_USER, act: concept.Action_WRITE},
 	"GET/api/account/disable":    {object: concept.Object_USER, act: concept.Action_WRITE},
 	"GET/api/account/reset":      {object: concept.Object_USER, act: concept.Action_WRITE},
+	"POST/api/account/reset":     {object: concept.Object_USER, act: concept.Action_WRITE},
 	"GET/api/account/acl/assign": {object: concept.Object_ACL, act: concept.Action_WRITE},
 	"GET/api/account/acl/revoke": {object: concept.Object_ACL, act: concept.Action_WRITE},
 
