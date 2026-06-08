@@ -1,16 +1,12 @@
 package storage
 
 import (
-	"path"
 	"strconv"
-	"strings"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
-	"github.com/yeqown/log"
-	bolt "go.etcd.io/bbolt"
 
 	apicassemdb "github.com/yeqown/cassem/internal/cassemdb/api"
 	"github.com/yeqown/cassem/pkg/conf"
@@ -202,144 +198,4 @@ func Test_Repo_BBolt_mysql(t *testing.T) {
 	}
 
 	suite.Run(t, &s)
-}
-
-func Benchmark_bolt_write_32B(b *testing.B) {
-	db, err := bolt.Open(path.Join("./debugdata", "cassem.db"), 0600, &bolt.Options{
-		Timeout:        0,
-		NoGrowSync:     false,
-		FreelistType:   bolt.FreelistArrayType,
-		NoFreelistSync: true,
-	})
-	if err != nil {
-		b.Fatal(err)
-	}
-
-	// 32B
-	bytes := []byte(strings.Repeat("a", 32))
-	//val := &apicassemdb.Entity{
-	//	Fingerprint: "fingerprint",
-	//	Key:         "benchmark/write_32B",
-	//	Val:         bytes,
-	//	Size:        int64(len(bytes)),
-	//	CreatedAt:   time.Now().Unix(),
-	//	UpdatedAt:   time.Now().Unix(),
-	//	TTL:         30,
-	//}
-
-	b.ResetTimer()
-	for i := 0; i < 1000; i++ {
-		err = db.Batch(func(tx *bolt.Tx) error {
-			buc, err2 := tx.CreateBucketIfNotExists([]byte("Benchmark_bolt_write_32B"))
-			if err2 != nil {
-				return err2
-			}
-			return buc.Put([]byte("benchmark/write_32B"), bytes)
-		})
-		if err != nil {
-			b.Error(err)
-		}
-	}
-}
-
-func Benchmark_repo_write_32B(b *testing.B) {
-	log.SetLogLevel(log.LevelError)
-	cfg := conf.Bolt{
-		Dir: "./debugdata",
-		DB:  "cassem.db",
-	}
-
-	repo, err := NewRepository(&cfg)
-	if err != nil {
-		b.Fatalf("Test_Repo_BBolt_mysql failed to open DB: %_setkv", err)
-	}
-
-	// 32B
-	bytes := []byte(strings.Repeat("a", 32))
-	println("size:", len(bytes))
-	val := &apicassemdb.Entity{
-		Fingerprint: "fingerprint",
-		Key:         "benchmark/write_32B",
-		Val:         bytes,
-		Size:        int32(int64(len(bytes))),
-		CreatedAt:   time.Now().Unix(),
-		UpdatedAt:   time.Now().Unix(),
-		Ttl:         30,
-	}
-
-	b.ResetTimer()
-	for i := 0; i < 1000; i++ {
-		err = repo.SetKV(val.Key, val, false)
-		if err != nil {
-			b.Error(err)
-		}
-	}
-}
-
-func Benchmark_repo_write_1KB(b *testing.B) {
-	log.SetLogLevel(log.LevelError)
-	cfg := conf.Bolt{
-		Dir: "./debugdata",
-		DB:  "cassem.db",
-	}
-
-	repo, err := NewRepository(&cfg)
-	if err != nil {
-		b.Fatalf("Test_Repo_BBolt_mysql failed to open DB: %_setkv", err)
-	}
-
-	// 1024 * 1 byte = 1KB
-	bytes := []byte(strings.Repeat("a", 1024))
-	println("size:", len(bytes))
-	val := &apicassemdb.Entity{
-		Fingerprint: "fingerprint",
-		Key:         "benchmark/write_1KB",
-		Val:         bytes,
-		Size:        int32(int64(len(bytes))),
-		CreatedAt:   time.Now().Unix(),
-		UpdatedAt:   time.Now().Unix(),
-		Ttl:         30,
-	}
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		err = repo.SetKV(val.Key, val, false)
-		if err != nil {
-			b.Error(err)
-		}
-	}
-}
-
-func Benchmark_repo_write_10KB(b *testing.B) {
-	log.SetLogLevel(log.LevelError)
-	cfg := conf.Bolt{
-		Dir: "./debugdata",
-		DB:  "cassem.db",
-	}
-
-	repo, err := NewRepository(&cfg)
-	if err != nil {
-		b.Fatalf("Test_Repo_BBolt_mysql failed to open DB: %_setkv", err)
-	}
-
-	// // 1024 * 10 byte = 10KB
-	bytes := []byte(strings.Repeat("1234567890", 1024))
-	print("size:", len(bytes))
-	val := &apicassemdb.Entity{
-		Fingerprint: "fingerprint",
-		Key:         "benchmark/write_10KB",
-		Val:         bytes,
-		Size:        int32(int64(len(bytes))),
-		CreatedAt:   time.Now().Unix(),
-		UpdatedAt:   time.Now().Unix(),
-		Ttl:         30,
-	}
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		err = repo.SetKV(val.Key, val, false)
-		if err != nil {
-			b.Error(err)
-		}
-	}
 }

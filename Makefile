@@ -1,5 +1,7 @@
 GOCMD=CGO_ENABLED=0 GOARCH=amd64 GOOS=darwin go
 GOCMD_LINUX=CGO_ENABLED=0 GOARCH=amd64 GOOS=linux go
+CONTAINER_TOOL ?= podman
+IMAGE_TAG ?= test
 
 cassemdb.build:
 	${GOCMD} build 	-o cassemdb \
@@ -86,7 +88,7 @@ cassemagent.build:
 					./cmd/cassemagent
 
 cassemagent.linux-build:
-	${GOCMD_LINUX} 	-o cassemagent \
+	${GOCMD_LINUX} build 	-o cassemagent \
 					-ldflags "-s \
 							  -X main.Version=`git tag --list | tail -n 1` \
 							  -X main.BuildTime=`TZ=UTC date -u '+%Y-%m-%dT%H:%M:%SZ'` \
@@ -99,19 +101,27 @@ cassemagent.run: cassemagent.build
 build-all: cassemadm.build cassemagent.build cassemdb.build
 
 cassemdb.image: cassemdb.build-linux
-	docker build -t yeqown/cassemdb:${IMAGE_TAG} -f ./.deploy/dockerfiles/cassemdb.Dockerfile .
-	docker push yeqown/cassemdb:${IMAGE_TAG}
+	${CONTAINER_TOOL} build -t yeqown/cassemdb:${IMAGE_TAG} -f ./.deploy/dockerfiles/cassemdb.Dockerfile .
 
 cassemadm.image: cassemadm.build-linux
-	docker build -t yeqown/cassemadm:${IMAGE_TAG} -f ./.deploy/dockerfiles/cassemadm.Dockerfile .
-	docker push yeqown/cassemadm:${IMAGE_TAG}
+	${CONTAINER_TOOL} build -t yeqown/cassemadm:${IMAGE_TAG} -f ./.deploy/dockerfiles/cassemadm.Dockerfile .
 
+cassemagent.image: cassemagent.linux-build
+	${CONTAINER_TOOL} build -t yeqown/cassemagent:${IMAGE_TAG} -f ./.deploy/dockerfiles/cassemagent.Dockerfile .
 
-cassemagent.image: cassemadm.build-linux
-	docker build -t yeqown/cassemagent:${IMAGE_TAG} -f ./.deploy/dockerfiles/cassemagent.Dockerfile .
-	docker push yeqown/cassemagent:${IMAGE_TAG}
+cassemdb.push:
+	${CONTAINER_TOOL} push yeqown/cassemdb:${IMAGE_TAG}
+
+cassemadm.push:
+	${CONTAINER_TOOL} push yeqown/cassemadm:${IMAGE_TAG}
+
+cassemagent.push:
+	${CONTAINER_TOOL} push yeqown/cassemagent:${IMAGE_TAG}
 
 image-all: cassemdb.image cassemadm.image cassemagent.image
+
+image-all-podman:
+	${MAKE} image-all CONTAINER_TOOL=podman
 
 proto-all:
 	make -C ./internal/cassemdb/api

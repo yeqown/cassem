@@ -72,10 +72,15 @@ The manager in cassem, provide RESTful API to communicate. It is serving for CTL
 
 Agent is serving for user's client, agent SDK, actually. Of course, agent is stateless server.
 
-## [Benchmark](./benchmark)
+## Tests and Benchmark
 
-benchmark tested core RESTful API and try to optimize them, each benchmark test displays the final QPS result. 
+- Unit tests: `go test ./...`
+- Integration tests: `go test -tags integration ./tests/integration -count=1 -v`
+- Local benchmarks: `go test -bench=. -benchmem ./tests/benchmark`
+- Integration benchmarks: `go test -tags integration -bench=. -benchmem ./tests/benchmark`
+- Podman images: `make image-all-podman`
 
+Benchmarks live in [`tests/benchmark`](./tests/benchmark) and use Go benchmark code instead of shell scripts or external load-testing tools.
 
 ## References
 
