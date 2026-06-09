@@ -15,7 +15,7 @@ import (
 )
 
 func BenchmarkCassemDBSetKV32B(b *testing.B) {
-	cluster := testutil.StartDBCluster(b)
+	cluster := testutil.UseDBCluster(b)
 	cc := testutil.DialCassemDB(b, cluster.DBEndpoints, apicassemdb.Mode_X)
 	b.Cleanup(func() { _ = cc.Close() })
 	client := apicassemdb.NewKVClient(cc)
@@ -39,7 +39,7 @@ func BenchmarkCassemDBSetKV32B(b *testing.B) {
 }
 
 func BenchmarkCassemDBGetKV(b *testing.B) {
-	cluster := testutil.StartDBCluster(b)
+	cluster := testutil.UseDBCluster(b)
 	cc := testutil.DialCassemDB(b, cluster.DBEndpoints, apicassemdb.Mode_X)
 	b.Cleanup(func() { _ = cc.Close() })
 	client := apicassemdb.NewKVClient(cc)
@@ -67,7 +67,7 @@ func BenchmarkCassemDBGetKV(b *testing.B) {
 }
 
 func BenchmarkCassemadmCreateElement(b *testing.B) {
-	cluster := testutil.StartAdmCluster(b)
+	cluster := testutil.UseAdmCluster(b)
 	adm := testutil.NewHTTPClient(cluster.AdmBaseURL)
 	adm.Session = testutil.SuperadminSession()
 	app := fmt.Sprintf("benchapp%d", time.Now().UnixNano())

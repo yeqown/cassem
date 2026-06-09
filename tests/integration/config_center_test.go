@@ -19,7 +19,7 @@ import (
 )
 
 func TestElementLifecycleThroughAdmAndAgent(t *testing.T) {
-	cluster := testutil.StartFullCluster(t)
+	cluster := testutil.UseFullCluster(t)
 	adm := newAdmClient(cluster.AdmBaseURL)
 	app, env, key := uniqueNames(t)
 
@@ -62,7 +62,7 @@ func TestElementLifecycleThroughAdmAndAgent(t *testing.T) {
 }
 
 func TestOperationAuditAndResetUser(t *testing.T) {
-	cluster := testutil.StartAdmCluster(t)
+	cluster := testutil.UseAdmCluster(t)
 	adm := newAdmClient(cluster.AdmBaseURL)
 	app, env, key := uniqueNames(t)
 
@@ -116,7 +116,7 @@ func TestOperationAuditAndResetUser(t *testing.T) {
 }
 
 func TestGrayPublishToInstance(t *testing.T) {
-	cluster := testutil.StartFullCluster(t)
+	cluster := testutil.UseFullCluster(t)
 	adm := newAdmClient(cluster.AdmBaseURL)
 	app, env, key := uniqueNames(t)
 
@@ -159,7 +159,7 @@ func TestGrayPublishToInstance(t *testing.T) {
 }
 
 func TestKVTTLExpireThroughDB(t *testing.T) {
-	cluster := testutil.StartDBCluster(t)
+	cluster := testutil.UseDBCluster(t)
 	cc := testutil.DialCassemDB(t, cluster.DBEndpoints, apicassemdb.Mode_X)
 	t.Cleanup(func() { _ = cc.Close() })
 	client := apicassemdb.NewKVClient(cc)

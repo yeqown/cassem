@@ -1,4 +1,4 @@
-package testutil
+package clusterhealth
 
 import (
 	"context"
@@ -7,30 +7,13 @@ import (
 	"time"
 
 	apicassemdb "github.com/yeqown/cassem/internal/cassemdb/api"
-	"google.golang.org/grpc"
 )
 
-func DialCassemDB(t TB, endpoints []string, mode apicassemdb.Mode) *grpc.ClientConn {
-	t.Helper()
-
-	var (
-		cc  *grpc.ClientConn
-		err error
-	)
-	deadline := time.Now().Add(30 * time.Second)
-	for time.Now().Before(deadline) {
-		cc, err = apicassemdb.DialWithMode(endpoints, mode)
-		if err == nil {
-			return cc
-		}
-		time.Sleep(300 * time.Millisecond)
+func Check(endpoints []string, timeout time.Duration) error {
+	if timeout <= 0 {
+		return fmt.Errorf("cassemdb write healthcheck failed: timeout must be positive")
 	}
 
-	t.Fatalf("dial cassemdb %v: %v", endpoints, err)
-	return nil
-}
-
-func CheckCassemDB(endpoints []string, timeout time.Duration) error {
 	for _, endpoint := range endpoints {
 		if err := checkEndpointTCP(endpoint); err != nil {
 			return err
@@ -45,7 +28,7 @@ func CheckCassemDB(endpoints []string, timeout time.Duration) error {
 			client := apicassemdb.NewKVClient(cc)
 			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 			_, lastErr = client.SetKV(ctx, &apicassemdb.SetKVReq{
-				Key:       fmt.Sprintf("tests/health/%d", time.Now().UnixNano()),
+				Key:       fmt.Sprintf("scripts/health/%d", time.Now().UnixNano()),
 				Val:       []byte("ok"),
 				Overwrite: true,
 			})
@@ -57,17 +40,12 @@ func CheckCassemDB(endpoints []string, timeout time.Duration) error {
 		} else {
 			lastErr = err
 		}
+		if !time.Now().Before(deadline) {
+			break
+		}
 		time.Sleep(500 * time.Millisecond)
 	}
-
-	return fmt.Errorf("cassemdb did not become ready: %w", lastErr)
-}
-
-func WaitCassemDB(t TB, endpoints []string) {
-	t.Helper()
-	if err := CheckCassemDB(endpoints, 45*time.Second); err != nil {
-		t.Fatalf("%v", err)
-	}
+	return fmt.Errorf("cassemdb write healthcheck failed: %w", lastErr)
 }
 
 func checkEndpointTCP(endpoint string) error {

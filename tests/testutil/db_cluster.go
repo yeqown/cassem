@@ -4,15 +4,15 @@ import "testing"
 
 func StartDBCluster(t testing.TB) *Cluster {
 	t.Helper()
-	return startCluster(t, false, false)
+	return UseDBCluster(t)
 }
 
 func StartAdmCluster(t testing.TB) *Cluster {
 	t.Helper()
-	return startCluster(t, true, false)
+	return UseAdmCluster(t)
 }
 
 func StartFullCluster(t testing.TB) *Cluster {
 	t.Helper()
-	return startCluster(t, true, true)
+	return UseFullCluster(t)
 }

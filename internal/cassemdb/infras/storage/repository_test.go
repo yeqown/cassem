@@ -7,6 +7,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
+	"google.golang.org/protobuf/proto"
 
 	apicassemdb "github.com/yeqown/cassem/internal/cassemdb/api"
 	"github.com/yeqown/cassem/pkg/conf"
@@ -129,7 +130,7 @@ func (s *testRepositoryBBoltSuite) Test_Set_Get_Unset_KV() {
 
 	val, err := s.repo.GetKV("kv/b", false)
 	s.NoError(err)
-	s.Equal(_setkv, val)
+	s.True(proto.Equal(_setkv, val))
 
 	err = s.repo.UnsetKV("kv/b", false)
 	s.NoError(err)
@@ -184,7 +185,7 @@ func (s *testRepositoryBBoltSuite) Test_Range() {
 
 func Test_Repo_BBolt_mysql(t *testing.T) {
 	cfg := conf.Bolt{
-		Dir: "./debugdata",
+		Dir: t.TempDir(),
 		DB:  "cassem.db",
 	}
 

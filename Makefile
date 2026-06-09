@@ -123,6 +123,24 @@ image-all: cassemdb.image cassemadm.image cassemagent.image
 image-all-podman:
 	${MAKE} image-all CONTAINER_TOOL=podman
 
+cluster.start:
+	./scripts/cluster.sh start
+
+cluster.stop:
+	./scripts/cluster.sh stop
+
+cluster.restart:
+	./scripts/cluster.sh restart
+
+cluster.status:
+	./scripts/cluster.sh status
+
+cluster.logs:
+	./scripts/cluster.sh logs
+
+cluster.clean:
+	./scripts/cluster.sh clean
+
 proto-all:
 	make -C ./internal/cassemdb/api
 	make -C ./internal/concept

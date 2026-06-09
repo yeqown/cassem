@@ -2,7 +2,6 @@ package testutil
 
 import (
 	"context"
-	"fmt"
 	"net"
 	"strings"
 	"time"
@@ -118,26 +117,6 @@ func ContainerLogs(t TB, id string) string {
 		return err.Error()
 	}
 	return out
-}
-
-func WaitTCP(ctx context.Context, host string, port int) error {
-	addr := net.JoinHostPort(host, fmt.Sprintf("%d", port))
-	ticker := time.NewTicker(100 * time.Millisecond)
-	defer ticker.Stop()
-
-	for {
-		conn, err := net.DialTimeout("tcp", addr, 200*time.Millisecond)
-		if err == nil {
-			_ = conn.Close()
-			return nil
-		}
-
-		select {
-		case <-ctx.Done():
-			return fmt.Errorf("wait tcp %s: %w", addr, ctx.Err())
-		case <-ticker.C:
-		}
-	}
 }
 
 func FreePort(t TB) int {
