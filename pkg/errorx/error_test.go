@@ -7,6 +7,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 //func Test_errorx(t *testing.T) {
@@ -41,4 +43,60 @@ func Test_error_ToStatus(t *testing.T) {
 	err3, ok := FromError(err2)
 	require.True(t, ok)
 	assert.Equal(t, err, err3)
+}
+
+func TestToStatus(t *testing.T) {
+	tests := []struct {
+		name     string
+		err      error
+		wantCode codes.Code
+		wantMsg  string
+	}{
+		{name: "nil", err: nil, wantCode: codes.OK},
+		{name: "plain error", err: errors.New("plain"), wantCode: codes.Unknown, wantMsg: "plain"},
+		{name: "wrapped errorx", err: fmt.Errorf("wrap: %w", Err_ALREADY_EXISTS), wantCode: codes.AlreadyExists, wantMsg: "ALREADY_EXISTS"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ToStatus(tt.err)
+			if tt.err == nil {
+				assert.NoError(t, err)
+				return
+			}
+
+			st, ok := status.FromError(err)
+			require.True(t, ok)
+			assert.Equal(t, tt.wantCode, st.Code())
+			assert.Equal(t, tt.wantMsg, st.Message())
+		})
+	}
+}
+
+func TestFromStatus(t *testing.T) {
+	tests := []struct {
+		name     string
+		err      error
+		wantCode Code
+		wantMsg  string
+	}{
+		{name: "nil", err: nil, wantCode: Code_OK},
+		{name: "grpc status", err: status.Error(codes.NotFound, "missing"), wantCode: Code_NOT_FOUND, wantMsg: "missing"},
+		{name: "plain error", err: errors.New("plain"), wantCode: Code_UNKNOWN, wantMsg: "plain"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := FromStatus(tt.err)
+			if tt.err == nil {
+				assert.NoError(t, err)
+				return
+			}
+
+			x, ok := FromError(err)
+			require.True(t, ok)
+			assert.Equal(t, tt.wantCode, x.Code)
+			assert.Equal(t, tt.wantMsg, x.Message)
+		})
+	}
 }

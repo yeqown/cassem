@@ -1,16 +1,28 @@
 package app
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
+	"google.golang.org/grpc"
 
+	"github.com/yeqown/cassem/api/agent"
 	"github.com/yeqown/cassem/api/concept"
 )
+
+type fakeDeliveryClient struct{}
+
+func (fakeDeliveryClient) Dispatch(ctx context.Context, in *agent.DispatchReq, opts ...grpc.CallOption) (*agent.DispatchResp, error) {
+	return &agent.DispatchResp{}, nil
+}
+
+var _ agent.DeliveryClient = fakeDeliveryClient{}
 
 type testAgentPoolSuite struct {
 	suite.Suite
@@ -107,6 +119,55 @@ func TestAgentPoolConcurrentAccess(t *testing.T) {
 	wg.Wait()
 
 	require.Len(t, ap.getAgentIdKeys(), 1)
+}
+
+func TestNormalizeInstanceIds(t *testing.T) {
+	ids := []string{"ins-3", "ins-1", "ins-2"}
+
+	got := normalizeInstanceIds(ids)
+
+	assert.Equal(t, "ins-1,ins-2,ins-3", got)
+	assert.Equal(t, []string{"ins-3", "ins-1", "ins-2"}, ids)
+	assert.Empty(t, normalizeInstanceIds(nil))
+}
+
+func TestAgentNodeSnapshotCopiesAnnotations(t *testing.T) {
+	node := &agentNode{
+		AgentInstance: &concept.AgentInstance{
+			AgentId:     "agent-1",
+			Addr:        "127.0.0.1:9000",
+			Annotations: map[string]string{"zone": "cn"},
+		},
+		mu: sync.RWMutex{},
+	}
+
+	snapshot := node.snapshot()
+	snapshot.Annotations["zone"] = "us"
+	snapshot.Annotations["new"] = "value"
+
+	assert.Equal(t, "agent-1", snapshot.AgentId)
+	assert.Equal(t, "127.0.0.1:9000", snapshot.Addr)
+	assert.Equal(t, "cn", node.AgentInstance.Annotations["zone"])
+	assert.NotContains(t, node.AgentInstance.Annotations, "new")
+}
+
+func TestAgentNodeUpdateInstance(t *testing.T) {
+	client := fakeDeliveryClient{}
+	node := &agentNode{
+		AgentInstance: &concept.AgentInstance{AgentId: "agent-1", Addr: "127.0.0.1:9000"},
+		mu:            sync.RWMutex{},
+		c:             client,
+	}
+
+	node.updateInstance(&concept.AgentInstance{AgentId: "agent-1", Addr: "127.0.0.1:9000"})
+	assert.Equal(t, client, node.c)
+
+	node.updateInstance(&concept.AgentInstance{AgentId: "agent-1", Addr: "127.0.0.1:9001"})
+	assert.Nil(t, node.c)
+	assert.Equal(t, "127.0.0.1:9001", node.AgentInstance.Addr)
+
+	node.updateInstance(nil)
+	assert.Equal(t, "127.0.0.1:9001", node.AgentInstance.Addr)
 }
 
 func Test_AgentPool(t *testing.T) {

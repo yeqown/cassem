@@ -17,7 +17,7 @@ func TestStack(t *testing.T) {
 
 func TestRecoverFrom(t *testing.T) {
 	tests := []struct {
-		name    string
+		name     string
 		panicVal any
 	}{
 		{"string panic", "test panic"},
@@ -31,6 +31,27 @@ func TestRecoverFrom(t *testing.T) {
 			err := RecoverFrom(tt.panicVal)
 			assert.Error(t, err)
 			assert.Contains(t, err.Error(), "panic")
+		})
+	}
+}
+
+func TestRecoverFromGoFuncPanicValue(t *testing.T) {
+	tests := []struct {
+		name     string
+		panicVal any
+		want     string
+	}{
+		{name: "string panic", panicVal: "boom", want: "boom"},
+		{name: "error panic", panicVal: assert.AnError, want: assert.AnError.Error()},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := recoverFrom(tt.panicVal)
+
+			assert.Error(t, err)
+			assert.Contains(t, err.Error(), "server panic")
+			assert.Contains(t, err.Error(), tt.want)
 		})
 	}
 }

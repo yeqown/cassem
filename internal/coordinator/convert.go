@@ -1,13 +1,14 @@
 package coordinator
 
 import (
+	"strconv"
 	"strings"
 
 	"google.golang.org/protobuf/proto"
 
-	"github.com/yeqown/log"
 	"github.com/yeqown/cassem/api/concept"
 	apicassemdb "github.com/yeqown/cassem/internal/cassemdb/api"
+	"github.com/yeqown/log"
 )
 
 // Note: The following functions were moved from api/concept/types.pb.supplement.go
@@ -125,8 +126,8 @@ func trimVersion(key string) string {
 	if idx <= 0 {
 		return key
 	}
-	_, num := key[idx+2:], ""
-	if len(num) == 0 {
+	num := key[idx+2:]
+	if _, err := strconv.Atoi(num); err != nil {
 		return key
 	}
 	return key[:idx]

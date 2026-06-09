@@ -169,9 +169,7 @@ func diff(src1, src2 string) string {
 	_dmp := dmp.New()
 	diffs := _dmp.DiffMain(src1, src2, false)
 
-	// TODO(@yeqown): may customize pretty text string, render in HTML or others format.
-	//_dmp.DiffPrettyText()
-	return _dmp.DiffText1(diffs)
+	return _dmp.DiffPrettyText(diffs)
 }
 
 func (d app) GetAppEnvElementOperations(c *gin.Context) {

@@ -39,11 +39,14 @@ func GoFunc(invokerName string, invoker func() error) {
 	go fn()
 }
 
-func recoverFrom(v any) (err error) {
+func recoverFrom(v any) error {
 	if v == nil {
 		return errors.New("nil panic")
 	}
 
-	err = fmt.Errorf("server panic: %w", err)
-	return
+	if err, ok := v.(error); ok {
+		return fmt.Errorf("server panic: %w", err)
+	}
+
+	return fmt.Errorf("server panic: %v", v)
 }
