@@ -20,6 +20,6 @@ FROM alpine
 
 WORKDIR /app/cassemagent
 ENV APP_PATH /app/cassemagent
-COPY ./cassemagent $APP_PATH
+COPY ./bin/cassemagent $APP_PATH
 
 CMD ["./cassemagent", "-conf", "./configs/cassemagent.toml"]

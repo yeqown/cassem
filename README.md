@@ -42,7 +42,7 @@ same time, it's deployed by `Go` which gives it platform-cross ability and fast-
 
 - [ ] Fully test cases.
 - [ ] One-liner deploy sh script.
-- [ ] Docker-Compose deploy YAML script.
+- [x] Docker Compose deploy YAML script.
 - [ ] GitHub CI Actions automate.
 
 ## [Documentation](./docs/README.md)
@@ -72,13 +72,28 @@ The manager in cassem, provide RESTful API to communicate. It is serving for CTL
 
 Agent is serving for user's client, agent SDK, actually. Of course, agent is stateless server.
 
+## Local Cluster
+
+The local full-cluster workflow uses Compose from [`examples/compose.cluster.yaml`](./examples/compose.cluster.yaml). The Makefile exposes `build-image`, cluster lifecycle, and quality-check entrypoints. `build-image` writes Linux binaries to ignored `bin/` before building local images.
+
+```bash
+make cluster.start
+make cluster.status
+make cluster.logs
+make cluster.stop
+make cluster.clean
+```
+
+The cluster script uses Podman Compose by default. Use `CONTAINER_TOOL=docker make cluster.start` to run the same workflow with Docker Compose.
+
 ## Tests and Benchmark
 
-- Unit tests: `go test ./...`
-- Integration tests: `go test -tags integration ./tests/integration -count=1 -v`
+- Unit tests: `make test`
+- Vet: `make vet`
+- Lint: `make lint`
+- Integration tests: `make test.integration`
 - Local benchmarks: `go test -bench=. -benchmem ./tests/benchmark`
 - Integration benchmarks: `go test -tags integration -bench=. -benchmem ./tests/benchmark`
-- Podman images: `make image-all-podman`
 
 Benchmarks live in [`tests/benchmark`](./tests/benchmark) and use Go benchmark code instead of shell scripts or external load-testing tools.
 

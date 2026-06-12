@@ -20,6 +20,6 @@ FROM alpine
 
 WORKDIR /app/cassemadm
 ENV APP_PATH /app/cassemadm
-COPY ./cassemadm $APP_PATH
+COPY ./bin/cassemadm $APP_PATH
 
 CMD ["./cassemadm", "-conf", "./configs/cassemadm.toml"]

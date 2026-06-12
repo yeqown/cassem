@@ -36,3 +36,11 @@ func (e empty) Range(key string, seek string, limit int) (*RangeResult, error) {
 		ExpiredKeys: nil,
 	}, nil
 }
+
+func (e empty) Snapshot() ([]byte, error) {
+	return nil, nil
+}
+
+func (e empty) RecoverSnapshot([]byte) error {
+	return nil
+}

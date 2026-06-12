@@ -2,14 +2,13 @@ package testutil
 
 import (
 	"bytes"
-	"encoding/base64"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"testing"
 	"time"
 
+	"github.com/yeqown/cassem/api/concept"
 	"github.com/yeqown/cassem/pkg/httpx"
 )
 
@@ -124,19 +123,19 @@ func (c *HTTPClient) DoExpectError(t testing.TB, method string, path string, bod
 	}
 }
 
-func SuperadminSession() string {
-	val, err := json.Marshal(struct {
-		Account   string
-		Salt      string
-		ExpiredAt int64
-	}{
-		Account:   "superadmin",
-		Salt:      "Y2Fzc2VuCg==",
-		ExpiredAt: time.Now().Add(24 * time.Hour).Unix(),
-	})
-	if err != nil {
-		panic(fmt.Errorf("marshal superadmin session: %w", err))
+func LoginSuperadmin(t testing.TB, baseURL string) string {
+	t.Helper()
+	client := NewHTTPClient(baseURL)
+	var resp struct {
+		User    *concept.User `json:"user"`
+		Session string        `json:"session"`
 	}
-
-	return base64.StdEncoding.EncodeToString(val)
+	client.DoJSON(t, http.MethodPost, "/api/account/login", map[string]any{
+		"account":  "superadmin@example.com",
+		"password": "cassem",
+	}, &resp)
+	if resp.Session == "" {
+		t.Fatal("empty superadmin session")
+	}
+	return resp.Session
 }

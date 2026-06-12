@@ -1,8 +1,15 @@
 debug = false
 cassemdb = [
-    "127.0.0.1:2021",
-    "127.0.0.1:2022",
-    "127.0.0.1:2023"
+    "cassemdb1:2021",
+    "cassemdb2:2021",
+    "cassemdb3:2021"
 ]
+
 [http]
     addr = ":20218"
+
+[auth]
+    sessionSecret = "dev-only-change-me-session-secret"
+    bootstrapAccount = "superadmin@example.com"
+    bootstrapPassword = "cassem"
+    bootstrapNickname = "superadmin"

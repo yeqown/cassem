@@ -27,6 +27,9 @@ func NewAdmAggregate(endpoints []string) (concept.AdmAggregate, error) {
 	if err != nil {
 		return nil, fmt.Errorf("NewAdmAggregate: %w", err)
 	}
+	if err = acl.AutoMigrate(); err != nil {
+		return nil, fmt.Errorf("NewAdmAggregate.AutoMigrate: %w", err)
+	}
 
 	return admAggregate{
 		kvReadOnly:     kvReadOnly{cassemdb: c},

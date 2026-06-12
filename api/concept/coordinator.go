@@ -87,6 +87,8 @@ type RBAC interface {
 	AssignRole(account, role string, domain ...string) error
 	RevokeRole(account, role string, domain ...string) error
 	Enforce(subject, domain, object, act string) (bool, error)
+	AutoMigrate() error
+	BootstrapAdmin(account, nickname, password string) error
 }
 
 type CommonPager struct {

@@ -57,7 +57,7 @@ func (_r kvReadOnly) GetElementWithVersion(
 	// get element with specified version
 	r2, err2 := _r.cassemdb.GetKV(ctx, &apicassemdb.GetKVReq{Key: concept.WithVersion(k, version)})
 	if err2 != nil {
-		return nil, err
+		return nil, err2
 	}
 	elt := new(concept.Element)
 	if err2 = concept.UnmarshalProto(r2.GetEntity().GetVal(), elt); err2 != nil {

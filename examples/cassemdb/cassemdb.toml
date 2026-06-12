@@ -1,9 +1,10 @@
 debug = false
 addr = ":2021"
+
 [bolt]
     db = "cassemdb.kv"
+
 [raft]
-    bind = "http://127.0.0.1:3021"
-    join = ""
-    bootstrapCluster = false
+    bind = "http://cassemdb1:3021"
+    cluster = "http://cassemdb1:3021,http://cassemdb2:3022,http://cassemdb3:3023"
     snapCount = 300

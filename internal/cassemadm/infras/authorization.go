@@ -1,10 +1,13 @@
 package infras
 
 import (
+	"crypto/hmac"
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -22,7 +25,7 @@ type Session struct {
 	ExpiredAt int64
 }
 
-func Authorization(rbac concept.RBAC) gin.HandlerFunc {
+func Authorization(rbac concept.RBAC, sessionSecret string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		s := c.GetHeader("x-cassem-session")
 		log.
@@ -33,7 +36,7 @@ func Authorization(rbac concept.RBAC) gin.HandlerFunc {
 			return
 		}
 
-		sess, err := parseSession(s)
+		sess, err := parseSession(s, sessionSecret)
 		if err != nil {
 			httpx.ResponseErrorStatusAndAbort(c, http.StatusUnauthorized, errorx.Err_UNAUTHENTICATED)
 			return
@@ -83,31 +86,52 @@ func validSession(sess *Session, user *concept.User) error {
 	return nil
 }
 
-func parseSession(s string) (*Session, error) {
-	if s == "" {
+func parseSession(s string, sessionSecret string) (*Session, error) {
+	if s == "" || sessionSecret == "" {
 		return nil, errorx.Err_INVALID_ARGUMENT
 	}
 
-	val, err := base64.StdEncoding.DecodeString(s)
+	parts := strings.Split(s, ".")
+	if len(parts) != 2 {
+		return nil, fmt.Errorf("invalid session token: %w", errorx.Err_INVALID_ARGUMENT)
+	}
+
+	payload, err := base64.RawURLEncoding.DecodeString(parts[0])
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", err.Error(), errorx.Err_INVALID_ARGUMENT)
 	}
+	signature, err := base64.RawURLEncoding.DecodeString(parts[1])
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", err.Error(), errorx.Err_INVALID_ARGUMENT)
+	}
+	if !hmac.Equal(signature, sessionSignature(payload, sessionSecret)) {
+		return nil, fmt.Errorf("invalid session signature: %w", errorx.Err_INVALID_ARGUMENT)
+	}
 
 	sess := new(Session)
-	if err = json.Unmarshal(val, sess); err != nil {
+	if err = json.Unmarshal(payload, sess); err != nil {
 		return nil, fmt.Errorf("%s: %w", err.Error(), errorx.Err_INVALID_ARGUMENT)
 	}
 
 	return sess, nil
 }
 
-func EncodeSession(sess *Session) (string, error) {
+func EncodeSession(sess *Session, sessionSecret string) (string, error) {
+	if sessionSecret == "" {
+		return "", errorx.Err_INVALID_ARGUMENT
+	}
 	val, err := json.Marshal(sess)
 	if err != nil {
 		return "", fmt.Errorf("EncodeSession: %w", err)
 	}
 
-	//out := make([]byte, base64.StdEncoding.EncodedLen(len(val)))
-	//base64.StdEncoding.Encode(out, val)
-	return base64.StdEncoding.EncodeToString(val), nil
+	payload := base64.RawURLEncoding.EncodeToString(val)
+	signature := base64.RawURLEncoding.EncodeToString(sessionSignature(val, sessionSecret))
+	return payload + "." + signature, nil
+}
+
+func sessionSignature(payload []byte, sessionSecret string) []byte {
+	mac := hmac.New(sha256.New, []byte(sessionSecret))
+	mac.Write(payload)
+	return mac.Sum(nil)
 }

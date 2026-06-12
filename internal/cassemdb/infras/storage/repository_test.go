@@ -91,7 +91,7 @@ func (s *testRepositoryBBoltSuite) TearDownSuite() {
 }
 
 func (s *testRepositoryBBoltSuite) Test_locateBucket() {
-	impl := s.repo.(boltRepoImpl)
+	impl := s.repo.(*boltRepoImpl)
 	_ = impl
 }
 
@@ -136,6 +136,36 @@ func (s *testRepositoryBBoltSuite) Test_Set_Get_Unset_KV() {
 	s.NoError(err)
 
 	val, err = s.repo.GetKV("kv/b", false)
+	s.Error(err)
+	s.Equal(ErrNotFound, err)
+}
+
+func (s *testRepositoryBBoltSuite) Test_Snapshot_Recover() {
+	err := s.repo.SetKV("snapshot/dir", nil, true)
+	s.Require().NoError(err)
+
+	before := apicassemdb.NewEntityWithCreated("snapshot/dir/key", []byte("before"), 0, time.Now().Unix())
+	err = s.repo.SetKV("snapshot/dir/key", before, false)
+	s.Require().NoError(err)
+
+	snap, err := s.repo.Snapshot()
+	s.Require().NoError(err)
+	s.Require().NotEmpty(snap)
+
+	after := apicassemdb.NewEntityWithCreated("snapshot/dir/after", []byte("after"), 0, time.Now().Unix())
+	err = s.repo.SetKV("snapshot/dir/after", after, false)
+	s.Require().NoError(err)
+	err = s.repo.UnsetKV("snapshot/dir/key", false)
+	s.Require().NoError(err)
+
+	err = s.repo.RecoverSnapshot(snap)
+	s.Require().NoError(err)
+
+	got, err := s.repo.GetKV("snapshot/dir/key", false)
+	s.Require().NoError(err)
+	s.True(proto.Equal(before, got))
+
+	_, err = s.repo.GetKV("snapshot/dir/after", false)
 	s.Error(err)
 	s.Equal(ErrNotFound, err)
 }

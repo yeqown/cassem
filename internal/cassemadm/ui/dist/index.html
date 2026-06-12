@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Cassem Admin</title>
+  <link rel="stylesheet" href="/ui/assets/style.css">
+  <script defer src="/ui/assets/app.js"></script>
+  <script defer src="/ui/assets/alpine.min.js"></script>
+</head>
+<body x-data="adminApp" x-init="init()">
+  <div id="cassem-admin" class="page">
+    <template x-if="!session">
+      <main class="login-page">
+        <section class="login-card">
+          <div>
+            <p class="eyebrow">CASSEM ADMIN</p>
+            <h1>Config control plane</h1>
+            <p class="muted">Sign in with a cassemadm account.</p>
+          </div>
+          <form class="stack" @submit.prevent="login()">
+            <label>Account<input x-model="loginForm.account" type="email" autocomplete="username" required></label>
+            <label>Password<input x-model="loginForm.password" type="password" autocomplete="current-password" required></label>
+            <button class="primary" type="submit">Login</button>
+          </form>
+        </section>
+      </main>
+    </template>
+
+    <template x-if="session">
+      <main class="shell">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">CASSEM</p>
+            <h1>Admin Workbench</h1>
+          </div>
+          <nav class="tabs">
+            <button :class="{active: activeTab === 'config'}" @click="setTab('config')">Config</button>
+            <button :class="{active: activeTab === 'users'}" @click="setTab('users')">Users & ACL</button>
+            <button :class="{active: activeTab === 'cluster'}" @click="setTab('cluster')">Cluster</button>
+          </nav>
+          <div class="account">
+            <span x-text="user?.account || 'signed in'"></span>
+            <button @click="toggleTheme()" x-text="theme === 'dark' ? 'Light' : 'Dark'"></button>
+            <button @click="logout()">Logout</button>
+          </div>
+        </header>
+
+        <section class="notice" x-show="notice" :class="notice?.kind" x-text="notice?.text"></section>
+
+        <section class="workspace" x-show="activeTab === 'config'">
+          <aside class="panel side">
+            <div class="panel-title"><h2>Apps</h2><button @click="loadApps()">Refresh</button></div>
+            <form class="stack compact" @submit.prevent="createApp()">
+              <input x-model="appForm.id" placeholder="app id" required>
+              <input x-model="appForm.description" placeholder="description" required>
+              <button class="primary" type="submit">Create app</button>
+            </form>
+            <div class="list">
+              <template x-for="app in apps" :key="app.id">
+                <button class="list-item" :class="{active: selectedApp === app.id}" @click="selectApp(app)">
+                  <strong x-text="app.id"></strong>
+                  <small x-text="app.description"></small>
+                </button>
+              </template>
+            </div>
+            <button class="danger" x-show="selectedApp" @click="deleteApp()">Delete selected app</button>
+          </aside>
+
+          <section class="panel side">
+            <div class="panel-title"><h2>Envs</h2><button @click="loadEnvs()">Refresh</button></div>
+            <form class="inline" @submit.prevent="createEnv()">
+              <input x-model="envForm.name" placeholder="env" required>
+              <button class="primary" type="submit">Create</button>
+            </form>
+            <div class="chips">
+              <template x-for="env in envs" :key="env">
+                <button class="chip" :class="{active: selectedEnv === env}" @click="selectEnv(env)" x-text="env"></button>
+              </template>
+            </div>
+            <button class="danger" x-show="selectedEnv" @click="deleteEnv()">Delete selected env</button>
+          </section>
+
+          <section class="panel main-panel">
+            <div class="panel-title"><h2>Elements</h2><button @click="loadElements()">Refresh</button></div>
+            <form class="inline" @submit.prevent="loadElements()">
+              <input x-model="elementQuery.key" placeholder="filter exact key">
+              <button type="submit">Filter</button>
+            </form>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Key</th><th>Latest</th><th>Using</th><th>Unpublished</th><th>Type</th></tr></thead>
+                <tbody>
+                  <template x-for="element in elements" :key="element.metadata.key">
+                    <tr :class="{selected: selectedElement?.metadata?.key === element.metadata.key}" @click="selectElement(element)">
+                      <td x-text="element.metadata.key"></td>
+                      <td x-text="element.metadata.latestVersion"></td>
+                      <td x-text="element.metadata.usingVersion"></td>
+                      <td x-text="element.metadata.unpublishedVersion || '-'"></td>
+                      <td x-text="contentTypeLabel(element.metadata.contentType)"></td>
+                    </tr>
+                  </template>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="panel editor-panel">
+            <div class="panel-title"><h2>Element workspace</h2><span x-text="selectedElement?.metadata?.key || 'new element'"></span></div>
+            <form class="stack" @submit.prevent="selectedElement ? updateElement() : createElement()">
+              <label>Key<input x-model="elementForm.key" :disabled="!!selectedElement" required></label>
+              <label>Content type<select x-model.number="elementForm.contentType" :disabled="!!selectedElement"><template x-for="type in contentTypes" :key="type.value"><option :value="type.value" x-text="type.label"></option></template></select></label>
+              <label>Raw<textarea x-model="elementForm.raw" rows="12" required></textarea></label>
+              <div class="inline"><button class="primary" type="submit" x-text="selectedElement ? 'Update element' : 'Create element'"></button><button type="button" @click="clearElementForm()">Clear</button><button class="danger" type="button" x-show="selectedElement" @click="deleteElement()">Delete</button></div>
+            </form>
+
+            <div class="subgrid">
+              <section>
+                <h3>Versions</h3>
+                <button @click="loadVersions()" :disabled="!selectedElement">Load versions</button>
+                <div class="list tight"><template x-for="version in versions" :key="version.version"><button class="list-item" @click="selectVersion(version)"><strong x-text="`v${version.version}`"></strong><small x-text="version.published ? 'published' : 'draft'"></small></button></template></div>
+              </section>
+              <section>
+                <h3>Operations</h3>
+                <button @click="loadOperations()" :disabled="!selectedElement">Load operations</button>
+                <div class="list tight"><template x-for="op in operations" :key="`${op.operatedAt}-${op.currentVersion}`"><div class="list-row"><strong x-text="op.operator"></strong><small x-text="`v${op.lastVersion} -> v${op.currentVersion}`"></small></div></template></div>
+              </section>
+            </div>
+
+            <div class="subgrid">
+              <section class="stack compact">
+                <h3>Diff</h3>
+                <input x-model="versionForm.base" placeholder="base version">
+                <input x-model="versionForm.compare" placeholder="compare version">
+                <button @click="diffVersions()" :disabled="!selectedElement">Diff</button>
+                <pre x-text="diffResult?.diff || ''"></pre>
+              </section>
+              <section class="stack compact">
+                <h3>Publish / rollback</h3>
+                <input x-model="versionForm.publish" placeholder="version">
+                <select x-model.number="versionForm.publishMode"><option :value="2">full</option><option :value="1">gray</option></select>
+                <input x-model="versionForm.agentIds" placeholder="gray agentIds, comma separated">
+                <input x-model="versionForm.instanceIds" placeholder="gray instanceIds, comma separated">
+                <button class="primary" @click="publishVersion()" :disabled="!selectedElement">Publish</button>
+                <input x-model="versionForm.rollback" placeholder="rollback version">
+                <button class="danger" @click="rollbackVersion()" :disabled="!selectedElement">Rollback</button>
+              </section>
+            </div>
+          </section>
+        </section>
+
+        <section class="workspace two" x-show="activeTab === 'users'">
+          <section class="panel">
+            <h2>Users</h2>
+            <form class="stack" @submit.prevent="addUser()">
+              <input x-model="userForm.account" type="email" placeholder="account" required>
+              <input x-model="userForm.nickname" placeholder="nickname" required>
+              <input x-model="userForm.password" type="password" placeholder="password" required>
+              <button class="primary" type="submit">Add user</button>
+            </form>
+            <div class="inline"><button class="danger" @click="disableUser()">Disable user</button><button @click="resetUser()">Reset password</button></div>
+          </section>
+          <section class="panel">
+            <h2>ACL</h2>
+            <form class="stack" @submit.prevent="assignRole()">
+              <input x-model="userForm.account" type="email" placeholder="account" required>
+              <select x-model="userForm.role"><option>superadmin</option><option>admin</option><option>appowner</option><option>developer</option></select>
+              <input x-model="userForm.domains" placeholder="domains, comma separated; empty means cluster">
+              <div class="inline"><button class="primary" type="submit">Assign role</button><button type="button" @click="revokeRole()">Revoke role</button></div>
+            </form>
+          </section>
+        </section>
+
+        <section class="workspace two" x-show="activeTab === 'cluster'">
+          <section class="panel">
+            <div class="panel-title"><h2>Agents</h2><button @click="loadAgents()">Refresh</button></div>
+            <div class="list"><template x-for="agent in cluster.agents" :key="agent.agentId"><div class="list-row"><strong x-text="agent.agentId"></strong><small x-text="agent.addr"></small></div></template></div>
+          </section>
+          <section class="panel">
+            <div class="panel-title"><h2>Instances</h2><button @click="loadInstances()">Refresh</button></div>
+            <form class="inline" @submit.prevent="filterInstances()"><input x-model="cluster.filter.app" placeholder="app"><input x-model="cluster.filter.env" placeholder="env"><input x-model="cluster.filter.key" placeholder="key"><button type="submit">Filter</button></form>
+            <div class="table-wrap">
+              <table><thead><tr><th>Client</th><th>Agent</th><th>IP</th><th></th></tr></thead><tbody><template x-for="ins in cluster.instances" :key="ins.clientId"><tr><td x-text="ins.clientId"></td><td x-text="ins.agentId"></td><td x-text="ins.clientIp"></td><td><button @click="loadInstanceDetail(ins.clientId)">Detail</button></td></tr></template></tbody></table>
+            </div>
+            <pre x-show="cluster.detail" x-text="JSON.stringify(cluster.detail, null, 2)"></pre>
+          </section>
+        </section>
+      </main>
+    </template>
+  </div>
+</body>
+</html>

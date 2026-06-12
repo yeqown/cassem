@@ -1,0 +1,88 @@
+services:
+  cassemdb1:
+    image: yeqown/cassemdb:${IMAGE_TAG:-test}
+    ports:
+      - "127.0.0.1:2021:2021"
+    volumes:
+      - ${CASSEM_EXAMPLES_DIR:-.}/cassemdb:/app/cassemdb/configs:ro
+      - cassemdb1-data:/app/cassemdb/storage
+    command:
+      - ./cassemdb
+      - --conf
+      - ./configs/cassemdb.toml
+      - --endpoint
+      - :2021
+      - --raft.cluster
+      - http://cassemdb1:3021,http://cassemdb2:3022,http://cassemdb3:3023
+      - --raft.bind
+      - http://cassemdb1:3021
+      - --storage
+      - ./storage
+
+  cassemdb2:
+    image: yeqown/cassemdb:${IMAGE_TAG:-test}
+    ports:
+      - "127.0.0.1:2022:2021"
+    volumes:
+      - ${CASSEM_EXAMPLES_DIR:-.}/cassemdb:/app/cassemdb/configs:ro
+      - cassemdb2-data:/app/cassemdb/storage
+    command:
+      - ./cassemdb
+      - --conf
+      - ./configs/cassemdb.toml
+      - --endpoint
+      - :2021
+      - --raft.cluster
+      - http://cassemdb1:3021,http://cassemdb2:3022,http://cassemdb3:3023
+      - --raft.bind
+      - http://cassemdb2:3022
+      - --storage
+      - ./storage
+
+  cassemdb3:
+    image: yeqown/cassemdb:${IMAGE_TAG:-test}
+    ports:
+      - "127.0.0.1:2023:2021"
+    volumes:
+      - ${CASSEM_EXAMPLES_DIR:-.}/cassemdb:/app/cassemdb/configs:ro
+      - cassemdb3-data:/app/cassemdb/storage
+    command:
+      - ./cassemdb
+      - --conf
+      - ./configs/cassemdb.toml
+      - --endpoint
+      - :2021
+      - --raft.cluster
+      - http://cassemdb1:3021,http://cassemdb2:3022,http://cassemdb3:3023
+      - --raft.bind
+      - http://cassemdb3:3023
+      - --storage
+      - ./storage
+
+  cassemadm:
+    image: yeqown/cassemadm:${IMAGE_TAG:-test}
+    depends_on:
+      - cassemdb1
+      - cassemdb2
+      - cassemdb3
+    ports:
+      - "127.0.0.1:20218:20218"
+    volumes:
+      - ${CASSEM_EXAMPLES_DIR:-.}/cassemadm:/app/cassemadm/configs:ro
+
+  cassemagent:
+    image: yeqown/cassemagent:${IMAGE_TAG:-test}
+    hostname: cassemagent
+    depends_on:
+      - cassemdb1
+      - cassemdb2
+      - cassemdb3
+    ports:
+      - "127.0.0.1:20219:20219"
+    volumes:
+      - ${CASSEM_EXAMPLES_DIR:-.}/cassemagent:/app/cassemagent/configs:ro
+
+volumes:
+  cassemdb1-data:
+  cassemdb2-data:
+  cassemdb3-data:

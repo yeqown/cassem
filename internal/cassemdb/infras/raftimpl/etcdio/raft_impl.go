@@ -8,10 +8,10 @@ import (
 	"time"
 
 	"github.com/yeqown/log"
-	"google.golang.org/protobuf/proto"
 	"go.etcd.io/etcd/raft/v3"
 	"go.etcd.io/etcd/raft/v3/raftpb"
 	"go.etcd.io/etcd/server/v3/etcdserver/api/snap"
+	"google.golang.org/protobuf/proto"
 
 	apicassemdb "github.com/yeqown/cassem/internal/cassemdb/api"
 	"github.com/yeqown/cassem/internal/cassemdb/infras/raftimpl"
@@ -212,7 +212,7 @@ func (r *raftNodeImpl) applyCommits(commitCh <-chan *commit, errorCh <-chan erro
 }
 
 func (r *raftNodeImpl) getSnapshot() ([]byte, error) {
-	return []byte("empty snapshot"), nil
+	return r.kvstore.Snapshot()
 }
 
 func (r *raftNodeImpl) loadSnapshot() (*raftpb.Snapshot, error) {
@@ -227,7 +227,7 @@ func (r *raftNodeImpl) loadSnapshot() (*raftpb.Snapshot, error) {
 }
 
 func (r *raftNodeImpl) recoverFromSnapshot(snapshot []byte) error {
-	return nil
+	return r.kvstore.RecoverSnapshot(snapshot)
 }
 
 type LogEntryCommand interface {
@@ -302,11 +302,31 @@ func (r *raftNodeImpl) SetKV(req *apicassemdb.SetKVReq) (err error) {
 	}); err != nil {
 		return fmt.Errorf("raftNodeImpl.SetKV: %w", err)
 	}
+	if err = r.waitAppliedSet(req.GetKey(), req.GetIsDir(), v); err != nil {
+		return err
+	}
 
 	// touch off change signal to cassemdb cluster.
 	r.triggerWatchingMechanism(apicassemdb.Change_Set, req.GetKey(), last, v)
 
 	return nil
+}
+
+func (r *raftNodeImpl) waitAppliedSet(key string, isDir bool, want *apicassemdb.Entity) error {
+	deadline := time.Now().Add(3 * time.Second)
+	for {
+		got, err := r.kvstore.GetKV(key, isDir)
+		if err == nil && (isDir || got.GetFingerprint() == want.GetFingerprint()) {
+			return nil
+		}
+		if time.Now().After(deadline) {
+			if err != nil {
+				return fmt.Errorf("wait applied set %s: %w", key, err)
+			}
+			return fmt.Errorf("wait applied set %s: fingerprint mismatch", key)
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
 }
 
 func (r *raftNodeImpl) UnsetKV(req *apicassemdb.UnsetKVReq) error {
@@ -338,7 +358,6 @@ func (r *raftNodeImpl) UnsetKV(req *apicassemdb.UnsetKVReq) error {
 // triggerWatchingMechanism only trigger a change notification while:
 // 1. delete a kv.
 // 2. really update an existed kv.
-//
 func (r *raftNodeImpl) triggerWatchingMechanism(op apicassemdb.Change_Op, key string, last, cur *apicassemdb.Entity) {
 	log.
 		WithFields(log.Fields{

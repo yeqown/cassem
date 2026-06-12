@@ -12,23 +12,25 @@ Cassem is a distributed configuration management system written in Go 1.26. It u
 
 ## Build & Run Commands
 
-The Makefile requires Go 1.26. All binaries are built with ldflags injecting Version, BuildTime, and GitHash.
+The Makefile exposes `build-image`, cluster lifecycle, and quality-check targets. `build-image` writes Linux binaries to ignored `bin/`, builds local images, and `cluster.start` then runs Compose from `examples/compose.cluster.yaml`.
 
 ```bash
-make cassemdb.build          # Build cassemdb
-make cassemadm.build         # Build cassemadm
-make cassemagent.build       # Build cassemagent
-make build-all               # Build all three
+make cluster.start           # Build images and start the local Compose cluster from examples/compose.cluster.yaml
+make cluster.stop            # Stop the local Compose cluster
+make cluster.restart         # Restart the local Compose cluster
+make cluster.status          # Show local Compose cluster status
+make cluster.logs            # Show local Compose cluster logs
+make cluster.clean           # Stop cluster, remove volumes, and remove generated binaries
 
-make cassemdb.run            # Build and run 3-node cassemdb cluster (needs ./examples/cassemdb/cassemdb.toml)
-make cassemadm.run           # Build and run cassemadm (needs ./examples/cassemadm/cassemadm.toml)
-make cassemagent.run         # Build and run cassemagent (needs ./examples/cassemagent/cassemagent.toml)
+make test                    # Run all Go tests
+make test.integration        # Run integration tests against the local cluster
+make vet                     # Run go vet
+make lint                    # Run golangci-lint
 
-make cassemdb.kill           # Kill running cassemdb cluster processes
-
-go test ./...                # Run all tests
-go test ./pkg/watcher/...   # Run tests for a specific package
+go test ./pkg/watcher/...    # Run tests for a specific package
 ```
+
+Single-binary local builds can still be run directly with `go build ./cmd/<binary>` when needed.
 
 ## Protobuf Generation
 
@@ -38,8 +40,9 @@ Three separate proto modules, each with its own Makefile:
 make -C internal/cassemdb/api        # cassemdb.api.proto, cassemdb.raft.proto
 make -C api/concept                  # types.proto, acl.proto
 make -C api/agent                    # cassemagent.api.proto
-make proto-all                       # All of the above
 ```
+
+The top-level Makefile intentionally does not expose proto generation targets.
 
 All proto generation requires `protoc-gen-validate` and `protoc-gen-go` (with gRPC plugin). The `thirdparty/` directory contains vendored `.proto` includes (envoyproxy validate, google protobuf).
 

@@ -1,13 +1,12 @@
 debug = false
-# seconds for agent registration time to live.
 ttl = 30
-# renew agent registration interval (base), this is better less than ttl.
 renewInterval = 20
-
+elementCacheSize = 1000
 cassemdb = [
-    "127.0.0.1:2021",
-    "127.0.0.1:2022",
-    "127.0.0.1:2023"
+    "cassemdb1:2021",
+    "cassemdb2:2021",
+    "cassemdb3:2021"
 ]
+
 [server]
-    addr = "127.0.0.1:20219"
+    addr = ":20219"

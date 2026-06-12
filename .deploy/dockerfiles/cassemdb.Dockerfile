@@ -20,6 +20,6 @@ FROM alpine
 
 WORKDIR /app/cassemdb
 ENV APP_PATH /app/cassemdb
-COPY ./cassemdb $APP_PATH
+COPY ./bin/cassemdb $APP_PATH
 
 CMD ["./cassemdb", "-conf", "./configs/cassemdb.toml"]

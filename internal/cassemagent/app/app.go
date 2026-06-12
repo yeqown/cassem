@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
+	"net"
 	"os"
 	"os/signal"
 	"strconv"
@@ -32,6 +33,17 @@ func getHostname() string {
 		return "unknown"
 	}
 	return hostname
+}
+
+func advertiseAddr(bindAddr, hostname string) string {
+	host, port, err := net.SplitHostPort(bindAddr)
+	if err != nil {
+		return bindAddr
+	}
+	if host == "" || host == "0.0.0.0" || host == "::" {
+		return net.JoinHostPort(hostname, port)
+	}
+	return bindAddr
 }
 
 type app struct {
@@ -134,7 +146,7 @@ func (d app) renew() error {
 		defer cancel()
 		err := d.aggregate.Renew(timeoutCtx, &concept.AgentInstance{
 			AgentId: d.uniqueId,
-			Addr:    d.conf.Server.Addr,
+			Addr:    advertiseAddr(d.conf.Server.Addr, getHostname()),
 			Annotations: map[string]string{
 				"op":            "renew",
 				"hostname":      getHostname(),
@@ -155,7 +167,7 @@ func (d app) renew() error {
 retryReg:
 	err := d.aggregate.Register(timeoutCtx, &concept.AgentInstance{
 		AgentId: d.uniqueId,
-		Addr:    d.conf.Server.Addr,
+		Addr:    advertiseAddr(d.conf.Server.Addr, getHostname()),
 		Annotations: map[string]string{
 			"op":            "renew",
 			"hostname":      getHostname(),

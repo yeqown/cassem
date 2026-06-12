@@ -20,6 +20,9 @@ type KV interface {
 
 	// Range iterates all keys or buckets under the given key.
 	Range(key string, seek string, limit int) (*RangeResult, error)
+
+	Snapshot() ([]byte, error)
+	RecoverSnapshot(snapshot []byte) error
 }
 
 type RangeResult struct {

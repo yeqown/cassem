@@ -35,6 +35,11 @@ data:
     ]
     [http]
         addr = ":20218"
+    [auth]
+        sessionSecret = "dev-only-change-me-session-secret"
+        bootstrapAccount = "superadmin@example.com"
+        bootstrapPassword = "cassem"
+        bootstrapNickname = "superadmin"
 
 # agent config
 ---

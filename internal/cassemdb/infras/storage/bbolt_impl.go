@@ -1,9 +1,12 @@
 package storage
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
+	"os"
 	"path"
+	"sync"
 
 	"github.com/yeqown/log"
 	bolt "go.etcd.io/bbolt"
@@ -24,18 +27,14 @@ var (
 )
 
 type boltRepoImpl struct {
+	mu sync.RWMutex
 	db *bolt.DB
 
 	// preWriteC chan *preWriteLog
 }
 
 func NewRepository(c *conf.Bolt) (KV, error) {
-	db, err := bolt.Open(path.Join(c.Dir, c.DB), 0600, &bolt.Options{
-		Timeout:        0,
-		NoGrowSync:     false,
-		FreelistType:   bolt.FreelistArrayType,
-		NoFreelistSync: true,
-	})
+	db, err := openBoltDB(path.Join(c.Dir, c.DB))
 	if err != nil {
 		return nil, fmt.Errorf("open bolt.DB failed: %w", err)
 	}
@@ -43,8 +42,18 @@ func NewRepository(c *conf.Bolt) (KV, error) {
 	return newRepositoryWithDB(db), nil
 }
 
+func openBoltDB(dbPath string) (*bolt.DB, error) {
+	return bolt.Open(dbPath, 0600, &bolt.Options{
+		Timeout:        0,
+		NoGrowSync:     false,
+		FreelistType:   bolt.FreelistArrayType,
+		NoFreelistSync: true,
+	})
+}
+
 func newRepositoryWithDB(db *bolt.DB) KV {
-	b := boltRepoImpl{
+	b := &boltRepoImpl{
+		mu: sync.RWMutex{},
 		db: db,
 		// preWriteC: make(chan *preWriteLog, _PRE_WRITE_BUF_SIZE),
 	}
@@ -66,7 +75,7 @@ func newRepositoryWithDB(db *bolt.DB) KV {
 //
 // and locateBucket only return the parent bucket of key, for example (p1/p2/leaf)
 // returns buk: p1/p2, leaf: leaf, err: nil.
-func (b boltRepoImpl) locateBucket(
+func (b *boltRepoImpl) locateBucket(
 	tx *bolt.Tx, key string, createBucketNotFound bool) (buk *bolt.Bucket, leaf string, err error) {
 	nodes, leaf := KeySplitter(key)
 	if len(nodes) == 0 {
@@ -116,7 +125,10 @@ func (b boltRepoImpl) locateBucket(
 	return buk, leaf, nil
 }
 
-func (b boltRepoImpl) GetKV(key string, dir bool) (val *apicassemdb.Entity, err error) {
+func (b *boltRepoImpl) GetKV(key string, dir bool) (val *apicassemdb.Entity, err error) {
+	b.mu.RLock()
+	defer b.mu.RUnlock()
+
 	var d []byte
 	err = b.db.View(func(tx *bolt.Tx) error {
 		buk, leaf, err2 := b.locateBucket(tx, key, false)
@@ -152,7 +164,10 @@ func (b boltRepoImpl) GetKV(key string, dir bool) (val *apicassemdb.Entity, err 
 	return val, err
 }
 
-func (b boltRepoImpl) SetKV(key string, val *apicassemdb.Entity, dir bool) (err error) {
+func (b *boltRepoImpl) SetKV(key string, val *apicassemdb.Entity, dir bool) (err error) {
+	b.mu.RLock()
+	defer b.mu.RUnlock()
+
 	log.
 		WithFields(log.Fields{
 			"key": key,
@@ -179,7 +194,10 @@ func (b boltRepoImpl) SetKV(key string, val *apicassemdb.Entity, dir bool) (err 
 	return
 }
 
-func (b boltRepoImpl) UnsetKV(key string, dir bool) (err error) {
+func (b *boltRepoImpl) UnsetKV(key string, dir bool) (err error) {
+	b.mu.RLock()
+	defer b.mu.RUnlock()
+
 	err = b.db.Batch(func(tx *bolt.Tx) error {
 		bucket, leaf, err2 := b.locateBucket(tx, key, false)
 		if err2 != nil {
@@ -201,7 +219,10 @@ func (b boltRepoImpl) UnsetKV(key string, dir bool) (err error) {
 }
 
 // Range key must be directory key.
-func (b boltRepoImpl) Range(key string, seek string, limit int) (*RangeResult, error) {
+func (b *boltRepoImpl) Range(key string, seek string, limit int) (*RangeResult, error) {
+	b.mu.RLock()
+	defer b.mu.RUnlock()
+
 	var (
 		err    error
 		result *RangeResult
@@ -238,7 +259,7 @@ func (b boltRepoImpl) Range(key string, seek string, limit int) (*RangeResult, e
 			if v != nil {
 				apicassemdb.MustUnmarshal(v, entity)
 				// FIXED: shielding expired data in range
-				if err2 == nil && entity.Expired() {
+				if entity.Expired() {
 					result.ExpiredKeys = append(result.ExpiredKeys, entity.Key)
 					continue
 				}
@@ -262,4 +283,61 @@ func (b boltRepoImpl) Range(key string, seek string, limit int) (*RangeResult, e
 	}
 
 	return result, nil
+}
+
+func (b *boltRepoImpl) Snapshot() ([]byte, error) {
+	b.mu.RLock()
+	defer b.mu.RUnlock()
+
+	buf := new(bytes.Buffer)
+	if err := b.db.View(func(tx *bolt.Tx) error {
+		_, err := tx.WriteTo(buf)
+		return err
+	}); err != nil {
+		return nil, fmt.Errorf("boltRepoImpl.Snapshot: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func (b *boltRepoImpl) RecoverSnapshot(snapshot []byte) error {
+	if len(snapshot) == 0 {
+		return fmt.Errorf("empty snapshot: %w", errorx.Err_INVALID_ARGUMENT)
+	}
+
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	dbPath := b.db.Path()
+	tmpPath := dbPath + ".snapshot.tmp"
+	if err := os.WriteFile(tmpPath, snapshot, 0600); err != nil {
+		return fmt.Errorf("boltRepoImpl.RecoverSnapshot.write: %w", err)
+	}
+	tmpDB, err := openBoltDB(tmpPath)
+	if err != nil {
+		_ = os.Remove(tmpPath)
+		return fmt.Errorf("boltRepoImpl.RecoverSnapshot.validate: %w", err)
+	}
+	if err = tmpDB.Close(); err != nil {
+		_ = os.Remove(tmpPath)
+		return fmt.Errorf("boltRepoImpl.RecoverSnapshot.validate.close: %w", err)
+	}
+	if err := b.db.Close(); err != nil {
+		_ = os.Remove(tmpPath)
+		return fmt.Errorf("boltRepoImpl.RecoverSnapshot.close: %w", err)
+	}
+	if err := os.Rename(tmpPath, dbPath); err != nil {
+		_ = os.Remove(tmpPath)
+		reopened, openErr := openBoltDB(dbPath)
+		if openErr == nil {
+			b.db = reopened
+		}
+		return fmt.Errorf("boltRepoImpl.RecoverSnapshot.rename: %w", err)
+	}
+
+	db, err := openBoltDB(dbPath)
+	if err != nil {
+		return fmt.Errorf("boltRepoImpl.RecoverSnapshot.open: %w", err)
+	}
+	b.db = db
+	return nil
 }

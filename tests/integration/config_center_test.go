@@ -20,7 +20,7 @@ import (
 
 func TestElementLifecycleThroughAdmAndAgent(t *testing.T) {
 	cluster := testutil.UseFullCluster(t)
-	adm := newAdmClient(cluster.AdmBaseURL)
+	adm := newAdmClient(t, cluster.AdmBaseURL)
 	app, env, key := uniqueNames(t)
 
 	createAppEnvElement(t, adm, app, env, key, "value-v1")
@@ -63,7 +63,7 @@ func TestElementLifecycleThroughAdmAndAgent(t *testing.T) {
 
 func TestOperationAuditAndResetUser(t *testing.T) {
 	cluster := testutil.UseAdmCluster(t)
-	adm := newAdmClient(cluster.AdmBaseURL)
+	adm := newAdmClient(t, cluster.AdmBaseURL)
 	app, env, key := uniqueNames(t)
 
 	createAppEnvElement(t, adm, app, env, key, "value-v1")
@@ -117,7 +117,7 @@ func TestOperationAuditAndResetUser(t *testing.T) {
 
 func TestGrayPublishToInstance(t *testing.T) {
 	cluster := testutil.UseFullCluster(t)
-	adm := newAdmClient(cluster.AdmBaseURL)
+	adm := newAdmClient(t, cluster.AdmBaseURL)
 	app, env, key := uniqueNames(t)
 
 	createAppEnvElement(t, adm, app, env, key, "value-v1")
@@ -191,9 +191,10 @@ type admClient struct {
 	*testutil.HTTPClient
 }
 
-func newAdmClient(baseURL string) admClient {
+func newAdmClient(t testing.TB, baseURL string) admClient {
+	t.Helper()
 	c := testutil.NewHTTPClient(baseURL)
-	c.Session = testutil.SuperadminSession()
+	c.Session = testutil.LoginSuperadmin(t, baseURL)
 	return admClient{HTTPClient: c}
 }
 

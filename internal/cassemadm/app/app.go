@@ -43,6 +43,14 @@ func New(c *conf.CassemAdminConfig) (*app, error) {
 	if err != nil {
 		return nil, fmt.Errorf("cassemadm.New: %w", err)
 	}
+	if err = agg.AutoMigrate(); err != nil {
+		return nil, fmt.Errorf("cassemadm.New.AutoMigrate: %w", err)
+	}
+	if c.Auth.HasBootstrapAdmin() {
+		if err = agg.BootstrapAdmin(c.Auth.BootstrapAccount, c.Auth.BootstrapNickname, c.Auth.BootstrapPassword); err != nil {
+			return nil, fmt.Errorf("cassemadm.New.BootstrapAdmin: %w", err)
+		}
+	}
 
 	d := &app{
 		aggregate: agg,
@@ -84,10 +92,14 @@ func (d app) initialHTTP(engi *gin.Engine) {
 		pprof.Register(engi, "/debug/pprof")
 	}
 
+	if err := mountUI(engi); err != nil {
+		log.Fatalf("mount UI: %v", err)
+	}
+
 	// mount APIs
 	// DONE(@yeqown) authorize middleware is needed.
 	public := engi.Group("/api")
-	auth := engi.Group("/api", infras.Authorization(d.aggregate), infras.Authentication(d.aggregate))
+	auth := engi.Group("/api", infras.Authorization(d.aggregate, d.conf.Auth.SessionSecret), infras.Authentication(d.aggregate))
 	accountp := public.Group("/account")
 	{
 		accountp.POST("/login", d.UserLogin)

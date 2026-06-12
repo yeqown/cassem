@@ -37,11 +37,10 @@ g = _, _, _
 e = some(where (p.eft == allow))
 
 [matchers]
-m = r.sub == 'superadmin' || \
-	(g(r.sub, p.sub, r.dom) && \
+m = g(r.sub, p.sub, r.dom) && \
 	(p.dom == '*' || r.dom == p.dom) && \
 	(p.obj == '*' || r.obj == p.obj) && \
-	(p.act == '*' || r.act == p.act))
+	(p.act == '*' || r.act == p.act)
 `
 
 // g(r.sub, p.sub, r.dom) && r.dom == p.dom && r.obj == p.obj && r.act == p.act
@@ -50,6 +49,13 @@ type aclImpl struct {
 	c apicassemdb.KVClient
 	a *cassemAdapter
 	e *casbin.Enforcer
+}
+
+func rbacRole(role string) string {
+	if strings.HasPrefix(role, "role:") {
+		return role
+	}
+	return "role:" + role
 }
 
 // newRBAC construct a RBAC ACL interface.
@@ -96,20 +102,15 @@ func newRBAC(c apicassemdb.KVClient) (concept.RBAC, error) {
 		return nil, err
 	}
 
-	return aclImpl{a: a, c: c, e: e}, nil
+	acl := aclImpl{a: a, c: c, e: e}
+	if err = acl.AutoMigrate(); err != nil {
+		return nil, fmt.Errorf("concept.newRBAC.autoMigrate: %w", err)
+	}
+
+	return acl, nil
 }
 
 func (a aclImpl) GetUser(account string) (*concept.User, error) {
-	if strings.HasPrefix(account, "superadmin") {
-		return &concept.User{
-			Account:        "superadmin",
-			Nickname:       "superadmin",
-			HashedPassword: "7c46f88749d0b4f39c0b089e67553361846cf9a0fa0213012ce345a5cfcea689",
-			Salt:           "Y2Fzc2VuCg==",
-			Status:         concept.User_NORMAL,
-		}, nil
-	}
-
 	r, err := a.c.GetKV(context.TODO(), &apicassemdb.GetKVReq{Key: concept.GenUserKey(account)})
 	if err != nil {
 		return nil, fmt.Errorf("aclImpl.GetUser: %w", err)
@@ -165,10 +166,6 @@ func (a aclImpl) DisableUser(account string) error {
 }
 
 func (a aclImpl) ResetUser(account, password string) error {
-	if strings.HasPrefix(account, "superadmin") {
-		return fmt.Errorf("could not reset superadmin: %w", errorx.Err_PERMISSION_DENIED)
-	}
-
 	r, err := a.c.GetKV(context.TODO(), &apicassemdb.GetKVReq{Key: concept.GenUserKey(account)})
 	if err != nil {
 		return fmt.Errorf("aclImpl.ResetUser: %w", err)
@@ -201,7 +198,7 @@ func (a aclImpl) saveUser(u *concept.User) error {
 }
 
 func (a aclImpl) AssignRole(account, role string, domain ...string) error {
-	assigned, err := a.e.AddRoleForUser(account, role, domain...)
+	assigned, err := a.e.AddRoleForUser(account, rbacRole(role), domain...)
 	if err != nil {
 		return fmt.Errorf("aclImpl.AssignRole: %w", err)
 	}
@@ -224,7 +221,7 @@ func (a aclImpl) AssignRole(account, role string, domain ...string) error {
 }
 
 func (a aclImpl) RevokeRole(account, role string, domain ...string) error {
-	assigned, err := a.e.DeleteRoleForUser(account, role, domain...)
+	assigned, err := a.e.DeleteRoleForUser(account, rbacRole(role), domain...)
 	if err != nil {
 		return fmt.Errorf("aclImpl.RevokeRole: %w", err)
 	}
@@ -274,12 +271,40 @@ func (a aclImpl) Enforce(subject, domain, object, act string) (bool, error) {
 
 // AutoMigrate initialize builtin-role and permissions.
 func (a aclImpl) AutoMigrate() error {
-	_, err := a.e.AddPolicies([][]string{
-		{"superadmin", concept.Domain_ALL, concept.Object_ALL, concept.Action_ANY},
-		{"admin", concept.Domain_ALL, concept.Object_ALL, concept.Action_READ},
-		{"admin", concept.Domain_ALL, concept.Object_ALL, concept.Action_WRITE},
-	})
-	return err
+	changed := false
+	for _, policy := range [][]string{
+		{rbacRole(concept.Role_SUPERADMIN), concept.Domain_ALL, concept.Object_ALL, concept.Action_ANY},
+		{rbacRole(concept.Role_ADMIN), concept.Domain_ALL, concept.Object_ALL, concept.Action_READ},
+		{rbacRole(concept.Role_ADMIN), concept.Domain_ALL, concept.Object_ALL, concept.Action_WRITE},
+	} {
+		added, err := a.e.AddPolicy(policy)
+		if err != nil {
+			return err
+		}
+		changed = changed || added
+	}
+	if !changed {
+		return nil
+	}
+	return a.e.SavePolicy()
+}
+
+func (a aclImpl) BootstrapAdmin(account, nickname, password string) error {
+	if _, err := a.GetUser(account); err == nil {
+		return a.AssignRole(account, concept.Role_SUPERADMIN, concept.Domain_ALL)
+	} else if !errors.Is(err, errorx.Err_NOT_FOUND) {
+		return fmt.Errorf("aclImpl.BootstrapAdmin: %w", err)
+	}
+
+	if err := a.AddUser(&concept.User{
+		Account:        account,
+		Nickname:       nickname,
+		HashedPassword: password,
+		Status:         concept.User_NORMAL,
+	}); err != nil {
+		return fmt.Errorf("aclImpl.BootstrapAdmin: %w", err)
+	}
+	return a.AssignRole(account, concept.Role_SUPERADMIN, concept.Domain_ALL)
 }
 
 // cassemAdapter implements persist.Adapter of casbin acl model.
@@ -313,23 +338,17 @@ func (c cassemAdapter) LoadPolicy(model model.Model) error {
 
 func loadPolicyLine(policy *concept.Casbin_Policy, model model.Model) {
 	lineText := policy.Ptype
-	if policy.V0 != "" {
-		lineText += ", " + policy.V0
+	values := []string{policy.V0, policy.V1, policy.V2, policy.V3, policy.V4, policy.V5}
+	if policy.Ptype == "p" && values[0] != "" {
+		values[0] = rbacRole(values[0])
 	}
-	if policy.V1 != "" {
-		lineText += ", " + policy.V1
+	if policy.Ptype == "g" && values[1] != "" {
+		values[1] = rbacRole(values[1])
 	}
-	if policy.V2 != "" {
-		lineText += ", " + policy.V2
-	}
-	if policy.V3 != "" {
-		lineText += ", " + policy.V3
-	}
-	if policy.V4 != "" {
-		lineText += ", " + policy.V4
-	}
-	if policy.V5 != "" {
-		lineText += ", " + policy.V5
+	for _, value := range values {
+		if value != "" {
+			lineText += ", " + value
+		}
 	}
 
 	if err := persist.LoadPolicyLine(lineText, model); err != nil {

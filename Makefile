@@ -1,150 +1,82 @@
-GOCMD=CGO_ENABLED=0 GOARCH=amd64 GOOS=darwin go
-GOCMD_LINUX=CGO_ENABLED=0 GOARCH=amd64 GOOS=linux go
+.DEFAULT_GOAL := help
+
 CONTAINER_TOOL ?= podman
-IMAGE_TAG ?= test
+IMAGE_TAG ?= latest
 
-cassemdb.build:
-	${GOCMD} build 	-o cassemdb \
-					-ldflags "-s \
-							  -X main.Version=`git tag --list | tail -n 1` \
-							  -X main.BuildTime=`TZ=UTC date -u '+%Y-%m-%dT%H:%M:%SZ'` \
-							  -X main.GitHash=`git rev-parse HEAD`" \
-					./cmd/cassemdb
+LDFLAGS := -s \
+	-X main.Version=$(shell git tag --list | tail -n 1) \
+	-X main.BuildTime=$(shell TZ=UTC date -u '+%Y-%m-%dT%H:%M:%SZ') \
+	-X main.GitHash=$(shell git rev-parse HEAD)
+COMPOSE := IMAGE_TAG=$(IMAGE_TAG) CASSEM_EXAMPLES_DIR=$(abspath examples) $(CONTAINER_TOOL) compose -p cassem -f examples/compose.cluster.yaml
 
-cassemdb.build-linux:
-	${GOCMD_LINUX} build 	-o cassemdb \
-					-ldflags "-s \
-							  -X main.Version=`git tag --list | tail -n 1` \
-							  -X main.BuildTime=`TZ=UTC date -u '+%Y-%m-%dT%H:%M:%SZ'` \
-							  -X main.GitHash=`git rev-parse HEAD`" \
-					./cmd/cassemdb
+.PHONY: help build-image cluster.start cluster.stop cluster.restart cluster.status cluster.logs cluster.clean test test.integration lint vet
 
-cassemdb.run: cassemdb.build cassemdb.kill
-	- mkdir ./debugdata/{1,2,3}
-	DEBUG=1 ./cassemdb \
-		--conf=./examples/cassemdb/cassemdb.toml \
-		--endpoint=127.0.0.1:2021 \
-		--raft.cluster=http://127.0.0.1:3021,http://127.0.0.1:3022,http://127.0.0.1:3023 \
-		--raft.bind=http://127.0.0.1:3021 \
-		--storage="./debugdata/1" > ./debugdata/1/cassemdb.log 2>&1 & \
-		echo $$! >> cassemdb.pids
-	sleep 2
-	DEBUG=1 ./cassemdb \
-		--conf=./examples/cassemdb/cassemdb.toml \
-		--endpoint=127.0.0.1:2022 \
-		--raft.cluster=http://127.0.0.1:3021,http://127.0.0.1:3022,http://127.0.0.1:3023 \
-		--raft.bind=http://127.0.0.1:3022 \
-		--storage="./debugdata/2" > ./debugdata/2/cassemdb.log 2>&1 & \
-		echo $$! >> cassemdb.pids
-	DEBUG=1 ./cassemdb \
-		--conf=./examples/cassemdb/cassemdb.toml \
-		--endpoint=127.0.0.1:2023 \
-		--raft.cluster=http://127.0.0.1:3021,http://127.0.0.1:3022,http://127.0.0.1:3023 \
-		--raft.bind=http://127.0.0.1:3023 \
-		--storage="./debugdata/3" > ./debugdata/3/cassemdb.log 2>&1 & \
-		echo $$! >> cassemdb.pids
+help:
+	@echo "Usage: make <target>"
+	@echo ""
+	@echo "Cluster:"
+	@echo "  build-image          Build Linux binaries and local container images"
+	@echo "  cluster.start        Build images and start the local Compose cluster"
+	@echo "  cluster.stop         Stop the local Compose cluster"
+	@echo "  cluster.restart      Restart the local Compose cluster"
+	@echo "  cluster.status       Show local Compose cluster status"
+	@echo "  cluster.logs         Show local Compose cluster logs"
+	@echo "  cluster.clean        Stop cluster, remove volumes, and remove generated binaries"
+	@echo ""
+	@echo "Quality:"
+	@echo "  test                 Run all Go tests"
+	@echo "  test.integration     Run integration tests against local cluster"
+	@echo "  lint                 Run golangci-lint"
+	@echo "  vet                  Run go vet"
 
-cassemdb.kill:
-	@ echo "clearing running cassemdb process from cassemdb.pids"
-	@ if [ -f "cassemdb.pids" ]; then \
-		cat cassemdb.pids | xargs kill -9 || TRUE;\
-	fi
-	- rm cassemdb.pids
-	#
-	# If cassemdb process is not killed as expected, you can try following command:
-	#
-	# 1: kill -9 $$(ps -ef | grep cassemdb | awk '{print $2}')
-	# 2: jobs -l | grep cassemdb | awk '{print $3}' | xargs kill -9
+build-image:
+	mkdir -p ./bin
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o ./bin/cassemdb -ldflags "$(LDFLAGS)" ./cmd/cassemdb
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o ./bin/cassemadm -ldflags "$(LDFLAGS)" ./cmd/cassemadm
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o ./bin/cassemagent -ldflags "$(LDFLAGS)" ./cmd/cassemagent
+	$(CONTAINER_TOOL) build -t yeqown/cassemdb:$(IMAGE_TAG) -f ./.deploy/dockerfiles/cassemdb.Dockerfile .
+	$(CONTAINER_TOOL) build -t yeqown/cassemadm:$(IMAGE_TAG) -f ./.deploy/dockerfiles/cassemadm.Dockerfile .
+	$(CONTAINER_TOOL) build -t yeqown/cassemagent:$(IMAGE_TAG) -f ./.deploy/dockerfiles/cassemagent.Dockerfile .
 
-cassemdb.clear:
-	- rm -fr ./cassemdb.pids
-	- rm -fr ./debugdata/{1,2,3}/*
-
-cassemadm.build:
-	${GOCMD} build 	-o cassemadm \
-					-ldflags "-s \
-							  -X main.Version=`git tag --list | tail -n 1` \
-							  -X main.BuildTime=`TZ=UTC date -u '+%Y-%m-%dT%H:%M:%SZ'` \
-							  -X main.GitHash=`git rev-parse HEAD`" \
-					./cmd/cassemadm
-
-cassemadm.build-linux:
-	${GOCMD_LINUX} build 	-o cassemadm \
-					-ldflags "-s \
-							  -X main.Version=`git tag --list | tail -n 1` \
-							  -X main.BuildTime=`TZ=UTC date -u '+%Y-%m-%dT%H:%M:%SZ'` \
-							  -X main.GitHash=`git rev-parse HEAD`" \
-					./cmd/cassemadm
-
-cassemadm.run: cassemadm.build
-	DEBUG=1 ./cassemadm --conf=./examples/cassemadm/cassemadm.toml
-
-cassemagent.build:
-	${GOCMD} build 	-o cassemagent \
-					-ldflags "-s \
-							  -X main.Version=`git tag --list | tail -n 1` \
-							  -X main.BuildTime=`TZ=UTC date -u '+%Y-%m-%dT%H:%M:%SZ'` \
-							  -X main.GitHash=`git rev-parse HEAD`" \
-					./cmd/cassemagent
-
-cassemagent.linux-build:
-	${GOCMD_LINUX} build 	-o cassemagent \
-					-ldflags "-s \
-							  -X main.Version=`git tag --list | tail -n 1` \
-							  -X main.BuildTime=`TZ=UTC date -u '+%Y-%m-%dT%H:%M:%SZ'` \
-							  -X main.GitHash=`git rev-parse HEAD`" \
-					./cmd/cassemagent
-
-cassemagent.run: cassemagent.build
-	DEBUG=1 ./cassemagent --conf=./examples/cassemagent/cassemagent.toml
-
-build-all: cassemadm.build cassemagent.build cassemdb.build
-
-cassemdb.image: cassemdb.build-linux
-	${CONTAINER_TOOL} build -t yeqown/cassemdb:${IMAGE_TAG} -f ./.deploy/dockerfiles/cassemdb.Dockerfile .
-
-cassemadm.image: cassemadm.build-linux
-	${CONTAINER_TOOL} build -t yeqown/cassemadm:${IMAGE_TAG} -f ./.deploy/dockerfiles/cassemadm.Dockerfile .
-
-cassemagent.image: cassemagent.linux-build
-	${CONTAINER_TOOL} build -t yeqown/cassemagent:${IMAGE_TAG} -f ./.deploy/dockerfiles/cassemagent.Dockerfile .
-
-cassemdb.push:
-	${CONTAINER_TOOL} push yeqown/cassemdb:${IMAGE_TAG}
-
-cassemadm.push:
-	${CONTAINER_TOOL} push yeqown/cassemadm:${IMAGE_TAG}
-
-cassemagent.push:
-	${CONTAINER_TOOL} push yeqown/cassemagent:${IMAGE_TAG}
-
-image-all: cassemdb.image cassemadm.image cassemagent.image
-
-image-all-podman:
-	${MAKE} image-all CONTAINER_TOOL=podman
-
-cluster.start:
-	./scripts/cluster.sh start
+cluster.start: build-image
+	$(COMPOSE) up -d
+	$(COMPOSE) ps
+	@echo ""
+	@echo "Endpoints:"
+	@echo "  cassemdb: 127.0.0.1:2021,127.0.0.1:2022,127.0.0.1:2023"
+	@echo "  cassemadm: http://127.0.0.1:20218"
+	@echo "  cassemagent: 127.0.0.1:20219"
 
 cluster.stop:
-	./scripts/cluster.sh stop
+	$(COMPOSE) down
 
 cluster.restart:
-	./scripts/cluster.sh restart
+	$(MAKE) cluster.stop
+	$(MAKE) cluster.start
 
 cluster.status:
-	./scripts/cluster.sh status
+	$(COMPOSE) ps
+	@echo ""
+	@echo "Endpoints:"
+	@echo "  cassemdb: 127.0.0.1:2021,127.0.0.1:2022,127.0.0.1:2023"
+	@echo "  cassemadm: http://127.0.0.1:20218/ui (using superadmin@example.com/messac to visit UI page)"
+	@echo "  cassemagent: 127.0.0.1:20219"
 
 cluster.logs:
-	./scripts/cluster.sh logs
+	$(COMPOSE) logs --tail=200
 
 cluster.clean:
-	./scripts/cluster.sh clean
+	$(COMPOSE) down -v --remove-orphans
+	rm -rf ./bin
 
-proto-all:
-	make -C ./internal/cassemdb/api
-	make -C ./internal/concept
-	make -C ./internal/cassemagent/api
+test:
+	go test ./...
 
-clear:
-	- rm ./cassemdb || rm ./cassemadm || rm ./cassemagent
+test.integration:
+	go test -tags integration ./tests/integration/... -count=1
+
+lint:
+	golangci-lint run
+
+vet:
+	go vet ./...

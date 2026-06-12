@@ -40,13 +40,18 @@ func (d app) UserLogin(c *gin.Context) {
 		Account:   u.GetAccount(),
 		Salt:      u.GetSalt(),
 		ExpiredAt: time.Now().AddDate(0, 0, 1).Unix(), // after 1 day to expire
-	})
+	}, d.conf.Auth.SessionSecret)
 	if err != nil {
 		httpx.ResponseError(c, err)
 		return
 	}
 
-	httpx.ResponseJSON(c, userLoginResp{User: u, Session: sess})
+	user := &concept.User{
+		Account:  u.GetAccount(),
+		Nickname: u.GetNickname(),
+		Status:   u.GetStatus(),
+	}
+	httpx.ResponseJSON(c, userLoginResp{User: user, Session: sess})
 }
 
 func (d app) AddUser(c *gin.Context) {

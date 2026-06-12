@@ -69,7 +69,7 @@ func BenchmarkCassemDBGetKV(b *testing.B) {
 func BenchmarkCassemadmCreateElement(b *testing.B) {
 	cluster := testutil.UseAdmCluster(b)
 	adm := testutil.NewHTTPClient(cluster.AdmBaseURL)
-	adm.Session = testutil.SuperadminSession()
+	adm.Session = testutil.LoginSuperadmin(b, cluster.AdmBaseURL)
 	app := fmt.Sprintf("benchapp%d", time.Now().UnixNano())
 	env := "bench"
 	adm.DoJSON(b, http.MethodPost, "/api/apps/"+app, map[string]any{"name": app, "description": "benchmark app"}, nil)
