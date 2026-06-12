@@ -53,12 +53,7 @@ func TestElementLifecycleThroughAdmAndAgent(t *testing.T) {
 	adm.put(t, fmt.Sprintf("/api/apps/%s/envs/%s/elements/%s", app, env, key), map[string]any{"raw": "value-v2"}, nil)
 	publishElement(t, adm, app, env, key, 2, concept.PublishMode_FULL, nil)
 
-	select {
-	case got := <-received:
-		require.Equal(t, "value-v2", string(got.GetRaw()))
-	case <-time.After(10 * time.Second):
-		t.Fatal("agent watch did not receive published update")
-	}
+	waitForElementRaw(t, received, "value-v2", 10*time.Second)
 }
 
 func TestOperationAuditAndResetUser(t *testing.T) {
@@ -73,7 +68,7 @@ func TestOperationAuditAndResetUser(t *testing.T) {
 	var ops concept.GetElementOperationsResult
 	adm.get(t, fmt.Sprintf("/api/apps/%s/envs/%s/elements/%s/operations", app, env, key), &ops)
 	require.GreaterOrEqual(t, len(ops.Operations), 3)
-	require.Equal(t, "superadmin", ops.Operations[0].GetOperator())
+	require.Equal(t, "superadmin@example.com", ops.Operations[0].GetOperator())
 	require.Equal(t, key, ops.Operations[0].GetOperatedKey())
 	require.Equal(t, concept.ElementOperation_SET, ops.Operations[0].GetOp())
 
@@ -144,18 +139,8 @@ func TestGrayPublishToInstance(t *testing.T) {
 	adm.put(t, fmt.Sprintf("/api/apps/%s/envs/%s/elements/%s", app, env, key), map[string]any{"raw": "gray-value"}, nil)
 	publishElement(t, adm, app, env, key, 2, concept.PublishMode_GRAY, []string{targetID + "@127.0.0.1"})
 
-	select {
-	case got := <-targetC:
-		require.Equal(t, "gray-value", string(got.GetRaw()))
-	case <-time.After(10 * time.Second):
-		t.Fatal("target instance did not receive gray publish")
-	}
-
-	select {
-	case got := <-otherC:
-		t.Fatalf("non-target instance received gray publish: %v", got)
-	case <-time.After(500 * time.Millisecond):
-	}
+	waitForElementRaw(t, targetC, "gray-value", 10*time.Second)
+	assertNoElementRaw(t, otherC, "gray-value", 500*time.Millisecond)
 }
 
 func TestKVTTLExpireThroughDB(t *testing.T) {
@@ -262,10 +247,48 @@ func waitDeliveryToInstance(t testing.TB, endpoint string, app string, env strin
 			return false
 		}
 		select {
-		case <-received:
-			return true
+		case got := <-received:
+			return string(got.GetRaw()) == "probe"
 		case <-time.After(100 * time.Millisecond):
 			return false
 		}
 	}, 10*time.Second, 200*time.Millisecond)
+
+	for {
+		select {
+		case <-received:
+		default:
+			return
+		}
+	}
+}
+
+func waitForElementRaw(t testing.TB, received <-chan *concept.Element, expected string, timeout time.Duration) {
+	t.Helper()
+	deadline := time.After(timeout)
+	for {
+		select {
+		case got := <-received:
+			if got != nil && string(got.GetRaw()) == expected {
+				return
+			}
+		case <-deadline:
+			t.Fatalf("did not receive expected element raw=%q", expected)
+		}
+	}
+}
+
+func assertNoElementRaw(t testing.TB, received <-chan *concept.Element, unexpected string, timeout time.Duration) {
+	t.Helper()
+	deadline := time.After(timeout)
+	for {
+		select {
+		case got := <-received:
+			if got != nil && string(got.GetRaw()) == unexpected {
+				t.Fatalf("received unexpected element raw=%q", unexpected)
+			}
+		case <-deadline:
+			return
+		}
+	}
 }

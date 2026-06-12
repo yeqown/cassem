@@ -129,3 +129,21 @@ func TestAutoMigrateRemovesLegacyRoleSubjectBypass(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, allowed)
 }
+
+func TestResetUserRejectsBootstrapSuperadmin(t *testing.T) {
+	store := newACLTestKV()
+	rbac, err := newRBAC(store)
+	require.NoError(t, err)
+	acl := rbac.(aclImpl)
+
+	require.NoError(t, acl.AddUser(&concept.User{
+		Account:        "superadmin@example.com",
+		Nickname:       "superadmin",
+		HashedPassword: "cassem",
+		Status:         concept.User_NORMAL,
+	}))
+	require.NoError(t, acl.AssignRole("superadmin@example.com", concept.Role_SUPERADMIN, concept.Domain_ALL))
+
+	err = acl.ResetUser("superadmin@example.com", "new-password")
+	require.ErrorIs(t, err, errorx.Err_PERMISSION_DENIED)
+}

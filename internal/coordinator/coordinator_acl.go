@@ -166,6 +166,10 @@ func (a aclImpl) DisableUser(account string) error {
 }
 
 func (a aclImpl) ResetUser(account, password string) error {
+	if strings.HasPrefix(account, "superadmin") {
+		return fmt.Errorf("could not reset superadmin: %w", errorx.Err_PERMISSION_DENIED)
+	}
+
 	r, err := a.c.GetKV(context.TODO(), &apicassemdb.GetKVReq{Key: concept.GenUserKey(account)})
 	if err != nil {
 		return fmt.Errorf("aclImpl.ResetUser: %w", err)
