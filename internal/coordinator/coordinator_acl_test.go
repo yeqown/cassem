@@ -3,6 +3,8 @@ package coordinator
 import (
 	"context"
 	"errors"
+	"slices"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -54,8 +56,22 @@ func (f *aclTestKV) Expire(context.Context, *apicassemdb.ExpireReq, ...grpc.Call
 	return nil, errors.New("unused")
 }
 
-func (f *aclTestKV) Range(context.Context, *apicassemdb.RangeReq, ...grpc.CallOption) (*apicassemdb.RangeResp, error) {
-	return nil, errors.New("unused")
+func (f *aclTestKV) Range(_ context.Context, req *apicassemdb.RangeReq, _ ...grpc.CallOption) (*apicassemdb.RangeResp, error) {
+	entities := make([]*apicassemdb.Entity, 0)
+	for key, entity := range f.data {
+		if req.GetKey() != "" && !strings.HasPrefix(key, req.GetKey()) {
+			continue
+		}
+		if req.GetSeek() != "" && concept.ExtractPureKey(key) < req.GetSeek() {
+			continue
+		}
+		entities = append(entities, entity)
+	}
+	slices.SortFunc(entities, func(a, b *apicassemdb.Entity) int { return strings.Compare(a.GetKey(), b.GetKey()) })
+	if req.GetLimit() > 0 && len(entities) > int(req.GetLimit()) {
+		entities = entities[:req.GetLimit()]
+	}
+	return &apicassemdb.RangeResp{Entities: entities}, nil
 }
 
 func TestACLRejectsHardcodedSuperadminUser(t *testing.T) {
@@ -146,4 +162,42 @@ func TestResetUserRejectsBootstrapSuperadmin(t *testing.T) {
 
 	err = acl.ResetUser("superadmin@example.com", "new-password")
 	require.ErrorIs(t, err, errorx.Err_PERMISSION_DENIED)
+}
+
+func TestACLGetUsersAndRoles(t *testing.T) {
+	store := newACLTestKV()
+	store.data[concept.GenAppKey("demo")] = apicassemdb.NewEntityWithCreated(concept.GenAppKey("demo"), []byte("app"), 0, 1)
+	store.data[concept.GenAppElementEnvKey("demo", "prod")] = apicassemdb.NewEntityWithCreated(concept.GenAppElementEnvKey("demo", "prod"), []byte("env"), 0, 1)
+
+	rbac, err := newRBAC(store)
+	require.NoError(t, err)
+	acl := rbac.(aclImpl)
+
+	require.NoError(t, acl.AddUser(&concept.User{Account: "alice@example.com", Nickname: "Alice", HashedPassword: "secret-1", Status: concept.User_NORMAL}))
+	require.NoError(t, acl.AddUser(&concept.User{Account: "bob@example.com", Nickname: "Bob", HashedPassword: "secret-2", Status: concept.User_FORBIDDEN}))
+	require.NoError(t, acl.AssignRole("alice@example.com", concept.Role_ADMIN, concept.Domain_ALL))
+	require.NoError(t, acl.AssignRole("alice@example.com", concept.Role_APPOWNER, concept.Domain_CLUSTER))
+	require.NoError(t, acl.AssignRole("alice@example.com", "developer", "demo/prod"))
+
+	out, err := acl.GetUsers("", 100)
+	require.NoError(t, err)
+	require.Len(t, out.Users, 2)
+
+	roles, err := acl.GetUserRoles("alice@example.com")
+	require.NoError(t, err)
+	require.ElementsMatch(t, []string{concept.Role_ADMIN, concept.Role_APPOWNER, concept.Role_DEVELOPER}, roles)
+
+	bindings, err := acl.GetUserRoleBindings("alice@example.com")
+	require.NoError(t, err)
+	require.ElementsMatch(t, []concept.RoleBinding{
+		{Role: concept.Role_ADMIN, Domain: concept.Domain_ALL},
+		{Role: concept.Role_APPOWNER, Domain: concept.Domain_CLUSTER},
+		{Role: concept.Role_DEVELOPER, Domain: "demo/prod"},
+	}, bindings)
+
+	domains, err := acl.ListDomainOptions()
+	require.NoError(t, err)
+	require.Contains(t, domains, concept.Domain_CLUSTER)
+	require.Contains(t, domains, "demo/*")
+	require.Contains(t, domains, "demo/prod")
 }

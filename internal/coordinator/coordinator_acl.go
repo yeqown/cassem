@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/casbin/casbin/v2"
@@ -51,7 +52,17 @@ type aclImpl struct {
 	e *casbin.Enforcer
 }
 
+func normalizeRole(role string) string {
+	switch role {
+	case "developer":
+		return concept.Role_DEVELOPER
+	default:
+		return role
+	}
+}
+
 func rbacRole(role string) string {
+	role = normalizeRole(role)
 	if strings.HasPrefix(role, "role:") {
 		return role
 	}
@@ -118,16 +129,121 @@ func (a aclImpl) GetUser(account string) (*concept.User, error) {
 
 	u := new(concept.User)
 	apicassemdb.MustUnmarshal(r.GetEntity().GetVal(), u)
-
-	roles, err := a.e.GetRolesForUser(account, concept.Domain_ALL)
-	log.
-		WithFields(log.Fields{
-			"roles": roles,
-			"err":   err,
-		}).
-		Debugf("aclImpl.GetUser.GetRolesForUser")
-
 	return u, nil
+}
+
+func (a aclImpl) GetUsers(seek string, limit int) (*concept.GetUsersResult, error) {
+	r, err := a.c.Range(context.TODO(), &apicassemdb.RangeReq{
+		Key:   concept.GenUserDirKey(),
+		Seek:  seek,
+		Limit: int32(limit),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("aclImpl.GetUsers: %w", err)
+	}
+
+	result := &concept.GetUsersResult{
+		CommonPager: concept.CommonPager{
+			HasMore:  r.GetHasMore(),
+			NextSeek: r.GetNextSeekKey(),
+		},
+		Users: make([]*concept.User, 0, len(r.GetEntities())),
+	}
+
+	for _, entity := range r.GetEntities() {
+		u := new(concept.User)
+		apicassemdb.MustUnmarshal(entity.GetVal(), u)
+		result.Users = append(result.Users, u)
+	}
+
+	return result, nil
+}
+
+func (a aclImpl) GetUserRoles(account string) ([]string, error) {
+	bindings, err := a.GetUserRoleBindings(account)
+	if err != nil {
+		return nil, err
+	}
+
+	roles := make([]string, 0, len(bindings))
+	seen := make(map[string]struct{}, len(bindings))
+	for _, binding := range bindings {
+		if _, ok := seen[binding.Role]; ok {
+			continue
+		}
+		seen[binding.Role] = struct{}{}
+		roles = append(roles, binding.Role)
+	}
+
+	return roles, nil
+}
+
+func (a aclImpl) GetUserRoleBindings(account string) ([]concept.RoleBinding, error) {
+	policies, err := a.e.GetFilteredGroupingPolicy(0, account)
+	if err != nil {
+		return nil, fmt.Errorf("aclImpl.GetUserRoleBindings: %w", err)
+	}
+
+	bindings := make([]concept.RoleBinding, 0, len(policies))
+	seen := make(map[string]struct{}, len(policies))
+	for _, policy := range policies {
+		if len(policy) < 2 {
+			continue
+		}
+		role := strings.TrimPrefix(policy[1], "role:")
+		role = normalizeRole(role)
+		domain := concept.Domain_CLUSTER
+		if len(policy) >= 3 && policy[2] != "" {
+			domain = policy[2]
+		}
+		key := role + "\x00" + domain
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		bindings = append(bindings, concept.RoleBinding{Role: role, Domain: domain})
+	}
+
+	return bindings, nil
+}
+
+func (a aclImpl) ListDomainOptions() ([]string, error) {
+	options := []string{concept.Domain_CLUSTER}
+	appResp, err := a.c.Range(context.TODO(), &apicassemdb.RangeReq{Key: concept.GenAppDirKey(), Limit: 1000})
+	if err != nil {
+		return nil, fmt.Errorf("aclImpl.ListDomainOptions.apps: %w", err)
+	}
+
+	seen := map[string]struct{}{concept.Domain_CLUSTER: {}}
+	for _, entity := range appResp.GetEntities() {
+		app := concept.ExtractPureKey(entity.GetKey())
+		if app == "" {
+			continue
+		}
+		appDomain := app + "/*"
+		if _, ok := seen[appDomain]; !ok {
+			seen[appDomain] = struct{}{}
+			options = append(options, appDomain)
+		}
+		envs, err := a.c.Range(context.TODO(), &apicassemdb.RangeReq{Key: concept.GenAppElementKey(app), Limit: 1000})
+		if err != nil {
+			return nil, fmt.Errorf("aclImpl.ListDomainOptions.envs: %w", err)
+		}
+		for _, envEntity := range envs.GetEntities() {
+			domain := app + "/" + concept.ExtractPureKey(envEntity.GetKey())
+			if _, ok := seen[domain]; ok {
+				continue
+			}
+			seen[domain] = struct{}{}
+			options = append(options, domain)
+		}
+	}
+
+	slices.Sort(options)
+	if len(options) > 0 && options[0] != concept.Domain_CLUSTER {
+		options = append([]string{concept.Domain_CLUSTER}, options...)
+	}
+	return options, nil
 }
 
 func (a aclImpl) AddUser(u *concept.User) error {
@@ -280,6 +396,15 @@ func (a aclImpl) AutoMigrate() error {
 		{rbacRole(concept.Role_SUPERADMIN), concept.Domain_ALL, concept.Object_ALL, concept.Action_ANY},
 		{rbacRole(concept.Role_ADMIN), concept.Domain_ALL, concept.Object_ALL, concept.Action_READ},
 		{rbacRole(concept.Role_ADMIN), concept.Domain_ALL, concept.Object_ALL, concept.Action_WRITE},
+		{rbacRole(concept.Role_APPOWNER), concept.Domain_ALL, concept.Object_APP, concept.Action_READ},
+		{rbacRole(concept.Role_APPOWNER), concept.Domain_ALL, concept.Object_APP, concept.Action_WRITE},
+		{rbacRole(concept.Role_APPOWNER), concept.Domain_ALL, concept.Object_ELEMENT, concept.Action_READ},
+		{rbacRole(concept.Role_APPOWNER), concept.Domain_ALL, concept.Object_ELEMENT, concept.Action_WRITE},
+		{rbacRole(concept.Role_APPOWNER), concept.Domain_ALL, concept.Object_ELEMENT, concept.Action_DELETE},
+		{rbacRole(concept.Role_APPOWNER), concept.Domain_ALL, concept.Object_ELEMENT, concept.Action_PUBLISH},
+		{rbacRole(concept.Role_DEVELOPER), concept.Domain_ALL, concept.Object_APP, concept.Action_READ},
+		{rbacRole(concept.Role_DEVELOPER), concept.Domain_ALL, concept.Object_ELEMENT, concept.Action_READ},
+		{rbacRole(concept.Role_DEVELOPER), concept.Domain_ALL, concept.Object_ELEMENT, concept.Action_WRITE},
 	} {
 		added, err := a.e.AddPolicy(policy)
 		if err != nil {

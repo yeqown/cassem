@@ -38,6 +38,10 @@ func GenElementKey(app, env, key string) string {
 	return joint(_ELT_PREFIX, app, env, key)
 }
 
+func GenAppDirKey() string {
+	return _APP_PREFIX
+}
+
 func GenAppKey(app string) string {
 	return joint(_APP_PREFIX, app)
 }
@@ -120,6 +124,10 @@ func WithAgentPrefix(agentId string) string {
 
 func GenAclPolicyKey() string {
 	return _ACL_POLICY_PREFIX
+}
+
+func GenUserDirKey() string {
+	return _ACL_USER_PREFIX
 }
 
 func GenUserKey(account string) string {

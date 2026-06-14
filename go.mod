@@ -6,6 +6,7 @@ require (
 	github.com/casbin/casbin/v2 v2.135.0
 	github.com/envoyproxy/protoc-gen-validate v1.3.3
 	github.com/gin-contrib/cors v1.7.7
+	github.com/gin-contrib/gzip v1.2.4
 	github.com/gin-contrib/pprof v1.5.4
 	github.com/gin-gonic/gin v1.12.0
 	github.com/pelletier/go-toml v1.9.5

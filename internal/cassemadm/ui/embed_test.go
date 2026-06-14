@@ -2,11 +2,15 @@ package ui
 
 import (
 	"io/fs"
+	"regexp"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+var assetRefPattern = regexp.MustCompile(`/ui/assets/[^"' )]+`)
 
 func TestDist(t *testing.T) {
 	assets, err := Dist()
@@ -16,40 +20,21 @@ func TestDist(t *testing.T) {
 	require.NoError(t, err)
 	indexHTML := string(index)
 	assert.Contains(t, indexHTML, `id="cassem-admin"`)
+	assert.Contains(t, indexHTML, `/ui/assets/`)
 
-	for _, asset := range []string{
-		"assets/app.js",
-		"assets/style.css",
-		"assets/alpine.min.js",
-	} {
-		asset := asset
-		t.Run(asset, func(t *testing.T) {
-			assert.Contains(t, indexHTML, `/ui/`+asset)
+	assetRefs := assetRefPattern.FindAllString(indexHTML, -1)
+	require.NotEmpty(t, assetRefs)
 
-			contents, err := fs.ReadFile(assets, asset)
-			require.NoError(t, err)
-			assert.NotEmpty(t, contents)
+	seen := make(map[string]struct{}, len(assetRefs))
+	for _, assetRef := range assetRefs {
+		assetPath := strings.TrimPrefix(assetRef, "/ui/")
+		if _, ok := seen[assetPath]; ok {
+			continue
+		}
+		seen[assetPath] = struct{}{}
 
-			if asset == "assets/alpine.min.js" {
-				assert.Greater(t, len(contents), 40_000)
-				assert.Contains(t, string(contents), "window.Alpine")
-				assert.Contains(t, string(contents), "3.15.12")
-			}
-		})
+		contents, err := fs.ReadFile(assets, assetPath)
+		require.NoError(t, err)
+		assert.NotEmpty(t, contents)
 	}
-
-	appJS, err := fs.ReadFile(assets, "assets/app.js")
-	require.NoError(t, err)
-	appSource := string(appJS)
-	assert.Contains(t, appSource, "const readStoredUser = () =>")
-	assert.Contains(t, appSource, "user: readStoredUser()")
-	assert.Contains(t, appSource, "const isAuthError = (payload)")
-	assert.Contains(t, appSource, "payload?.errcode === 16")
-	assert.Contains(t, appSource, "unauthenticated|session expired|invalid session")
-	assert.Contains(t, appSource, "clearSession()")
-	assert.Contains(t, appSource, "resetWorkspace()")
-	assert.Contains(t, appSource, "const key = this.selectedElement.metadata.key")
-	assert.Contains(t, appSource, "const updated = this.elements.find(element => element.metadata.key === key)")
-	assert.Contains(t, appSource, "if (updated) await this.selectElement(updated)")
-	assert.Contains(t, indexHTML, `x-model.number="elementForm.contentType" :disabled="!!selectedElement"`)
 }

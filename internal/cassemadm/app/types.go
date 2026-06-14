@@ -144,6 +144,40 @@ type addUserReq struct {
 	Nickname string `json:"nickname" binding:"required"`
 }
 
+type getUsersReq struct {
+	commonPagingRequest
+}
+
+type accountUserBinding struct {
+	Role   string `json:"role"`
+	Domain string `json:"domain"`
+}
+
+type accountUserView struct {
+	Account       string               `json:"account"`
+	Nickname      string               `json:"nickname,omitempty"`
+	Status        int32                `json:"status,omitempty"`
+	Roles         []string             `json:"roles,omitempty"`
+	BindingCount  int                  `json:"bindingCount,omitempty"`
+	AccessSummary []accountUserBinding `json:"accessSummary,omitempty"`
+}
+
+type getUsersResp struct {
+	Users []accountUserView `json:"users"`
+}
+
+type getUserAclReq struct {
+	Account string `uri:"account" binding:"required,email"`
+}
+
+type getUserAclResp struct {
+	Bindings []accountUserBinding `json:"bindings"`
+}
+
+type getAclDomainsResp struct {
+	Domains []string `json:"domains"`
+}
+
 type disableUserReq struct {
 	Account string `form:"account" binding:"email,required"`
 }
@@ -158,13 +192,20 @@ type userLoginReq struct {
 	Password string `json:"password" binding:"required"`
 }
 
+type userLoginUser struct {
+	Account  string   `json:"account"`
+	Nickname string   `json:"nickname,omitempty"`
+	Status   int32    `json:"status,omitempty"`
+	Roles    []string `json:"roles,omitempty"`
+}
+
 type userLoginResp struct {
-	User    *concept.User `json:"user"`
+	User    userLoginUser `json:"user"`
 	Session string        `json:"session"`
 }
 
 type assignOrRevokeRoleReq struct {
 	Account string   `form:"account" binding:"required,email"`
-	Role    string   `form:"role" binding:"required,oneof=superadmin admin appowner developer"`
+	Role    string   `form:"role" binding:"required,oneof=superadmin admin appowner appdeveloper developer"`
 	Domains []string `form:"domain"`
 }

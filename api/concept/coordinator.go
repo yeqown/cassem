@@ -81,6 +81,10 @@ type AgentHybrid interface {
 // RBAC is an ACL model to implement authentication permission management.
 type RBAC interface {
 	GetUser(account string) (*User, error)
+	GetUsers(seek string, limit int) (*GetUsersResult, error)
+	GetUserRoles(account string) ([]string, error)
+	GetUserRoleBindings(account string) ([]RoleBinding, error)
+	ListDomainOptions() ([]string, error)
 	AddUser(u *User) error
 	DisableUser(account string) error
 	ResetUser(account, password string) error
@@ -100,6 +104,17 @@ type GetAppsResult struct {
 	CommonPager
 
 	Apps []*AppMetadata `json:"apps"`
+}
+
+type RoleBinding struct {
+	Role   string `json:"role"`
+	Domain string `json:"domain"`
+}
+
+type GetUsersResult struct {
+	CommonPager
+
+	Users []*User `json:"users"`
 }
 
 type GetAppEnvsResult struct {

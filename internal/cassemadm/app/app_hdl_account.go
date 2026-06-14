@@ -1,6 +1,7 @@
 package app
 
 import (
+	"slices"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -11,6 +12,13 @@ import (
 	"github.com/yeqown/cassem/pkg/hash"
 	"github.com/yeqown/cassem/pkg/httpx"
 )
+
+func normalizeAccountRole(role string) string {
+	if role == "developer" {
+		return concept.Role_DEVELOPER
+	}
+	return role
+}
 
 func (d app) UserLogin(c *gin.Context) {
 	req := new(userLoginReq)
@@ -30,28 +38,106 @@ func (d app) UserLogin(c *gin.Context) {
 		return
 	}
 
-	// compare password with salt
 	if hash.WithSalt(req.Password, u.Salt) != u.GetHashedPassword() {
 		httpx.ResponseError(c, errorx.New(errorx.Code_NOT_FOUND, "login failed"))
+		return
+	}
+
+	roles, err := d.aggregate.GetUserRoles(req.Account)
+	if err != nil {
+		httpx.ResponseError(c, err)
 		return
 	}
 
 	sess, err := infras.EncodeSession(&infras.Session{
 		Account:   u.GetAccount(),
 		Salt:      u.GetSalt(),
-		ExpiredAt: time.Now().AddDate(0, 0, 1).Unix(), // after 1 day to expire
+		ExpiredAt: time.Now().AddDate(0, 0, 1).Unix(),
 	}, d.conf.Auth.SessionSecret)
 	if err != nil {
 		httpx.ResponseError(c, err)
 		return
 	}
 
-	user := &concept.User{
+	httpx.ResponseJSON(c, userLoginResp{User: userLoginUser{
 		Account:  u.GetAccount(),
 		Nickname: u.GetNickname(),
-		Status:   u.GetStatus(),
+		Status:   int32(u.GetStatus()),
+		Roles:    roles,
+	}, Session: sess})
+}
+
+func (d app) GetUsers(c *gin.Context) {
+	req := new(getUsersReq)
+	if err := c.ShouldBind(req); err != nil {
+		httpx.ResponseError(c, err)
+		return
 	}
-	httpx.ResponseJSON(c, userLoginResp{User: user, Session: sess})
+
+	out, err := d.aggregate.GetUsers(req.Seek, req.Limit)
+	if err != nil {
+		httpx.ResponseError(c, err)
+		return
+	}
+
+	users := make([]accountUserView, 0, len(out.Users))
+	for _, item := range out.Users {
+		bindings, err := d.aggregate.GetUserRoleBindings(item.GetAccount())
+		if err != nil {
+			httpx.ResponseError(c, err)
+			return
+		}
+		roles := make([]string, 0, len(bindings))
+		summary := make([]accountUserBinding, 0, len(bindings))
+		for _, binding := range bindings {
+			if !slices.Contains(roles, binding.Role) {
+				roles = append(roles, binding.Role)
+			}
+			summary = append(summary, accountUserBinding{Role: binding.Role, Domain: binding.Domain})
+		}
+		users = append(users, accountUserView{
+			Account:       item.GetAccount(),
+			Nickname:      item.GetNickname(),
+			Status:        int32(item.GetStatus()),
+			Roles:         roles,
+			BindingCount:  len(summary),
+			AccessSummary: summary,
+		})
+	}
+
+	httpx.ResponseJSON(c, getUsersResp{Users: users})
+}
+
+func (d app) GetUserACL(c *gin.Context) {
+	req := new(getUserAclReq)
+	_ = c.ShouldBindUri(req)
+	if err := c.ShouldBind(req); err != nil {
+		httpx.ResponseError(c, err)
+		return
+	}
+
+	bindings, err := d.aggregate.GetUserRoleBindings(req.Account)
+	if err != nil {
+		httpx.ResponseError(c, err)
+		return
+	}
+
+	out := make([]accountUserBinding, 0, len(bindings))
+	for _, binding := range bindings {
+		out = append(out, accountUserBinding{Role: binding.Role, Domain: binding.Domain})
+	}
+
+	httpx.ResponseJSON(c, getUserAclResp{Bindings: out})
+}
+
+func (d app) GetACLDomainOptions(c *gin.Context) {
+	domains, err := d.aggregate.ListDomainOptions()
+	if err != nil {
+		httpx.ResponseError(c, err)
+		return
+	}
+
+	httpx.ResponseJSON(c, getAclDomainsResp{Domains: domains})
 }
 
 func (d app) AddUser(c *gin.Context) {
@@ -118,7 +204,7 @@ func (d app) AssignRole(c *gin.Context) {
 		req.Domains = []string{concept.Domain_CLUSTER}
 	}
 
-	err := d.aggregate.AssignRole(req.Account, req.Role, req.Domains...)
+	err := d.aggregate.AssignRole(req.Account, normalizeAccountRole(req.Role), req.Domains...)
 	if err != nil {
 		httpx.ResponseError(c, err)
 		return
@@ -138,7 +224,7 @@ func (d app) RevokeRole(c *gin.Context) {
 		req.Domains = []string{concept.Domain_CLUSTER}
 	}
 
-	err := d.aggregate.RevokeRole(req.Account, req.Role, req.Domains...)
+	err := d.aggregate.RevokeRole(req.Account, normalizeAccountRole(req.Role), req.Domains...)
 	if err != nil {
 		httpx.ResponseError(c, err)
 		return

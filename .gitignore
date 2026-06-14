@@ -39,3 +39,7 @@ cassemadm
 
 # AI agentic
 docs/superpowers/
+internal/cassemadm/web/node_modules/
+internal/cassemadm/web/coverage/
+internal/cassemadm/web/.vite/
+internal/cassemadm/web/node_modules/.tmp/

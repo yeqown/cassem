@@ -1,6 +1,9 @@
 package app
 
 import (
+	"bytes"
+	"compress/gzip"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -24,7 +27,7 @@ func TestMountUIRoutes(t *testing.T) {
 		{name: "redirect ui root", path: "/ui", statusCode: http.StatusMovedPermanently, location: "/ui/"},
 		{name: "serve index", path: "/ui/", statusCode: http.StatusOK, body: "Cassem Admin Test"},
 		{name: "serve asset", path: "/ui/assets/app.js", statusCode: http.StatusOK, body: "CASSEM_TEST_ASSET"},
-		{name: "fallback spa route", path: "/ui/config/apps/demo", statusCode: http.StatusOK, body: "Cassem Admin Test"},
+		{name: "fallback spa route", path: "/ui/apps/demo/envs/prod/elements/db.url", statusCode: http.StatusOK, body: "Cassem Admin Test"},
 	}
 
 	for _, tt := range tests {
@@ -45,6 +48,53 @@ func TestMountUIRoutes(t *testing.T) {
 			}
 		})
 	}
+}
+
+func decodeGzipBody(t *testing.T, body []byte) string {
+	t.Helper()
+
+	zr, err := gzip.NewReader(bytes.NewReader(body))
+	require.NoError(t, err)
+	defer zr.Close()
+
+	plain, err := io.ReadAll(zr)
+	require.NoError(t, err)
+	return string(plain)
+}
+
+func TestMountUIRoutesGzipUIResponses(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	r := gin.New()
+	mountUIRoutes(r, os.DirFS("testdata/ui"))
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/ui/", nil)
+	req.Header.Set("Accept-Encoding", "gzip")
+	r.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "gzip", w.Header().Get("Content-Encoding"))
+	assert.Contains(t, w.Header().Get("Vary"), "Accept-Encoding")
+	assert.Contains(t, decodeGzipBody(t, w.Body.Bytes()), "Cassem Admin Test")
+
+	w = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodGet, "/ui/assets/app.js", nil)
+	req.Header.Set("Accept-Encoding", "gzip")
+	r.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "gzip", w.Header().Get("Content-Encoding"))
+	assert.Contains(t, decodeGzipBody(t, w.Body.Bytes()), "CASSEM_TEST_ASSET")
+
+	w = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodGet, "/ui/apps/demo/envs/prod/elements/db.url", nil)
+	req.Header.Set("Accept-Encoding", "gzip")
+	r.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "gzip", w.Header().Get("Content-Encoding"))
+	assert.Contains(t, decodeGzipBody(t, w.Body.Bytes()), "Cassem Admin Test")
 }
 
 func TestMountUIRoutesDoesNotCaptureAPI(t *testing.T) {
@@ -71,7 +121,7 @@ func TestUIFileHandlerPreservesRequestPathAfterNext(t *testing.T) {
 		name string
 		path string
 	}{
-		{name: "fallback spa route", path: "/ui/config/apps/demo"},
+		{name: "fallback spa route", path: "/ui/apps/demo/envs/prod/elements/db.url"},
 		{name: "asset route", path: "/ui/assets/app.js"},
 	}
 

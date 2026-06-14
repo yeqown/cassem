@@ -86,12 +86,15 @@ var defMapping = map[string]objectDef{
 	"POST/api/apps/:appId/envs/:env/elements/:key/publish":   {object: concept.Object_ELEMENT, act: concept.Action_PUBLISH},
 
 	// acl
-	"POST/api/account/add":       {object: concept.Object_USER, act: concept.Action_WRITE},
-	"GET/api/account/disable":    {object: concept.Object_USER, act: concept.Action_WRITE},
-	"GET/api/account/reset":      {object: concept.Object_USER, act: concept.Action_WRITE},
-	"POST/api/account/reset":     {object: concept.Object_USER, act: concept.Action_WRITE},
-	"GET/api/account/acl/assign": {object: concept.Object_ACL, act: concept.Action_WRITE},
-	"GET/api/account/acl/revoke": {object: concept.Object_ACL, act: concept.Action_WRITE},
+	"GET/api/account/users":              {object: concept.Object_USER, act: concept.Action_READ},
+	"GET/api/account/users/:account/acl": {object: concept.Object_ACL, act: concept.Action_READ},
+	"POST/api/account/add":               {object: concept.Object_USER, act: concept.Action_WRITE},
+	"GET/api/account/disable":            {object: concept.Object_USER, act: concept.Action_WRITE},
+	"GET/api/account/reset":              {object: concept.Object_USER, act: concept.Action_WRITE},
+	"POST/api/account/reset":             {object: concept.Object_USER, act: concept.Action_WRITE},
+	"GET/api/account/acl/domains":        {object: concept.Object_ACL, act: concept.Action_READ},
+	"GET/api/account/acl/assign":         {object: concept.Object_ACL, act: concept.Action_WRITE},
+	"GET/api/account/acl/revoke":         {object: concept.Object_ACL, act: concept.Action_WRITE},
 
 	// cluster
 	"GET/api/cluster/agents":                  {object: concept.Object_CLUSTER, act: concept.Action_READ},

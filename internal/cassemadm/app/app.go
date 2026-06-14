@@ -107,11 +107,13 @@ func (d app) initialHTTP(engi *gin.Engine) {
 
 	accounta := auth.Group("/account")
 	{
-		// accounta.GET("/users", d.GetUsers)
+		accounta.GET("/users", d.GetUsers)
+		accounta.GET("/users/:account/acl", d.GetUserACL)
 		accounta.POST("/add", d.AddUser)
 		accounta.GET("/disable", d.DisableUser)
 		accounta.GET("/reset", d.ResetUser)
 		accounta.POST("/reset", d.ResetUser)
+		accounta.GET("/acl/domains", d.GetACLDomainOptions)
 		accounta.GET("/acl/assign", d.AssignRole)
 		accounta.GET("/acl/revoke", d.RevokeRole)
 	}

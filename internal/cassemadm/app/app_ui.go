@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/gin-contrib/gzip"
 	"github.com/gin-gonic/gin"
 
 	cassemadmui "github.com/yeqown/cassem/internal/cassemadm/ui"
@@ -25,7 +26,9 @@ func mountUIRoutes(engi *gin.Engine, assets fs.FS) {
 	engi.GET("/ui", func(c *gin.Context) {
 		c.Redirect(http.StatusMovedPermanently, "/ui/")
 	})
-	engi.GET("/ui/*filepath", uiFileHandler(assets))
+
+	ui := engi.Group("/ui", gzip.Gzip(gzip.DefaultCompression))
+	ui.GET("/*filepath", uiFileHandler(assets))
 }
 
 func uiFileHandler(assets fs.FS) gin.HandlerFunc {
