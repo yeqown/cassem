@@ -38,7 +38,10 @@ describe('app shell routing', () => {
   it('renders login when unauthenticated', () => {
     renderRoute('/login')
 
-    expect(screen.getByRole('heading', { name: /cassem admin/i })).toBeInTheDocument()
+    expect(screen.getByTestId('login-brand')).toHaveStyle({ flexDirection: 'row' })
+    expect(screen.getByRole('img', { name: /cassem logo/i })).toHaveAttribute('src', '/logo.svg')
+    expect(screen.getByRole('heading', { name: /configuration center/i })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: /cassem admin/i })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: /login/i })).toBeInTheDocument()
   })
 
@@ -116,6 +119,10 @@ describe('app shell routing', () => {
 
     expect(screen.getByRole('heading', { name: /dashboard/i })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /apps/i })).toHaveAttribute('href', '/ui/apps')
+    expect(screen.getByRole('img', { name: /cassem logo/i })).toHaveAttribute('src', '/logo.svg')
+    screen.getAllByTestId('sidebar-logo').forEach((logo) => {
+      expect(logo).not.toHaveClass('MuiAvatar-root')
+    })
     expect(screen.getAllByText('CASSEM').length).toBeGreaterThan(0)
     expect(screen.queryByText('Cassem Admin')).not.toBeInTheDocument()
     expect(screen.getAllByText('Super Admin').length).toBeGreaterThan(0)
@@ -184,14 +191,16 @@ describe('app shell routing', () => {
     expect(screen.queryByText('stale')).not.toBeInTheDocument()
   })
 
-  it('renders envs page with app context', () => {
+  it('renders envs page context through breadcrumbs only', () => {
     localStorage.setItem('cassem.session', 'session')
     localStorage.setItem('cassem.user', JSON.stringify({ account: 'superadmin@example.com' }))
 
     renderRoute('/apps/demo/envs')
 
     expect(screen.getByRole('heading', { name: /environments/i })).toBeInTheDocument()
-    expect(screen.getByText(/demo/i)).toBeInTheDocument()
+    const breadcrumbs = screen.getByRole('navigation', { name: /breadcrumb/i })
+    expect(within(breadcrumbs).getByRole('link', { name: /^demo$/i })).toBeInTheDocument()
+    expect(screen.queryByText('App: demo')).not.toBeInTheDocument()
   })
 
   it('keeps the latest environments response when refresh overlaps the initial load', async () => {
@@ -285,7 +294,7 @@ describe('app shell routing', () => {
       await initialDemoLoad.promise
     })
 
-    expect(await screen.findByText('demo')).toBeInTheDocument()
+    expect(await screen.findByRole('cell', { name: 'demo' })).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: /add environment/i }))
     const dialog = await screen.findByRole('dialog')
@@ -305,7 +314,9 @@ describe('app shell routing', () => {
       await otherAppLoad.promise
     })
 
-    expect(await screen.findByText('other')).toBeInTheDocument()
+    await waitFor(() => {
+      expect(screen.getAllByText('other').some((node) => node.closest('td'))).toBe(true)
+    })
 
     await act(async () => {
       createRequest.resolve(createJsonResponse({ errcode: 0, data: null }))
@@ -313,11 +324,11 @@ describe('app shell routing', () => {
     })
 
     expect(demoEnvLoads).toBe(1)
-    expect(screen.getByText('other')).toBeInTheDocument()
+    expect(screen.getAllByText('other').some((node) => node.closest('td'))).toBe(true)
     expect(screen.queryByText('stale-demo')).not.toBeInTheDocument()
   })
 
-  it('renders elements page with app and environment context', async () => {
+  it('renders elements page context through breadcrumbs only', async () => {
     localStorage.setItem('cassem.session', 'session')
     localStorage.setItem('cassem.user', JSON.stringify({ account: 'superadmin@example.com' }))
     vi.stubGlobal(
@@ -335,8 +346,11 @@ describe('app shell routing', () => {
     renderRoute('/apps/demo/envs/prod/elements')
 
     expect(await screen.findByRole('heading', { name: /elements/i })).toBeInTheDocument()
-    expect(screen.getByText(/app: demo/i)).toBeInTheDocument()
-    expect(screen.getByText(/env: prod/i)).toBeInTheDocument()
+    const breadcrumbs = screen.getByRole('navigation', { name: /breadcrumb/i })
+    expect(within(breadcrumbs).getByRole('link', { name: /^demo$/i })).toBeInTheDocument()
+    expect(within(breadcrumbs).getByRole('link', { name: /^prod$/i })).toBeInTheDocument()
+    expect(screen.queryByText(/app: demo/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/env: prod/i)).not.toBeInTheDocument()
   })
 
   it('renders element detail page with content, versions, and operations tabs', async () => {
@@ -565,6 +579,287 @@ describe('app shell routing', () => {
     expect(screen.getByText('Developer')).toBeInTheDocument()
   })
 
+  it('renders user status with Material chips and blocks disabling disabled users', async () => {
+    localStorage.setItem('cassem.session', 'session')
+    localStorage.setItem('cassem.user', JSON.stringify({ account: 'superadmin@example.com' }))
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((input: RequestInfo | URL) => {
+        const url = String(input)
+        if (url.includes('/api/account/users?limit=100')) {
+          return Promise.resolve(createJsonResponse({
+            errcode: 0,
+            data: {
+              users: [
+                { account: 'alice@example.com', nickname: 'Alice', status: 0 },
+                { account: 'bob@example.com', nickname: 'Bob', status: 1 },
+              ],
+            },
+          }))
+        }
+        if (url.includes('/api/account/acl/domains')) {
+          return Promise.resolve(createJsonResponse({ errcode: 0, data: { domains: [] } }))
+        }
+        return Promise.resolve(createJsonResponse({ errcode: 0, data: {} }))
+      }),
+    )
+
+    renderRoute('/users')
+
+    expect(await screen.findByRole('heading', { name: /users/i })).toBeInTheDocument()
+    const enabledRow = screen.getByText('alice@example.com').closest('tr')
+    const disabledRow = screen.getByText('bob@example.com').closest('tr')
+
+    expect(enabledRow).not.toBeNull()
+    expect(disabledRow).not.toBeNull()
+    expect(within(enabledRow as HTMLElement).getByText('Enabled')).toBeInTheDocument()
+    expect(within(disabledRow as HTMLElement).getByText('Disabled')).toBeInTheDocument()
+    expect(within(enabledRow as HTMLElement).getByRole('button', { name: /disable/i })).toBeEnabled()
+    expect(within(disabledRow as HTMLElement).getByRole('button', { name: /disable/i })).toBeDisabled()
+  })
+
+  it('uses a Material confirmation dialog before disabling a user', async () => {
+    localStorage.setItem('cassem.session', 'session')
+    localStorage.setItem('cassem.user', JSON.stringify({ account: 'superadmin@example.com' }))
+
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false)
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes('/api/account/users?limit=100')) {
+        return Promise.resolve(createJsonResponse({
+          errcode: 0,
+          data: { users: [{ account: 'alice@example.com', nickname: 'Alice', status: 0 }] },
+        }))
+      }
+      if (url.includes('/api/account/disable?account=alice%40example.com')) {
+        return Promise.resolve(createJsonResponse({ errcode: 0, data: null }))
+      }
+      if (url.includes('/api/account/acl/domains')) {
+        return Promise.resolve(createJsonResponse({ errcode: 0, data: { domains: [] } }))
+      }
+      return Promise.resolve(createJsonResponse({ errcode: 0, data: {} }))
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const user = userEvent.setup()
+    renderRoute('/users')
+
+    const row = (await screen.findByText('alice@example.com')).closest('tr')
+    expect(row).not.toBeNull()
+    await user.click(within(row as HTMLElement).getByRole('button', { name: /disable/i }))
+
+    expect(confirmSpy).not.toHaveBeenCalled()
+    const dialog = await screen.findByRole('dialog', { name: /disable user/i })
+    expect(within(dialog).getByText(/alice@example.com/i)).toBeInTheDocument()
+
+    await user.click(within(dialog).getByRole('button', { name: /^disable$/i }))
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/account/disable?account=alice%40example.com', expect.any(Object))
+    })
+  })
+
+  it('uses a Material confirmation dialog before deleting an app', async () => {
+    localStorage.setItem('cassem.session', 'session')
+    localStorage.setItem('cassem.user', JSON.stringify({ account: 'superadmin@example.com' }))
+
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false)
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url.includes('/api/apps?limit=100')) {
+        return Promise.resolve(createJsonResponse({ errcode: 0, data: { apps: [{ id: 'demo', description: 'Demo app' }] } }))
+      }
+      if (url.includes('/api/apps/demo') && init?.method === 'DELETE') {
+        return Promise.resolve(createJsonResponse({ errcode: 0, data: null }))
+      }
+      return Promise.resolve(createJsonResponse({ errcode: 0, data: {} }))
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const user = userEvent.setup()
+    renderRoute('/apps')
+
+    await screen.findByText('demo')
+    await user.click(screen.getByRole('button', { name: /^delete$/i }))
+
+    expect(confirmSpy).not.toHaveBeenCalled()
+    const dialog = await screen.findByRole('dialog', { name: /delete app/i })
+    expect(within(dialog).getByText(/demo/i)).toBeInTheDocument()
+
+    await user.click(within(dialog).getByRole('button', { name: /^delete$/i }))
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/apps/demo', expect.objectContaining({ method: 'DELETE' }))
+    })
+  })
+
+  it('uses a Material confirmation dialog before deleting an environment', async () => {
+    localStorage.setItem('cassem.session', 'session')
+    localStorage.setItem('cassem.user', JSON.stringify({ account: 'superadmin@example.com' }))
+
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false)
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url.includes('/api/apps/demo/envs?limit=100')) {
+        return Promise.resolve(createJsonResponse({ errcode: 0, data: { envs: ['prod'] } }))
+      }
+      if (url.includes('/api/apps/demo/envs/prod') && init?.method === 'DELETE') {
+        return Promise.resolve(createJsonResponse({ errcode: 0, data: null }))
+      }
+      return Promise.resolve(createJsonResponse({ errcode: 0, data: {} }))
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const user = userEvent.setup()
+    renderRoute('/apps/demo/envs')
+
+    await screen.findByText('prod')
+    await user.click(screen.getByRole('button', { name: /^delete$/i }))
+
+    expect(confirmSpy).not.toHaveBeenCalled()
+    const dialog = await screen.findByRole('dialog', { name: /delete environment/i })
+    expect(within(dialog).getByText(/prod/i)).toBeInTheDocument()
+
+    await user.click(within(dialog).getByRole('button', { name: /^delete$/i }))
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/apps/demo/envs/prod', expect.objectContaining({ method: 'DELETE' }))
+    })
+  })
+
+  it('uses a Material confirmation dialog before deleting an element', async () => {
+    localStorage.setItem('cassem.session', 'session')
+    localStorage.setItem('cassem.user', JSON.stringify({ account: 'superadmin@example.com' }))
+
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false)
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url.includes('/api/apps/demo/envs/prod/elements?limit=100')) {
+        return Promise.resolve(createJsonResponse({
+          errcode: 0,
+          data: { elements: [{ metadata: { key: 'db.url', latestVersion: 1, usingVersion: 1, unpublishedVersion: 0, contentType: 4 } }] },
+        }))
+      }
+      if (url.includes('/api/apps/demo/envs/prod/elements/db.url') && init?.method === 'DELETE') {
+        return Promise.resolve(createJsonResponse({ errcode: 0, data: null }))
+      }
+      return Promise.resolve(createJsonResponse({ errcode: 0, data: {} }))
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const user = userEvent.setup()
+    renderRoute('/apps/demo/envs/prod/elements')
+
+    await screen.findByText('db.url')
+    await user.click(screen.getByRole('button', { name: /^delete$/i }))
+
+    expect(confirmSpy).not.toHaveBeenCalled()
+    const dialog = await screen.findByRole('dialog', { name: /delete element/i })
+    expect(within(dialog).getByText(/db.url/i)).toBeInTheDocument()
+
+    await user.click(within(dialog).getByRole('button', { name: /^delete$/i }))
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/apps/demo/envs/prod/elements/db.url', expect.objectContaining({ method: 'DELETE' }))
+    })
+  })
+
+  it.each([
+    {
+      path: '/apps',
+      current: 'Apps',
+      links: [],
+    },
+    {
+      path: '/apps/demo/envs',
+      current: 'Environments',
+      links: [{ name: 'Apps', href: '/ui/apps' }],
+    },
+    {
+      path: '/apps/demo/envs/prod/elements',
+      current: 'Elements',
+      links: [
+        { name: 'Apps', href: '/ui/apps' },
+        { name: 'demo', href: '/ui/apps/demo/envs' },
+      ],
+    },
+    {
+      path: '/apps/demo/envs/prod/elements/db.url',
+      current: 'Detail',
+      links: [
+        { name: 'Apps', href: '/ui/apps' },
+        { name: 'demo', href: '/ui/apps/demo/envs' },
+        { name: 'prod', href: '/ui/apps/demo/envs/prod/elements' },
+      ],
+    },
+    {
+      path: '/apps/demo/envs/prod/elements/db.url/publish',
+      current: 'Publish',
+      links: [
+        { name: 'Apps', href: '/ui/apps' },
+        { name: 'demo', href: '/ui/apps/demo/envs' },
+        { name: 'prod', href: '/ui/apps/demo/envs/prod/elements' },
+        { name: 'db.url', href: '/ui/apps/demo/envs/prod/elements/db.url' },
+      ],
+    },
+    {
+      path: '/apps/demo/envs/prod/elements/db.url/rollback',
+      current: 'Rollback',
+      links: [
+        { name: 'Apps', href: '/ui/apps' },
+        { name: 'demo', href: '/ui/apps/demo/envs' },
+        { name: 'prod', href: '/ui/apps/demo/envs/prod/elements' },
+        { name: 'db.url', href: '/ui/apps/demo/envs/prod/elements/db.url' },
+      ],
+    },
+  ])('renders app breadcrumbs on $path', async ({ path, current, links }) => {
+    localStorage.setItem('cassem.session', 'session')
+    localStorage.setItem('cassem.user', JSON.stringify({ account: 'superadmin@example.com' }))
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((input: RequestInfo | URL) => {
+        const url = String(input)
+        if (url.includes('/api/apps?limit=100')) {
+          return Promise.resolve(createJsonResponse({ errcode: 0, data: { apps: [{ id: 'demo', description: 'Demo app' }] } }))
+        }
+        if (url.includes('/api/apps/demo/envs?limit=100')) {
+          return Promise.resolve(createJsonResponse({ errcode: 0, data: { envs: ['prod'] } }))
+        }
+        if (url.includes('/api/apps/demo/envs/prod/elements/db.url/versions?limit=100')) {
+          return Promise.resolve(createJsonResponse({ errcode: 0, data: { elements: [] } }))
+        }
+        if (url.includes('/api/apps/demo/envs/prod/elements/db.url/operations?limit=100')) {
+          return Promise.resolve(createJsonResponse({ errcode: 0, data: { operations: [] } }))
+        }
+        if (url.includes('/api/apps/demo/envs/prod/elements/db.url')) {
+          return Promise.resolve(createJsonResponse({
+            errcode: 0,
+            data: {
+              metadata: { key: 'db.url', latestVersion: 1, usingVersion: 1, unpublishedVersion: 0, contentType: 4 },
+              raw: btoa('postgres://demo'),
+              version: 1,
+              published: true,
+            },
+          }))
+        }
+        if (url.includes('/api/apps/demo/envs/prod/elements?limit=100')) {
+          return Promise.resolve(createJsonResponse({ errcode: 0, data: { elements: [] } }))
+        }
+        return Promise.resolve(createJsonResponse({ errcode: 0, data: {} }))
+      }),
+    )
+
+    renderRoute(path)
+
+    const breadcrumbs = await screen.findByRole('navigation', { name: /breadcrumb/i })
+    for (const link of links) {
+      expect(within(breadcrumbs).getByRole('link', { name: link.name })).toHaveAttribute('href', link.href)
+    }
+    expect(within(breadcrumbs).getByText(current)).toBeInTheDocument()
+  })
+
   it('renders agents page with refresh control', async () => {
     localStorage.setItem('cassem.session', 'session')
     localStorage.setItem('cassem.user', JSON.stringify({ account: 'superadmin@example.com' }))
@@ -747,8 +1042,6 @@ describe('app shell routing', () => {
     localStorage.setItem('cassem.session', 'session')
     localStorage.setItem('cassem.user', JSON.stringify({ account: 'superadmin@example.com' }))
 
-    const confirmMock = vi.fn().mockReturnValue(true)
-    vi.stubGlobal('confirm', confirmMock)
     const fetchMock = vi.fn((input: RequestInfo | URL) => {
       const url = String(input)
       if (url.includes('/api/account/users?limit=100')) {
@@ -768,11 +1061,16 @@ describe('app shell routing', () => {
 
     await screen.findByText('alice@example.com')
     await user.click(screen.getByRole('button', { name: /^disable$/i }))
+    const disableDialog = await screen.findByRole('dialog', { name: /disable user/i })
+    await user.click(within(disableDialog).getByRole('button', { name: /^disable$/i }))
 
-    expect(fetchMock).toHaveBeenCalledWith('/api/account/disable?account=alice%40example.com', expect.any(Object))
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/account/disable?account=alice%40example.com', expect.any(Object))
+    })
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: /disable user/i })).not.toBeInTheDocument())
 
     await user.click(screen.getByRole('button', { name: /reset password/i }))
-    const dialog = await screen.findByRole('dialog')
+    const dialog = await screen.findByRole('dialog', { name: /reset password/i })
     await user.type(within(dialog).getByLabelText(/password/i), 'new-secret')
     await user.click(within(dialog).getByRole('button', { name: /^reset$/i }))
 

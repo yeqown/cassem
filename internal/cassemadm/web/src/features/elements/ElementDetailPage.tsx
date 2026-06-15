@@ -29,6 +29,7 @@ import {
   Typography,
 } from '@mui/material'
 import { Link as RouterLink, useParams } from 'react-router-dom'
+import { AppBreadcrumbs } from '../../components/AppBreadcrumbs'
 import { EmptyState, ErrorState, LoadingState } from '../../components/StateView'
 import { contentTypes, type DiffResponse, type Element, type ElementOperation, type ElementOperationsResponse, type ElementsResponse } from '../../domain/types'
 import { ApiError, apiRequest, buildQuery, jsonBody } from '../../lib/api'
@@ -274,6 +275,14 @@ export function ElementDetailPage() {
 
   return (
     <Stack spacing={3}>
+      <AppBreadcrumbs items={[
+        { label: 'Apps', to: '/apps' },
+        { label: appId || 'unknown', to: `/apps/${encodeURIComponent(appId)}/envs` },
+        { label: env || 'unknown', to: `/apps/${encodeURIComponent(appId)}/envs/${encodeURIComponent(env)}/elements` },
+        { label: key || 'unknown', to: `/apps/${encodeURIComponent(appId)}/envs/${encodeURIComponent(env)}/elements/${encodeURIComponent(key)}` },
+        { label: 'Detail' },
+      ]} />
+
       <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 3 }}>
         <Stack direction={{ xs: 'column', lg: 'row' }} spacing={2} alignItems={{ xs: 'stretch', lg: 'center' }}>
           <Box sx={{ flex: 1, minWidth: 0 }}>

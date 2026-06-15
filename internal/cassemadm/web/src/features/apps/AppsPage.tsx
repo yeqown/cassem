@@ -19,6 +19,8 @@ import {
   Typography,
 } from '@mui/material'
 import { Link as RouterLink } from 'react-router-dom'
+import { AppBreadcrumbs } from '../../components/AppBreadcrumbs'
+import { DangerConfirmDialog } from '../../components/DangerConfirmDialog'
 import { EmptyState, ErrorState, LoadingState } from '../../components/StateView'
 import type { AppMetadata, AppsResponse } from '../../domain/types'
 import { ApiError, apiRequest, buildQuery, jsonBody } from '../../lib/api'
@@ -37,6 +39,7 @@ export function AppsPage() {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [createOpen, setCreateOpen] = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState<AppMetadata | null>(null)
   const [appId, setAppId] = useState('')
   const [description, setDescription] = useState('')
   const requestSeq = useRef(0)
@@ -78,6 +81,11 @@ export function AppsPage() {
     setDescription('')
   }
 
+  function closeDeleteDialog() {
+    if (submitting) return
+    setDeleteTarget(null)
+  }
+
   async function handleCreate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
 
@@ -104,14 +112,16 @@ export function AppsPage() {
     }
   }
 
-  async function handleDelete(targetAppId: string) {
-    if (!window.confirm(`Delete app ${targetAppId}?`)) return
+  async function handleDelete() {
+    const targetAppId = deleteTarget?.id
+    if (!targetAppId) return
 
     setSubmitting(true)
     setError('')
 
     try {
       await apiRequest<void>(`/api/apps/${encodeURIComponent(targetAppId)}`, { method: 'DELETE' })
+      setDeleteTarget(null)
       await loadApps()
     } catch (err) {
       setError(getErrorMessage(err, 'failed to delete app'))
@@ -122,6 +132,8 @@ export function AppsPage() {
 
   return (
     <Stack spacing={3}>
+      <AppBreadcrumbs items={[{ label: 'Apps' }]} />
+
       <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} justifyContent="space-between" alignItems={{ md: 'center' }}>
         <Box>
           <Typography variant="h4" component="h1">
@@ -135,6 +147,16 @@ export function AppsPage() {
       </Stack>
 
       {error && <ErrorState message={error} />}
+
+      <DangerConfirmDialog
+        open={Boolean(deleteTarget)}
+        title="Delete app"
+        description={<>This will delete app <strong>{deleteTarget?.id}</strong>.</>}
+        confirmLabel="Delete"
+        loading={submitting}
+        onClose={closeDeleteDialog}
+        onConfirm={() => void handleDelete()}
+      />
 
       <Dialog open={createOpen} onClose={closeCreateDialog} fullWidth maxWidth="sm">
         <Box component="form" onSubmit={(event) => void handleCreate(event)}>
@@ -194,7 +216,7 @@ export function AppsPage() {
                       <Button component={RouterLink} to={`/apps/${encodeURIComponent(app.id)}/envs`} size="small">
                         Envs
                       </Button>
-                      <Button color="error" size="small" onClick={() => void handleDelete(app.id)} disabled={submitting}>
+                      <Button color="error" size="small" onClick={() => setDeleteTarget(app)} disabled={submitting}>
                         Delete
                       </Button>
                     </Stack>

@@ -8,6 +8,6 @@ export default defineConfig({
   test: {
     environment: 'node',
     globals: true,
-    include: ['vite.config.test.ts'],
+    include: ['vite.config.test.ts', 'pwa.test.ts'],
   },
 })

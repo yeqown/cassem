@@ -22,6 +22,8 @@ import {
   Typography,
 } from '@mui/material'
 import { Link as RouterLink, useParams } from 'react-router-dom'
+import { AppBreadcrumbs } from '../../components/AppBreadcrumbs'
+import { DangerConfirmDialog } from '../../components/DangerConfirmDialog'
 import { EmptyState, ErrorState, LoadingState } from '../../components/StateView'
 import type { EnvsResponse } from '../../domain/types'
 import { ApiError, apiRequest, buildQuery } from '../../lib/api'
@@ -41,6 +43,7 @@ export function EnvsPage() {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [createOpen, setCreateOpen] = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState('')
   const [envName, setEnvName] = useState('')
   const requestSeq = useRef(0)
   const mountedRef = useRef(false)
@@ -99,6 +102,11 @@ export function EnvsPage() {
     setEnvName('')
   }
 
+  function closeDeleteDialog() {
+    if (submitting) return
+    setDeleteTarget('')
+  }
+
   async function handleCreate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
 
@@ -128,9 +136,10 @@ export function EnvsPage() {
     }
   }
 
-  async function handleDelete(targetEnvName: string) {
+  async function handleDelete() {
     const startedAppId = appId
-    if (!startedAppId || !window.confirm(`Delete environment ${targetEnvName}?`)) return
+    const targetEnvName = deleteTarget
+    if (!startedAppId || !targetEnvName) return
 
     setSubmitting(true)
     setError('')
@@ -142,6 +151,7 @@ export function EnvsPage() {
 
       if (!canApplyMutationResult(startedAppId)) return
 
+      setDeleteTarget('')
       await loadEnvs()
     } catch (err) {
       if (canApplyMutationResult(startedAppId)) {
@@ -154,6 +164,8 @@ export function EnvsPage() {
 
   return (
     <Stack spacing={3}>
+      <AppBreadcrumbs items={[{ label: 'Apps', to: '/apps' }, { label: appId || 'unknown', to: `/apps/${encodeURIComponent(appId)}/envs` }, { label: 'Environments' }]} />
+
       <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} justifyContent="space-between" alignItems={{ md: 'center' }}>
         <Box>
           <Stack direction="row" spacing={1} alignItems="center">
@@ -162,7 +174,6 @@ export function EnvsPage() {
               Environments
             </Typography>
           </Stack>
-          <Typography color="text.secondary">App: {appId || 'unknown'}</Typography>
         </Box>
         <Button variant="contained" startIcon={<AddCircleOutlineIcon />} onClick={() => setCreateOpen(true)} disabled={submitting || !appId}>
           Add environment
@@ -170,6 +181,16 @@ export function EnvsPage() {
       </Stack>
 
       {error && <ErrorState message={error} />}
+
+      <DangerConfirmDialog
+        open={Boolean(deleteTarget)}
+        title="Delete environment"
+        description={<>This will delete environment <strong>{deleteTarget}</strong> from app <strong>{appId}</strong>.</>}
+        confirmLabel="Delete"
+        loading={submitting}
+        onClose={closeDeleteDialog}
+        onConfirm={() => void handleDelete()}
+      />
 
       <Dialog open={createOpen} onClose={closeCreateDialog} fullWidth maxWidth="sm">
         <Box component="form" onSubmit={(event) => void handleCreate(event)}>
@@ -208,7 +229,7 @@ export function EnvsPage() {
                       <Button component={RouterLink} to={`/apps/${encodeURIComponent(appId)}/envs/${encodeURIComponent(env)}/elements`} size="small" startIcon={<LayersIcon />}>
                         Elements
                       </Button>
-                      <Button color="error" size="small" startIcon={<DeleteOutlineIcon />} onClick={() => void handleDelete(env)} disabled={submitting}>
+                      <Button color="error" size="small" startIcon={<DeleteOutlineIcon />} onClick={() => setDeleteTarget(env)} disabled={submitting}>
                         Delete
                       </Button>
                     </Stack>

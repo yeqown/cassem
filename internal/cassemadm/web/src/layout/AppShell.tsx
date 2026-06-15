@@ -14,7 +14,6 @@ import LogoutIcon from '@mui/icons-material/Logout'
 import MenuIcon from '@mui/icons-material/Menu'
 import {
   AppBar,
-  Avatar,
   Box,
   Collapse,
   Divider,
@@ -112,7 +111,7 @@ export function AppShell() {
       <Box>
         <Toolbar sx={{ px: collapsed ? 1.5 : 2, justifyContent: collapsed ? 'center' : 'flex-start' }}>
           <Stack direction="row" spacing={collapsed ? 0 : 1.5} alignItems="center" sx={{ overflow: 'hidden' }}>
-            <Avatar variant="rounded" sx={{ width: 34, height: 34, bgcolor: 'primary.main', fontWeight: 700 }}>C</Avatar>
+            <Box component="img" data-testid="sidebar-logo" src="/logo.svg" alt="Cassem logo" sx={{ width: 34, height: 34, flexShrink: 0 }} />
             {!collapsed && <Typography variant="h6" sx={{ fontWeight: 700, letterSpacing: 1 }}>CASSEM</Typography>}
           </Stack>
         </Toolbar>

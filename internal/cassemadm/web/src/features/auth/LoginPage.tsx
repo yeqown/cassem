@@ -27,15 +27,18 @@ export function LoginPage() {
     <Box sx={{ minHeight: '100vh', display: 'grid', placeItems: 'center', bgcolor: 'background.default', px: 2 }}>
       <Paper component="form" onSubmit={submit} sx={{ width: '100%', maxWidth: 380, p: { xs: 3, sm: 4 } }} elevation={3}>
         <Stack spacing={2}>
-          <Box>
-            <Typography variant="overline" color="primary">
-              CASSEM
-            </Typography>
-            <Typography variant="h4" component="h1">
-              Cassem Admin
-            </Typography>
-            <Typography color="text.secondary">Sign in with a cassemadm account.</Typography>
-          </Box>
+          <Stack data-testid="login-brand" direction="row" spacing={2} alignItems="center">
+            <Box component="img" src="/logo.svg" alt="Cassem logo" sx={{ width: 72, height: 72, flexShrink: 0 }} />
+            <Box>
+              <Typography variant="overline" color="primary">
+                CASSEM
+              </Typography>
+              <Typography variant="h4" component="h1">
+                Configuration Center
+              </Typography>
+              <Typography color="text.secondary">Sign in with a cassemadm account.</Typography>
+            </Box>
+          </Stack>
           {error && <Alert severity="error">{error}</Alert>}
           <TextField
             label="Account"

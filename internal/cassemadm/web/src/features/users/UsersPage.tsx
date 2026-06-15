@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings'
+import BlockIcon from '@mui/icons-material/Block'
+import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
 import KeyIcon from '@mui/icons-material/Key'
 import LockResetIcon from '@mui/icons-material/LockReset'
@@ -11,6 +13,7 @@ import {
   Alert,
   Box,
   Button,
+  Chip,
   Dialog,
   DialogActions,
   DialogContent,
@@ -31,6 +34,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material'
+import { DangerConfirmDialog } from '../../components/DangerConfirmDialog'
 import { EmptyState, ErrorState, LoadingState } from '../../components/StateView'
 import type { DomainOptionsResponse, RoleValue, User, UserAccessBinding, UserAccessResponse, UsersResponse } from '../../domain/types'
 import { ApiError, apiRequest, buildQuery, jsonBody } from '../../lib/api'
@@ -53,8 +57,16 @@ function getErrorMessage(error: unknown, fallback: string) {
   return error instanceof ApiError ? error.message : fallback
 }
 
-function getStatusLabel(status?: number) {
-  return status === 1 ? 'disabled' : 'normal'
+function isUserDisabled(status?: number) {
+  return status === 1
+}
+
+function UserStatusChip({ status }: { status?: number }) {
+  return isUserDisabled(status) ? (
+    <Chip size="small" color="error" variant="outlined" icon={<BlockIcon />} label="Disabled" />
+  ) : (
+    <Chip size="small" color="success" variant="outlined" icon={<CheckCircleIcon />} label="Enabled" />
+  )
 }
 
 function roleLabel(role: string) {
@@ -87,6 +99,7 @@ export function UsersPage() {
   const [feedback, setFeedback] = useState<Feedback | null>(null)
   const [createOpen, setCreateOpen] = useState(false)
   const [createForm, setCreateForm] = useState<CreateFormState>({ account: '', nickname: '', password: '' })
+  const [disableTarget, setDisableTarget] = useState<User | null>(null)
   const [resetTarget, setResetTarget] = useState<User | null>(null)
   const [resetPassword, setResetPassword] = useState('')
   const [accessTarget, setAccessTarget] = useState<User | null>(null)
@@ -163,6 +176,11 @@ export function UsersPage() {
     setCreateForm({ account: '', nickname: '', password: '' })
   }
 
+  function closeDisableDialog() {
+    if (submitting) return
+    setDisableTarget(null)
+  }
+
   function closeResetDialog() {
     if (submitting) return
     setResetTarget(null)
@@ -204,8 +222,9 @@ export function UsersPage() {
     }
   }
 
-  async function handleDisableUser(account: string) {
-    if (!window.confirm(`Disable user ${account}?`)) return
+  async function handleDisableUser() {
+    const account = disableTarget?.account
+    if (!account) return
 
     setSubmitting(true)
     setFeedback(null)
@@ -213,6 +232,7 @@ export function UsersPage() {
 
     try {
       await apiRequest<void>(`/api/account/disable${buildQuery({ account })}`)
+      setDisableTarget(null)
       setFeedback({ severity: 'success', message: 'User disabled successfully.' })
       await loadUsers()
     } catch (err) {
@@ -327,6 +347,16 @@ export function UsersPage() {
 
       {feedback && <Alert severity={feedback.severity}>{feedback.message}</Alert>}
       {error && <ErrorState message={error} />}
+
+      <DangerConfirmDialog
+        open={Boolean(disableTarget)}
+        title="Disable user"
+        description={<>This will disable user <strong>{disableTarget?.account}</strong>.</>}
+        confirmLabel="Disable"
+        loading={submitting}
+        onClose={closeDisableDialog}
+        onConfirm={() => void handleDisableUser()}
+      />
 
       <Dialog open={createOpen} onClose={closeCreateDialog} fullWidth maxWidth="sm">
         <Box component="form" onSubmit={(event) => void handleAddUser(event)}>
@@ -517,28 +547,31 @@ export function UsersPage() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {users.map((user) => (
-                <TableRow key={user.account} hover>
-                  <TableCell>{user.nickname || '-'}</TableCell>
-                  <TableCell>{user.account}</TableCell>
-                  <TableCell>{getStatusLabel(user.status)}</TableCell>
-                  <TableCell>{user.roles?.length ? user.roles.map(roleLabel).join(', ') : '-'}</TableCell>
-                  <TableCell>{user.bindingCount ?? user.accessSummary?.length ?? 0}</TableCell>
-                  <TableCell align="right">
-                    <Stack direction="row" spacing={1} justifyContent="flex-end">
-                      <Button size="small" startIcon={<AdminPanelSettingsIcon />} disabled={submitting} onClick={() => void handleOpenAccess(user)}>
-                        Manage access
-                      </Button>
-                      <Button color="warning" size="small" startIcon={<DeleteOutlineIcon />} disabled={submitting} onClick={() => void handleDisableUser(user.account)}>
-                        Disable
-                      </Button>
-                      <Button size="small" startIcon={<LockResetIcon />} disabled={submitting} onClick={() => setResetTarget(user)}>
-                        Reset password
-                      </Button>
-                    </Stack>
-                  </TableCell>
-                </TableRow>
-              ))}
+              {users.map((user) => {
+                const disabled = isUserDisabled(user.status)
+                return (
+                  <TableRow key={user.account} hover>
+                    <TableCell>{user.nickname || '-'}</TableCell>
+                    <TableCell>{user.account}</TableCell>
+                    <TableCell><UserStatusChip status={user.status} /></TableCell>
+                    <TableCell>{user.roles?.length ? user.roles.map(roleLabel).join(', ') : '-'}</TableCell>
+                    <TableCell>{user.bindingCount ?? user.accessSummary?.length ?? 0}</TableCell>
+                    <TableCell align="right">
+                      <Stack direction="row" spacing={1} justifyContent="flex-end">
+                        <Button size="small" startIcon={<AdminPanelSettingsIcon />} disabled={submitting} onClick={() => void handleOpenAccess(user)}>
+                          Manage access
+                        </Button>
+                        <Button color="warning" size="small" startIcon={<DeleteOutlineIcon />} disabled={submitting || disabled} onClick={() => setDisableTarget(user)}>
+                          Disable
+                        </Button>
+                        <Button size="small" startIcon={<LockResetIcon />} disabled={submitting} onClick={() => setResetTarget(user)}>
+                          Reset password
+                        </Button>
+                      </Stack>
+                    </TableCell>
+                  </TableRow>
+                )
+              })}
             </TableBody>
           </Table>
         </TableContainer>

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Alert, Box, Paper, Stack, TextField, Typography } from '@mui/material'
 import { useNavigate, useParams } from 'react-router-dom'
+import { AppBreadcrumbs } from '../../components/AppBreadcrumbs'
 import { LoadingState } from '../../components/StateView'
 import { WizardLayout } from '../../components/WizardLayout'
 import type { DiffResponse } from '../../domain/types'
@@ -181,17 +182,25 @@ function RollbackWizardFlow({ appId, env, elementKey }: RollbackWizardFlowProps)
   const backDisabled = activeStep === 0 || activeStep === 3 || submitting || diffLoading
 
   return (
-    <WizardLayout
-      title="Rollback element"
-      steps={steps}
-      activeStep={activeStep}
-      onBack={handleBack}
-      onNext={() => void handleNext()}
-      nextLabel={nextLabel}
-      backDisabled={backDisabled}
-      nextDisabled={nextDisabled}
-    >
-      <Stack spacing={3}>
+    <Stack spacing={3}>
+      <AppBreadcrumbs items={[
+        { label: 'Apps', to: '/apps' },
+        { label: appId || 'unknown', to: `/apps/${encodeURIComponent(appId)}/envs` },
+        { label: env || 'unknown', to: `/apps/${encodeURIComponent(appId)}/envs/${encodeURIComponent(env)}/elements` },
+        { label: elementKey || 'unknown', to: detailPath },
+        { label: 'Rollback' },
+      ]} />
+      <WizardLayout
+        title="Rollback element"
+        steps={steps}
+        activeStep={activeStep}
+        onBack={handleBack}
+        onNext={() => void handleNext()}
+        nextLabel={nextLabel}
+        backDisabled={backDisabled}
+        nextDisabled={nextDisabled}
+      >
+        <Stack spacing={3}>
         {error && <Alert severity="error">{error}</Alert>}
 
         {activeStep === 0 && (
@@ -304,8 +313,9 @@ function RollbackWizardFlow({ appId, env, elementKey }: RollbackWizardFlowProps)
             </Typography>
           </Stack>
         )}
-      </Stack>
-    </WizardLayout>
+        </Stack>
+      </WizardLayout>
+    </Stack>
   )
 }
 

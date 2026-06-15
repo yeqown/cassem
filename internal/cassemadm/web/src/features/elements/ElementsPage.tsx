@@ -24,6 +24,8 @@ import {
   Typography,
 } from '@mui/material'
 import { Link as RouterLink, useParams } from 'react-router-dom'
+import { AppBreadcrumbs } from '../../components/AppBreadcrumbs'
+import { DangerConfirmDialog } from '../../components/DangerConfirmDialog'
 import { EmptyState, ErrorState, LoadingState } from '../../components/StateView'
 import { contentTypes, type Element, type ElementsResponse } from '../../domain/types'
 import { ApiError, apiRequest, buildQuery, jsonBody } from '../../lib/api'
@@ -52,6 +54,7 @@ export function ElementsPage() {
   const [filterInput, setFilterInput] = useState('')
   const [filterKey, setFilterKey] = useState('')
   const [createOpen, setCreateOpen] = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState('')
   const [createKey, setCreateKey] = useState('')
   const [createRaw, setCreateRaw] = useState('')
   const [createContentType, setCreateContentType] = useState<number>(contentTypes[0].value)
@@ -130,6 +133,11 @@ export function ElementsPage() {
     setCreateContentType(contentTypes[0].value)
   }
 
+  function closeDeleteDialog() {
+    if (submitting) return
+    setDeleteTarget('')
+  }
+
   async function handleCreate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
 
@@ -164,10 +172,11 @@ export function ElementsPage() {
     }
   }
 
-  async function handleDelete(targetKey: string) {
+  async function handleDelete() {
     const startedAppId = appId
     const startedEnv = env
-    if (!startedAppId || !startedEnv || !window.confirm(`Delete element ${targetKey}?`)) return
+    const targetKey = deleteTarget
+    if (!startedAppId || !startedEnv || !targetKey) return
 
     setSubmitting(true)
     setError('')
@@ -180,6 +189,7 @@ export function ElementsPage() {
 
       if (!canApplyMutationResult(startedAppId, startedEnv)) return
 
+      setDeleteTarget('')
       setLoading(true)
       await loadElements(filterKey)
     } catch (err) {
@@ -193,6 +203,13 @@ export function ElementsPage() {
 
   return (
     <Stack spacing={3}>
+      <AppBreadcrumbs items={[
+        { label: 'Apps', to: '/apps' },
+        { label: appId || 'unknown', to: `/apps/${encodeURIComponent(appId)}/envs` },
+        { label: env || 'unknown', to: `/apps/${encodeURIComponent(appId)}/envs/${encodeURIComponent(env)}/elements` },
+        { label: 'Elements' },
+      ]} />
+
       <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" spacing={2} alignItems={{ md: 'center' }}>
         <Box>
           <Stack direction="row" spacing={1} alignItems="center">
@@ -201,7 +218,6 @@ export function ElementsPage() {
               Elements
             </Typography>
           </Stack>
-          <Typography color="text.secondary">App: {appId || 'unknown'} / Env: {env || 'unknown'}</Typography>
         </Box>
         <Button variant="contained" startIcon={<AddCircleOutlineIcon />} onClick={() => setCreateOpen(true)} disabled={!appId || !env || submitting}>
           Add element
@@ -209,6 +225,16 @@ export function ElementsPage() {
       </Stack>
 
       {error && <ErrorState message={error} />}
+
+      <DangerConfirmDialog
+        open={Boolean(deleteTarget)}
+        title="Delete element"
+        description={<>This will delete element <strong>{deleteTarget}</strong> from <strong>{appId}/{env}</strong>.</>}
+        confirmLabel="Delete"
+        loading={submitting}
+        onClose={closeDeleteDialog}
+        onConfirm={() => void handleDelete()}
+      />
 
       <Paper component="form" onSubmit={(event) => void handleFilterSubmit(event)} sx={{ p: 2.5 }}>
         <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems={{ md: 'center' }}>
@@ -288,7 +314,7 @@ export function ElementsPage() {
                         <Button component={RouterLink} to={`/apps/${encodeURIComponent(appId)}/envs/${encodeURIComponent(env)}/elements/${encodeURIComponent(metadata.key)}`} size="small" startIcon={<OpenInNewIcon />}>
                           Detail
                         </Button>
-                        <Button color="error" size="small" startIcon={<DeleteOutlineIcon />} onClick={() => void handleDelete(metadata.key)} disabled={submitting}>
+                        <Button color="error" size="small" startIcon={<DeleteOutlineIcon />} onClick={() => setDeleteTarget(metadata.key)} disabled={submitting}>
                           Delete
                         </Button>
                       </Stack>

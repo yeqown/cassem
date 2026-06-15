@@ -12,6 +12,7 @@ import {
   Typography,
 } from '@mui/material'
 import { useNavigate, useParams } from 'react-router-dom'
+import { AppBreadcrumbs } from '../../components/AppBreadcrumbs'
 import { WizardLayout } from '../../components/WizardLayout'
 import { ApiError, apiRequest, jsonBody } from '../../lib/api'
 
@@ -162,17 +163,25 @@ function PublishWizardFlow({ appId, env, elementKey }: PublishWizardFlowProps) {
   const backDisabled = activeStep === 0 || activeStep === 4 || submitting
 
   return (
-    <WizardLayout
-      title="Publish element"
-      steps={steps}
-      activeStep={activeStep}
-      onBack={handleBack}
-      onNext={() => void handleNext()}
-      nextLabel={nextLabel}
-      backDisabled={backDisabled}
-      nextDisabled={nextDisabled}
-    >
-      <Stack spacing={3}>
+    <Stack spacing={3}>
+      <AppBreadcrumbs items={[
+        { label: 'Apps', to: '/apps' },
+        { label: appId || 'unknown', to: `/apps/${encodeURIComponent(appId)}/envs` },
+        { label: env || 'unknown', to: `/apps/${encodeURIComponent(appId)}/envs/${encodeURIComponent(env)}/elements` },
+        { label: elementKey || 'unknown', to: detailPath },
+        { label: 'Publish' },
+      ]} />
+      <WizardLayout
+        title="Publish element"
+        steps={steps}
+        activeStep={activeStep}
+        onBack={handleBack}
+        onNext={() => void handleNext()}
+        nextLabel={nextLabel}
+        backDisabled={backDisabled}
+        nextDisabled={nextDisabled}
+      >
+        <Stack spacing={3}>
         {error && <Alert severity="error">{error}</Alert>}
 
         {activeStep === 0 && (
@@ -358,8 +367,9 @@ function PublishWizardFlow({ appId, env, elementKey }: PublishWizardFlowProps) {
             </Typography>
           </Stack>
         )}
-      </Stack>
-    </WizardLayout>
+        </Stack>
+      </WizardLayout>
+    </Stack>
   )
 }
 
