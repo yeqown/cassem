@@ -24,8 +24,37 @@ export function LoginPage() {
   }
 
   return (
-    <Box sx={{ minHeight: '100vh', display: 'grid', placeItems: 'center', bgcolor: 'background.default', px: 2 }}>
-      <Paper component="form" onSubmit={submit} sx={{ width: '100%', maxWidth: 380, p: { xs: 3, sm: 4 } }} elevation={3}>
+    <Box
+      data-testid="login-background"
+      style={{ backgroundImage: 'url(/login-topology.svg)' }}
+      sx={{
+        minHeight: '100vh',
+        display: 'grid',
+        placeItems: 'center',
+        bgcolor: '#eef7f5',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
+        backgroundSize: 'cover',
+        px: 2,
+      }}
+    >
+      <Paper
+        data-testid="login-card"
+        data-visual="glass"
+        component="form"
+        onSubmit={submit}
+        sx={{
+          width: '100%',
+          maxWidth: 380,
+          p: { xs: 3, sm: 4 },
+          bgcolor: 'rgba(255,255,255,0.84)',
+          backdropFilter: 'blur(18px)',
+          border: 1,
+          borderColor: 'rgba(255,255,255,0.72)',
+          boxShadow: '0 24px 70px rgba(71, 98, 105, 0.22)',
+        }}
+        elevation={0}
+      >
         <Stack spacing={2}>
           <Stack data-testid="login-brand" direction="row" spacing={2} alignItems="center">
             <Box component="img" src="/logo.svg" alt="Cassem logo" sx={{ width: 72, height: 72, flexShrink: 0 }} />
@@ -47,7 +76,6 @@ export function LoginPage() {
             onChange={(event) => setAccount(event.target.value)}
             required
             autoComplete="username"
-            helperText="Use your cassemadm account email, for example superadmin@example.com."
           />
           <TextField
             label="Password"
@@ -56,7 +84,6 @@ export function LoginPage() {
             onChange={(event) => setPassword(event.target.value)}
             required
             autoComplete="current-password"
-            helperText="Enter the password currently assigned to this account."
           />
           <Button type="submit" variant="contained" size="large">
             Login

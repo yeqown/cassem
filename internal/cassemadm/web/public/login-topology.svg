@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <radialGradient id="nodeA" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#40A798" stop-opacity="0.42"/>
+      <stop offset="100%" stop-color="#40A798" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="nodeB" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#476269" stop-opacity="0.28"/>
+      <stop offset="100%" stop-color="#476269" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1440" height="900" fill="none"/>
+  <g fill="none" stroke="#476269" stroke-width="2" stroke-linecap="round" opacity="0.22">
+    <path d="M84 178C254 76 356 243 522 154S765 73 917 168 1162 268 1348 118"/>
+    <path d="M-18 642C186 482 344 711 552 552S853 403 1030 548 1219 719 1468 520"/>
+    <path d="M210 792C329 663 469 696 602 624S800 447 959 480 1162 609 1298 448"/>
+  </g>
+  <g opacity="0.82">
+    <circle cx="184" cy="184" r="116" fill="url(#nodeA)"/>
+    <circle cx="501" cy="166" r="82" fill="url(#nodeB)"/>
+    <circle cx="918" cy="168" r="108" fill="url(#nodeA)"/>
+    <circle cx="1218" cy="260" r="84" fill="url(#nodeB)"/>
+    <circle cx="287" cy="578" r="94" fill="url(#nodeB)"/>
+    <circle cx="676" cy="563" r="122" fill="url(#nodeA)"/>
+    <circle cx="1055" cy="560" r="98" fill="url(#nodeB)"/>
+  </g>
+  <g fill="#40A798" stroke="#ffffff" stroke-width="6" opacity="0.9">
+    <circle cx="184" cy="184" r="14"/>
+    <circle cx="501" cy="166" r="11"/>
+    <circle cx="918" cy="168" r="13"/>
+    <circle cx="1218" cy="260" r="10"/>
+    <circle cx="287" cy="578" r="12"/>
+    <circle cx="676" cy="563" r="15"/>
+    <circle cx="1055" cy="560" r="11"/>
+  </g>
+</svg>

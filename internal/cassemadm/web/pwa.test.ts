@@ -23,6 +23,15 @@ describe('pwa icons', () => {
     expect(existsSync(resolve(publicDir, 'icon-512.png'))).toBe(true)
   })
 
+  it('uses product topology tones for the login background', () => {
+    const topology = readFileSync(resolve(publicDir, 'login-topology.svg'), 'utf8')
+
+    expect(topology).toContain('#40A798')
+    expect(topology).toContain('#476269')
+    expect(topology).not.toContain('#1976d2')
+    expect(topology).not.toContain('#42a5f5')
+  })
+
   it('describes pwa icons in the web manifest', () => {
     const manifest = JSON.parse(readFileSync(resolve(publicDir, 'manifest.webmanifest'), 'utf8'))
 

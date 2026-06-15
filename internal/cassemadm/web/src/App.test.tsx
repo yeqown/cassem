@@ -38,10 +38,15 @@ describe('app shell routing', () => {
   it('renders login when unauthenticated', () => {
     renderRoute('/login')
 
+    expect(screen.getByTestId('login-background')).toHaveStyle({ backgroundColor: 'rgb(238, 247, 245)' })
+    expect(screen.getByTestId('login-background').getAttribute('style')).toContain('login-topology')
+    expect(screen.getByTestId('login-card')).toHaveAttribute('data-visual', 'glass')
     expect(screen.getByTestId('login-brand')).toHaveStyle({ flexDirection: 'row' })
     expect(screen.getByRole('img', { name: /cassem logo/i })).toHaveAttribute('src', '/logo.svg')
     expect(screen.getByRole('heading', { name: /configuration center/i })).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: /cassem admin/i })).not.toBeInTheDocument()
+    expect(screen.queryByText(/use your cassemadm account email/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/enter the password currently assigned/i)).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: /login/i })).toBeInTheDocument()
   })
 
