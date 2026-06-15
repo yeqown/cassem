@@ -1,20 +1,25 @@
 package ui
 
 import (
-	"embed"
 	"fmt"
 	"io/fs"
+	"os"
+	"path/filepath"
 )
 
-//go:embed dist
-var dist embed.FS
+var distCandidates = []string{
+	filepath.Join("internal", "cassemadm", "ui", "dist"),
+	"dist",
+}
 
-// Dist returns embedded UI assets rooted at dist.
+// Dist returns UI assets rooted at dist.
 func Dist() (fs.FS, error) {
-	assets, err := fs.Sub(dist, "dist")
-	if err != nil {
-		return nil, fmt.Errorf("load embedded UI dist: %w", err)
+	for _, candidate := range distCandidates {
+		info, err := os.Stat(candidate)
+		if err == nil && info.IsDir() {
+			return os.DirFS(candidate), nil
+		}
 	}
 
-	return assets, nil
+	return nil, fmt.Errorf("load UI dist: no dist directory found in %v", distCandidates)
 }

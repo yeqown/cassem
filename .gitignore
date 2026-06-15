@@ -43,3 +43,4 @@ internal/cassemadm/web/node_modules/
 internal/cassemadm/web/coverage/
 internal/cassemadm/web/.vite/
 internal/cassemadm/web/node_modules/.tmp/
+internal/cassemadm/ui/dist/

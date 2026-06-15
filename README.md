@@ -86,6 +86,19 @@ make cluster.clean
 
 The cluster script uses Podman Compose by default. Use `CONTAINER_TOOL=docker make cluster.start` to run the same workflow with Docker Compose.
 
+## Web UI Development
+
+The embedded admin UI source lives in [`internal/cassemadm/web`](./internal/cassemadm/web). For local Web UI development, run the Vite dev server on its own `IP:PORT` and proxy `/api` requests to `cassemadm` instead of relying on embedded `/ui/` serving.
+
+```bash
+make ui.install
+CASSEMADM_API_TARGET=http://127.0.0.1:20218 npm run dev --prefix internal/cassemadm/web -- --port 4173
+```
+
+Then open `http://<your-ip>:4173/` for the standalone dev UI. If you started the local cluster with `make cluster.start`, the default admin API target is `http://127.0.0.1:20218`.
+
+Production and local image builds still use embedded assets under `/ui/` through `make ui.build` and `make cluster.start`.
+
 ## Tests and Benchmark
 
 - Unit tests: `make test`

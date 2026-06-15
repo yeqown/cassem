@@ -3,8 +3,11 @@
 package integration_test
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"testing"
@@ -98,6 +101,24 @@ func TestOperationAuditAndResetUser(t *testing.T) {
 		"account":  account,
 		"password": "old-password",
 	})
+
+	missingBody, err := json.Marshal(map[string]any{
+		"account":  "missing@example.com",
+		"password": "whatever",
+	})
+	require.NoError(t, err)
+	missingReq, err := http.NewRequest(http.MethodPost, cluster.AdmBaseURL+"/api/account/login", bytes.NewReader(missingBody))
+	require.NoError(t, err)
+	missingReq.Header.Set("Content-Type", "application/json")
+	missingResp, err := loginClient.Client.Do(missingReq)
+	require.NoError(t, err)
+	defer missingResp.Body.Close()
+	rawMissing, err := io.ReadAll(missingResp.Body)
+	require.NoError(t, err)
+	var missingPayload map[string]any
+	require.NoError(t, json.Unmarshal(rawMissing, &missingPayload))
+	require.Equal(t, "login failed", missingPayload["errmsg"])
+
 	loginClient.DoJSON(t, http.MethodPost, "/api/account/login", map[string]any{
 		"account":  account,
 		"password": "new-password",

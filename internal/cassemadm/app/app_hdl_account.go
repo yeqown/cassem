@@ -29,6 +29,10 @@ func (d app) UserLogin(c *gin.Context) {
 
 	u, err := d.aggregate.GetUser(req.Account)
 	if err != nil {
+		if ex, ok := errorx.FromError(err); ok && ex.Code == errorx.Code_NOT_FOUND {
+			httpx.ResponseError(c, errorx.New(errorx.Code_NOT_FOUND, "login failed"))
+			return
+		}
 		httpx.ResponseError(c, err)
 		return
 	}
