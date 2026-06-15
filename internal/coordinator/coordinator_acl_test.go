@@ -3,6 +3,7 @@ package coordinator
 import (
 	"context"
 	"errors"
+	"fmt"
 	"slices"
 	"strings"
 	"testing"
@@ -57,6 +58,10 @@ func (f *aclTestKV) Expire(context.Context, *apicassemdb.ExpireReq, ...grpc.Call
 }
 
 func (f *aclTestKV) Range(_ context.Context, req *apicassemdb.RangeReq, _ ...grpc.CallOption) (*apicassemdb.RangeResp, error) {
+	if err := req.Validate(); err != nil {
+		return nil, err
+	}
+
 	entities := make([]*apicassemdb.Entity, 0)
 	for key, entity := range f.data {
 		if req.GetKey() != "" && !strings.HasPrefix(key, req.GetKey()) {
@@ -68,8 +73,12 @@ func (f *aclTestKV) Range(_ context.Context, req *apicassemdb.RangeReq, _ ...grp
 		entities = append(entities, entity)
 	}
 	slices.SortFunc(entities, func(a, b *apicassemdb.Entity) int { return strings.Compare(a.GetKey(), b.GetKey()) })
-	if req.GetLimit() > 0 && len(entities) > int(req.GetLimit()) {
-		entities = entities[:req.GetLimit()]
+	if len(entities) > int(req.GetLimit()) {
+		return &apicassemdb.RangeResp{
+			Entities:    entities[:req.GetLimit()],
+			HasMore:     true,
+			NextSeekKey: concept.ExtractPureKey(entities[req.GetLimit()].GetKey()),
+		}, nil
 	}
 	return &apicassemdb.RangeResp{Entities: entities}, nil
 }
@@ -162,6 +171,25 @@ func TestResetUserRejectsBootstrapSuperadmin(t *testing.T) {
 
 	err = acl.ResetUser("superadmin@example.com", "new-password")
 	require.ErrorIs(t, err, errorx.Err_PERMISSION_DENIED)
+}
+
+func TestACLListDomainOptionsPagesAppsAndEnvironments(t *testing.T) {
+	store := newACLTestKV()
+	for i := range 101 {
+		app := fmt.Sprintf("app-%03d", i)
+		store.data[concept.GenAppKey(app)] = apicassemdb.NewEntityWithCreated(concept.GenAppKey(app), []byte("app"), 0, 1)
+		store.data[concept.GenAppElementEnvKey(app, "prod")] = apicassemdb.NewEntityWithCreated(concept.GenAppElementEnvKey(app, "prod"), []byte("env"), 0, 1)
+	}
+
+	rbac, err := newRBAC(store)
+	require.NoError(t, err)
+	acl := rbac.(aclImpl)
+
+	domains, err := acl.ListDomainOptions()
+	require.NoError(t, err)
+	require.Contains(t, domains, concept.Domain_CLUSTER)
+	require.Contains(t, domains, "app-100/*")
+	require.Contains(t, domains, "app-100/prod")
 }
 
 func TestACLGetUsersAndRoles(t *testing.T) {

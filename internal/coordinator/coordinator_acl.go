@@ -207,15 +207,17 @@ func (a aclImpl) GetUserRoleBindings(account string) ([]concept.RoleBinding, err
 	return bindings, nil
 }
 
+const aclDomainRangeLimit int32 = 100
+
 func (a aclImpl) ListDomainOptions() ([]string, error) {
 	options := []string{concept.Domain_CLUSTER}
-	appResp, err := a.c.Range(context.TODO(), &apicassemdb.RangeReq{Key: concept.GenAppDirKey(), Limit: 1000})
+	appEntities, err := a.rangeAll(concept.GenAppDirKey())
 	if err != nil {
 		return nil, fmt.Errorf("aclImpl.ListDomainOptions.apps: %w", err)
 	}
 
 	seen := map[string]struct{}{concept.Domain_CLUSTER: {}}
-	for _, entity := range appResp.GetEntities() {
+	for _, entity := range appEntities {
 		app := concept.ExtractPureKey(entity.GetKey())
 		if app == "" {
 			continue
@@ -225,11 +227,11 @@ func (a aclImpl) ListDomainOptions() ([]string, error) {
 			seen[appDomain] = struct{}{}
 			options = append(options, appDomain)
 		}
-		envs, err := a.c.Range(context.TODO(), &apicassemdb.RangeReq{Key: concept.GenAppElementKey(app), Limit: 1000})
+		envs, err := a.rangeAll(concept.GenAppElementKey(app))
 		if err != nil {
 			return nil, fmt.Errorf("aclImpl.ListDomainOptions.envs: %w", err)
 		}
-		for _, envEntity := range envs.GetEntities() {
+		for _, envEntity := range envs {
 			domain := app + "/" + concept.ExtractPureKey(envEntity.GetKey())
 			if _, ok := seen[domain]; ok {
 				continue
@@ -244,6 +246,22 @@ func (a aclImpl) ListDomainOptions() ([]string, error) {
 		options = append([]string{concept.Domain_CLUSTER}, options...)
 	}
 	return options, nil
+}
+
+func (a aclImpl) rangeAll(key string) ([]*apicassemdb.Entity, error) {
+	entities := make([]*apicassemdb.Entity, 0)
+	seek := ""
+	for {
+		resp, err := a.c.Range(context.TODO(), &apicassemdb.RangeReq{Key: key, Seek: seek, Limit: aclDomainRangeLimit})
+		if err != nil {
+			return nil, err
+		}
+		entities = append(entities, resp.GetEntities()...)
+		if !resp.GetHasMore() {
+			return entities, nil
+		}
+		seek = resp.GetNextSeekKey()
+	}
 }
 
 func (a aclImpl) AddUser(u *concept.User) error {
