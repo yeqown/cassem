@@ -9,8 +9,13 @@ import TimelineIcon from '@mui/icons-material/Timeline'
 import {
   Box,
   Button,
+  Chip,
   Divider,
+  FormControl,
+  InputLabel,
+  MenuItem,
   Paper,
+  Select,
   Stack,
   Tab,
   Tabs,
@@ -44,6 +49,55 @@ function formatTimestamp(timestamp?: number) {
   const milliseconds = timestamp > 1_000_000_000_000_000 ? Math.floor(timestamp / 1_000_000) : timestamp
   const date = new Date(milliseconds)
   return Number.isNaN(date.getTime()) ? '-' : date.toLocaleString()
+}
+
+const operationLabels = new Map<string | number, string>([
+  [1, 'SET'],
+  [2, 'UNSET'],
+  [3, 'PUBLISH'],
+  ['1', 'SET'],
+  ['2', 'UNSET'],
+  ['3', 'PUBLISH'],
+])
+
+type DiffTone = 'added' | 'removed' | 'plain'
+
+type DiffChunk = {
+  text: string
+  tone: DiffTone
+}
+
+function getOperationLabel(op?: string | number) {
+  if (op === undefined || op === null || op === '') return '-'
+  return operationLabels.get(op) || String(op)
+}
+
+function formatVersionChange(operation: ElementOperation) {
+  const last = operation.lastVersion
+  const current = operation.currentVersion
+  if (!last || !current || last === current) return '-'
+  return `v${last} → v${current}`
+}
+
+function parseAnsiDiff(value: string) {
+  const chunks: DiffChunk[] = []
+  const pattern = new RegExp(`${String.fromCharCode(27)}\\[(31|32|0)m`, 'g')
+  let tone: DiffTone = 'plain'
+  let cursor = 0
+
+  for (const match of value.matchAll(pattern)) {
+    if (match.index > cursor) {
+      chunks.push({ text: value.slice(cursor, match.index), tone })
+    }
+    tone = match[1] === '31' ? 'removed' : match[1] === '32' ? 'added' : 'plain'
+    cursor = match.index + match[0].length
+  }
+
+  if (cursor < value.length) {
+    chunks.push({ text: value.slice(cursor), tone })
+  }
+
+  return chunks.filter((chunk) => chunk.text.length > 0)
 }
 
 async function requestElement(appId: string, env: string, key: string) {
@@ -118,10 +172,17 @@ export function ElementDetailPage() {
 
       if (!mountedRef.current || requestId !== requestSeq.current) return
 
+      const nextVersions = versionsData.elements || []
+      const versionOptions = nextVersions
+        .map((version) => version.version)
+        .filter((version): version is number => typeof version === 'number')
+
       setElement(elementData)
-      setVersions(versionsData.elements || [])
+      setVersions(nextVersions)
       setOperations(operationsData.operations || [])
       setRaw(decodeRaw(elementData.raw))
+      setDiffBase(versionOptions[0] ? String(versionOptions[0]) : '')
+      setDiffCompare(versionOptions.length > 1 ? String(versionOptions[versionOptions.length - 1]) : '')
       setDiffText('')
       setError('')
     } catch (err) {
@@ -213,24 +274,24 @@ export function ElementDetailPage() {
 
   return (
     <Stack spacing={3}>
-      <Stack direction={{ xs: 'column', lg: 'row' }} spacing={3} alignItems="stretch">
-        <Box sx={{ flex: 1 }}>
-          <Stack direction="row" spacing={1} alignItems="center">
-            <Inventory2Icon color="primary" />
-            <Typography variant="h4" component="h1">
-              Element detail
-            </Typography>
-          </Stack>
-          <Typography color="text.secondary">App: {appId || 'unknown'} / Env: {env || 'unknown'} / Key: {key || 'unknown'}</Typography>
-        </Box>
-        <Paper variant="outlined" sx={{ p: 2, minWidth: { lg: 280 } }}>
-          <Stack spacing={1.5}>
-            <Typography variant="h6" component="h2">Status</Typography>
-            <Typography>Latest: {metadata?.latestVersion ?? '-'}</Typography>
-            <Typography>Using: {metadata?.usingVersion ?? '-'}</Typography>
-            <Typography>Draft: {metadata?.unpublishedVersion ?? '-'}</Typography>
-            <Typography>Type: {getContentTypeLabel(metadata?.contentType)}</Typography>
-            <Divider />
+      <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 3 }}>
+        <Stack direction={{ xs: 'column', lg: 'row' }} spacing={2} alignItems={{ xs: 'stretch', lg: 'center' }}>
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Stack direction="row" spacing={1} alignItems="center">
+              <Inventory2Icon color="primary" />
+              <Typography variant="h4" component="h1">
+                Element detail
+              </Typography>
+            </Stack>
+            <Typography color="text.secondary" sx={{ overflowWrap: 'anywhere' }}>App: {appId || 'unknown'} / Env: {env || 'unknown'} / Key: {key || 'unknown'}</Typography>
+            <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap" sx={{ mt: 1.5 }}>
+              <Chip label={`Latest ${metadata?.latestVersion ?? '-'}`} />
+              <Chip label={`Using ${metadata?.usingVersion ?? '-'}`} />
+              <Chip label={`Draft ${metadata?.unpublishedVersion ?? '-'}`} />
+              <Chip label={getContentTypeLabel(metadata?.contentType)} />
+            </Stack>
+          </Box>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
             <Button component={RouterLink} to={`/apps/${encodeURIComponent(appId)}/envs/${encodeURIComponent(env)}/elements/${encodeURIComponent(key)}/publish`} variant="outlined" startIcon={<PublishIcon />}>
               Publish
             </Button>
@@ -238,8 +299,8 @@ export function ElementDetailPage() {
               Rollback
             </Button>
           </Stack>
-        </Paper>
-      </Stack>
+        </Stack>
+      </Paper>
 
       {error && <ErrorState message={error} />}
 
@@ -297,20 +358,44 @@ export function ElementDetailPage() {
                       </Table>
                     </TableContainer>
 
-                    <Paper variant="outlined" sx={{ p: 2 }}>
+                    <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 3 }}>
                       <Stack spacing={2}>
                         <Typography variant="subtitle1">Compare versions</Typography>
-                        <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
-                          <TextField label="Base" value={diffBase} onChange={(event) => setDiffBase(event.target.value)} fullWidth helperText="Older or current version number used as diff base." />
-                          <TextField label="Compare" value={diffCompare} onChange={(event) => setDiffCompare(event.target.value)} fullWidth helperText="Version number to compare against the base version." />
-                          <Button variant="outlined" startIcon={<CompareArrowsIcon />} onClick={() => void handleLoadDiff()} disabled={diffLoading || !diffBase.trim() || !diffCompare.trim()} sx={{ alignSelf: { md: 'center' } }}>
+                        <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems={{ md: 'flex-start' }}>
+                          <FormControl fullWidth>
+                            <InputLabel id="diff-base-label">Base</InputLabel>
+                            <Select labelId="diff-base-label" value={diffBase} label="Base" onChange={(event) => setDiffBase(event.target.value)}>
+                              {versions.map((version) => (
+                                <MenuItem key={`base-${version.version}`} value={String(version.version)}>
+                                  v{version.version}
+                                </MenuItem>
+                              ))}
+                            </Select>
+                          </FormControl>
+                          <FormControl fullWidth>
+                            <InputLabel id="diff-compare-label">Compare</InputLabel>
+                            <Select labelId="diff-compare-label" value={diffCompare} label="Compare" onChange={(event) => setDiffCompare(event.target.value)}>
+                              {versions.map((version) => (
+                                <MenuItem key={`compare-${version.version}`} value={String(version.version)}>
+                                  v{version.version}
+                                </MenuItem>
+                              ))}
+                            </Select>
+                          </FormControl>
+                          <Button variant="outlined" startIcon={<CompareArrowsIcon />} onClick={() => void handleLoadDiff()} disabled={diffLoading || !diffBase.trim() || !diffCompare.trim()} sx={{ minWidth: 140, whiteSpace: 'nowrap', alignSelf: { md: 'center' } }}>
                             Show diff
                           </Button>
                         </Stack>
                         {diffLoading ? (
                           <LoadingState label="Loading diff" />
                         ) : diffText ? (
-                          <TextField label="Diff" value={diffText} multiline minRows={10} fullWidth InputProps={{ readOnly: true }} />
+                          <Box aria-label="Diff" component="pre" sx={{ m: 0, minHeight: 160, p: 2, border: 1, borderColor: 'divider', borderRadius: 2, bgcolor: 'background.default', whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontFamily: 'monospace' }}>
+                            {parseAnsiDiff(diffText).map((chunk, index) => (
+                              <Box key={`${chunk.tone}-${index}`} component="span" sx={{ color: chunk.tone === 'removed' ? 'error.main' : chunk.tone === 'added' ? 'success.main' : 'text.primary', fontWeight: chunk.tone === 'plain' ? 400 : 700 }}>
+                                {chunk.text}
+                              </Box>
+                            ))}
+                          </Box>
                         ) : (
                           <Typography color="text.secondary">Select two versions to compare.</Typography>
                         )}
@@ -334,17 +419,19 @@ export function ElementDetailPage() {
                     <Table>
                       <TableHead>
                         <TableRow>
+                          <TableCell>Time</TableCell>
+                          <TableCell>Operation</TableCell>
                           <TableCell>Operator</TableCell>
-                          <TableCell>Transition</TableCell>
-                          <TableCell>At</TableCell>
+                          <TableCell>Version change</TableCell>
                         </TableRow>
                       </TableHead>
                       <TableBody>
                         {operations.map((operation, index) => (
                           <TableRow key={`${operation.operatedAt || 0}-${operation.operator || 'unknown'}-${index}`} hover>
-                            <TableCell>{operation.operator || '-'}</TableCell>
-                            <TableCell>v{operation.lastVersion ?? '-'} → v{operation.currentVersion ?? '-'}</TableCell>
                             <TableCell>{formatTimestamp(operation.operatedAt)}</TableCell>
+                            <TableCell>{getOperationLabel(operation.op)}</TableCell>
+                            <TableCell>{operation.operator || '-'}</TableCell>
+                            <TableCell>{formatVersionChange(operation)}</TableCell>
                           </TableRow>
                         ))}
                       </TableBody>

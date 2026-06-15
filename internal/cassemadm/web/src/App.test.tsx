@@ -380,6 +380,155 @@ describe('app shell routing', () => {
     expect(screen.getByRole('tab', { name: /operations/i })).toBeInTheDocument()
   })
 
+  it('renders element detail status in the title toolbar', async () => {
+    localStorage.setItem('cassem.session', 'session')
+    localStorage.setItem('cassem.user', JSON.stringify({ account: 'superadmin@example.com' }))
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((input: RequestInfo | URL) => {
+        const url = String(input)
+        if (url.includes('/api/apps/demo/envs/prod/elements/db.url/versions?limit=100')) {
+          return Promise.resolve(createJsonResponse({ errcode: 0, data: { elements: [] } }))
+        }
+        if (url.includes('/api/apps/demo/envs/prod/elements/db.url/operations?limit=100')) {
+          return Promise.resolve(createJsonResponse({ errcode: 0, data: { operations: [] } }))
+        }
+        return Promise.resolve(
+          createJsonResponse({
+            errcode: 0,
+            data: {
+              metadata: { key: 'db.url', latestVersion: 2, usingVersion: 1, unpublishedVersion: 0, contentType: 4 },
+              raw: btoa('postgres://demo'),
+              version: 1,
+              published: true,
+            },
+          }),
+        )
+      }),
+    )
+
+    renderRoute('/apps/demo/envs/prod/elements/db.url')
+
+    expect(await screen.findByRole('heading', { name: /element detail/i })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: /^status$/i })).not.toBeInTheDocument()
+    expect(screen.getByText('Latest 2')).toBeInTheDocument()
+    expect(screen.getByText('Using 1')).toBeInTheDocument()
+    expect(screen.getByText('Draft 0')).toBeInTheDocument()
+    expect(screen.getByText('PLAINTEXT')).toBeInTheDocument()
+  })
+
+  it('compares element versions with dropdowns and renders readable diff text', async () => {
+    localStorage.setItem('cassem.session', 'session')
+    localStorage.setItem('cassem.user', JSON.stringify({ account: 'superadmin@example.com' }))
+
+    const esc = String.fromCharCode(27)
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes('/api/apps/demo/envs/prod/elements/db.url/diff')) {
+        return Promise.resolve(createJsonResponse({ errcode: 0, data: { diff: `value-v${esc}[31m1${esc}[0m${esc}[32m2${esc}[0m` } }))
+      }
+      if (url.includes('/api/apps/demo/envs/prod/elements/db.url/versions?limit=100')) {
+        return Promise.resolve(createJsonResponse({
+          errcode: 0,
+          data: {
+            elements: [
+              { metadata: { key: 'db.url', contentType: 4 }, raw: btoa('value-v1'), version: 1, published: true },
+              { metadata: { key: 'db.url', contentType: 4 }, raw: btoa('value-v2'), version: 2, published: true },
+            ],
+          },
+        }))
+      }
+      if (url.includes('/api/apps/demo/envs/prod/elements/db.url/operations?limit=100')) {
+        return Promise.resolve(createJsonResponse({ errcode: 0, data: { operations: [] } }))
+      }
+      return Promise.resolve(
+        createJsonResponse({
+          errcode: 0,
+          data: {
+            metadata: { key: 'db.url', latestVersion: 2, usingVersion: 2, unpublishedVersion: 0, contentType: 4 },
+            raw: btoa('value-v2'),
+            version: 2,
+            published: true,
+          },
+        }),
+      )
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const user = userEvent.setup()
+    renderRoute('/apps/demo/envs/prod/elements/db.url')
+
+    await user.click(await screen.findByRole('tab', { name: /versions/i }))
+    await user.click(screen.getByRole('combobox', { name: /base/i }))
+    await user.click(await screen.findByRole('option', { name: 'v1' }))
+    await user.click(screen.getByRole('combobox', { name: /compare/i }))
+    await user.click(await screen.findByRole('option', { name: 'v2' }))
+    await user.click(screen.getByRole('button', { name: /show diff/i }))
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/apps/demo/envs/prod/elements/db.url/diff?base=1&compare=2',
+        expect.any(Object),
+      )
+    })
+    const diff = await screen.findByLabelText('Diff')
+    expect(within(diff).getByText('value-v')).toBeInTheDocument()
+    expect(within(diff).getByText('1')).toBeInTheDocument()
+    expect(within(diff).getByText('2')).toBeInTheDocument()
+    expect(diff).not.toHaveTextContent(/\[31m|\[32m|\[0m/)
+  })
+
+  it('shows operation action, actor, time, and version change in order', async () => {
+    localStorage.setItem('cassem.session', 'session')
+    localStorage.setItem('cassem.user', JSON.stringify({ account: 'superadmin@example.com' }))
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((input: RequestInfo | URL) => {
+        const url = String(input)
+        if (url.includes('/api/apps/demo/envs/prod/elements/db.url/versions?limit=100')) {
+          return Promise.resolve(createJsonResponse({ errcode: 0, data: { elements: [] } }))
+        }
+        if (url.includes('/api/apps/demo/envs/prod/elements/db.url/operations?limit=100')) {
+          return Promise.resolve(createJsonResponse({
+            errcode: 0,
+            data: {
+              operations: [
+                { operator: 'alice@example.com', op: 1, lastVersion: 1, currentVersion: 2, operatedAt: 1_781_259_956_333_000_000 },
+                { operator: 'system', op: 'PUBLISH', lastVersion: 2, currentVersion: 2, operatedAt: 1_781_259_956_334_000_000 },
+              ],
+            },
+          }))
+        }
+        return Promise.resolve(
+          createJsonResponse({
+            errcode: 0,
+            data: {
+              metadata: { key: 'db.url', latestVersion: 2, usingVersion: 2, unpublishedVersion: 0, contentType: 4 },
+              raw: btoa('value-v2'),
+              version: 2,
+              published: true,
+            },
+          }),
+        )
+      }),
+    )
+
+    const user = userEvent.setup()
+    renderRoute('/apps/demo/envs/prod/elements/db.url')
+
+    await user.click(await screen.findByRole('tab', { name: /operations/i }))
+    const table = screen.getByRole('table')
+    expect(within(table).getAllByRole('columnheader').map((cell) => cell.textContent)).toEqual(['Time', 'Operation', 'Operator', 'Version change'])
+    expect(within(table).getByText('SET')).toBeInTheDocument()
+    expect(within(table).getByText('alice@example.com')).toBeInTheDocument()
+    expect(within(table).getByText('v1 → v2')).toBeInTheDocument()
+    expect(within(table).getByText('PUBLISH')).toBeInTheDocument()
+    expect(within(table).getByText('system')).toBeInTheDocument()
+    expect(within(table).getByText('-')).toBeInTheDocument()
+  })
+
   it('renders users page with list and add action', async () => {
     localStorage.setItem('cassem.session', 'session')
     localStorage.setItem('cassem.user', JSON.stringify({ account: 'superadmin@example.com' }))

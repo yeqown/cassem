@@ -72,6 +72,7 @@ export type ElementsResponse = {
 
 export type ElementOperation = {
   operator?: string
+  op?: string | number
   lastVersion?: number
   currentVersion?: number
   operatedAt?: number
