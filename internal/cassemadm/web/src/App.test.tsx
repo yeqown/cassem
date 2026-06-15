@@ -28,6 +28,38 @@ function createJsonResponse<T>(payload: T, status = 200) {
   } as Response
 }
 
+function createWorkflowVersions() {
+  return {
+    elements: [
+      { metadata: { key: 'db.url', usingVersion: 2, latestVersion: 3, unpublishedVersion: 3, contentType: 4 }, raw: btoa('v1'), version: 1, published: true },
+      { metadata: { key: 'db.url', usingVersion: 2, latestVersion: 3, unpublishedVersion: 3, contentType: 4 }, raw: btoa('v2'), version: 2, published: true },
+      { metadata: { key: 'db.url', usingVersion: 2, latestVersion: 3, unpublishedVersion: 3, contentType: 4 }, raw: btoa('v3'), version: 3, published: false },
+    ],
+  }
+}
+
+function createWorkflowFetchMock(extra?: (input: RequestInfo | URL, init?: RequestInit) => Response | Promise<Response> | undefined) {
+  return vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+    const response = extra?.(input, init)
+    if (response) return Promise.resolve(response)
+
+    const url = String(input)
+    if (url.includes('/api/apps/demo/envs/prod/elements/db.url/versions?limit=100')) {
+      return Promise.resolve(createJsonResponse({ errcode: 0, data: createWorkflowVersions() }))
+    }
+
+    if (url.includes('/api/cluster/agents?limit=100')) {
+      return Promise.resolve(createJsonResponse({ errcode: 0, data: { agents: [{ agentId: 'agent-a' }, { agentId: 'agent-b' }] } }))
+    }
+
+    if (url.includes('/api/cluster/instances/filter?app=demo&env=prod&key=db.url')) {
+      return Promise.resolve(createJsonResponse({ errcode: 0, data: { instances: [{ clientId: 'instance-01', agentId: 'agent-a' }, { clientId: 'instance-02', agentId: 'agent-b' }] } }))
+    }
+
+    return Promise.resolve(createJsonResponse({ errcode: 0, data: null }))
+  })
+}
+
 afterEach(() => {
   localStorage.clear()
   vi.restoreAllMocks()
@@ -148,6 +180,69 @@ describe('app shell routing', () => {
     expect(screen.getByRole('button', { name: /add app/i })).toBeInTheDocument()
   })
 
+  it('paginates, searches, and renders app metadata columns', async () => {
+    localStorage.setItem('cassem.session', 'session')
+    localStorage.setItem('cassem.user', JSON.stringify({ account: 'superadmin@example.com' }))
+
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes('/api/apps?limit=15&query=demo&seek=next-demo')) {
+        return Promise.resolve(createJsonResponse({ errcode: 0, data: { apps: [{ id: 'demo-next', description: 'Next page', createdAt: 1710003600, creator: 'bob', owner: 'team-b' }], hasMore: false } }))
+      }
+      if (url.includes('/api/apps?limit=15&query=demo')) {
+        return Promise.resolve(createJsonResponse({ errcode: 0, data: { apps: [{ id: 'demo', description: 'Demo app', createdAt: 1710000000, creator: 'alice', owner: 'team-a' }], hasMore: true, nextSeek: 'next-demo' } }))
+      }
+      if (url.includes('/api/apps?limit=30&query=demo')) {
+        return Promise.resolve(createJsonResponse({ errcode: 0, data: { apps: [{ id: 'demo-large', description: 'Large page', createdAt: 1710007200, creator: 'carol', owner: 'team-c' }], hasMore: false } }))
+      }
+      if (url.includes('/api/apps?limit=15')) {
+        return Promise.resolve(createJsonResponse({ errcode: 0, data: { apps: [{ id: 'alpha', description: 'Alpha app', createdAt: 1709996400, creator: 'root', owner: 'platform' }], hasMore: false } }))
+      }
+      return Promise.resolve(createJsonResponse({ errcode: 0, data: {} }))
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const user = userEvent.setup()
+    renderRoute('/apps')
+
+    expect(await screen.findByText('alpha')).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: /^app id$/i })).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: /created at/i })).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: /creator/i })).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: /owner/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^search$/i })).toHaveClass('MuiButton-contained')
+    expect(within(screen.getByRole('button', { name: /^search$/i })).getByTestId('SearchIcon')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^search$/i })).toHaveStyle({ minWidth: '128px' })
+    expect(screen.getByText('root')).toBeInTheDocument()
+    expect(screen.getByText('platform')).toBeInTheDocument()
+    expect(within(screen.getByRole('link', { name: /^envs$/i })).getByTestId('DnsIcon')).toBeInTheDocument()
+    expect(within(screen.getByRole('button', { name: /^delete$/i })).getByTestId('DeleteOutlineIcon')).toBeInTheDocument()
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
+
+    await user.type(screen.getByRole('textbox', { name: /search apps/i }), 'demo')
+    await user.click(screen.getByRole('button', { name: /^search$/i }))
+
+    expect(await screen.findByText('demo')).toBeInTheDocument()
+    expect(fetchMock).toHaveBeenCalledWith('/api/apps?limit=15&query=demo', expect.any(Object))
+    expect(screen.getByText('alice')).toBeInTheDocument()
+    expect(screen.getByText('team-a')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /^next$/i }))
+
+    expect(await screen.findByText('demo-next')).toBeInTheDocument()
+    expect(fetchMock).toHaveBeenCalledWith('/api/apps?limit=15&query=demo&seek=next-demo', expect.any(Object))
+
+    await user.click(screen.getByRole('button', { name: /^previous$/i }))
+
+    expect(await screen.findByText('demo')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('combobox', { name: /rows per page/i }))
+    await user.click(await screen.findByRole('option', { name: '30' }))
+
+    expect(await screen.findByText('demo-large')).toBeInTheDocument()
+    expect(fetchMock).toHaveBeenCalledWith('/api/apps?limit=30&query=demo', expect.any(Object))
+  })
+
   it('keeps the latest apps response when refresh overlaps the initial load', async () => {
     localStorage.setItem('cassem.session', 'session')
     localStorage.setItem('cassem.user', JSON.stringify({ account: 'superadmin@example.com' }))
@@ -157,7 +252,7 @@ describe('app shell routing', () => {
     let appsGetRequests = 0
     const fetchMock = vi.fn((input: RequestInfo | URL) => {
       const url = String(input)
-      if (url.includes('/api/apps?limit=100')) {
+      if (url.includes('/api/apps?limit=15')) {
         appsGetRequests += 1
         return appsGetRequests === 1 ? initialLoad.promise : refreshLoad.promise
       }
@@ -394,6 +489,11 @@ describe('app shell routing', () => {
     renderRoute('/apps/demo/envs/prod/elements/db.url')
 
     expect(await screen.findByRole('heading', { name: /element detail/i })).toBeInTheDocument()
+    const breadcrumbs = screen.getByRole('navigation', { name: /breadcrumb/i })
+    expect(within(breadcrumbs).getByRole('link', { name: /^demo$/i })).toBeInTheDocument()
+    expect(within(breadcrumbs).getByRole('link', { name: /^prod$/i })).toBeInTheDocument()
+    expect(within(breadcrumbs).getByRole('link', { name: /^db\.url$/i })).toBeInTheDocument()
+    expect(screen.queryByText(/app: demo \/ env: prod \/ key: db\.url/i)).not.toBeInTheDocument()
     expect(screen.getByRole('tab', { name: /content/i })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: /versions/i })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: /operations/i })).toBeInTheDocument()
@@ -431,10 +531,11 @@ describe('app shell routing', () => {
 
     expect(await screen.findByRole('heading', { name: /element detail/i })).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: /^status$/i })).not.toBeInTheDocument()
-    expect(screen.getByText('Latest 2')).toBeInTheDocument()
-    expect(screen.getByText('Using 1')).toBeInTheDocument()
-    expect(screen.getByText('Draft 0')).toBeInTheDocument()
-    expect(screen.getByText('PLAINTEXT')).toBeInTheDocument()
+    expect(screen.getByText('Latest: v2')).toBeInTheDocument()
+    expect(screen.getByText('Current: v1')).toBeInTheDocument()
+    expect(screen.getByText('Draft: -')).toBeInTheDocument()
+    expect(screen.getByText('Type: PLAINTEXT')).toBeInTheDocument()
+    expect(screen.getByTestId('element-detail-actions')).toHaveStyle({ alignSelf: 'flex-end' })
   })
 
   it('compares element versions with dropdowns and renders readable diff text', async () => {
@@ -672,7 +773,7 @@ describe('app shell routing', () => {
     const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false)
     const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input)
-      if (url.includes('/api/apps?limit=100')) {
+      if (url.includes('/api/apps?limit=15')) {
         return Promise.resolve(createJsonResponse({ errcode: 0, data: { apps: [{ id: 'demo', description: 'Demo app' }] } }))
       }
       if (url.includes('/api/apps/demo') && init?.method === 'DELETE') {
@@ -757,6 +858,13 @@ describe('app shell routing', () => {
     renderRoute('/apps/demo/envs/prod/elements')
 
     await screen.findByText('db.url')
+    const row = screen.getByText('db.url').closest('tr')
+    expect(row).not.toBeNull()
+    const cells = within(row as HTMLElement).getAllByRole('cell')
+    expect(cells[1]).toHaveTextContent('v1')
+    expect(cells[2]).toHaveTextContent('v1')
+    expect(cells[3]).toHaveTextContent('-')
+
     await user.click(screen.getByRole('button', { name: /^delete$/i }))
 
     expect(confirmSpy).not.toHaveBeenCalled()
@@ -826,7 +934,7 @@ describe('app shell routing', () => {
       'fetch',
       vi.fn((input: RequestInfo | URL) => {
         const url = String(input)
-        if (url.includes('/api/apps?limit=100')) {
+        if (url.includes('/api/apps?limit=15')) {
           return Promise.resolve(createJsonResponse({ errcode: 0, data: { apps: [{ id: 'demo', description: 'Demo app' }] } }))
         }
         if (url.includes('/api/apps/demo/envs?limit=100')) {
@@ -906,9 +1014,9 @@ describe('app shell routing', () => {
     renderRoute('/cluster/instances')
 
     expect(await screen.findByRole('heading', { name: /instances/i })).toBeInTheDocument()
-    expect(screen.getByRole('textbox', { name: /^app$/i })).toBeInTheDocument()
-    expect(screen.getByRole('textbox', { name: /^env$/i })).toBeInTheDocument()
-    expect(screen.getByRole('textbox', { name: /^key$/i })).toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: /^app$/i })).toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: /^env$/i })).toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: /^key$/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /filter/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /refresh all/i })).toBeInTheDocument()
     expect(await screen.findByRole('button', { name: /detail/i })).toBeInTheDocument()
@@ -933,6 +1041,46 @@ describe('app shell routing', () => {
     expect(screen.getByText('127.0.0.1:7001')).toBeInTheDocument()
   })
 
+  it('cascades instance filter candidates from app to env to key', async () => {
+    localStorage.setItem('cassem.session', 'session')
+    localStorage.setItem('cassem.user', JSON.stringify({ account: 'superadmin@example.com' }))
+
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes('/api/apps?limit=100')) {
+        return Promise.resolve(createJsonResponse({ errcode: 0, data: { apps: [{ id: 'demo' }, { id: 'other' }] } }))
+      }
+      if (url.includes('/api/apps/demo/envs?limit=100')) {
+        return Promise.resolve(createJsonResponse({ errcode: 0, data: { envs: ['prod', 'stage'] } }))
+      }
+      if (url.includes('/api/apps/demo/envs/prod/elements?limit=100')) {
+        return Promise.resolve(createJsonResponse({ errcode: 0, data: { elements: [{ metadata: { key: 'db.url' } }, { metadata: { key: 'feature.flag' } }] } }))
+      }
+      if (url.includes('/api/cluster/instances/filter?app=demo&env=prod&key=db.url')) {
+        return Promise.resolve(createJsonResponse({ errcode: 0, data: { instances: [{ clientId: 'instance-01', agentId: 'agent-a', clientIp: '10.0.0.1' }] } }))
+      }
+      return Promise.resolve(createJsonResponse({ errcode: 0, data: { instances: [] } }))
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const user = userEvent.setup()
+    renderRoute('/cluster/instances')
+
+    expect(await screen.findByRole('heading', { name: /instances/i })).toBeInTheDocument()
+    await user.click(await screen.findByRole('combobox', { name: /^app$/i }))
+    await user.click(await screen.findByRole('option', { name: /^demo$/i }))
+    await user.click(await screen.findByRole('combobox', { name: /^env$/i }))
+    await user.click(await screen.findByRole('option', { name: /^prod$/i }))
+    await user.click(await screen.findByRole('combobox', { name: /^key$/i }))
+    await user.click(await screen.findByRole('option', { name: /^db\.url$/i }))
+    await user.click(screen.getByRole('button', { name: /^filter$/i }))
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/cluster/instances/filter?app=demo&env=prod&key=db.url', expect.any(Object))
+    })
+    expect(await screen.findByText('instance-01')).toBeInTheDocument()
+  })
+
   it('falls back to full instance list when filter input is incomplete', async () => {
     localStorage.setItem('cassem.session', 'session')
     localStorage.setItem('cassem.user', JSON.stringify({ account: 'superadmin@example.com' }))
@@ -944,7 +1092,7 @@ describe('app shell routing', () => {
     renderRoute('/cluster/instances')
 
     expect(await screen.findByRole('heading', { name: /instances/i })).toBeInTheDocument()
-    await user.type(screen.getByRole('textbox', { name: /^app$/i }), 'demo')
+    await user.type(screen.getByRole('combobox', { name: /^app$/i }), 'demo')
     await user.click(screen.getByRole('button', { name: /^filter$/i }))
 
     await waitFor(() => {
@@ -992,9 +1140,9 @@ describe('app shell routing', () => {
     renderRoute('/cluster/instances?app=demo&env=prod&key=db.url')
 
     expect(await screen.findByRole('heading', { name: /instances/i })).toBeInTheDocument()
-    expect(screen.getByRole('textbox', { name: /^app$/i })).toHaveValue('demo')
-    expect(screen.getByRole('textbox', { name: /^env$/i })).toHaveValue('prod')
-    expect(screen.getByRole('textbox', { name: /^key$/i })).toHaveValue('db.url')
+    expect(screen.getByRole('combobox', { name: /^app$/i })).toHaveValue('demo')
+    expect(screen.getByRole('combobox', { name: /^env$/i })).toHaveValue('prod')
+    expect(screen.getByRole('combobox', { name: /^key$/i })).toHaveValue('db.url')
     expect(await screen.findByText('instance-01')).toBeInTheDocument()
 
     await waitFor(() =>
@@ -1158,118 +1306,99 @@ describe('app shell routing', () => {
     expect(fetchMock).toHaveBeenCalledWith('/api/account/acl/revoke?account=alice%40example.com&role=admin&domain=cluster', expect.any(Object))
   })
 
-  it('renders publish wizard route', () => {
+  it('enables publishing a newer published version after rollback', async () => {
     localStorage.setItem('cassem.session', 'session')
     localStorage.setItem('cassem.user', JSON.stringify({ account: 'superadmin@example.com' }))
+    vi.stubGlobal('fetch', createWorkflowFetchMock((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes('/api/apps/demo/envs/prod/elements/db.url/versions?limit=100')) {
+        return createJsonResponse({
+          errcode: 0,
+          data: {
+            elements: [
+              { metadata: { key: 'db.url', usingVersion: 1, latestVersion: 2, unpublishedVersion: 0, contentType: 4 }, raw: btoa('v1'), version: 1, published: true },
+              { metadata: { key: 'db.url', usingVersion: 1, latestVersion: 2, unpublishedVersion: 0, contentType: 4 }, raw: btoa('v2'), version: 2, published: true },
+            ],
+          },
+        })
+      }
+    }))
 
+    const user = userEvent.setup()
     renderRoute('/apps/demo/envs/prod/elements/db.url/publish')
 
     expect(screen.getByRole('heading', { name: /publish element/i })).toBeInTheDocument()
-    expect(screen.getByRole('spinbutton', { name: /^version$/i })).toBeInTheDocument()
+    const versionSelect = await screen.findByRole('combobox', { name: /^version$/i })
+    expect(screen.queryByRole('spinbutton', { name: /^version$/i })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^next$/i })).toBeDisabled()
+
+    await user.click(versionSelect)
+
+    const listbox = await screen.findByRole('listbox')
+    const currentPublishedOption = within(listbox).getByLabelText('v1 published')
+    const newerPublishedOption = within(listbox).getByLabelText('v2 published')
+    expect(currentPublishedOption).toHaveAttribute('aria-disabled', 'true')
+    expect(newerPublishedOption).not.toHaveAttribute('aria-disabled', 'true')
+    expect(within(currentPublishedOption).getByTestId('version-status-current')).toBeInTheDocument()
+    expect(within(currentPublishedOption).getByText('current')).toBeInTheDocument()
+    expect(within(currentPublishedOption).getByTestId('version-status-published')).toBeInTheDocument()
+    expect(within(newerPublishedOption).getByTestId('version-status-published')).toBeInTheDocument()
+
+    await user.click(newerPublishedOption)
+
+    expect(screen.getByRole('button', { name: /^next$/i })).toBeEnabled()
   })
 
-  it('renders rollback wizard route', () => {
+  it('renders rollback version candidates but only enables older published versions', async () => {
     localStorage.setItem('cassem.session', 'session')
     localStorage.setItem('cassem.user', JSON.stringify({ account: 'superadmin@example.com' }))
+    vi.stubGlobal('fetch', createWorkflowFetchMock())
 
+    const user = userEvent.setup()
     renderRoute('/apps/demo/envs/prod/elements/db.url/rollback')
 
     expect(screen.getByRole('heading', { name: /rollback element/i })).toBeInTheDocument()
-    expect(screen.getByRole('spinbutton', { name: /target version/i })).toBeInTheDocument()
-  })
+    const versionSelect = await screen.findByRole('combobox', { name: /target version/i })
+    expect(screen.queryByRole('spinbutton', { name: /target version/i })).not.toBeInTheDocument()
 
-  it('requires a positive integer publish version before continuing', async () => {
-    localStorage.setItem('cassem.session', 'session')
-    localStorage.setItem('cassem.user', JSON.stringify({ account: 'superadmin@example.com' }))
+    await user.click(versionSelect)
 
-    const user = userEvent.setup()
-    renderRoute('/apps/demo/envs/prod/elements/db.url/publish')
-
-    const versionInput = screen.getByRole('spinbutton', { name: /^version$/i })
-    const nextButton = screen.getByRole('button', { name: /^next$/i })
-
-    expect(nextButton).toBeDisabled()
-
-    await user.type(versionInput, '0')
-    expect(screen.getByText(/version must be a positive integer within uint32 range/i)).toBeInTheDocument()
-    expect(nextButton).toBeDisabled()
-
-    await user.clear(versionInput)
-    await user.type(versionInput, '1.5')
-    expect(screen.getByText(/version must be a positive integer within uint32 range/i)).toBeInTheDocument()
-    expect(nextButton).toBeDisabled()
-
-    await user.clear(versionInput)
-    await user.type(versionInput, '-1')
-    expect(screen.getByText(/version must be a positive integer within uint32 range/i)).toBeInTheDocument()
-    expect(nextButton).toBeDisabled()
-
-    await user.clear(versionInput)
-    await user.type(versionInput, '4294967296')
-    expect(screen.getByText(/version must be a positive integer within uint32 range/i)).toBeInTheDocument()
-    expect(nextButton).toBeDisabled()
-
-    await user.clear(versionInput)
-    await user.type(versionInput, '2')
-
-    expect(nextButton).toBeEnabled()
-  })
-
-  it('requires a positive integer rollback target version before loading the diff', async () => {
-    localStorage.setItem('cassem.session', 'session')
-    localStorage.setItem('cassem.user', JSON.stringify({ account: 'superadmin@example.com' }))
-
-    const user = userEvent.setup()
-    renderRoute('/apps/demo/envs/prod/elements/db.url/rollback')
-
-    const versionInput = screen.getByRole('spinbutton', { name: /target version/i })
-    const nextButton = screen.getByRole('button', { name: /^next$/i })
-
-    expect(nextButton).toBeDisabled()
-
-    await user.type(versionInput, '0')
-    expect(screen.getByText(/version must be a positive integer within uint32 range/i)).toBeInTheDocument()
-    expect(nextButton).toBeDisabled()
-
-    await user.clear(versionInput)
-    await user.type(versionInput, '2.5')
-    expect(screen.getByText(/version must be a positive integer within uint32 range/i)).toBeInTheDocument()
-    expect(nextButton).toBeDisabled()
-
-    await user.clear(versionInput)
-    await user.type(versionInput, '-1')
-    expect(screen.getByText(/version must be a positive integer within uint32 range/i)).toBeInTheDocument()
-    expect(nextButton).toBeDisabled()
-
-    await user.clear(versionInput)
-    await user.type(versionInput, '4294967296')
-    expect(screen.getByText(/version must be a positive integer within uint32 range/i)).toBeInTheDocument()
-    expect(nextButton).toBeDisabled()
-
-    await user.clear(versionInput)
-    await user.type(versionInput, '4')
-
-    expect(nextButton).toBeEnabled()
+    const listbox = await screen.findByRole('listbox')
+    const olderPublishedOption = within(listbox).getByLabelText('v1 published')
+    const currentPublishedOption = within(listbox).getByLabelText('v2 published')
+    const draftOption = within(listbox).getByLabelText('v3 draft')
+    expect(olderPublishedOption).not.toHaveAttribute('aria-disabled', 'true')
+    expect(currentPublishedOption).toHaveAttribute('aria-disabled', 'true')
+    expect(draftOption).toHaveAttribute('aria-disabled', 'true')
+    expect(within(olderPublishedOption).getByTestId('version-status-published')).toBeInTheDocument()
+    expect(within(currentPublishedOption).getByTestId('version-status-current')).toBeInTheDocument()
+    expect(within(currentPublishedOption).getByText('current')).toBeInTheDocument()
+    expect(within(draftOption).getByTestId('version-status-draft')).toBeInTheDocument()
   })
 
   it('requires at least one gray publish target before allowing progression', async () => {
     localStorage.setItem('cassem.session', 'session')
     localStorage.setItem('cassem.user', JSON.stringify({ account: 'superadmin@example.com' }))
+    vi.stubGlobal('fetch', createWorkflowFetchMock())
 
     const user = userEvent.setup()
     renderRoute('/apps/demo/envs/prod/elements/db.url/publish')
 
-    await user.type(screen.getByRole('spinbutton', { name: /^version$/i }), '3')
+    await user.click(await screen.findByRole('combobox', { name: /^version$/i }))
+    await user.click(await screen.findByRole('option', { name: /^v3 draft$/i }))
     await user.click(screen.getByRole('button', { name: /^next$/i }))
     await user.click(screen.getByRole('radio', { name: /gray publish/i }))
     await user.click(screen.getByRole('button', { name: /^next$/i }))
 
-    const nextButton = screen.getByRole('button', { name: /^next$/i })
+    const wizardActions = screen.getByTestId('wizard-actions')
+    const nextButton = within(wizardActions).getByRole('button', { name: /^next$/i })
 
-    expect(screen.getAllByText(/^Gray publish requires at least one agent or instance target\.$/i)).toHaveLength(2)
+    expect(within(wizardActions).getByRole('button', { name: /^back$/i })).toBeInTheDocument()
+    expect(screen.getAllByText(/^Gray publish requires at least one agent or instance target\.$/i)).toHaveLength(1)
     expect(nextButton).toBeDisabled()
 
-    await user.type(screen.getByLabelText(/instance ids/i), 'instance-01')
+    await user.click(screen.getByRole('combobox', { name: /instance ids/i }))
+    await user.click(await screen.findByRole('option', { name: /^instance-01$/i }))
 
     expect(screen.queryByText(/^Gray publish requires at least one agent or instance target\.$/i)).not.toBeInTheDocument()
     expect(nextButton).toBeEnabled()
@@ -1278,35 +1407,45 @@ describe('app shell routing', () => {
   it('hides explicit target inputs for full publish', async () => {
     localStorage.setItem('cassem.session', 'session')
     localStorage.setItem('cassem.user', JSON.stringify({ account: 'superadmin@example.com' }))
+    vi.stubGlobal('fetch', createWorkflowFetchMock())
 
     const user = userEvent.setup()
     renderRoute('/apps/demo/envs/prod/elements/db.url/publish')
 
-    await user.type(screen.getByRole('spinbutton', { name: /^version$/i }), '3')
+    await user.click(await screen.findByRole('combobox', { name: /^version$/i }))
+    await user.click(await screen.findByRole('option', { name: /^v3 draft$/i }))
     await user.click(screen.getByRole('button', { name: /^next$/i }))
     await user.click(screen.getByRole('button', { name: /^next$/i }))
 
-    expect(screen.queryByLabelText(/agent ids/i)).not.toBeInTheDocument()
-    expect(screen.queryByLabelText(/instance ids/i)).not.toBeInTheDocument()
+    expect(screen.queryByRole('combobox', { name: /agent ids/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('combobox', { name: /instance ids/i })).not.toBeInTheDocument()
     expect(screen.getByText(/full publish does not use explicit agent or instance targets/i)).toBeInTheDocument()
   })
 
-  it('splits gray publish targets on newlines before submit', async () => {
+  it('submits gray publish targets from candidate multiselects', async () => {
     localStorage.setItem('cassem.session', 'session')
     localStorage.setItem('cassem.user', JSON.stringify({ account: 'superadmin@example.com' }))
 
-    const fetchMock = vi.fn().mockResolvedValue(createJsonResponse({ errcode: 0, data: null }))
+    const fetchMock = createWorkflowFetchMock((input, init) => {
+      if (String(input).includes('/api/apps/demo/envs/prod/elements/db.url/publish') && init?.method === 'POST') {
+        return createJsonResponse({ errcode: 0, data: null })
+      }
+      return undefined
+    })
     vi.stubGlobal('fetch', fetchMock)
 
     const user = userEvent.setup()
     renderRoute('/apps/demo/envs/prod/elements/db.url/publish')
 
-    await user.type(screen.getByRole('spinbutton', { name: /^version$/i }), '3')
+    await user.click(await screen.findByRole('combobox', { name: /^version$/i }))
+    await user.click(await screen.findByRole('option', { name: /^v3 draft$/i }))
     await user.click(screen.getByRole('button', { name: /^next$/i }))
     await user.click(screen.getByRole('radio', { name: /gray publish/i }))
     await user.click(screen.getByRole('button', { name: /^next$/i }))
-    await user.type(screen.getByLabelText(/agent ids/i), 'agent-a{enter}agent-b')
-    await user.type(screen.getByLabelText(/instance ids/i), 'instance-01{enter}instance-02')
+    await user.click(screen.getByRole('combobox', { name: /agent ids/i }))
+    await user.click(await screen.findByRole('option', { name: /^agent-a$/i }))
+    await user.click(screen.getByRole('combobox', { name: /instance ids/i }))
+    await user.click(await screen.findByRole('option', { name: /^instance-01$/i }))
     await user.click(screen.getByRole('button', { name: /^next$/i }))
     await user.click(screen.getByRole('button', { name: /^publish$/i }))
 
@@ -1316,8 +1455,8 @@ describe('app shell routing', () => {
         body: JSON.stringify({
           version: 3,
           publishMode: 1,
-          agentId: ['agent-a', 'agent-b'],
-          instanceId: ['instance-01', 'instance-02'],
+          agentId: ['agent-a'],
+          instanceId: ['instance-01'],
         }),
       }),
     )
@@ -1328,19 +1467,20 @@ describe('app shell routing', () => {
     localStorage.setItem('cassem.user', JSON.stringify({ account: 'superadmin@example.com' }))
 
     const diffRequest = createDeferred<Response>()
-    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+    const fetchMock = createWorkflowFetchMock((input) => {
       const url = String(input)
       if (url.includes('/api/apps/demo/envs/prod/elements/db.url/diff?')) {
         return diffRequest.promise
       }
-      return Promise.resolve(createJsonResponse({ errcode: 0, data: {} }))
+      return undefined
     })
     vi.stubGlobal('fetch', fetchMock)
 
     const user = userEvent.setup()
     renderRoute('/apps/demo/envs/prod/elements/db.url/rollback')
 
-    await user.type(screen.getByRole('spinbutton', { name: /target version/i }), '1')
+    await user.click(await screen.findByRole('combobox', { name: /target version/i }))
+    await user.click(await screen.findByRole('option', { name: /^v1 published$/i }))
     await user.click(screen.getByRole('button', { name: /^next$/i }))
 
     expect(await screen.findByText(/loading diff/i)).toBeInTheDocument()
@@ -1372,80 +1512,39 @@ describe('app shell routing', () => {
     expect(await screen.findByDisplayValue('changed')).toBeInTheDocument()
   })
 
-  it('blocks rollback diff review when target is not older than live version', async () => {
+  it('disables rollback progression when there are no older target candidates', async () => {
     localStorage.setItem('cassem.session', 'session')
     localStorage.setItem('cassem.user', JSON.stringify({ account: 'superadmin@example.com' }))
 
     vi.stubGlobal(
       'fetch',
-      vi.fn().mockResolvedValue(
-        createJsonResponse({
-          errcode: 0,
-          data: {
-            base: {
-              metadata: { key: 'db.url', usingVersion: 2, latestVersion: 3, unpublishedVersion: 3, contentType: 4 },
-              version: 2,
-              raw: btoa('before'),
-              published: true,
+      createWorkflowFetchMock((input) => {
+        if (String(input).includes('/api/apps/demo/envs/prod/elements/db.url/versions?limit=100')) {
+          return createJsonResponse({
+            errcode: 0,
+            data: {
+              elements: [
+                { metadata: { key: 'db.url', usingVersion: 1, latestVersion: 1, unpublishedVersion: 0, contentType: 4 }, raw: btoa('v1'), version: 1, published: true },
+              ],
             },
-            compare: {
-              metadata: { key: 'db.url', usingVersion: 2, latestVersion: 3, unpublishedVersion: 3, contentType: 4 },
-              version: 2,
-              raw: btoa('before'),
-              published: true,
-            },
-            diff: '',
-          },
-        }),
-      ),
+          })
+        }
+        return undefined
+      }),
     )
 
     const user = userEvent.setup()
     renderRoute('/apps/demo/envs/prod/elements/db.url/rollback')
 
-    await user.type(screen.getByRole('spinbutton', { name: /target version/i }), '2')
-    await user.click(screen.getByRole('button', { name: /^next$/i }))
+    const versionSelect = await screen.findByRole('combobox', { name: /target version/i })
+    expect(screen.getByRole('button', { name: /^next$/i })).toBeDisabled()
 
-    expect(await screen.findByText(/rollback target must be older than the current live version/i)).toBeInTheDocument()
-    expect(screen.queryByText(/loading diff/i)).not.toBeInTheDocument()
-  })
+    await user.click(versionSelect)
 
-  it('blocks rollback diff review when no live using version is available', async () => {
-    localStorage.setItem('cassem.session', 'session')
-    localStorage.setItem('cassem.user', JSON.stringify({ account: 'superadmin@example.com' }))
-
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue(
-        createJsonResponse({
-          errcode: 0,
-          data: {
-            base: {
-              metadata: { key: 'db.url', latestVersion: 3, unpublishedVersion: 3, contentType: 4 },
-              raw: btoa('draft'),
-              published: false,
-            },
-            compare: {
-              metadata: { key: 'db.url', latestVersion: 3, unpublishedVersion: 3, contentType: 4 },
-              version: 1,
-              raw: btoa('older'),
-              published: true,
-            },
-            diff: '',
-          },
-        }),
-      ),
-    )
-
-    const user = userEvent.setup()
-    renderRoute('/apps/demo/envs/prod/elements/db.url/rollback')
-
-    await user.type(screen.getByRole('spinbutton', { name: /target version/i }), '4')
-    await user.click(screen.getByRole('button', { name: /^next$/i }))
-
-    expect(await screen.findByText(/unable to determine the current version for diff review/i)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /^next$/i })).toBeEnabled()
-    expect(screen.queryByText(/loading diff/i)).not.toBeInTheDocument()
+    expect(await screen.findByText(/no published rollback target version available/i)).toBeInTheDocument()
+    const listbox = await screen.findByRole('listbox')
+    const currentPublishedOption = within(listbox).getByLabelText('v1 published')
+    expect(currentPublishedOption).toHaveAttribute('aria-disabled', 'true')
   })
 
   it('logs out from the shell', async () => {

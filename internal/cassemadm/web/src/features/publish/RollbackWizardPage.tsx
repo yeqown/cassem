@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Alert, Box, Paper, Stack, TextField, Typography } from '@mui/material'
 import { useNavigate, useParams } from 'react-router-dom'
 import { AppBreadcrumbs } from '../../components/AppBreadcrumbs'
@@ -6,9 +6,10 @@ import { LoadingState } from '../../components/StateView'
 import { WizardLayout } from '../../components/WizardLayout'
 import type { DiffResponse } from '../../domain/types'
 import { ApiError, apiRequest, buildQuery, jsonBody } from '../../lib/api'
+import { renderVersionMenuItem } from './VersionMenuItem'
+import { requestVersionOptions, type VersionOption } from './workflowOptions'
 
 const steps = ['Version', 'Review diff', 'Impact confirmation', 'Result']
-const maxVersion = 4_294_967_295n
 
 function getErrorMessage(error: unknown, fallback: string) {
   if (error instanceof ApiError) return error.message
@@ -38,6 +39,11 @@ function resolveBaseVersion(diff: DiffResponse) {
   return null
 }
 
+function isRollbackVersionDisabled(option: VersionOption, usingVersion: number | null) {
+  if (!option.published) return true
+  return usingVersion !== null && option.version >= usingVersion
+}
+
 type RollbackWizardFlowProps = {
   appId: string
   env: string
@@ -48,6 +54,9 @@ function RollbackWizardFlow({ appId, env, elementKey }: RollbackWizardFlowProps)
   const navigate = useNavigate()
   const [activeStep, setActiveStep] = useState(0)
   const [version, setVersion] = useState('')
+  const [versionOptions, setVersionOptions] = useState<VersionOption[]>([])
+  const [usingVersion, setUsingVersion] = useState<number | null>(null)
+  const [optionsLoading, setOptionsLoading] = useState(false)
   const [currentVersion, setCurrentVersion] = useState<number | null>(null)
   const [diffText, setDiffText] = useState('')
   const [diffLoaded, setDiffLoaded] = useState(false)
@@ -56,22 +65,51 @@ function RollbackWizardFlow({ appId, env, elementKey }: RollbackWizardFlowProps)
   const [error, setError] = useState('')
   const [resultMessage, setResultMessage] = useState('')
   const mountedRef = useRef(false)
+  const detailPath = buildDetailPath(appId, env, elementKey)
+  const missingParams = !appId || !env || !elementKey
+  const selectedVersion = versionOptions.find((option) => option.value === version)
+  const parsedVersion = selectedVersion?.version ?? null
+  const versionIsValid = Boolean(selectedVersion && !isRollbackVersionDisabled(selectedVersion, usingVersion))
+
+  const loadOptions = useCallback(async () => {
+    if (missingParams) return
+
+    setOptionsLoading(true)
+    setError('')
+
+    try {
+      const data = await requestVersionOptions(appId, env, elementKey)
+      if (!mountedRef.current) return
+      setVersionOptions(data.options)
+      setUsingVersion(data.usingVersion)
+      setVersion('')
+    } catch (err) {
+      if (!mountedRef.current) return
+      setVersionOptions([])
+      setUsingVersion(null)
+      setError(getErrorMessage(err, 'failed to load rollback versions'))
+    } finally {
+      if (mountedRef.current) setOptionsLoading(false)
+    }
+  }, [appId, elementKey, env, missingParams])
 
   useEffect(() => {
     mountedRef.current = true
+
+    queueMicrotask(() => {
+      void loadOptions()
+    })
+
     return () => {
       mountedRef.current = false
     }
-  }, [])
-
-  const trimmedVersion = version.trim()
-  const parsedVersion = /^[1-9]\d*$/.test(trimmedVersion) ? BigInt(trimmedVersion) : null
-  const versionIsValid = parsedVersion !== null && parsedVersion <= maxVersion
-  const detailPath = buildDetailPath(appId, env, elementKey)
-  const missingParams = !appId || !env || !elementKey
+  }, [loadOptions])
 
   async function handleLoadDiffAndAdvance() {
     if (missingParams || !versionIsValid || diffLoading || submitting) return
+
+    const targetVersion = parsedVersion
+    if (targetVersion === null) return
 
     setDiffLoading(true)
     setError('')
@@ -81,18 +119,14 @@ function RollbackWizardFlow({ appId, env, elementKey }: RollbackWizardFlowProps)
     setActiveStep(1)
 
     try {
-      if (parsedVersion === null) {
-        throw new Error('Enter a valid rollback target version.')
-      }
-
-      const diff = await requestDiff(appId, env, elementKey, 0, Number(parsedVersion))
+      const diff = await requestDiff(appId, env, elementKey, 0, targetVersion)
       const baseVersion = resolveBaseVersion(diff)
 
       if (!baseVersion) {
         throw new Error('Unable to determine the current version for diff review.')
       }
 
-      if (parsedVersion >= BigInt(baseVersion)) {
+      if (targetVersion >= baseVersion) {
         throw new Error('Rollback target must be older than the current live version.')
       }
 
@@ -123,12 +157,12 @@ function RollbackWizardFlow({ appId, env, elementKey }: RollbackWizardFlowProps)
     try {
       await apiRequest<void>(
         `/api/apps/${encodeURIComponent(appId)}/envs/${encodeURIComponent(env)}/elements/${encodeURIComponent(elementKey)}/rollback`,
-        jsonBody({ version: Number(parsedVersion) }),
+        jsonBody({ version: parsedVersion }),
       )
 
       if (!mountedRef.current) return
 
-      setResultMessage(`Rollback to version ${trimmedVersion} completed successfully.`)
+      setResultMessage(`Rollback to version ${parsedVersion} completed successfully.`)
       setActiveStep(3)
     } catch (err) {
       if (!mountedRef.current) return
@@ -150,7 +184,7 @@ function RollbackWizardFlow({ appId, env, elementKey }: RollbackWizardFlowProps)
 
     if (activeStep === 0) {
       if (!versionIsValid) {
-        setError('enter a valid version number before continuing')
+        setError('select a rollback target before continuing')
         return
       }
 
@@ -178,7 +212,7 @@ function RollbackWizardFlow({ appId, env, elementKey }: RollbackWizardFlowProps)
   }
 
   const nextLabel = activeStep === 2 ? 'Rollback' : activeStep === 3 ? 'Done' : 'Next'
-  const nextDisabled = missingParams || submitting || diffLoading || (activeStep === 0 && !versionIsValid) || (activeStep === 1 && !diffLoaded)
+  const nextDisabled = missingParams || submitting || diffLoading || (activeStep === 0 && (optionsLoading || !versionIsValid)) || (activeStep === 1 && !diffLoaded)
   const backDisabled = activeStep === 0 || activeStep === 3 || submitting || diffLoading
 
   return (
@@ -201,118 +235,119 @@ function RollbackWizardFlow({ appId, env, elementKey }: RollbackWizardFlowProps)
         nextDisabled={nextDisabled}
       >
         <Stack spacing={3}>
-        {error && <Alert severity="error">{error}</Alert>}
+          {error && <Alert severity="error">{error}</Alert>}
 
-        {activeStep === 0 && (
-          <Stack spacing={2.5}>
-            <Typography variant="h6" component="h2">
-              Choose the target version
-            </Typography>
-            <Typography color="text.secondary">
-              Enter the version you want this element to return to. The next step will load a current-versus-target diff.
-            </Typography>
-            <TextField
-              label="Target version"
-              type="number"
-              value={version}
-              onChange={(event) => {
-                setVersion(event.target.value)
-                setDiffLoaded(false)
-                setDiffText('')
-                setCurrentVersion(null)
-              }}
-              required
-              fullWidth
-              disabled={submitting || diffLoading || missingParams}
-              error={trimmedVersion !== '' && !versionIsValid}
-              helperText={trimmedVersion !== '' && !versionIsValid ? 'Version must be a positive integer within uint32 range.' : 'Example: 5'}
-            />
-          </Stack>
-        )}
+          {activeStep === 0 && (
+            <Stack spacing={2.5}>
+              <Typography variant="h6" component="h2">
+                Choose the target version
+              </Typography>
+              <Typography color="text.secondary">
+                Select the older version you want this element to return to. The next step will load a current-versus-target diff.
+              </Typography>
+              <TextField
+                select
+                label="Target version"
+                value={version}
+                onChange={(event) => {
+                  setVersion(event.target.value)
+                  setDiffLoaded(false)
+                  setDiffText('')
+                  setCurrentVersion(null)
+                }}
+                required
+                fullWidth
+                disabled={submitting || diffLoading || missingParams || optionsLoading}
+                helperText={optionsLoading ? 'Loading versions.' : versionOptions.some((option) => !isRollbackVersionDisabled(option, usingVersion)) ? 'Select an older published target version.' : 'No published rollback target version available.'}
+              >
+                {versionOptions.length > 0 ? versionOptions.map((option) => renderVersionMenuItem(option, isRollbackVersionDisabled(option, usingVersion), option.version === usingVersion)) : renderVersionMenuItem({ value: '', label: 'No rollback target versions', version: 0, published: true }, true)}
+              </TextField>
+            </Stack>
+          )}
 
-        {activeStep === 1 && (
-          <Stack spacing={2.5}>
-            <Typography variant="h6" component="h2">
-              Review diff
-            </Typography>
-            <Typography color="text.secondary">
-              Inspect the change between the current live version and the requested rollback target before proceeding.
-            </Typography>
-            <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 3 }}>
-              <Stack spacing={2}>
-                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-                  <Box sx={{ flex: 1 }}>
-                    <Typography variant="caption" color="text.secondary">Current version</Typography>
-                    <Typography fontWeight={600}>{currentVersion ?? '-'}</Typography>
-                  </Box>
-                  <Box sx={{ flex: 1 }}>
+          {activeStep === 1 && (
+            <Stack spacing={2.5}>
+              <Typography variant="h6" component="h2">
+                Review diff
+              </Typography>
+              <Typography color="text.secondary">
+                Inspect the change between the current live version and the requested rollback target before proceeding.
+              </Typography>
+              <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 3 }}>
+                <Stack spacing={2}>
+                  <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+                    <Box sx={{ flex: 1 }}>
+                      <Typography variant="caption" color="text.secondary">Current version</Typography>
+                      <Typography fontWeight={600}>{currentVersion ?? '-'}</Typography>
+                    </Box>
+                    <Box sx={{ flex: 1 }}>
+                      <Typography variant="caption" color="text.secondary">Target version</Typography>
+                      <Typography fontWeight={600}>{selectedVersion?.label || '-'}</Typography>
+                    </Box>
+                  </Stack>
+                  {diffLoading ? (
+                    <LoadingState label="Loading diff" />
+                  ) : diffLoaded ? (
+                    <TextField
+                      label="Diff"
+                      value={diffText || 'No differences returned for this comparison.'}
+                      multiline
+                      minRows={12}
+                      fullWidth
+                      InputProps={{ readOnly: true }}
+                    />
+                  ) : (
+                    <Typography color="text.secondary">No diff loaded yet.</Typography>
+                  )}
+                </Stack>
+              </Paper>
+            </Stack>
+          )}
+
+          {activeStep === 2 && (
+            <Stack spacing={2.5}>
+              <Typography variant="h6" component="h2">
+                Impact confirmation
+              </Typography>
+              <Typography color="text.secondary">
+                Confirm the rollback target before writing the request to the backend.
+              </Typography>
+              <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 3 }}>
+                <Stack spacing={2}>
+                  <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+                    <Box sx={{ flex: 1 }}>
+                      <Typography variant="caption" color="text.secondary">App</Typography>
+                      <Typography fontWeight={600}>{appId || '-'}</Typography>
+                    </Box>
+                    <Box sx={{ flex: 1 }}>
+                      <Typography variant="caption" color="text.secondary">Env</Typography>
+                      <Typography fontWeight={600}>{env || '-'}</Typography>
+                    </Box>
+                    <Box sx={{ flex: 1 }}>
+                      <Typography variant="caption" color="text.secondary">Key</Typography>
+                      <Typography fontWeight={600}>{elementKey || '-'}</Typography>
+                    </Box>
+                  </Stack>
+                  <Box>
                     <Typography variant="caption" color="text.secondary">Target version</Typography>
-                    <Typography fontWeight={600}>{trimmedVersion || '-'}</Typography>
+                    <Typography fontWeight={600}>{selectedVersion?.label || '-'}</Typography>
                   </Box>
                 </Stack>
-                {diffLoading ? (
-                  <LoadingState label="Loading diff" />
-                ) : diffLoaded ? (
-                  <TextField
-                    label="Diff"
-                    value={diffText || 'No differences returned for this comparison.'}
-                    multiline
-                    minRows={12}
-                    fullWidth
-                    InputProps={{ readOnly: true }}
-                  />
-                ) : (
-                  <Typography color="text.secondary">No diff loaded yet.</Typography>
-                )}
-              </Stack>
-            </Paper>
-          </Stack>
-        )}
+              </Paper>
+            </Stack>
+          )}
 
-        {activeStep === 2 && (
-          <Stack spacing={2.5}>
-            <Typography variant="h6" component="h2">
-              Impact confirmation
-            </Typography>
-            <Typography color="text.secondary">
-              Confirm the rollback target before writing the request to the backend.
-            </Typography>
-            <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 3 }}>
-              <Stack spacing={2}>
-                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-                  <Box sx={{ flex: 1 }}>
-                    <Typography variant="caption" color="text.secondary">App</Typography>
-                    <Typography fontWeight={600}>{appId || '-'}</Typography>
-                  </Box>
-                  <Box sx={{ flex: 1 }}>
-                    <Typography variant="caption" color="text.secondary">Env</Typography>
-                    <Typography fontWeight={600}>{env || '-'}</Typography>
-                  </Box>
-                  <Box sx={{ flex: 1 }}>
-                    <Typography variant="caption" color="text.secondary">Key</Typography>
-                    <Typography fontWeight={600}>{elementKey || '-'}</Typography>
-                  </Box>
-                </Stack>
-                <Box>
-                  <Typography variant="caption" color="text.secondary">Target version</Typography>
-                  <Typography fontWeight={600}>{trimmedVersion || '-'}</Typography>
-                </Box>
-              </Stack>
-            </Paper>
-          </Stack>
-        )}
-
-        {activeStep === 3 && (
-          <Stack spacing={2.5}>
-            <Typography variant="h6" component="h2">
-              Result
-            </Typography>
-            <Alert severity="success">{resultMessage || 'Element rollback request completed successfully.'}</Alert>
-            <Typography color="text.secondary">
-              Select Done to return to the element detail page and continue reviewing the element state.
-            </Typography>
-          </Stack>
-        )}
+          {activeStep === 3 && (
+            <Stack spacing={2.5}>
+              <Typography variant="h6" component="h2">
+                Result
+              </Typography>
+              <Alert severity="success">{resultMessage || 'Element rollback request completed successfully.'}</Alert>
+              <Typography color="text.secondary">
+                Select Done to return to the element detail page and continue reviewing the element state.
+              </Typography>
+            </Stack>
+          )}
         </Stack>
       </WizardLayout>
     </Stack>

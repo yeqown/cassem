@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline'
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
+import DnsIcon from '@mui/icons-material/Dns'
+import SearchIcon from '@mui/icons-material/Search'
 import {
   Box,
   Button,
@@ -7,6 +10,7 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  MenuItem,
   Paper,
   Stack,
   Table,
@@ -29,8 +33,15 @@ function getErrorMessage(error: unknown, fallback: string) {
   return error instanceof ApiError ? error.message : fallback
 }
 
-async function requestApps() {
-  return apiRequest<AppsResponse>(`/api/apps${buildQuery({ limit: 100 })}`)
+const pageSizeOptions = [15, 30, 50, 100]
+
+function formatCreatedAt(createdAt?: number) {
+  if (!createdAt) return '-'
+  return new Date(createdAt * 1000).toLocaleString()
+}
+
+async function requestApps(limit: number, seek: string, query: string) {
+  return apiRequest<AppsResponse>(`/api/apps${buildQuery({ limit, query: query || undefined, seek: seek || undefined })}`)
 }
 
 export function AppsPage() {
@@ -42,37 +53,52 @@ export function AppsPage() {
   const [deleteTarget, setDeleteTarget] = useState<AppMetadata | null>(null)
   const [appId, setAppId] = useState('')
   const [description, setDescription] = useState('')
+  const [queryInput, setQueryInput] = useState('')
+  const [query, setQuery] = useState('')
+  const [pageSize, setPageSize] = useState(15)
+  const [seek, setSeek] = useState('')
+  const [seekStack, setSeekStack] = useState<string[]>([])
+  const [pageIndex, setPageIndex] = useState(1)
+  const [hasMore, setHasMore] = useState(false)
+  const [nextSeek, setNextSeek] = useState('')
   const requestSeq = useRef(0)
   const mountedRef = useRef(false)
+  const lastLoadKeyRef = useRef('')
 
   const loadApps = useCallback(async () => {
     const requestId = ++requestSeq.current
 
     try {
-      const data = await requestApps()
+      const data = await requestApps(pageSize, seek, query)
       if (!mountedRef.current || requestId !== requestSeq.current) return
       setApps(data.apps || [])
+      setHasMore(Boolean(data.hasMore))
+      setNextSeek(data.nextSeek || '')
       setError('')
     } catch (err) {
       if (!mountedRef.current || requestId !== requestSeq.current) return
       setApps([])
+      setHasMore(false)
+      setNextSeek('')
       setError(getErrorMessage(err, 'failed to load apps'))
     } finally {
       if (mountedRef.current && requestId === requestSeq.current) setLoading(false)
     }
-  }, [])
+  }, [pageSize, query, seek])
 
   useEffect(() => {
     mountedRef.current = true
 
-    queueMicrotask(() => {
+    const loadKey = JSON.stringify({ pageSize, query, seek })
+    if (lastLoadKeyRef.current !== loadKey) {
+      lastLoadKeyRef.current = loadKey
       void loadApps()
-    })
+    }
 
     return () => {
       mountedRef.current = false
     }
-  }, [loadApps])
+  }, [loadApps, pageSize, query, seek])
 
   function closeCreateDialog() {
     if (submitting) return
@@ -84,6 +110,46 @@ export function AppsPage() {
   function closeDeleteDialog() {
     if (submitting) return
     setDeleteTarget(null)
+  }
+
+  function resetPaging() {
+    setSeek('')
+    setSeekStack([])
+    setPageIndex(1)
+  }
+
+  function handleSearch(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setQuery(queryInput.trim())
+    resetPaging()
+  }
+
+  function handleClearSearch() {
+    setQueryInput('')
+    setQuery('')
+    resetPaging()
+  }
+
+  function handleNextPage() {
+    if (!hasMore || !nextSeek) return
+    setSeekStack((items) => [...items, seek])
+    setSeek(nextSeek)
+    setPageIndex((value) => value + 1)
+  }
+
+  function handlePreviousPage() {
+    setSeekStack((items) => {
+      if (items.length === 0) return items
+      const nextStack = items.slice(0, -1)
+      setSeek(items[items.length - 1])
+      setPageIndex((value) => Math.max(1, value - 1))
+      return nextStack
+    })
+  }
+
+  function handlePageSizeChange(value: string) {
+    setPageSize(Number(value))
+    resetPaging()
   }
 
   async function handleCreate(event: FormEvent<HTMLFormElement>) {
@@ -104,6 +170,7 @@ export function AppsPage() {
       setCreateOpen(false)
       setAppId('')
       setDescription('')
+      resetPaging()
       await loadApps()
     } catch (err) {
       setError(getErrorMessage(err, 'failed to create app'))
@@ -122,6 +189,7 @@ export function AppsPage() {
     try {
       await apiRequest<void>(`/api/apps/${encodeURIComponent(targetAppId)}`, { method: 'DELETE' })
       setDeleteTarget(null)
+      resetPaging()
       await loadApps()
     } catch (err) {
       setError(getErrorMessage(err, 'failed to delete app'))
@@ -147,6 +215,36 @@ export function AppsPage() {
       </Stack>
 
       {error && <ErrorState message={error} />}
+
+      <Stack component="form" onSubmit={handleSearch} direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems={{ md: 'center' }}>
+        <TextField
+          label="Search apps"
+          value={queryInput}
+          onChange={(event) => setQueryInput(event.target.value)}
+          size="small"
+          fullWidth
+          disabled={loading}
+        />
+        <Button type="submit" variant="contained" startIcon={<SearchIcon />} disabled={loading} sx={{ minWidth: 128, px: 3 }}>
+          Search
+        </Button>
+        <Button variant="text" onClick={handleClearSearch} disabled={loading || (!query && !queryInput)}>
+          Clear
+        </Button>
+        <TextField
+          select
+          label="Rows per page"
+          value={String(pageSize)}
+          onChange={(event) => handlePageSizeChange(event.target.value)}
+          size="small"
+          sx={{ minWidth: 140 }}
+          disabled={loading}
+        >
+          {pageSizeOptions.map((option) => (
+            <MenuItem key={option} value={option}>{option}</MenuItem>
+          ))}
+        </TextField>
+      </Stack>
 
       <DangerConfirmDialog
         open={Boolean(deleteTarget)}
@@ -197,12 +295,16 @@ export function AppsPage() {
       ) : error ? null : apps.length === 0 ? (
         <EmptyState title="No apps found" description="Create an app to start organizing environments and elements." />
       ) : (
-        <TableContainer component={Paper}>
-          <Table>
+        <Paper>
+          <TableContainer>
+            <Table>
             <TableHead>
               <TableRow>
-                <TableCell>App</TableCell>
+                <TableCell>App ID</TableCell>
                 <TableCell>Description</TableCell>
+                <TableCell>Created At</TableCell>
+                <TableCell>Creator</TableCell>
+                <TableCell>Owner</TableCell>
                 <TableCell align="right">Actions</TableCell>
               </TableRow>
             </TableHead>
@@ -211,12 +313,15 @@ export function AppsPage() {
                 <TableRow key={app.id} hover>
                   <TableCell>{app.id}</TableCell>
                   <TableCell>{app.description || '-'}</TableCell>
+                  <TableCell>{formatCreatedAt(app.createdAt)}</TableCell>
+                  <TableCell>{app.creator || '-'}</TableCell>
+                  <TableCell>{app.owner || '-'}</TableCell>
                   <TableCell align="right">
                     <Stack direction="row" spacing={1} justifyContent="flex-end">
-                      <Button component={RouterLink} to={`/apps/${encodeURIComponent(app.id)}/envs`} size="small">
+                      <Button component={RouterLink} to={`/apps/${encodeURIComponent(app.id)}/envs`} size="small" startIcon={<DnsIcon />}>
                         Envs
                       </Button>
-                      <Button color="error" size="small" onClick={() => setDeleteTarget(app)} disabled={submitting}>
+                      <Button color="error" size="small" startIcon={<DeleteOutlineIcon />} onClick={() => setDeleteTarget(app)} disabled={submitting}>
                         Delete
                       </Button>
                     </Stack>
@@ -224,8 +329,14 @@ export function AppsPage() {
                 </TableRow>
               ))}
             </TableBody>
-          </Table>
-        </TableContainer>
+            </Table>
+          </TableContainer>
+          <Stack direction="row" spacing={2} justifyContent="flex-end" alignItems="center" sx={{ p: 2 }}>
+            <Typography color="text.secondary">Page {pageIndex}</Typography>
+            <Button onClick={handlePreviousPage} disabled={loading || seekStack.length === 0}>Previous</Button>
+            <Button onClick={handleNextPage} disabled={loading || !hasMore || !nextSeek}>Next</Button>
+          </Stack>
+        </Paper>
       )}
     </Stack>
   )

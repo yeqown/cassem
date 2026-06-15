@@ -45,6 +45,8 @@ export type AppMetadata = {
 
 export type AppsResponse = {
   apps?: AppMetadata[]
+  hasMore?: boolean
+  nextSeek?: string
 }
 
 export type EnvsResponse = {
@@ -64,6 +66,10 @@ export type Element = {
   raw?: string
   version?: number
   published?: boolean
+}
+
+export function formatVersionLabel(version?: number) {
+  return version ? `v${version}` : '-'
 }
 
 export type ElementsResponse = {

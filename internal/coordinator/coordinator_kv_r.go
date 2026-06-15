@@ -3,6 +3,7 @@ package coordinator
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/yeqown/log"
 
@@ -241,31 +242,74 @@ func (_r kvReadOnly) GetApp(ctx context.Context, app string) (*concept.AppMetada
 	return md, err
 }
 
-func (_r kvReadOnly) GetApps(ctx context.Context, seek string, limit int) (*concept.GetAppsResult, error) {
-	r, err := _r.cassemdb.Range(ctx, &apicassemdb.RangeReq{
-		Key:   _APP_PREFIX,
-		Seek:  seek,
-		Limit: int32(limit),
-	})
-	if err != nil {
-		return nil, err
+func (_r kvReadOnly) GetApps(ctx context.Context, seek string, limit int, query string) (*concept.GetAppsResult, error) {
+	if strings.TrimSpace(query) == "" {
+		r, err := _r.cassemdb.Range(ctx, &apicassemdb.RangeReq{
+			Key:   _APP_PREFIX,
+			Seek:  seek,
+			Limit: int32(limit),
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		result := &concept.GetAppsResult{
+			CommonPager: concept.CommonPager{
+				HasMore:  r.GetHasMore(),
+				NextSeek: r.GetNextSeekKey(),
+			},
+			Apps: make([]*concept.AppMetadata, 0, len(r.GetEntities())),
+		}
+
+		for _, v := range r.GetEntities() {
+			md := new(concept.AppMetadata)
+			_ = concept.UnmarshalProto(v.Val, md)
+			result.Apps = append(result.Apps, md)
+		}
+
+		return result, nil
 	}
 
-	result := &concept.GetAppsResult{
+	needle := strings.ToLower(strings.TrimSpace(query))
+	matched := make([]*concept.AppMetadata, 0, limit+1)
+	nextSeek := seek
+	for len(matched) <= limit {
+		r, err := _r.cassemdb.Range(ctx, &apicassemdb.RangeReq{
+			Key:   _APP_PREFIX,
+			Seek:  nextSeek,
+			Limit: int32(limit),
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		for _, v := range r.GetEntities() {
+			md := new(concept.AppMetadata)
+			_ = concept.UnmarshalProto(v.Val, md)
+			if strings.Contains(strings.ToLower(md.GetId()), needle) || strings.Contains(strings.ToLower(md.GetDescription()), needle) {
+				matched = append(matched, md)
+				if len(matched) > limit {
+					break
+				}
+			}
+		}
+
+		if len(matched) > limit {
+			break
+		}
+		if !r.GetHasMore() {
+			return &concept.GetAppsResult{Apps: matched}, nil
+		}
+		nextSeek = r.GetNextSeekKey()
+	}
+
+	return &concept.GetAppsResult{
 		CommonPager: concept.CommonPager{
-			HasMore:  r.GetHasMore(),
-			NextSeek: r.GetNextSeekKey(),
+			HasMore:  true,
+			NextSeek: matched[limit].GetId(),
 		},
-		Apps: make([]*concept.AppMetadata, 0, len(r.GetEntities())),
-	}
-
-	for _, v := range r.GetEntities() {
-		md := new(concept.AppMetadata)
-		_ = concept.UnmarshalProto(v.Val, md)
-		result.Apps = append(result.Apps, md)
-	}
-
-	return result, nil
+		Apps: matched[:limit],
+	}, nil
 }
 
 func (_r kvReadOnly) GetEnvironments(ctx context.Context, app, seek string, limit int) (*concept.GetAppEnvsResult, error) {

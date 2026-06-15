@@ -69,7 +69,7 @@ export function WizardLayout({
             {children}
           </Box>
 
-          <Stack direction="row" justifyContent="space-between" spacing={2}>
+          <Stack direction="row" justifyContent="flex-end" spacing={1.5} data-testid="wizard-actions">
             <Button variant="text" onClick={onBack} disabled={!onBack || backDisabled}>
               Back
             </Button>

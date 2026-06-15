@@ -14,6 +14,7 @@ import (
 	"github.com/yeqown/cassem/api/concept"
 	apicassemdb "github.com/yeqown/cassem/internal/cassemdb/api"
 	"github.com/yeqown/cassem/pkg/errorx"
+	"github.com/yeqown/cassem/pkg/hash"
 )
 
 type aclTestKV struct {
@@ -153,6 +154,27 @@ func TestAutoMigrateRemovesLegacyRoleSubjectBypass(t *testing.T) {
 	allowed, err = rbac.Enforce("alice", concept.Domain_CLUSTER, concept.Object_APP, concept.Action_WRITE)
 	require.NoError(t, err)
 	require.True(t, allowed)
+}
+
+func TestResetUserAllowsLoginWithNewPassword(t *testing.T) {
+	store := newACLTestKV()
+	rbac, err := newRBAC(store)
+	require.NoError(t, err)
+	acl := rbac.(aclImpl)
+
+	require.NoError(t, acl.AddUser(&concept.User{
+		Account:        "alice@example.com",
+		Nickname:       "Alice",
+		HashedPassword: "old-secret",
+		Status:         concept.User_FORBIDDEN,
+	}))
+
+	require.NoError(t, acl.ResetUser("alice@example.com", "new-secret"))
+	u, err := acl.GetUser("alice@example.com")
+	require.NoError(t, err)
+	require.Equal(t, concept.User_NORMAL, u.GetStatus())
+	require.Equal(t, u.GetHashedPassword(), hash.WithSalt("new-secret", u.GetSalt()))
+	require.NotEqual(t, u.GetHashedPassword(), hash.WithSalt("old-secret", u.GetSalt()))
 }
 
 func TestResetUserRejectsBootstrapSuperadmin(t *testing.T) {

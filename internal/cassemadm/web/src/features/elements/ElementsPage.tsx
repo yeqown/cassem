@@ -27,7 +27,7 @@ import { Link as RouterLink, useParams } from 'react-router-dom'
 import { AppBreadcrumbs } from '../../components/AppBreadcrumbs'
 import { DangerConfirmDialog } from '../../components/DangerConfirmDialog'
 import { EmptyState, ErrorState, LoadingState } from '../../components/StateView'
-import { contentTypes, type Element, type ElementsResponse } from '../../domain/types'
+import { contentTypes, formatVersionLabel, type Element, type ElementsResponse } from '../../domain/types'
 import { ApiError, apiRequest, buildQuery, jsonBody } from '../../lib/api'
 
 function getErrorMessage(error: unknown, fallback: string) {
@@ -305,9 +305,9 @@ export function ElementsPage() {
                 return (
                   <TableRow key={metadata.key} hover>
                     <TableCell>{metadata.key || '-'}</TableCell>
-                    <TableCell>{metadata.latestVersion ?? '-'}</TableCell>
-                    <TableCell>{metadata.usingVersion ?? '-'}</TableCell>
-                    <TableCell>{metadata.unpublishedVersion ?? '-'}</TableCell>
+                    <TableCell>{formatVersionLabel(metadata.latestVersion)}</TableCell>
+                    <TableCell>{formatVersionLabel(metadata.usingVersion)}</TableCell>
+                    <TableCell>{formatVersionLabel(metadata.unpublishedVersion)}</TableCell>
                     <TableCell>{getContentTypeLabel(metadata.contentType)}</TableCell>
                     <TableCell align="right">
                       <Stack direction="row" spacing={1} justifyContent="flex-end">

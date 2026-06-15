@@ -31,7 +31,7 @@ import {
 import { Link as RouterLink, useParams } from 'react-router-dom'
 import { AppBreadcrumbs } from '../../components/AppBreadcrumbs'
 import { EmptyState, ErrorState, LoadingState } from '../../components/StateView'
-import { contentTypes, type DiffResponse, type Element, type ElementOperation, type ElementOperationsResponse, type ElementsResponse } from '../../domain/types'
+import { contentTypes, formatVersionLabel, type DiffResponse, type Element, type ElementOperation, type ElementOperationsResponse, type ElementsResponse } from '../../domain/types'
 import { ApiError, apiRequest, buildQuery, jsonBody } from '../../lib/api'
 import { decodeRaw } from '../../lib/raw'
 
@@ -284,7 +284,7 @@ export function ElementDetailPage() {
       ]} />
 
       <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 3 }}>
-        <Stack direction={{ xs: 'column', lg: 'row' }} spacing={2} alignItems={{ xs: 'stretch', lg: 'center' }}>
+        <Stack direction={{ xs: 'column', lg: 'row' }} spacing={2} alignItems={{ xs: 'stretch', lg: 'flex-start' }}>
           <Box sx={{ flex: 1, minWidth: 0 }}>
             <Stack direction="row" spacing={1} alignItems="center">
               <Inventory2Icon color="primary" />
@@ -292,15 +292,14 @@ export function ElementDetailPage() {
                 Element detail
               </Typography>
             </Stack>
-            <Typography color="text.secondary" sx={{ overflowWrap: 'anywhere' }}>App: {appId || 'unknown'} / Env: {env || 'unknown'} / Key: {key || 'unknown'}</Typography>
             <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap" sx={{ mt: 1.5 }}>
-              <Chip label={`Latest ${metadata?.latestVersion ?? '-'}`} />
-              <Chip label={`Using ${metadata?.usingVersion ?? '-'}`} />
-              <Chip label={`Draft ${metadata?.unpublishedVersion ?? '-'}`} />
-              <Chip label={getContentTypeLabel(metadata?.contentType)} />
+              <Chip label={`Latest: ${formatVersionLabel(metadata?.latestVersion)}`} />
+              <Chip label={`Current: ${formatVersionLabel(metadata?.usingVersion)}`} />
+              <Chip label={`Draft: ${formatVersionLabel(metadata?.unpublishedVersion)}`} />
+              <Chip label={`Type: ${getContentTypeLabel(metadata?.contentType)}`} />
             </Stack>
           </Box>
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} data-testid="element-detail-actions" sx={{ alignSelf: 'flex-end' }}>
             <Button component={RouterLink} to={`/apps/${encodeURIComponent(appId)}/envs/${encodeURIComponent(env)}/elements/${encodeURIComponent(key)}/publish`} variant="outlined" startIcon={<PublishIcon />}>
               Publish
             </Button>

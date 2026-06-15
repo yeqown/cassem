@@ -77,6 +77,8 @@ type diffAppEnvElementsResp struct {
 
 type pagingAppsReq struct {
 	commonPagingRequest
+
+	Query string `form:"query"`
 }
 
 type createAppReq struct {

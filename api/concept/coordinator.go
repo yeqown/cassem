@@ -27,7 +27,7 @@ type KVReadOnly interface {
 		seek string, limit int) (*GetElementOperationsResult, error)
 
 	GetApp(ctx context.Context, app string) (*AppMetadata, error)
-	GetApps(ctx context.Context, seek string, limit int) (*GetAppsResult, error)
+	GetApps(ctx context.Context, seek string, limit int, query string) (*GetAppsResult, error)
 
 	GetEnvironments(ctx context.Context, app, seek string, limit int) (*GetAppEnvsResult, error)
 }
