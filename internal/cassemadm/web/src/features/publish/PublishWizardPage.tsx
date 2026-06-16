@@ -38,6 +38,14 @@ function isPublishVersionDisabled(option: VersionOption, usingVersion: number | 
   return option.version <= usingVersion
 }
 
+const impactGridSx = {
+  display: 'grid',
+  gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+  gap: 3,
+}
+
+const fullRowSx = { gridColumn: '1 / -1' }
+
 type PublishWizardFlowProps = {
   appId: string
   env: string
@@ -60,6 +68,7 @@ function PublishWizardFlow({ appId, env, elementKey }: PublishWizardFlowProps) {
   const [error, setError] = useState('')
   const [resultMessage, setResultMessage] = useState('')
   const mountedRef = useRef(false)
+  const lastLoadKeyRef = useRef('')
   const detailPath = buildDetailPath(appId, env, elementKey)
   const missingParams = !appId || !env || !elementKey
   const selectedVersion = versionOptions.find((option) => option.value === version)
@@ -107,14 +116,18 @@ function PublishWizardFlow({ appId, env, elementKey }: PublishWizardFlowProps) {
   useEffect(() => {
     mountedRef.current = true
 
-    queueMicrotask(() => {
-      void loadOptions()
-    })
+    const loadKey = JSON.stringify({ appId, elementKey, env })
+    if (lastLoadKeyRef.current !== loadKey) {
+      lastLoadKeyRef.current = loadKey
+      queueMicrotask(() => {
+        void loadOptions()
+      })
+    }
 
     return () => {
       mountedRef.current = false
     }
-  }, [loadOptions])
+  }, [appId, elementKey, env, loadOptions])
 
   async function handlePublish() {
     if (missingParams || !versionIsValid || !grayTargetsAreValid || submitting) return
@@ -218,6 +231,7 @@ function PublishWizardFlow({ appId, env, elementKey }: PublishWizardFlowProps) {
         activeStep={activeStep}
         onBack={handleBack}
         onNext={() => void handleNext()}
+        onCancel={() => navigate(detailPath)}
         nextLabel={nextLabel}
         backDisabled={backDisabled}
         nextDisabled={nextDisabled}
@@ -355,44 +369,40 @@ function PublishWizardFlow({ appId, env, elementKey }: PublishWizardFlowProps) {
                 Review the publish payload before dispatching it to the control plane.
               </Typography>
               <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 3 }}>
-                <Stack spacing={2}>
-                  <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-                    <Box sx={{ flex: 1 }}>
-                      <Typography variant="caption" color="text.secondary">App</Typography>
-                      <Typography fontWeight={600}>{appId || '-'}</Typography>
-                    </Box>
-                    <Box sx={{ flex: 1 }}>
-                      <Typography variant="caption" color="text.secondary">Env</Typography>
-                      <Typography fontWeight={600}>{env || '-'}</Typography>
-                    </Box>
-                    <Box sx={{ flex: 1 }}>
-                      <Typography variant="caption" color="text.secondary">Key</Typography>
-                      <Typography fontWeight={600}>{elementKey || '-'}</Typography>
-                    </Box>
-                  </Stack>
-                  <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-                    <Box sx={{ flex: 1 }}>
-                      <Typography variant="caption" color="text.secondary">Version</Typography>
-                      <Typography fontWeight={600}>{selectedVersion?.label || '-'}</Typography>
-                    </Box>
-                    <Box sx={{ flex: 1 }}>
-                      <Typography variant="caption" color="text.secondary">Strategy</Typography>
-                      <Typography fontWeight={600}>{getStrategyLabel(publishMode)}</Typography>
-                    </Box>
-                  </Stack>
-                  <Box>
+                <Box data-testid="publish-impact-grid" sx={impactGridSx}>
+                  <Box data-testid="publish-impact-app" sx={{ minWidth: 0 }}>
+                    <Typography variant="caption" color="text.secondary">App</Typography>
+                    <Typography fontWeight={600} sx={{ overflowWrap: 'anywhere' }}>{appId || '-'}</Typography>
+                  </Box>
+                  <Box data-testid="publish-impact-env" sx={{ minWidth: 0 }}>
+                    <Typography variant="caption" color="text.secondary">Env</Typography>
+                    <Typography fontWeight={600} sx={{ overflowWrap: 'anywhere' }}>{env || '-'}</Typography>
+                  </Box>
+                  <Box data-testid="publish-impact-key" sx={{ minWidth: 0 }}>
+                    <Typography variant="caption" color="text.secondary">Key</Typography>
+                    <Typography fontWeight={600} sx={{ overflowWrap: 'anywhere' }}>{elementKey || '-'}</Typography>
+                  </Box>
+                  <Box data-testid="publish-impact-version" sx={{ minWidth: 0 }}>
+                    <Typography variant="caption" color="text.secondary">Version</Typography>
+                    <Typography fontWeight={600}>{selectedVersion?.label || '-'}</Typography>
+                  </Box>
+                  <Box data-testid="publish-impact-strategy" sx={{ minWidth: 0 }}>
+                    <Typography variant="caption" color="text.secondary">Strategy</Typography>
+                    <Typography fontWeight={600}>{getStrategyLabel(publishMode)}</Typography>
+                  </Box>
+                  <Box data-testid="publish-impact-agent-ids" sx={fullRowSx}>
                     <Typography variant="caption" color="text.secondary">Agent IDs</Typography>
                     <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap" sx={{ mt: 1 }}>
                       {agentIds.length > 0 ? agentIds.map((agentId) => <Chip key={agentId} label={agentId} variant="outlined" />) : <Typography color="text.secondary">No explicit agent targets.</Typography>}
                     </Stack>
                   </Box>
-                  <Box>
+                  <Box data-testid="publish-impact-instance-ids" sx={fullRowSx}>
                     <Typography variant="caption" color="text.secondary">Instance IDs</Typography>
                     <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap" sx={{ mt: 1 }}>
                       {instanceIds.length > 0 ? instanceIds.map((instanceId) => <Chip key={instanceId} label={instanceId} variant="outlined" />) : <Typography color="text.secondary">No explicit instance targets.</Typography>}
                     </Stack>
                   </Box>
-                </Stack>
+                </Box>
               </Paper>
             </Stack>
           )}

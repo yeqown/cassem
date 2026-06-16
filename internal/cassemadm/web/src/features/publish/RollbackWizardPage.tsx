@@ -44,6 +44,12 @@ function isRollbackVersionDisabled(option: VersionOption, usingVersion: number |
   return usingVersion !== null && option.version >= usingVersion
 }
 
+const impactGridSx = {
+  display: 'grid',
+  gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+  gap: 3,
+}
+
 type RollbackWizardFlowProps = {
   appId: string
   env: string
@@ -65,6 +71,7 @@ function RollbackWizardFlow({ appId, env, elementKey }: RollbackWizardFlowProps)
   const [error, setError] = useState('')
   const [resultMessage, setResultMessage] = useState('')
   const mountedRef = useRef(false)
+  const lastLoadKeyRef = useRef('')
   const detailPath = buildDetailPath(appId, env, elementKey)
   const missingParams = !appId || !env || !elementKey
   const selectedVersion = versionOptions.find((option) => option.value === version)
@@ -96,14 +103,18 @@ function RollbackWizardFlow({ appId, env, elementKey }: RollbackWizardFlowProps)
   useEffect(() => {
     mountedRef.current = true
 
-    queueMicrotask(() => {
-      void loadOptions()
-    })
+    const loadKey = JSON.stringify({ appId, elementKey, env })
+    if (lastLoadKeyRef.current !== loadKey) {
+      lastLoadKeyRef.current = loadKey
+      queueMicrotask(() => {
+        void loadOptions()
+      })
+    }
 
     return () => {
       mountedRef.current = false
     }
-  }, [loadOptions])
+  }, [appId, elementKey, env, loadOptions])
 
   async function handleLoadDiffAndAdvance() {
     if (missingParams || !versionIsValid || diffLoading || submitting) return
@@ -230,6 +241,7 @@ function RollbackWizardFlow({ appId, env, elementKey }: RollbackWizardFlowProps)
         activeStep={activeStep}
         onBack={handleBack}
         onNext={() => void handleNext()}
+        onCancel={() => navigate(detailPath)}
         nextLabel={nextLabel}
         backDisabled={backDisabled}
         nextDisabled={nextDisabled}
@@ -313,26 +325,24 @@ function RollbackWizardFlow({ appId, env, elementKey }: RollbackWizardFlowProps)
                 Confirm the rollback target before writing the request to the backend.
               </Typography>
               <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 3 }}>
-                <Stack spacing={2}>
-                  <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-                    <Box sx={{ flex: 1 }}>
-                      <Typography variant="caption" color="text.secondary">App</Typography>
-                      <Typography fontWeight={600}>{appId || '-'}</Typography>
-                    </Box>
-                    <Box sx={{ flex: 1 }}>
-                      <Typography variant="caption" color="text.secondary">Env</Typography>
-                      <Typography fontWeight={600}>{env || '-'}</Typography>
-                    </Box>
-                    <Box sx={{ flex: 1 }}>
-                      <Typography variant="caption" color="text.secondary">Key</Typography>
-                      <Typography fontWeight={600}>{elementKey || '-'}</Typography>
-                    </Box>
-                  </Stack>
-                  <Box>
+                <Box data-testid="rollback-impact-grid" sx={impactGridSx}>
+                  <Box sx={{ minWidth: 0 }}>
+                    <Typography variant="caption" color="text.secondary">App</Typography>
+                    <Typography fontWeight={600} sx={{ overflowWrap: 'anywhere' }}>{appId || '-'}</Typography>
+                  </Box>
+                  <Box sx={{ minWidth: 0 }}>
+                    <Typography variant="caption" color="text.secondary">Env</Typography>
+                    <Typography fontWeight={600} sx={{ overflowWrap: 'anywhere' }}>{env || '-'}</Typography>
+                  </Box>
+                  <Box sx={{ minWidth: 0 }}>
+                    <Typography variant="caption" color="text.secondary">Key</Typography>
+                    <Typography fontWeight={600} sx={{ overflowWrap: 'anywhere' }}>{elementKey || '-'}</Typography>
+                  </Box>
+                  <Box sx={{ minWidth: 0 }}>
                     <Typography variant="caption" color="text.secondary">Target version</Typography>
                     <Typography fontWeight={600}>{selectedVersion?.label || '-'}</Typography>
                   </Box>
-                </Stack>
+                </Box>
               </Paper>
             </Stack>
           )}

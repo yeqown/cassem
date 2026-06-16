@@ -72,6 +72,7 @@ function InstancesPageFlow({ initialApp, initialEnv, initialKey }: InstancesPage
   const detailRequestSeq = useRef(0)
   const candidateSeq = useRef(0)
   const mountedRef = useRef(false)
+  const lastLoadKeyRef = useRef('')
 
   const loadAll = useCallback(async () => {
     const requestId = ++requestSeq.current
@@ -197,16 +198,20 @@ function InstancesPageFlow({ initialApp, initialEnv, initialKey }: InstancesPage
   useEffect(() => {
     mountedRef.current = true
 
-    queueMicrotask(() => {
-      void loadApps()
-      if (initialApp) void loadEnvCandidates(initialApp)
-      if (initialApp && initialEnv) void loadKeyCandidates(initialApp, initialEnv)
-      if (initialApp && initialEnv && initialKey) {
-        void applyFilter(initialApp, initialEnv, initialKey)
-      } else {
-        void loadAll()
-      }
-    })
+    const loadKey = JSON.stringify({ initialApp, initialEnv, initialKey })
+    if (lastLoadKeyRef.current !== loadKey) {
+      lastLoadKeyRef.current = loadKey
+      queueMicrotask(() => {
+        void loadApps()
+        if (initialApp) void loadEnvCandidates(initialApp)
+        if (initialApp && initialEnv) void loadKeyCandidates(initialApp, initialEnv)
+        if (initialApp && initialEnv && initialKey) {
+          void applyFilter(initialApp, initialEnv, initialKey)
+        } else {
+          void loadAll()
+        }
+      })
+    }
 
     return () => {
       mountedRef.current = false

@@ -152,6 +152,8 @@ func (d app) initialHTTP(engi *gin.Engine) {
 
 	cluster := auth.Group("/cluster")
 	{
+		cluster.GET("/topology", d.GetClusterTopology)
+
 		agentIns := cluster.Group("/agents")
 		{
 			agentIns.GET("", d.GetAgents)

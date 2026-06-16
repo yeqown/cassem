@@ -25,6 +25,7 @@ type getAppEnvElementsReq struct {
 	commonPagingRequest
 
 	ElementKeys []string `form:"key"`
+	Query       string   `form:"query"`
 }
 
 type createAppEnvElementReq struct {

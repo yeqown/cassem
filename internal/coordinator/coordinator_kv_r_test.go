@@ -27,8 +27,16 @@ func (f *kvReadOnlyTestKV) GetKV(_ context.Context, req *apicassemdb.GetKVReq, _
 	return &apicassemdb.GetKVResp{Entity: entity}, nil
 }
 
-func (f *kvReadOnlyTestKV) GetKVs(context.Context, *apicassemdb.GetKVsReq, ...grpc.CallOption) (*apicassemdb.GetKVsResp, error) {
-	return nil, errors.New("unused")
+func (f *kvReadOnlyTestKV) GetKVs(_ context.Context, req *apicassemdb.GetKVsReq, _ ...grpc.CallOption) (*apicassemdb.GetKVsResp, error) {
+	entities := make([]*apicassemdb.Entity, 0, len(req.GetKeys()))
+	for _, key := range req.GetKeys() {
+		entity, ok := f.entities[key]
+		if !ok {
+			return nil, errorx.Err_NOT_FOUND
+		}
+		entities = append(entities, entity)
+	}
+	return &apicassemdb.GetKVsResp{Entities: entities}, nil
 }
 func (f *kvReadOnlyTestKV) SetKV(context.Context, *apicassemdb.SetKVReq, ...grpc.CallOption) (*apicassemdb.Empty, error) {
 	return nil, errors.New("unused")
@@ -48,8 +56,14 @@ func (f *kvReadOnlyTestKV) Expire(context.Context, *apicassemdb.ExpireReq, ...gr
 func (f *kvReadOnlyTestKV) Range(_ context.Context, req *apicassemdb.RangeReq, _ ...grpc.CallOption) (*apicassemdb.RangeResp, error) {
 	entities := make([]*apicassemdb.Entity, 0)
 	for key, entity := range f.entities {
-		if req.GetKey() != "" && !strings.HasPrefix(key, req.GetKey()) {
-			continue
+		if req.GetKey() != "" {
+			prefix := req.GetKey() + "/"
+			if !strings.HasPrefix(key, prefix) {
+				continue
+			}
+			if strings.Contains(strings.TrimPrefix(key, prefix), "/") {
+				continue
+			}
 		}
 		if req.GetSeek() != "" && concept.ExtractPureKey(key) < req.GetSeek() {
 			continue
@@ -65,6 +79,27 @@ func (f *kvReadOnlyTestKV) Range(_ context.Context, req *apicassemdb.RangeReq, _
 		}, nil
 	}
 	return &apicassemdb.RangeResp{Entities: entities}, nil
+}
+
+func addElementTestData(t *testing.T, entities map[string]*apicassemdb.Entity, app, env, key string, version int32) {
+	t.Helper()
+	baseKey := concept.GenElementKey(app, env, key)
+	entities[baseKey] = apicassemdb.NewEntityWithCreated(key, nil, 0, 1)
+	metadata := &concept.ElementMetadata{
+		Key:           key,
+		App:           app,
+		Env:           env,
+		LatestVersion: version,
+		UsingVersion:  version,
+		ContentType:   concept.ContentType_JSON,
+	}
+	metadataData, err := concept.MarshalProto(metadata)
+	require.NoError(t, err)
+	entities[concept.WithMetadataSuffix(baseKey)] = apicassemdb.NewEntityWithCreated(concept.WithMetadataSuffix(baseKey), metadataData, 0, 1)
+
+	elementData, err := concept.MarshalProto(&concept.Element{Raw: []byte(key), Version: version, Published: true})
+	require.NoError(t, err)
+	entities[concept.WithVersion(baseKey, int(version))] = apicassemdb.NewEntityWithCreated(concept.WithVersion(baseKey, int(version)), elementData, 0, 1)
 }
 
 func TestKVReadOnlyGetAppsSearchesByIdAndDescription(t *testing.T) {
@@ -93,6 +128,55 @@ func TestKVReadOnlyGetAppsSearchesByIdAndDescription(t *testing.T) {
 	require.Len(t, out.Apps, 1)
 	require.Equal(t, "demo-api", out.Apps[0].Id)
 	require.False(t, out.HasMore)
+}
+
+func TestKVReadOnlyGetElementsSearchesByKey(t *testing.T) {
+	entities := make(map[string]*apicassemdb.Entity)
+	addElementTestData(t, entities, "demo", "prod", "api.host", 1)
+	addElementTestData(t, entities, "demo", "prod", "db.url", 1)
+	addElementTestData(t, entities, "demo", "prod", "feature.flag", 1)
+	addElementTestData(t, entities, "demo", "prod", "service.API.timeout", 1)
+
+	out, err := (kvReadOnly{cassemdb: &kvReadOnlyTestKV{entities: entities}}).GetElements(context.Background(), "demo", "prod", "", 1, "api")
+	require.NoError(t, err)
+	require.Len(t, out.Elements, 1)
+	require.Equal(t, "api.host", out.Elements[0].Metadata.Key)
+	require.True(t, out.HasMore)
+	require.NotEmpty(t, out.NextSeek)
+
+	out, err = (kvReadOnly{cassemdb: &kvReadOnlyTestKV{entities: entities}}).GetElements(context.Background(), "demo", "prod", out.NextSeek, 1, "api")
+	require.NoError(t, err)
+	require.Len(t, out.Elements, 1)
+	require.Equal(t, "service.API.timeout", out.Elements[0].Metadata.Key)
+	require.False(t, out.HasMore)
+}
+
+func TestGetElementWithVersionReturnsVersionZeroWhenNoUsingVersion(t *testing.T) {
+	baseKey := concept.GenElementKey("app", "env", "key")
+	metadata := &concept.ElementMetadata{
+		Key:                "key",
+		App:                "app",
+		Env:                "env",
+		LatestVersion:      1,
+		UnpublishedVersion: 1,
+		ContentType:        concept.ContentType_JSON,
+	}
+	metadataData, err := concept.MarshalProto(metadata)
+	require.NoError(t, err)
+	elementData, err := concept.MarshalProto(&concept.Element{Raw: []byte("draft"), Version: 1})
+	require.NoError(t, err)
+
+	kv := &kvReadOnlyTestKV{entities: map[string]*apicassemdb.Entity{
+		concept.WithMetadataSuffix(baseKey): apicassemdb.NewEntityWithCreated("md", metadataData, 0, 1),
+		concept.WithVersion(baseKey, 1):     apicassemdb.NewEntityWithCreated("v1", elementData, 0, 1),
+	}}
+
+	out, err := (kvReadOnly{cassemdb: kv}).GetElementWithVersion(context.Background(), "app", "env", "key", 0)
+	require.NoError(t, err)
+	require.Equal(t, int32(0), out.GetVersion())
+	require.Empty(t, out.GetRaw())
+	require.Equal(t, "key", out.GetMetadata().GetKey())
+	require.Equal(t, int32(0), out.GetMetadata().GetUsingVersion())
 }
 
 func TestGetElementWithVersionReturnsVersionLookupError(t *testing.T) {

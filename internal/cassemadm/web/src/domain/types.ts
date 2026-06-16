@@ -74,6 +74,8 @@ export function formatVersionLabel(version?: number) {
 
 export type ElementsResponse = {
   elements?: Element[]
+  hasMore?: boolean
+  nextSeek?: string
 }
 
 export type ElementOperation = {
@@ -94,9 +96,21 @@ export type DiffResponse = {
   diff: string
 }
 
+export type HealthState = 'healthy' | 'unhealthy' | 'offline'
+
 export type AgentNode = {
   agentId?: string
   addr?: string
+  ip?: string
+  health?: HealthState
+  annotations?: Record<string, string>
+}
+
+export type DBNode = {
+  id?: string
+  addr?: string
+  ip?: string
+  health?: HealthState
 }
 
 export type Instance = {
@@ -106,9 +120,17 @@ export type Instance = {
   app?: string
   env?: string
   key?: string
+  health?: HealthState
+  lastRenewTimestamp?: number
 }
 
 export type InstancesResponse = {
+  instances?: Instance[]
+}
+
+export type ClusterTopologyResponse = {
+  dbs?: DBNode[]
+  agents?: AgentNode[]
   instances?: Instance[]
 }
 

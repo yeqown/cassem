@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type FormEvent } from 'react'
 import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline'
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
-import FilterAltIcon from '@mui/icons-material/FilterAlt'
+import SearchIcon from '@mui/icons-material/Search'
 import Inventory2Icon from '@mui/icons-material/Inventory2'
 import OpenInNewIcon from '@mui/icons-material/OpenInNew'
 import {
@@ -39,9 +39,12 @@ function getContentTypeLabel(contentType?: number | string) {
   return contentTypes.find((item) => item.value === value)?.label || String(contentType || '-')
 }
 
-async function requestElements(appId: string, env: string, key: string) {
+const pageSizeOptions = [15, 30, 50, 100]
+const defaultPageSize = 15
+
+async function requestElements(appId: string, env: string, query: string, limit: number, seek = '') {
   return apiRequest<ElementsResponse>(
-    `/api/apps/${encodeURIComponent(appId)}/envs/${encodeURIComponent(env)}/elements${buildQuery({ limit: 100, key: key || undefined })}`,
+    `/api/apps/${encodeURIComponent(appId)}/envs/${encodeURIComponent(env)}/elements${buildQuery({ limit, query: query || undefined, seek: seek || undefined })}`,
   )
 }
 
@@ -51,8 +54,12 @@ export function ElementsPage() {
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
-  const [filterInput, setFilterInput] = useState('')
-  const [filterKey, setFilterKey] = useState('')
+  const [queryInput, setQueryInput] = useState('')
+  const [query, setQuery] = useState('')
+  const [pageSize, setPageSize] = useState(defaultPageSize)
+  const [hasMore, setHasMore] = useState(false)
+  const [nextSeek, setNextSeek] = useState('')
+  const [loadingMore, setLoadingMore] = useState(false)
   const [createOpen, setCreateOpen] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState('')
   const [createKey, setCreateKey] = useState('')
@@ -60,15 +67,18 @@ export function ElementsPage() {
   const [createContentType, setCreateContentType] = useState<number>(contentTypes[0].value)
   const requestSeq = useRef(0)
   const mountedRef = useRef(false)
+  const lastLoadKeyRef = useRef('')
   const appIdRef = useRef(appId)
   const envRef = useRef(env)
-  const filterKeyRef = useRef(filterKey)
+  const queryRef = useRef(query)
+  const pageSizeRef = useRef(pageSize)
 
   useLayoutEffect(() => {
     appIdRef.current = appId
     envRef.current = env
-    filterKeyRef.current = filterKey
-  }, [appId, env, filterKey])
+    queryRef.current = query
+    pageSizeRef.current = pageSize
+  }, [appId, env, pageSize, query])
 
   const canApplyMutationResult = useCallback(
     (startedAppId: string, startedEnv: string) => mountedRef.current && appIdRef.current === startedAppId && envRef.current === startedEnv,
@@ -76,29 +86,39 @@ export function ElementsPage() {
   )
 
   const loadElements = useCallback(
-    async (targetFilter = filterKeyRef.current) => {
+    async (targetQuery = queryRef.current, limit = pageSizeRef.current, seek = '', append = false) => {
       const requestId = ++requestSeq.current
 
       if (!appId || !env) {
         if (mountedRef.current && requestId === requestSeq.current) {
           setElements([])
+          setHasMore(false)
+          setNextSeek('')
           setError('missing app id or environment')
           setLoading(false)
+          setLoadingMore(false)
         }
         return
       }
 
       try {
-        const data = await requestElements(appId, env, targetFilter)
+        const data = await requestElements(appId, env, targetQuery, limit, seek)
         if (!mountedRef.current || requestId !== requestSeq.current) return
-        setElements(data.elements || [])
+        setElements((items) => (append ? [...items, ...(data.elements || [])] : data.elements || []))
+        setHasMore(Boolean(data.hasMore))
+        setNextSeek(data.nextSeek || '')
         setError('')
       } catch (err) {
         if (!mountedRef.current || requestId !== requestSeq.current) return
-        setElements([])
+        if (!append) setElements([])
+        setHasMore(false)
+        setNextSeek('')
         setError(getErrorMessage(err, 'failed to load elements'))
       } finally {
-        if (mountedRef.current && requestId === requestSeq.current) setLoading(false)
+        if (mountedRef.current && requestId === requestSeq.current) {
+          setLoading(false)
+          setLoadingMore(false)
+        }
       }
     },
     [appId, env],
@@ -107,22 +127,54 @@ export function ElementsPage() {
   useEffect(() => {
     mountedRef.current = true
 
-    queueMicrotask(() => {
-      void loadElements()
-    })
+    const loadKey = JSON.stringify({ appId, env })
+    if (lastLoadKeyRef.current !== loadKey) {
+      lastLoadKeyRef.current = loadKey
+      queueMicrotask(() => {
+        void loadElements()
+      })
+    }
 
     return () => {
       mountedRef.current = false
     }
-  }, [loadElements])
+  }, [appId, env, loadElements])
 
-  async function handleFilterSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSearchSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    const nextFilter = filterInput.trim()
-    filterKeyRef.current = nextFilter
-    setFilterKey(nextFilter)
+    const nextQuery = queryInput.trim()
+    queryRef.current = nextQuery
+    setQuery(nextQuery)
     setLoading(true)
-    void loadElements(nextFilter)
+    setHasMore(false)
+    setNextSeek('')
+    void loadElements(nextQuery, pageSize)
+  }
+
+  function handleLoadMore() {
+    if (!hasMore || !nextSeek || loadingMore) return
+    setLoadingMore(true)
+    void loadElements(query, pageSize, nextSeek, true)
+  }
+
+  function handleClearSearch() {
+    queryRef.current = ''
+    setQueryInput('')
+    setQuery('')
+    setLoading(true)
+    setHasMore(false)
+    setNextSeek('')
+    void loadElements('', pageSize)
+  }
+
+  function handlePageSizeChange(value: string) {
+    const nextPageSize = Number(value)
+    pageSizeRef.current = nextPageSize
+    setPageSize(nextPageSize)
+    setLoading(true)
+    setHasMore(false)
+    setNextSeek('')
+    void loadElements(query, nextPageSize)
   }
 
   function closeCreateDialog() {
@@ -162,7 +214,9 @@ export function ElementsPage() {
       setCreateRaw('')
       setCreateContentType(contentTypes[0].value)
       setLoading(true)
-      await loadElements(filterKey)
+      setHasMore(false)
+      setNextSeek('')
+      await loadElements(query, pageSize)
     } catch (err) {
       if (canApplyMutationResult(startedAppId, startedEnv)) {
         setError(getErrorMessage(err, 'failed to create element'))
@@ -191,7 +245,9 @@ export function ElementsPage() {
 
       setDeleteTarget('')
       setLoading(true)
-      await loadElements(filterKey)
+      setHasMore(false)
+      setNextSeek('')
+      await loadElements(query, pageSize)
     } catch (err) {
       if (canApplyMutationResult(startedAppId, startedEnv)) {
         setError(getErrorMessage(err, 'failed to delete element'))
@@ -218,6 +274,7 @@ export function ElementsPage() {
               Elements
             </Typography>
           </Stack>
+          <Typography color="text.secondary">Elements are versioned configuration entries that can be reviewed, published, and consumed by clients.</Typography>
         </Box>
         <Button variant="contained" startIcon={<AddCircleOutlineIcon />} onClick={() => setCreateOpen(true)} disabled={!appId || !env || submitting}>
           Add element
@@ -236,21 +293,35 @@ export function ElementsPage() {
         onConfirm={() => void handleDelete()}
       />
 
-      <Paper component="form" onSubmit={(event) => void handleFilterSubmit(event)} sx={{ p: 2.5 }}>
-        <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems={{ md: 'center' }}>
-          <TextField
-            label="Exact key"
-            value={filterInput}
-            onChange={(event) => setFilterInput(event.target.value)}
-            fullWidth
-            helperText="Optional exact element key filter, for example db.url."
-            disabled={loading || submitting || !appId || !env}
-          />
-          <Button type="submit" variant="outlined" startIcon={<FilterAltIcon />} disabled={loading || submitting || !appId || !env}>
-            Filter
-          </Button>
-        </Stack>
-      </Paper>
+      <Stack component="form" onSubmit={(event) => void handleSearchSubmit(event)} direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems={{ md: 'center' }}>
+        <TextField
+          label="Search elements"
+          value={queryInput}
+          onChange={(event) => setQueryInput(event.target.value)}
+          size="small"
+          fullWidth
+          disabled={loading || loadingMore || submitting || !appId || !env}
+        />
+        <Button type="submit" variant="contained" startIcon={<SearchIcon />} disabled={loading || loadingMore || submitting || !appId || !env} sx={{ minWidth: 128, height: 40, px: 3 }}>
+          Search
+        </Button>
+        <Button variant="text" onClick={handleClearSearch} disabled={loading || loadingMore || submitting || (!query && !queryInput)}>
+          Clear
+        </Button>
+        <TextField
+          select
+          label="Rows per page"
+          value={String(pageSize)}
+          onChange={(event) => handlePageSizeChange(event.target.value)}
+          size="small"
+          sx={{ minWidth: 140 }}
+          disabled={loading || loadingMore || submitting || !appId || !env}
+        >
+          {pageSizeOptions.map((option) => (
+            <MenuItem key={option} value={option}>{option}</MenuItem>
+          ))}
+        </TextField>
+      </Stack>
 
       <Dialog open={createOpen} onClose={closeCreateDialog} fullWidth maxWidth="md">
         <Box component="form" onSubmit={(event) => void handleCreate(event)}>
@@ -285,10 +356,11 @@ export function ElementsPage() {
       {loading ? (
         <LoadingState label="Loading elements" />
       ) : error ? null : elements.length === 0 ? (
-        <EmptyState title="No matching records" description={filterKey ? 'Try a different exact key filter or create a new element.' : 'Add an element to manage versioned configuration.'} />
+        <EmptyState title="No matching records" description={query ? 'Try a different key search or create a new element.' : 'Add an element to manage versioned configuration.'} />
       ) : (
-        <TableContainer component={Paper}>
-          <Table>
+        <Paper>
+          <TableContainer data-testid="elements-table-scroll" sx={{ maxHeight: 560, overflowY: 'auto' }}>
+            <Table stickyHeader>
             <TableHead>
               <TableRow>
                 <TableCell>Key</TableCell>
@@ -323,8 +395,16 @@ export function ElementsPage() {
                 )
               })}
             </TableBody>
-          </Table>
-        </TableContainer>
+            </Table>
+          </TableContainer>
+          {hasMore && (
+            <Stack direction="row" justifyContent="center" sx={{ p: 2 }}>
+              <Button onClick={handleLoadMore} disabled={loadingMore || submitting}>
+                {loadingMore ? 'Loading more' : 'Load more'}
+              </Button>
+            </Stack>
+          )}
+        </Paper>
       )}
     </Stack>
   )

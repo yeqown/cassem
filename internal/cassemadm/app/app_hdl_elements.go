@@ -29,7 +29,7 @@ func (d app) GetAppEnvElements(c *gin.Context) {
 	if len(req.ElementKeys) != 0 {
 		elements, err = d.aggregate.GetElementsByKeys(c.Request.Context(), req.AppId, req.Env, req.ElementKeys)
 	} else {
-		elements, err = d.aggregate.GetElements(c.Request.Context(), req.AppId, req.Env, req.Seek, req.Limit)
+		elements, err = d.aggregate.GetElements(c.Request.Context(), req.AppId, req.Env, req.Seek, req.Limit, req.Query)
 	}
 
 	if err != nil {

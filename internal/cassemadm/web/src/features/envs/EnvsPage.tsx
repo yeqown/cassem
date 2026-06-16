@@ -4,6 +4,7 @@ import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
 import FolderOpenIcon from '@mui/icons-material/FolderOpen'
 import LayersIcon from '@mui/icons-material/Layers'
 import {
+  Autocomplete,
   Box,
   Button,
   Dialog,
@@ -32,6 +33,8 @@ function getErrorMessage(error: unknown, fallback: string) {
   return error instanceof ApiError ? error.message : fallback
 }
 
+const envNameOptions = ['dev', 'test', 'stage', 'prod']
+
 async function requestEnvs(appId: string) {
   return apiRequest<EnvsResponse>(`/api/apps/${encodeURIComponent(appId)}/envs${buildQuery({ limit: 100 })}`)
 }
@@ -47,6 +50,7 @@ export function EnvsPage() {
   const [envName, setEnvName] = useState('')
   const requestSeq = useRef(0)
   const mountedRef = useRef(false)
+  const lastLoadKeyRef = useRef('')
   const appIdRef = useRef(appId)
 
   useLayoutEffect(() => {
@@ -87,14 +91,18 @@ export function EnvsPage() {
   useEffect(() => {
     mountedRef.current = true
 
-    queueMicrotask(() => {
-      void loadEnvs()
-    })
+    const loadKey = JSON.stringify({ appId })
+    if (lastLoadKeyRef.current !== loadKey) {
+      lastLoadKeyRef.current = loadKey
+      queueMicrotask(() => {
+        void loadEnvs()
+      })
+    }
 
     return () => {
       mountedRef.current = false
     }
-  }, [loadEnvs])
+  }, [appId, loadEnvs])
 
   function closeCreateDialog() {
     if (submitting) return
@@ -111,7 +119,7 @@ export function EnvsPage() {
     event.preventDefault()
 
     const startedAppId = appId
-    const nextEnvName = envName.trim()
+    const nextEnvName = envName.trim().toLowerCase()
     if (!startedAppId || !nextEnvName) return
 
     setSubmitting(true)
@@ -174,6 +182,7 @@ export function EnvsPage() {
               Environments
             </Typography>
           </Stack>
+          <Typography color="text.secondary">Environments separate app configuration by runtime target, such as dev, test, stage, or prod.</Typography>
         </Box>
         <Button variant="contained" startIcon={<AddCircleOutlineIcon />} onClick={() => setCreateOpen(true)} disabled={submitting || !appId}>
           Add environment
@@ -197,7 +206,24 @@ export function EnvsPage() {
           <DialogTitle>Add environment</DialogTitle>
           <DialogContent>
             <Stack spacing={2} sx={{ mt: 1 }}>
-              <TextField label="Environment" value={envName} onChange={(event) => setEnvName(event.target.value)} required fullWidth disabled={submitting || !appId} helperText="Short environment name, for example dev, staging, or prod." />
+              <Autocomplete
+                freeSolo
+                options={envNameOptions}
+                value={envName}
+                inputValue={envName}
+                onChange={(_, value) => setEnvName(String(value || '').toLowerCase())}
+                onInputChange={(_, value) => setEnvName(value.toLowerCase())}
+                disabled={submitting || !appId}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="Environment"
+                    required
+                    fullWidth
+                    helperText="Choose a common environment or type a custom name. Values are saved lowercase."
+                  />
+                )}
+              />
             </Stack>
           </DialogContent>
           <DialogActions>

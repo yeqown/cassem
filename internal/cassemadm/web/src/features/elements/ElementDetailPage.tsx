@@ -1,17 +1,25 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline'
 import CompareArrowsIcon from '@mui/icons-material/CompareArrows'
 import Inventory2Icon from '@mui/icons-material/Inventory2'
 import LaunchIcon from '@mui/icons-material/Launch'
 import LockResetIcon from '@mui/icons-material/LockReset'
 import PublishIcon from '@mui/icons-material/Publish'
+import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked'
 import SaveIcon from '@mui/icons-material/Save'
 import TimelineIcon from '@mui/icons-material/Timeline'
+import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined'
 import {
   Box,
   Button,
   Chip,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   Divider,
   FormControl,
+  IconButton,
   InputLabel,
   MenuItem,
   Paper,
@@ -28,6 +36,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material'
+import { alpha } from '@mui/material/styles'
 import { Link as RouterLink, useParams } from 'react-router-dom'
 import { AppBreadcrumbs } from '../../components/AppBreadcrumbs'
 import { EmptyState, ErrorState, LoadingState } from '../../components/StateView'
@@ -128,12 +137,14 @@ export function ElementDetailPage() {
   const [error, setError] = useState('')
   const [tab, setTab] = useState(0)
   const [raw, setRaw] = useState('')
+  const [previewVersion, setPreviewVersion] = useState<Element | null>(null)
   const [diffBase, setDiffBase] = useState('')
   const [diffCompare, setDiffCompare] = useState('')
   const [diffText, setDiffText] = useState('')
   const requestSeq = useRef(0)
   const diffRequestSeq = useRef(0)
   const mountedRef = useRef(false)
+  const lastLoadKeyRef = useRef('')
   const locationRef = useRef({ appId, env, key })
 
   useLayoutEffect(() => {
@@ -158,6 +169,7 @@ export function ElementDetailPage() {
         setVersions([])
         setOperations([])
         setRaw('')
+        setPreviewVersion(null)
         setError('missing app, environment, or key')
         setLoading(false)
       }
@@ -182,6 +194,7 @@ export function ElementDetailPage() {
       setVersions(nextVersions)
       setOperations(operationsData.operations || [])
       setRaw(decodeRaw(elementData.raw))
+      setPreviewVersion(null)
       setDiffBase(versionOptions[0] ? String(versionOptions[0]) : '')
       setDiffCompare(versionOptions.length > 1 ? String(versionOptions[versionOptions.length - 1]) : '')
       setDiffText('')
@@ -192,6 +205,7 @@ export function ElementDetailPage() {
       setVersions([])
       setOperations([])
       setRaw('')
+      setPreviewVersion(null)
       setDiffText('')
       setError(getErrorMessage(err, 'failed to load element detail'))
     } finally {
@@ -202,14 +216,18 @@ export function ElementDetailPage() {
   useEffect(() => {
     mountedRef.current = true
 
-    queueMicrotask(() => {
-      void loadPage()
-    })
+    const loadKey = JSON.stringify({ appId, env, key })
+    if (lastLoadKeyRef.current !== loadKey) {
+      lastLoadKeyRef.current = loadKey
+      queueMicrotask(() => {
+        void loadPage()
+      })
+    }
 
     return () => {
       mountedRef.current = false
     }
-  }, [loadPage])
+  }, [appId, env, key, loadPage])
 
   async function handleSave() {
     const startedAppId = appId
@@ -272,6 +290,8 @@ export function ElementDetailPage() {
   }
 
   const metadata = element?.metadata
+  const previewVersionLabel = previewVersion?.version === undefined || previewVersion.version === null ? '-' : `v${previewVersion.version}`
+  const previewRaw = previewVersion ? decodeRaw(previewVersion.raw) : ''
 
   return (
     <Stack spacing={3}>
@@ -348,20 +368,68 @@ export function ElementDetailPage() {
                         <TableHead>
                           <TableRow>
                             <TableCell>Version</TableCell>
-                            <TableCell>Published</TableCell>
+                            <TableCell>State</TableCell>
                             <TableCell>Type</TableCell>
                             <TableCell>Preview</TableCell>
                           </TableRow>
                         </TableHead>
                         <TableBody>
-                          {versions.map((version) => (
-                            <TableRow key={`${version.metadata?.key || key}-${version.version}`} hover>
-                              <TableCell>{version.version ?? '-'}</TableCell>
-                              <TableCell>{version.published ? 'Yes' : 'No'}</TableCell>
-                              <TableCell>{getContentTypeLabel(version.metadata?.contentType)}</TableCell>
-                              <TableCell sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{decodeRaw(version.raw).slice(0, 120) || '-'}</TableCell>
-                            </TableRow>
-                          ))}
+                          {versions.map((version) => {
+                            const isCurrent = metadata?.usingVersion === version.version
+                            const decodedRaw = decodeRaw(version.raw)
+                            const versionLabel = version.version === undefined || version.version === null ? '-' : `v${version.version}`
+
+                            return (
+                              <TableRow
+                                key={`${version.metadata?.key || key}-${version.version}`}
+                                data-testid={`version-row-${version.version}`}
+                                hover
+                                sx={isCurrent
+                                  ? {
+                                      bgcolor: (theme) => alpha(theme.palette.primary.main, 0.08),
+                                      boxShadow: (theme) => `inset 4px 0 0 ${theme.palette.primary.main}`,
+                                      '&:hover': { bgcolor: (theme) => alpha(theme.palette.primary.main, 0.12) },
+                                    }
+                                  : undefined}
+                              >
+                                <TableCell>
+                                  <Stack direction="row" spacing={0.75} alignItems="baseline">
+                                    <Typography component="span" sx={{ color: isCurrent ? 'primary.main' : 'text.primary', fontWeight: isCurrent ? 700 : 400 }}>
+                                      {versionLabel}
+                                    </Typography>
+                                    {isCurrent && (
+                                      <Typography component="span" variant="caption" sx={{ color: 'primary.main', fontWeight: 600 }}>
+                                        (current)
+                                      </Typography>
+                                    )}
+                                  </Stack>
+                                </TableCell>
+                                <TableCell>
+                                  <Stack direction="row" spacing={0.75} alignItems="center" sx={{ color: version.published ? 'success.main' : 'text.secondary', fontWeight: 600 }}>
+                                    {version.published ? <CheckCircleOutlineIcon fontSize="small" /> : <RadioButtonUncheckedIcon fontSize="small" />}
+                                    <Typography component="span" variant="body2" sx={{ fontWeight: 600 }}>
+                                      {version.published ? 'Published' : 'Draft'}
+                                    </Typography>
+                                  </Stack>
+                                </TableCell>
+                                <TableCell>{getContentTypeLabel(version.metadata?.contentType)}</TableCell>
+                                <TableCell sx={{ maxWidth: 420 }}>
+                                  <Stack direction="row" spacing={1} alignItems="center" sx={{ minWidth: 0 }}>
+                                    <Typography
+                                      data-testid={`version-preview-${version.version}`}
+                                      title={decodedRaw || '-'}
+                                      sx={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}
+                                    >
+                                      {decodedRaw || '-'}
+                                    </Typography>
+                                    <IconButton size="small" aria-label={`Preview ${versionLabel}`} onClick={() => setPreviewVersion(version)}>
+                                      <VisibilityOutlinedIcon fontSize="small" />
+                                    </IconButton>
+                                  </Stack>
+                                </TableCell>
+                              </TableRow>
+                            )
+                          })}
                         </TableBody>
                       </Table>
                     </TableContainer>
@@ -463,6 +531,18 @@ export function ElementDetailPage() {
           </Box>
         </Paper>
       )}
+
+      <Dialog open={Boolean(previewVersion)} onClose={() => setPreviewVersion(null)} fullWidth maxWidth="md" aria-labelledby="version-preview-title">
+        <DialogTitle id="version-preview-title">Version {previewVersionLabel} Preview</DialogTitle>
+        <DialogContent>
+          <Box component="pre" sx={{ m: 0, p: 2, border: 1, borderColor: 'divider', borderRadius: 2, bgcolor: 'background.default', whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontFamily: 'monospace' }}>
+            {previewRaw || '-'}
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setPreviewVersion(null)}>Close</Button>
+        </DialogActions>
+      </Dialog>
     </Stack>
   )
 }

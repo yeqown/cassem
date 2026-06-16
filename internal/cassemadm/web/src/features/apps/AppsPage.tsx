@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline'
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
+import AppsIcon from '@mui/icons-material/Apps'
 import DnsIcon from '@mui/icons-material/Dns'
 import SearchIcon from '@mui/icons-material/Search'
 import {
@@ -204,9 +205,12 @@ export function AppsPage() {
 
       <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} justifyContent="space-between" alignItems={{ md: 'center' }}>
         <Box>
-          <Typography variant="h4" component="h1">
-            Apps
-          </Typography>
+          <Stack direction="row" spacing={1} alignItems="center">
+            <AppsIcon data-testid="apps-title-icon" color="primary" />
+            <Typography variant="h4" component="h1">
+              Apps
+            </Typography>
+          </Stack>
           <Typography color="text.secondary">Manage application namespaces and navigate to their environments.</Typography>
         </Box>
         <Button variant="contained" startIcon={<AddCircleOutlineIcon />} onClick={() => setCreateOpen(true)} disabled={submitting}>
@@ -225,7 +229,7 @@ export function AppsPage() {
           fullWidth
           disabled={loading}
         />
-        <Button type="submit" variant="contained" startIcon={<SearchIcon />} disabled={loading} sx={{ minWidth: 128, px: 3 }}>
+        <Button type="submit" variant="contained" startIcon={<SearchIcon />} disabled={loading} sx={{ minWidth: 128, height: 40, px: 3 }}>
           Search
         </Button>
         <Button variant="text" onClick={handleClearSearch} disabled={loading || (!query && !queryInput)}>

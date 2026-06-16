@@ -21,7 +21,7 @@ type KVReadOnly interface {
 	GetElementWithVersion(ctx context.Context, app, env, key string, version int) (*Element, error)
 	GetElementVersions(ctx context.Context, app, env, key string,
 		seek string, limit int) (*GetElementsResult, error)
-	GetElements(ctx context.Context, app, env string, seek string, limit int) (*GetElementsResult, error)
+	GetElements(ctx context.Context, app, env string, seek string, limit int, query string) (*GetElementsResult, error)
 	GetElementsByKeys(ctx context.Context, app, env string, keys []string) (*GetElementsResult, error)
 	GetElementOperations(ctx context.Context, app, env, key string,
 		seek string, limit int) (*GetElementOperationsResult, error)

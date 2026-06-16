@@ -112,6 +112,7 @@ export function UsersPage() {
   const [selectedEnv, setSelectedEnv] = useState('')
   const requestSeq = useRef(0)
   const mountedRef = useRef(false)
+  const lastLoadKeyRef = useRef('')
 
   const appOptions = useMemo(
     () => domainOptions.filter((item) => item !== 'cluster' && item.endsWith('/*')).map((item) => item.slice(0, -2)),
@@ -156,10 +157,14 @@ export function UsersPage() {
   useEffect(() => {
     mountedRef.current = true
 
-    queueMicrotask(() => {
-      void loadUsers()
-      void loadDomainOptions()
-    })
+    const loadKey = 'users-and-domains'
+    if (lastLoadKeyRef.current !== loadKey) {
+      lastLoadKeyRef.current = loadKey
+      queueMicrotask(() => {
+        void loadUsers()
+        void loadDomainOptions()
+      })
+    }
 
     return () => {
       mountedRef.current = false

@@ -1,5 +1,5 @@
 import { Breadcrumbs, Link, Typography } from '@mui/material'
-import { Link as RouterLink } from 'react-router-dom'
+import { Link as RouterLink, useLocation } from 'react-router-dom'
 
 type BreadcrumbItem = {
   label: string
@@ -11,11 +11,13 @@ type AppBreadcrumbsProps = {
 }
 
 export function AppBreadcrumbs({ items }: AppBreadcrumbsProps) {
+  const location = useLocation()
+
   return (
     <Breadcrumbs aria-label="breadcrumb">
       {items.map((item, index) => {
         const to = item.to
-        if (index === items.length - 1 || !to) {
+        if (index === items.length - 1 || !to || to === location.pathname) {
           return (
             <Typography key={`${item.label}-${index}`} color="text.primary" sx={{ overflowWrap: 'anywhere' }}>
               {item.label}

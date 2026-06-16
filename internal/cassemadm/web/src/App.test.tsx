@@ -1,5 +1,6 @@
 import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { StrictMode } from 'react'
 import { RouterProvider, createMemoryRouter } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { routes } from './routes'
@@ -9,6 +10,19 @@ function renderRoute(path: string) {
   const router = createMemoryRouter(routes, { basename: '/ui', initialEntries: [entry] })
   render(<RouterProvider router={router} />)
   return router
+}
+
+function renderStrictRoute(path: string) {
+  const entry = path.startsWith('/ui') ? path : `/ui${path}`
+  const router = createMemoryRouter(routes, { basename: '/ui', initialEntries: [entry] })
+  return {
+    router,
+    ...render(
+      <StrictMode>
+        <RouterProvider router={router} />
+      </StrictMode>,
+    ),
+  }
 }
 
 function createDeferred<T>() {
@@ -163,6 +177,7 @@ describe('app shell routing', () => {
     expect(screen.getAllByText('CASSEM').length).toBeGreaterThan(0)
     expect(screen.queryByText('Cassem Admin')).not.toBeInTheDocument()
     expect(screen.getAllByText('Super Admin').length).toBeGreaterThan(0)
+    expect(screen.getByRole('main')).toHaveStyle({ padding: '48px' })
 
     await user.click(screen.getByRole('button', { name: /account menu/i }))
 
@@ -177,6 +192,7 @@ describe('app shell routing', () => {
     renderRoute('/apps')
 
     expect(screen.getByRole('heading', { name: /apps/i })).toBeInTheDocument()
+    expect(screen.getByTestId('apps-title-icon')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /add app/i })).toBeInTheDocument()
   })
 
@@ -212,7 +228,7 @@ describe('app shell routing', () => {
     expect(screen.getByRole('columnheader', { name: /owner/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /^search$/i })).toHaveClass('MuiButton-contained')
     expect(within(screen.getByRole('button', { name: /^search$/i })).getByTestId('SearchIcon')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /^search$/i })).toHaveStyle({ minWidth: '128px' })
+    expect(screen.getByRole('button', { name: /^search$/i })).toHaveStyle({ minWidth: '128px', height: '40px' })
     expect(screen.getByText('root')).toBeInTheDocument()
     expect(screen.getByText('platform')).toBeInTheDocument()
     expect(within(screen.getByRole('link', { name: /^envs$/i })).getByTestId('DnsIcon')).toBeInTheDocument()
@@ -298,9 +314,50 @@ describe('app shell routing', () => {
     renderRoute('/apps/demo/envs')
 
     expect(screen.getByRole('heading', { name: /environments/i })).toBeInTheDocument()
+    expect(screen.getByText(/environments separate app configuration/i)).toBeInTheDocument()
     const breadcrumbs = screen.getByRole('navigation', { name: /breadcrumb/i })
-    expect(within(breadcrumbs).getByRole('link', { name: /^demo$/i })).toBeInTheDocument()
+    expect(within(breadcrumbs).getByRole('link', { name: /^apps$/i })).toBeInTheDocument()
+    expect(within(breadcrumbs).queryByRole('link', { name: /^demo$/i })).not.toBeInTheDocument()
+    expect(within(breadcrumbs).getByText(/^demo$/i)).toBeInTheDocument()
     expect(screen.queryByText('App: demo')).not.toBeInTheDocument()
+  })
+
+  it('suggests common environment names and creates lowercase custom names', async () => {
+    localStorage.setItem('cassem.session', 'session')
+    localStorage.setItem('cassem.user', JSON.stringify({ account: 'superadmin@example.com' }))
+
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url.includes('/api/apps/demo/envs?limit=100')) {
+        return Promise.resolve(createJsonResponse({ errcode: 0, data: { envs: [] } }))
+      }
+      if (url.includes('/api/apps/demo/envs/qa') && init?.method === 'POST') {
+        return Promise.resolve(createJsonResponse({ errcode: 0, data: null }))
+      }
+      return Promise.resolve(createJsonResponse({ errcode: 0, data: {} }))
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const user = userEvent.setup()
+    renderRoute('/apps/demo/envs')
+
+    await user.click(screen.getByRole('button', { name: /add environment/i }))
+    const dialog = await screen.findByRole('dialog')
+    const input = within(dialog).getByRole('combobox', { name: /environment/i })
+    await user.click(input)
+
+    expect(await screen.findByRole('option', { name: 'dev' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'test' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'stage' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'prod' })).toBeInTheDocument()
+
+    await user.clear(input)
+    await user.type(input, 'QA')
+    await user.click(within(dialog).getByRole('button', { name: /^create$/i }))
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/apps/demo/envs/qa', expect.objectContaining({ method: 'POST' }))
+    })
   })
 
   it('keeps the latest environments response when refresh overlaps the initial load', async () => {
@@ -446,11 +503,142 @@ describe('app shell routing', () => {
     renderRoute('/apps/demo/envs/prod/elements')
 
     expect(await screen.findByRole('heading', { name: /elements/i })).toBeInTheDocument()
+    expect(screen.getByText(/elements are versioned configuration entries/i)).toBeInTheDocument()
     const breadcrumbs = screen.getByRole('navigation', { name: /breadcrumb/i })
+    expect(within(breadcrumbs).getByRole('link', { name: /^apps$/i })).toBeInTheDocument()
     expect(within(breadcrumbs).getByRole('link', { name: /^demo$/i })).toBeInTheDocument()
-    expect(within(breadcrumbs).getByRole('link', { name: /^prod$/i })).toBeInTheDocument()
+    expect(within(breadcrumbs).queryByRole('link', { name: /^prod$/i })).not.toBeInTheDocument()
+    expect(within(breadcrumbs).getByText(/^prod$/i)).toBeInTheDocument()
     expect(screen.queryByText(/app: demo/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/env: prod/i)).not.toBeInTheDocument()
+  })
+
+  it('keeps element rows scrolling inside the table card', async () => {
+    localStorage.setItem('cassem.session', 'session')
+    localStorage.setItem('cassem.user', JSON.stringify({ account: 'superadmin@example.com' }))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(createJsonResponse({
+        errcode: 0,
+        data: {
+          elements: Array.from({ length: 16 }, (_, index) => ({
+            metadata: { key: `row-${index + 1}`, latestVersion: 1, usingVersion: 1, unpublishedVersion: 0, contentType: 4 },
+          })),
+          hasMore: false,
+        },
+      })),
+    )
+
+    renderRoute('/apps/demo/envs/prod/elements')
+
+    expect(await screen.findByText('row-16')).toBeInTheDocument()
+    expect(screen.getByTestId('elements-table-scroll')).toHaveStyle({ maxHeight: '560px', overflowY: 'auto' })
+  })
+
+  it('aligns the elements search button with the input control', async () => {
+    localStorage.setItem('cassem.session', 'session')
+    localStorage.setItem('cassem.user', JSON.stringify({ account: 'superadmin@example.com' }))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(createJsonResponse({ errcode: 0, data: { elements: [], hasMore: false } })),
+    )
+
+    renderRoute('/apps/demo/envs/prod/elements')
+
+    expect(await screen.findByRole('heading', { name: /elements/i })).toBeInTheDocument()
+    const searchInput = screen.getByRole('textbox', { name: /search elements/i })
+    const searchButton = screen.getByRole('button', { name: /^search$/i })
+    const clearButton = screen.getByRole('button', { name: /^clear$/i })
+    const pageSizeSelect = screen.getByRole('combobox', { name: /rows per page/i })
+    expect(searchInput.closest('.MuiInputBase-root')).toHaveClass('MuiInputBase-sizeSmall')
+    expect(searchButton).toHaveClass('MuiButton-contained')
+    expect(searchButton).toHaveStyle({ minWidth: '128px', height: '40px' })
+    expect(clearButton).toBeInTheDocument()
+    expect(pageSizeSelect.closest('.MuiInputBase-root')).toHaveClass('MuiInputBase-sizeSmall')
+    expect(screen.getAllByText('Rows per page').length).toBeGreaterThan(0)
+  })
+
+  it('searches elements by fuzzy query and appends more results', async () => {
+    localStorage.setItem('cassem.session', 'session')
+    localStorage.setItem('cassem.user', JSON.stringify({ account: 'superadmin@example.com' }))
+
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes('/api/apps/demo/envs/prod/elements?limit=15&query=db&seek=db.pool')) {
+        return Promise.resolve(createJsonResponse({
+          errcode: 0,
+          data: {
+            elements: [{ metadata: { key: 'db.password', latestVersion: 3, usingVersion: 2, unpublishedVersion: 0, contentType: 4 } }],
+            hasMore: false,
+          },
+        }))
+      }
+      if (url.includes('/api/apps/demo/envs/prod/elements?limit=15&query=db')) {
+        return Promise.resolve(createJsonResponse({
+          errcode: 0,
+          data: {
+            elements: [{ metadata: { key: 'db.url', latestVersion: 1, usingVersion: 1, unpublishedVersion: 0, contentType: 4 } }],
+            hasMore: true,
+            nextSeek: 'db.pool',
+          },
+        }))
+      }
+      if (url.includes('/api/apps/demo/envs/prod/elements?limit=15')) {
+        return Promise.resolve(createJsonResponse({ errcode: 0, data: { elements: [], hasMore: false } }))
+      }
+      return Promise.resolve(createJsonResponse({ errcode: 0, data: {} }))
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const user = userEvent.setup()
+    renderRoute('/apps/demo/envs/prod/elements')
+
+    expect(await screen.findByRole('heading', { name: /elements/i })).toBeInTheDocument()
+    await user.type(screen.getByRole('textbox', { name: /search elements/i }), 'db')
+    await user.click(screen.getByRole('button', { name: /^search$/i }))
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/apps/demo/envs/prod/elements?limit=15&query=db', expect.any(Object))
+    })
+    expect(await screen.findByText('db.url')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /load more/i }))
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/apps/demo/envs/prod/elements?limit=15&query=db&seek=db.pool', expect.any(Object))
+    })
+    expect(await screen.findByText('db.password')).toBeInTheDocument()
+    expect(screen.getByText('db.url')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /load more/i })).not.toBeInTheDocument()
+  })
+
+  it('changes the elements page size and reloads from the first page', async () => {
+    localStorage.setItem('cassem.session', 'session')
+    localStorage.setItem('cassem.user', JSON.stringify({ account: 'superadmin@example.com' }))
+
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes('/api/apps/demo/envs/prod/elements?limit=30')) {
+        return Promise.resolve(createJsonResponse({ errcode: 0, data: { elements: [{ metadata: { key: 'limit-30' } }], hasMore: false } }))
+      }
+      if (url.includes('/api/apps/demo/envs/prod/elements?limit=15')) {
+        return Promise.resolve(createJsonResponse({ errcode: 0, data: { elements: [{ metadata: { key: 'limit-15' } }], hasMore: false } }))
+      }
+      return Promise.resolve(createJsonResponse({ errcode: 0, data: {} }))
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const user = userEvent.setup()
+    renderRoute('/apps/demo/envs/prod/elements')
+
+    expect(await screen.findByText('limit-15')).toBeInTheDocument()
+    expect(fetchMock).toHaveBeenCalledWith('/api/apps/demo/envs/prod/elements?limit=15', expect.any(Object))
+
+    await user.click(screen.getByRole('combobox', { name: /rows per page/i }))
+    await user.click(await screen.findByRole('option', { name: '30' }))
+
+    expect(await screen.findByText('limit-30')).toBeInTheDocument()
+    expect(fetchMock).toHaveBeenCalledWith('/api/apps/demo/envs/prod/elements?limit=30', expect.any(Object))
   })
 
   it('renders element detail page with content, versions, and operations tabs', async () => {
@@ -492,7 +680,8 @@ describe('app shell routing', () => {
     const breadcrumbs = screen.getByRole('navigation', { name: /breadcrumb/i })
     expect(within(breadcrumbs).getByRole('link', { name: /^demo$/i })).toBeInTheDocument()
     expect(within(breadcrumbs).getByRole('link', { name: /^prod$/i })).toBeInTheDocument()
-    expect(within(breadcrumbs).getByRole('link', { name: /^db\.url$/i })).toBeInTheDocument()
+    expect(within(breadcrumbs).queryByRole('link', { name: /^db\.url$/i })).not.toBeInTheDocument()
+    expect(within(breadcrumbs).getByText(/^db\.url$/i)).toBeInTheDocument()
     expect(screen.queryByText(/app: demo \/ env: prod \/ key: db\.url/i)).not.toBeInTheDocument()
     expect(screen.getByRole('tab', { name: /content/i })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: /versions/i })).toBeInTheDocument()
@@ -536,6 +725,64 @@ describe('app shell routing', () => {
     expect(screen.getByText('Draft: -')).toBeInTheDocument()
     expect(screen.getByText('Type: PLAINTEXT')).toBeInTheDocument()
     expect(screen.getByTestId('element-detail-actions')).toHaveStyle({ alignSelf: 'flex-end' })
+  })
+
+  it('renders version history state, current marker, truncated preview, and full preview dialog', async () => {
+    localStorage.setItem('cassem.session', 'session')
+    localStorage.setItem('cassem.user', JSON.stringify({ account: 'superadmin@example.com' }))
+
+    const longPreview = 'checkout.enabled=true\ncheckout.rollout=50\ncheckout.regions=us-east,eu-west,ap-south\ncheckout.owner=payments'
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((input: RequestInfo | URL) => {
+        const url = String(input)
+        if (url.includes('/api/apps/demo/envs/prod/elements/db.url/versions?limit=100')) {
+          return Promise.resolve(createJsonResponse({
+            errcode: 0,
+            data: {
+              elements: [
+                { metadata: { key: 'db.url', usingVersion: 2, contentType: 4 }, raw: btoa('postgres://demo'), version: 1, published: true },
+                { metadata: { key: 'db.url', usingVersion: 2, contentType: 4 }, raw: btoa(longPreview), version: 2, published: true },
+                { metadata: { key: 'db.url', usingVersion: 2, contentType: 4 }, raw: btoa('draft-value'), version: 3, published: false },
+              ],
+            },
+          }))
+        }
+        if (url.includes('/api/apps/demo/envs/prod/elements/db.url/operations?limit=100')) {
+          return Promise.resolve(createJsonResponse({ errcode: 0, data: { operations: [] } }))
+        }
+        return Promise.resolve(createJsonResponse({
+          errcode: 0,
+          data: {
+            metadata: { key: 'db.url', latestVersion: 3, usingVersion: 2, unpublishedVersion: 3, contentType: 4 },
+            raw: btoa(longPreview),
+            version: 2,
+            published: true,
+          },
+        }))
+      }),
+    )
+
+    const user = userEvent.setup()
+    renderRoute('/apps/demo/envs/prod/elements/db.url')
+
+    await user.click(await screen.findByRole('tab', { name: /versions/i }))
+
+    expect(screen.getByRole('columnheader', { name: /state/i })).toBeInTheDocument()
+    const currentRow = screen.getByTestId('version-row-2')
+    expect(within(currentRow).getByText('v2')).toHaveStyle({ fontWeight: '700' })
+    expect(within(currentRow).getByText('(current)')).toBeInTheDocument()
+    expect(within(currentRow).getByText('Published')).toBeInTheDocument()
+    expect(within(currentRow).queryByText(/Published.*current/i)).not.toBeInTheDocument()
+    expect(within(screen.getByTestId('version-row-3')).getByText('Draft')).toBeInTheDocument()
+    expect(screen.getAllByTestId('CheckCircleOutlineIcon').length).toBeGreaterThan(0)
+    expect(screen.getAllByTestId('RadioButtonUncheckedIcon').length).toBeGreaterThan(0)
+    expect(screen.getByTestId('version-preview-2')).toHaveStyle({ textOverflow: 'ellipsis' })
+
+    await user.click(within(currentRow).getByRole('button', { name: /preview v2/i }))
+
+    const dialog = await screen.findByRole('dialog', { name: /version v2 preview/i })
+    expect(dialog.querySelector('pre')?.textContent).toBe(longPreview)
   })
 
   it('compares element versions with dropdowns and renders readable diff text', async () => {
@@ -841,7 +1088,7 @@ describe('app shell routing', () => {
     const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false)
     const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input)
-      if (url.includes('/api/apps/demo/envs/prod/elements?limit=100')) {
+      if (url.includes('/api/apps/demo/envs/prod/elements?limit=15')) {
         return Promise.resolve(createJsonResponse({
           errcode: 0,
           data: { elements: [{ metadata: { key: 'db.url', latestVersion: 1, usingVersion: 1, unpublishedVersion: 0, contentType: 4 } }] },
@@ -957,7 +1204,7 @@ describe('app shell routing', () => {
             },
           }))
         }
-        if (url.includes('/api/apps/demo/envs/prod/elements?limit=100')) {
+        if (url.includes('/api/apps/demo/envs/prod/elements?limit=15')) {
           return Promise.resolve(createJsonResponse({ errcode: 0, data: { elements: [] } }))
         }
         return Promise.resolve(createJsonResponse({ errcode: 0, data: {} }))
@@ -1038,7 +1285,182 @@ describe('app shell routing', () => {
     renderRoute('/cluster/agents')
 
     expect(await screen.findByText('agent-1')).toBeInTheDocument()
-    expect(screen.getByText('127.0.0.1:7001')).toBeInTheDocument()
+    expect(within(screen.getByTestId('topology-node-agent-1')).getByText(/Addr: 127\.0\.0\.1:7001/i)).toBeInTheDocument()
+  })
+
+  it('loads cluster topology once under strict mode', async () => {
+    localStorage.setItem('cassem.session', 'session')
+    localStorage.setItem('cassem.user', JSON.stringify({ account: 'superadmin@example.com' }))
+
+    const fetchMock = vi.fn(() =>
+      Promise.resolve(
+        createJsonResponse({
+          errcode: 0,
+          data: {
+            dbs: [],
+            agents: [{ agentId: 'agent-a', addr: '10.0.1.1:2030', ip: '10.0.1.1', health: 'healthy' }],
+            instances: [],
+          },
+        }),
+      ),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    renderStrictRoute('/cluster/agents')
+
+    expect(await screen.findByText('agent-a')).toBeInTheDocument()
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
+  })
+
+  it('loads initial page data once under strict mode', async () => {
+    localStorage.setItem('cassem.session', 'session')
+    localStorage.setItem('cassem.user', JSON.stringify({ account: 'superadmin@example.com' }))
+
+    const cases = [
+      {
+        path: '/apps/demo/envs',
+        readyText: 'prod',
+        urls: ['/api/apps/demo/envs?limit=100'],
+      },
+      {
+        path: '/apps/demo/envs/prod/elements',
+        readyText: 'db.url',
+        urls: ['/api/apps/demo/envs/prod/elements?limit=15'],
+      },
+      {
+        path: '/apps/demo/envs/prod/elements/db.url',
+        readyText: 'Element detail',
+        urls: [
+          '/api/apps/demo/envs/prod/elements/db.url',
+          '/api/apps/demo/envs/prod/elements/db.url/versions?limit=100',
+          '/api/apps/demo/envs/prod/elements/db.url/operations?limit=100',
+        ],
+      },
+      {
+        path: '/users',
+        readyText: 'alice@example.com',
+        urls: ['/api/account/users?limit=100', '/api/account/acl/domains'],
+      },
+      {
+        path: '/cluster/instances?app=demo&env=prod&key=db.url',
+        readyText: 'instance-01',
+        urls: [
+          '/api/apps?limit=100',
+          '/api/apps/demo/envs?limit=100',
+          '/api/apps/demo/envs/prod/elements?limit=100',
+          '/api/cluster/instances/filter?app=demo&env=prod&key=db.url',
+        ],
+      },
+    ]
+
+    for (const testCase of cases) {
+      vi.restoreAllMocks()
+      const fetchMock = vi.fn((input: RequestInfo | URL) => {
+        const url = String(input)
+        if (url.includes('/api/apps/demo/envs/prod/elements/db.url/versions?limit=100')) {
+          return Promise.resolve(createJsonResponse({ errcode: 0, data: { elements: [] } }))
+        }
+        if (url.includes('/api/apps/demo/envs/prod/elements/db.url/operations?limit=100')) {
+          return Promise.resolve(createJsonResponse({ errcode: 0, data: { operations: [] } }))
+        }
+        if (url.includes('/api/apps/demo/envs/prod/elements/db.url')) {
+          return Promise.resolve(createJsonResponse({ errcode: 0, data: { metadata: { key: 'db.url', latestVersion: 1, usingVersion: 1, unpublishedVersion: 0, contentType: 4 }, raw: btoa('value') } }))
+        }
+        if (url.includes('/api/apps/demo/envs/prod/elements?limit=100')) {
+          return Promise.resolve(createJsonResponse({ errcode: 0, data: { elements: [{ metadata: { key: 'db.url' } }] } }))
+        }
+        if (url.includes('/api/apps/demo/envs/prod/elements?limit=15')) {
+          return Promise.resolve(createJsonResponse({ errcode: 0, data: { elements: [{ metadata: { key: 'db.url', latestVersion: 1, usingVersion: 1, unpublishedVersion: 0, contentType: 4 } }], hasMore: false } }))
+        }
+        if (url.includes('/api/apps/demo/envs?limit=100')) {
+          return Promise.resolve(createJsonResponse({ errcode: 0, data: { envs: ['prod'] } }))
+        }
+        if (url.includes('/api/apps?limit=100')) {
+          return Promise.resolve(createJsonResponse({ errcode: 0, data: { apps: [{ id: 'demo' }] } }))
+        }
+        if (url.includes('/api/cluster/instances/filter?app=demo&env=prod&key=db.url')) {
+          return Promise.resolve(createJsonResponse({ errcode: 0, data: { instances: [{ clientId: 'instance-01', app: 'demo', env: 'prod', key: 'db.url' }] } }))
+        }
+        if (url.includes('/api/account/users?limit=100')) {
+          return Promise.resolve(createJsonResponse({ errcode: 0, data: { users: [{ account: 'alice@example.com', nickname: 'Alice' }] } }))
+        }
+        if (url.includes('/api/account/acl/domains')) {
+          return Promise.resolve(createJsonResponse({ errcode: 0, data: { domains: ['cluster'] } }))
+        }
+        return Promise.resolve(createJsonResponse({ errcode: 0, data: {} }))
+      })
+      vi.stubGlobal('fetch', fetchMock)
+
+      const { unmount } = renderStrictRoute(testCase.path)
+
+      expect(await screen.findByText(testCase.readyText)).toBeInTheDocument()
+      await waitFor(() => {
+        testCase.urls.forEach((url) => {
+          expect(fetchMock.mock.calls.filter(([input]) => String(input) === url)).toHaveLength(1)
+        })
+      })
+      unmount()
+    }
+  })
+
+  it('renders cluster topology with dbs, agents, instance aggregation, and health states', async () => {
+    localStorage.setItem('cassem.session', 'session')
+    localStorage.setItem('cassem.user', JSON.stringify({ account: 'superadmin@example.com' }))
+
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes('/api/cluster/topology')) {
+        return Promise.resolve(
+          createJsonResponse({
+            errcode: 0,
+            data: {
+              dbs: [
+                { id: 'db-1', addr: '10.0.0.1:2021', ip: '10.0.0.1', health: 'healthy' },
+                { id: 'db-2', addr: '10.0.0.2:2021', ip: '10.0.0.2', health: 'offline' },
+              ],
+              agents: [
+                { agentId: 'agent-a', addr: '10.0.1.1:2030', ip: '10.0.1.1', health: 'healthy' },
+                { agentId: 'agent-b', addr: '10.0.1.2:2030', ip: '10.0.1.2', health: 'unhealthy' },
+              ],
+              instances: [
+                { clientId: 'instance-01', agentId: 'agent-a', clientIp: '10.0.2.1', health: 'healthy' },
+                { clientId: 'instance-02', agentId: 'agent-a', clientIp: '10.0.2.2', health: 'healthy' },
+                { clientId: 'instance-03', agentId: 'agent-a', clientIp: '10.0.2.3', health: 'healthy' },
+                { clientId: 'instance-04', agentId: 'agent-a', clientIp: '10.0.2.4', health: 'healthy' },
+                { clientId: 'instance-05', agentId: 'agent-a', clientIp: '10.0.2.5', health: 'healthy' },
+                { clientId: 'instance-06', agentId: 'agent-a', clientIp: '10.0.2.6', health: 'healthy' },
+                { clientId: 'instance-07', agentId: 'agent-b', clientIp: '10.0.2.7', health: 'offline' },
+              ],
+            },
+          }),
+        )
+      }
+      if (url.includes('/api/cluster/agents?limit=100')) {
+        return Promise.resolve(createJsonResponse({ errcode: 0, data: { agents: [] } }))
+      }
+      return Promise.resolve(createJsonResponse({ errcode: 0, data: {} }))
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    renderRoute('/cluster/agents')
+
+    expect(await screen.findByRole('heading', { name: /cluster topology/i })).toBeInTheDocument()
+    expect(fetchMock).toHaveBeenCalledWith('/api/cluster/topology', expect.any(Object))
+    expect(screen.getByTestId('topology-dbs')).toBeInTheDocument()
+    expect(screen.getByTestId('topology-agents')).toBeInTheDocument()
+    expect(screen.getByTestId('topology-instances')).toBeInTheDocument()
+    expect(screen.getByTestId('topology-link-dbs-agents')).toHaveAttribute('aria-label', 'DBs connect to agents')
+    expect(screen.getByTestId('topology-link-agents-instances')).toHaveAttribute('aria-label', 'Agents connect to instances')
+    expect(screen.getByText('db-1')).toBeInTheDocument()
+    expect(within(screen.getByTestId('topology-node-db-1')).getByText(/IP: 10\.0\.0\.1/i)).toBeInTheDocument()
+    expect(screen.getByText('agent-a')).toBeInTheDocument()
+    expect(within(screen.getByTestId('topology-node-agent-a')).getByText(/IP: 10\.0\.1\.1/i)).toBeInTheDocument()
+    expect(screen.getByText('6 instances')).toBeInTheDocument()
+    expect(screen.queryByText('instance-01')).not.toBeInTheDocument()
+    expect(screen.getByText('instance-07')).toBeInTheDocument()
+    expect(within(screen.getByTestId('topology-node-db-1')).getByText('Healthy')).toBeInTheDocument()
+    expect(within(screen.getByTestId('topology-node-agent-b')).getByText('Unhealthy')).toBeInTheDocument()
+    expect(within(screen.getByTestId('topology-node-instance-07')).getByText('Offline')).toBeInTheDocument()
   })
 
   it('cascades instance filter candidates from app to env to key', async () => {
@@ -1374,6 +1796,88 @@ describe('app shell routing', () => {
     expect(within(currentPublishedOption).getByTestId('version-status-current')).toBeInTheDocument()
     expect(within(currentPublishedOption).getByText('current')).toBeInTheDocument()
     expect(within(draftOption).getByTestId('version-status-draft')).toBeInTheDocument()
+  })
+
+  it('cancels publish workflow after confirmation and returns to element detail', async () => {
+    localStorage.setItem('cassem.session', 'session')
+    localStorage.setItem('cassem.user', JSON.stringify({ account: 'superadmin@example.com' }))
+    vi.stubGlobal('fetch', createWorkflowFetchMock())
+
+    const user = userEvent.setup()
+    const router = renderRoute('/apps/demo/envs/prod/elements/db.url/publish')
+
+    expect(await screen.findByRole('combobox', { name: /^version$/i })).toBeInTheDocument()
+    expect(screen.getByTestId('wizard-title-actions')).toHaveStyle({ justifyContent: 'space-between' })
+
+    await user.click(await screen.findByRole('button', { name: /^cancel$/i }))
+
+    expect(screen.getByRole('dialog', { name: /cancel workflow/i })).toBeInTheDocument()
+    expect(router.state.location.pathname).toBe('/ui/apps/demo/envs/prod/elements/db.url/publish')
+
+    await user.click(screen.getByRole('button', { name: /^confirm cancel$/i }))
+
+    expect(router.state.location.pathname).toBe('/ui/apps/demo/envs/prod/elements/db.url')
+  })
+
+  it('cancels rollback workflow after confirmation and returns to element detail', async () => {
+    localStorage.setItem('cassem.session', 'session')
+    localStorage.setItem('cassem.user', JSON.stringify({ account: 'superadmin@example.com' }))
+    vi.stubGlobal('fetch', createWorkflowFetchMock())
+
+    const user = userEvent.setup()
+    const router = renderRoute('/apps/demo/envs/prod/elements/db.url/rollback')
+
+    expect(await screen.findByRole('combobox', { name: /target version/i })).toBeInTheDocument()
+    expect(screen.getByTestId('wizard-title-actions')).toHaveStyle({ justifyContent: 'space-between' })
+
+    await user.click(await screen.findByRole('button', { name: /^cancel$/i }))
+
+    expect(screen.getByRole('dialog', { name: /cancel workflow/i })).toBeInTheDocument()
+    expect(router.state.location.pathname).toBe('/ui/apps/demo/envs/prod/elements/db.url/rollback')
+
+    await user.click(screen.getByRole('button', { name: /^confirm cancel$/i }))
+
+    expect(router.state.location.pathname).toBe('/ui/apps/demo/envs/prod/elements/db.url')
+  })
+
+  it('keeps workflow title and form content compact while aligned with the stepper visual width', async () => {
+    localStorage.setItem('cassem.session', 'session')
+    localStorage.setItem('cassem.user', JSON.stringify({ account: 'superadmin@example.com' }))
+    vi.stubGlobal('fetch', createWorkflowFetchMock())
+
+    renderRoute('/apps/demo/envs/prod/elements/db.url/publish')
+
+    expect(await screen.findByRole('combobox', { name: /^version$/i })).toBeInTheDocument()
+    expect(screen.getByTestId('wizard-title-actions')).toHaveStyle({ maxWidth: '1080px', marginLeft: 'auto', marginRight: 'auto' })
+    expect(screen.getByTestId('wizard-surface')).toHaveStyle({ maxWidth: '1080px', marginLeft: 'auto', marginRight: 'auto' })
+    expect(screen.getByTestId('wizard-stepper-frame')).toHaveStyle({ maxWidth: '1080px' })
+    expect(screen.getByTestId('wizard-content-frame')).toHaveStyle({ maxWidth: '1080px', paddingLeft: 'calc(100% / 10)', paddingRight: 'calc(100% / 10)' })
+    expect(screen.getByTestId('wizard-actions-frame')).toHaveStyle({ maxWidth: '1080px', paddingLeft: 'calc(100% / 10)', paddingRight: 'calc(100% / 10)' })
+  })
+
+  it('aligns publish impact confirmation fields in a compact grid', async () => {
+    localStorage.setItem('cassem.session', 'session')
+    localStorage.setItem('cassem.user', JSON.stringify({ account: 'superadmin@example.com' }))
+    vi.stubGlobal('fetch', createWorkflowFetchMock())
+
+    const user = userEvent.setup()
+    renderRoute('/apps/demo/envs/prod/elements/db.url/publish')
+
+    await user.click(await screen.findByRole('combobox', { name: /^version$/i }))
+    await user.click(await screen.findByRole('option', { name: /^v3 draft$/i }))
+    await user.click(screen.getByRole('button', { name: /^next$/i }))
+    await user.click(screen.getByRole('button', { name: /^next$/i }))
+    await user.click(screen.getByRole('button', { name: /^next$/i }))
+
+    expect(screen.getByRole('heading', { name: /impact confirmation/i })).toBeInTheDocument()
+    expect(screen.getByTestId('publish-impact-grid')).toHaveStyle({ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' })
+    expect(screen.getByTestId('publish-impact-app')).toBeInTheDocument()
+    expect(screen.getByTestId('publish-impact-env')).toBeInTheDocument()
+    expect(screen.getByTestId('publish-impact-key')).toBeInTheDocument()
+    expect(screen.getByTestId('publish-impact-version')).toBeInTheDocument()
+    expect(screen.getByTestId('publish-impact-strategy')).toBeInTheDocument()
+    expect(screen.getByTestId('publish-impact-agent-ids')).toBeInTheDocument()
+    expect(screen.getByTestId('publish-impact-instance-ids')).toBeInTheDocument()
   })
 
   it('requires at least one gray publish target before allowing progression', async () => {

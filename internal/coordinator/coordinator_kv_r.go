@@ -9,7 +9,6 @@ import (
 
 	"github.com/yeqown/cassem/api/concept"
 	apicassemdb "github.com/yeqown/cassem/internal/cassemdb/api"
-	"github.com/yeqown/cassem/pkg/errorx"
 )
 
 const (
@@ -51,8 +50,7 @@ func (_r kvReadOnly) GetElementWithVersion(
 		version = int(md.UsingVersion)
 	}
 	if version <= 0 {
-		// if there's not using version, NOT_FOUND
-		return nil, fmt.Errorf("kvReadOnly.GetElementVersions: no available using version: %w", errorx.Err_NOT_FOUND)
+		return &concept.Element{Metadata: md}, nil
 	}
 
 	// get element with specified version
@@ -117,7 +115,7 @@ func (_r kvReadOnly) GetElementVersions(
 
 // GetElements paging elements under app and env bucket.
 func (_r kvReadOnly) GetElements(
-	ctx context.Context, app, env string, seek string, limit int) (*concept.GetElementsResult, error) {
+	ctx context.Context, app, env string, seek string, limit int, query string) (*concept.GetElementsResult, error) {
 	k := concept.GenAppElementEnvKey(app, env)
 
 	log.
@@ -126,32 +124,83 @@ func (_r kvReadOnly) GetElements(
 			"env":   env,
 			"seek":  seek,
 			"limit": limit,
+			"query": query,
 			"k":     k,
 		}).
 		Debug("kvReadOnly.GetElements enter")
-	r, err := _r.cassemdb.Range(ctx, &apicassemdb.RangeReq{
-		Key:   k,
-		Seek:  seek,
-		Limit: int32(limit),
-	})
+	if strings.TrimSpace(query) == "" {
+		r, err := _r.cassemdb.Range(ctx, &apicassemdb.RangeReq{
+			Key:   k,
+			Seek:  seek,
+			Limit: int32(limit),
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		result := &concept.GetElementsResult{
+			CommonPager: concept.CommonPager{
+				HasMore:  r.GetHasMore(),
+				NextSeek: r.GetNextSeekKey(),
+			},
+			Elements: make([]*concept.Element, 0, len(r.GetEntities())),
+		}
+		keys := make([]string, 0, len(r.GetEntities()))
+		for _, v := range r.GetEntities() {
+			keys = append(keys, v.GetKey())
+		}
+
+		result.Elements, err = _r.getElementsByKeys(ctx, app, env, keys, false)
+		return result, err
+	}
+
+	needle := strings.ToLower(strings.TrimSpace(query))
+	matched := make([]string, 0, limit+1)
+	nextSeek := seek
+	for len(matched) <= limit {
+		r, err := _r.cassemdb.Range(ctx, &apicassemdb.RangeReq{
+			Key:   k,
+			Seek:  nextSeek,
+			Limit: int32(limit),
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		for _, v := range r.GetEntities() {
+			key := v.GetKey()
+			if strings.Contains(strings.ToLower(key), needle) {
+				matched = append(matched, key)
+				if len(matched) > limit {
+					break
+				}
+			}
+		}
+
+		if len(matched) > limit {
+			break
+		}
+		if !r.GetHasMore() {
+			elements, err := _r.getElementsByKeys(ctx, app, env, matched, false)
+			if err != nil {
+				return nil, err
+			}
+			return &concept.GetElementsResult{Elements: elements}, nil
+		}
+		nextSeek = r.GetNextSeekKey()
+	}
+
+	elements, err := _r.getElementsByKeys(ctx, app, env, matched[:limit], false)
 	if err != nil {
 		return nil, err
 	}
-
-	result := &concept.GetElementsResult{
+	return &concept.GetElementsResult{
 		CommonPager: concept.CommonPager{
-			HasMore:  r.GetHasMore(),
-			NextSeek: r.GetNextSeekKey(),
+			HasMore:  true,
+			NextSeek: matched[limit],
 		},
-		Elements: make([]*concept.Element, 0, len(r.GetEntities())),
-	}
-	keys := make([]string, 0, len(r.GetEntities()))
-	for _, v := range r.GetEntities() {
-		keys = append(keys, v.GetKey())
-	}
-
-	result.Elements, err = _r.getElementsByKeys(ctx, app, env, keys, false)
-	return result, err
+		Elements: elements,
+	}, nil
 }
 
 func (_r kvReadOnly) GetElementsByKeys(

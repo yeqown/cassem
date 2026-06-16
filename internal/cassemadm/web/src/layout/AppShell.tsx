@@ -195,7 +195,7 @@ export function AppShell() {
           {renderDrawerContent(desktopCollapsed)}
         </Drawer>
       </Box>
-      <Box component="main" sx={{ flexGrow: 1, p: 3, width: { md: `calc(100% - ${drawerWidth}px)` } }}>
+      <Box component="main" sx={{ flexGrow: 1, p: 6, width: { md: `calc(100% - ${drawerWidth}px)` } }}>
         <Toolbar />
         <Outlet />
       </Box>
