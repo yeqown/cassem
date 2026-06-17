@@ -203,10 +203,12 @@ func checkDBHealth(ctx context.Context, addr string) topologyHealth {
 	if err != nil {
 		return topologyHealthUnhealthy
 	}
-	if resp.GetStatus() == grpc_health_v1.HealthCheckResponse_SERVING {
+	switch resp.GetStatus() {
+	case grpc_health_v1.HealthCheckResponse_SERVING, grpc_health_v1.HealthCheckResponse_NOT_SERVING:
 		return topologyHealthHealthy
+	default:
+		return topologyHealthUnhealthy
 	}
-	return topologyHealthUnhealthy
 }
 
 func extractHost(addr string) string {

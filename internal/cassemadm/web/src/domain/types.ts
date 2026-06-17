@@ -90,6 +90,15 @@ export type ElementOperationsResponse = {
   operations?: ElementOperation[]
 }
 
+export type RetentionPolicy = {
+  enabled: boolean
+  keepVersionCount: number
+  keepVersionDays: number
+  keepOperationDays: number
+  versionPolicy: string
+  operationPolicy: string
+}
+
 export type DiffResponse = {
   base?: Element
   compare?: Element
@@ -113,13 +122,21 @@ export type DBNode = {
   health?: HealthState
 }
 
+export type InstanceWatching = {
+  app?: string
+  env?: string
+  watchKeys?: string[]
+}
+
 export type Instance = {
+  id?: string
   clientId?: string
   agentId?: string
   clientIp?: string
   app?: string
   env?: string
   key?: string
+  watching?: InstanceWatching[]
   health?: HealthState
   lastRenewTimestamp?: number
 }

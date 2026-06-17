@@ -246,6 +246,10 @@ func (d *app) iterate(param *rangeParam) (*apicassemdb.RangeResp, error) {
 	})
 }
 
+func (d *app) compactElementHistory(req *apicassemdb.CompactElementHistoryReq) (*apicassemdb.CompactElementHistoryResp, error) {
+	return compactElementHistory(d, req, time.Now())
+}
+
 // expire one key in cassemdb, but notice that the never expired key
 // will skip expire operation.
 //

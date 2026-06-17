@@ -7,9 +7,9 @@ import LockResetIcon from '@mui/icons-material/LockReset'
 import PublishIcon from '@mui/icons-material/Publish'
 import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked'
 import SaveIcon from '@mui/icons-material/Save'
-import TimelineIcon from '@mui/icons-material/Timeline'
 import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined'
 import {
+  Alert,
   Box,
   Button,
   Chip,
@@ -33,24 +33,21 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  TextField,
   Typography,
 } from '@mui/material'
 import { alpha } from '@mui/material/styles'
 import { Link as RouterLink, useParams } from 'react-router-dom'
 import { AppBreadcrumbs } from '../../components/AppBreadcrumbs'
 import { EmptyState, ErrorState, LoadingState } from '../../components/StateView'
-import { contentTypes, formatVersionLabel, type DiffResponse, type Element, type ElementOperation, type ElementOperationsResponse, type ElementsResponse } from '../../domain/types'
+import { formatVersionLabel, type DiffResponse, type Element, type ElementOperation, type ElementOperationsResponse, type ElementsResponse, type RetentionPolicy } from '../../domain/types'
 import { ApiError, apiRequest, buildQuery, jsonBody } from '../../lib/api'
 import { decodeRaw } from '../../lib/raw'
+import { ContentEditor } from './ContentEditor'
+import { ContentViewer } from './ContentViewer'
+import { getContentTypeLabel } from './contentView'
 
 function getErrorMessage(error: unknown, fallback: string) {
   return error instanceof ApiError ? error.message : fallback
-}
-
-function getContentTypeLabel(contentType?: number | string) {
-  const value = Number(contentType)
-  return contentTypes.find((item) => item.value === value)?.label || String(contentType || '-')
 }
 
 function formatTimestamp(timestamp?: number) {
@@ -126,11 +123,16 @@ async function requestOperations(appId: string, env: string, key: string) {
   )
 }
 
+async function requestRetentionPolicy() {
+  return apiRequest<RetentionPolicy>('/api/admin/retention')
+}
+
 export function ElementDetailPage() {
   const { appId = '', env = '', key = '' } = useParams()
   const [element, setElement] = useState<Element | null>(null)
   const [versions, setVersions] = useState<Element[]>([])
   const [operations, setOperations] = useState<ElementOperation[]>([])
+  const [retentionPolicy, setRetentionPolicy] = useState<RetentionPolicy | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [diffLoading, setDiffLoading] = useState(false)
@@ -168,6 +170,7 @@ export function ElementDetailPage() {
         setElement(null)
         setVersions([])
         setOperations([])
+        setRetentionPolicy(null)
         setRaw('')
         setPreviewVersion(null)
         setError('missing app, environment, or key')
@@ -193,17 +196,26 @@ export function ElementDetailPage() {
       setElement(elementData)
       setVersions(nextVersions)
       setOperations(operationsData.operations || [])
+      setRetentionPolicy(null)
       setRaw(decodeRaw(elementData.raw))
       setPreviewVersion(null)
       setDiffBase(versionOptions[0] ? String(versionOptions[0]) : '')
       setDiffCompare(versionOptions.length > 1 ? String(versionOptions[versionOptions.length - 1]) : '')
       setDiffText('')
       setError('')
+      void requestRetentionPolicy()
+        .then((policy) => {
+          if (mountedRef.current && requestId === requestSeq.current) setRetentionPolicy(policy)
+        })
+        .catch(() => {
+          if (mountedRef.current && requestId === requestSeq.current) setRetentionPolicy(null)
+        })
     } catch (err) {
       if (!mountedRef.current || requestId !== requestSeq.current) return
       setElement(null)
       setVersions([])
       setOperations([])
+      setRetentionPolicy(null)
       setRaw('')
       setPreviewVersion(null)
       setDiffText('')
@@ -303,32 +315,30 @@ export function ElementDetailPage() {
         { label: 'Detail' },
       ]} />
 
-      <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 3 }}>
-        <Stack direction={{ xs: 'column', lg: 'row' }} spacing={2} alignItems={{ xs: 'stretch', lg: 'flex-start' }}>
-          <Box sx={{ flex: 1, minWidth: 0 }}>
-            <Stack direction="row" spacing={1} alignItems="center">
-              <Inventory2Icon color="primary" />
-              <Typography variant="h4" component="h1">
-                Element detail
-              </Typography>
-            </Stack>
-            <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap" sx={{ mt: 1.5 }}>
-              <Chip label={`Latest: ${formatVersionLabel(metadata?.latestVersion)}`} />
-              <Chip label={`Current: ${formatVersionLabel(metadata?.usingVersion)}`} />
-              <Chip label={`Draft: ${formatVersionLabel(metadata?.unpublishedVersion)}`} />
-              <Chip label={`Type: ${getContentTypeLabel(metadata?.contentType)}`} />
-            </Stack>
-          </Box>
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} data-testid="element-detail-actions" sx={{ alignSelf: 'flex-end' }}>
-            <Button component={RouterLink} to={`/apps/${encodeURIComponent(appId)}/envs/${encodeURIComponent(env)}/elements/${encodeURIComponent(key)}/publish`} variant="outlined" startIcon={<PublishIcon />}>
-              Publish
-            </Button>
-            <Button component={RouterLink} to={`/apps/${encodeURIComponent(appId)}/envs/${encodeURIComponent(env)}/elements/${encodeURIComponent(key)}/rollback`} variant="outlined" startIcon={<LockResetIcon />}>
-              Rollback
-            </Button>
+      <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} justifyContent="space-between" alignItems={{ md: 'center' }}>
+        <Box sx={{ minWidth: 0 }}>
+          <Stack direction="row" spacing={1} alignItems="center">
+            <Inventory2Icon color="primary" />
+            <Typography variant="h4" component="h1">
+              Element detail
+            </Typography>
           </Stack>
+          <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap" sx={{ mt: 1 }}>
+            <Chip label={`Latest: ${formatVersionLabel(metadata?.latestVersion)}`} />
+            <Chip label={`Current: ${formatVersionLabel(metadata?.usingVersion)}`} />
+            <Chip label={`Draft: ${formatVersionLabel(metadata?.unpublishedVersion)}`} />
+            <Chip label={`Type: ${getContentTypeLabel(metadata?.contentType)}`} />
+          </Stack>
+        </Box>
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} data-testid="element-detail-actions">
+          <Button component={RouterLink} to={`/apps/${encodeURIComponent(appId)}/envs/${encodeURIComponent(env)}/elements/${encodeURIComponent(key)}/publish`} variant="outlined" startIcon={<PublishIcon />}>
+            Publish
+          </Button>
+          <Button component={RouterLink} to={`/apps/${encodeURIComponent(appId)}/envs/${encodeURIComponent(env)}/elements/${encodeURIComponent(key)}/rollback`} variant="outlined" startIcon={<LockResetIcon />}>
+            Rollback
+          </Button>
         </Stack>
-      </Paper>
+      </Stack>
 
       {error && <ErrorState message={error} />}
 
@@ -341,6 +351,7 @@ export function ElementDetailPage() {
           <Tabs value={tab} onChange={(_, nextValue: number) => setTab(nextValue)} aria-label="element detail tabs" variant="scrollable" scrollButtons="auto">
             <Tab label="Content" />
             <Tab label="Versions" />
+            <Tab label="Diff" />
             <Tab label="Operations" />
             <Tab label="Instances" />
           </Tabs>
@@ -348,8 +359,7 @@ export function ElementDetailPage() {
           <Box sx={{ p: 3 }}>
             {tab === 0 && (
               <Stack spacing={2}>
-                <Typography variant="h6" component="h2">Content</Typography>
-                <TextField label="Raw" value={raw} onChange={(event) => setRaw(event.target.value)} fullWidth multiline minRows={12} disabled={saving} />
+                <ContentEditor value={raw} contentType={metadata?.contentType} disabled={saving} onChange={setRaw} />
                 <Stack direction="row" justifyContent="flex-end">
                   <Button variant="contained" startIcon={<SaveIcon />} onClick={() => void handleSave()} disabled={saving}>Save content</Button>
                 </Stack>
@@ -358,136 +368,134 @@ export function ElementDetailPage() {
 
             {tab === 1 && (
               <Stack spacing={3}>
-                <Typography variant="h6" component="h2">Versions</Typography>
+                {retentionPolicy?.enabled && retentionPolicy.versionPolicy && (
+                  <Alert severity="info" variant="outlined">{retentionPolicy.versionPolicy}</Alert>
+                )}
                 {versions.length === 0 ? (
                   <EmptyState title="No versions found" description="This element does not have any version history yet." />
                 ) : (
-                  <>
-                    <TableContainer component={Paper} variant="outlined">
-                      <Table>
-                        <TableHead>
-                          <TableRow>
-                            <TableCell>Version</TableCell>
-                            <TableCell>State</TableCell>
-                            <TableCell>Type</TableCell>
-                            <TableCell>Preview</TableCell>
-                          </TableRow>
-                        </TableHead>
-                        <TableBody>
-                          {versions.map((version) => {
-                            const isCurrent = metadata?.usingVersion === version.version
-                            const decodedRaw = decodeRaw(version.raw)
-                            const versionLabel = version.version === undefined || version.version === null ? '-' : `v${version.version}`
+                  <TableContainer component={Paper} variant="outlined">
+                    <Table>
+                      <TableHead>
+                        <TableRow>
+                          <TableCell>Version</TableCell>
+                          <TableCell>State</TableCell>
+                          <TableCell>Type</TableCell>
+                          <TableCell>Preview</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {versions.map((version) => {
+                          const isCurrent = metadata?.usingVersion === version.version
+                          const decodedRaw = decodeRaw(version.raw)
+                          const versionLabel = version.version === undefined || version.version === null ? '-' : `v${version.version}`
 
-                            return (
-                              <TableRow
-                                key={`${version.metadata?.key || key}-${version.version}`}
-                                data-testid={`version-row-${version.version}`}
-                                hover
-                                sx={isCurrent
-                                  ? {
-                                      bgcolor: (theme) => alpha(theme.palette.primary.main, 0.08),
-                                      boxShadow: (theme) => `inset 4px 0 0 ${theme.palette.primary.main}`,
-                                      '&:hover': { bgcolor: (theme) => alpha(theme.palette.primary.main, 0.12) },
-                                    }
-                                  : undefined}
-                              >
-                                <TableCell>
-                                  <Stack direction="row" spacing={0.75} alignItems="baseline">
-                                    <Typography component="span" sx={{ color: isCurrent ? 'primary.main' : 'text.primary', fontWeight: isCurrent ? 700 : 400 }}>
-                                      {versionLabel}
+                          return (
+                            <TableRow
+                              key={`${version.metadata?.key || key}-${version.version}`}
+                              data-testid={`version-row-${version.version}`}
+                              hover
+                              sx={isCurrent
+                                ? {
+                                    bgcolor: (theme) => alpha(theme.palette.primary.main, 0.08),
+                                    boxShadow: (theme) => `inset 4px 0 0 ${theme.palette.primary.main}`,
+                                    '&:hover': { bgcolor: (theme) => alpha(theme.palette.primary.main, 0.12) },
+                                  }
+                                : undefined}
+                            >
+                              <TableCell>
+                                <Stack direction="row" spacing={0.75} alignItems="baseline">
+                                  <Typography component="span" sx={{ color: isCurrent ? 'primary.main' : 'text.primary', fontWeight: isCurrent ? 700 : 400 }}>
+                                    {versionLabel}
+                                  </Typography>
+                                  {isCurrent && (
+                                    <Typography component="span" variant="caption" sx={{ color: 'primary.main', fontWeight: 600 }}>
+                                      (current)
                                     </Typography>
-                                    {isCurrent && (
-                                      <Typography component="span" variant="caption" sx={{ color: 'primary.main', fontWeight: 600 }}>
-                                        (current)
-                                      </Typography>
-                                    )}
-                                  </Stack>
-                                </TableCell>
-                                <TableCell>
-                                  <Stack direction="row" spacing={0.75} alignItems="center" sx={{ color: version.published ? 'success.main' : 'text.secondary', fontWeight: 600 }}>
-                                    {version.published ? <CheckCircleOutlineIcon fontSize="small" /> : <RadioButtonUncheckedIcon fontSize="small" />}
-                                    <Typography component="span" variant="body2" sx={{ fontWeight: 600 }}>
-                                      {version.published ? 'Published' : 'Draft'}
-                                    </Typography>
-                                  </Stack>
-                                </TableCell>
-                                <TableCell>{getContentTypeLabel(version.metadata?.contentType)}</TableCell>
-                                <TableCell sx={{ maxWidth: 420 }}>
-                                  <Stack direction="row" spacing={1} alignItems="center" sx={{ minWidth: 0 }}>
-                                    <Typography
-                                      data-testid={`version-preview-${version.version}`}
-                                      title={decodedRaw || '-'}
-                                      sx={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}
-                                    >
-                                      {decodedRaw || '-'}
-                                    </Typography>
-                                    <IconButton size="small" aria-label={`Preview ${versionLabel}`} onClick={() => setPreviewVersion(version)}>
-                                      <VisibilityOutlinedIcon fontSize="small" />
-                                    </IconButton>
-                                  </Stack>
-                                </TableCell>
-                              </TableRow>
-                            )
-                          })}
-                        </TableBody>
-                      </Table>
-                    </TableContainer>
-
-                    <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 3 }}>
-                      <Stack spacing={2}>
-                        <Typography variant="subtitle1">Compare versions</Typography>
-                        <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems={{ md: 'flex-start' }}>
-                          <FormControl fullWidth>
-                            <InputLabel id="diff-base-label">Base</InputLabel>
-                            <Select labelId="diff-base-label" value={diffBase} label="Base" onChange={(event) => setDiffBase(event.target.value)}>
-                              {versions.map((version) => (
-                                <MenuItem key={`base-${version.version}`} value={String(version.version)}>
-                                  v{version.version}
-                                </MenuItem>
-                              ))}
-                            </Select>
-                          </FormControl>
-                          <FormControl fullWidth>
-                            <InputLabel id="diff-compare-label">Compare</InputLabel>
-                            <Select labelId="diff-compare-label" value={diffCompare} label="Compare" onChange={(event) => setDiffCompare(event.target.value)}>
-                              {versions.map((version) => (
-                                <MenuItem key={`compare-${version.version}`} value={String(version.version)}>
-                                  v{version.version}
-                                </MenuItem>
-                              ))}
-                            </Select>
-                          </FormControl>
-                          <Button variant="outlined" startIcon={<CompareArrowsIcon />} onClick={() => void handleLoadDiff()} disabled={diffLoading || !diffBase.trim() || !diffCompare.trim()} sx={{ minWidth: 140, whiteSpace: 'nowrap', alignSelf: { md: 'center' } }}>
-                            Show diff
-                          </Button>
-                        </Stack>
-                        {diffLoading ? (
-                          <LoadingState label="Loading diff" />
-                        ) : diffText ? (
-                          <Box aria-label="Diff" component="pre" sx={{ m: 0, minHeight: 160, p: 2, border: 1, borderColor: 'divider', borderRadius: 2, bgcolor: 'background.default', whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontFamily: 'monospace' }}>
-                            {parseAnsiDiff(diffText).map((chunk, index) => (
-                              <Box key={`${chunk.tone}-${index}`} component="span" sx={{ color: chunk.tone === 'removed' ? 'error.main' : chunk.tone === 'added' ? 'success.main' : 'text.primary', fontWeight: chunk.tone === 'plain' ? 400 : 700 }}>
-                                {chunk.text}
-                              </Box>
-                            ))}
-                          </Box>
-                        ) : (
-                          <Typography color="text.secondary">Select two versions to compare.</Typography>
-                        )}
-                      </Stack>
-                    </Paper>
-                  </>
+                                  )}
+                                </Stack>
+                              </TableCell>
+                              <TableCell>
+                                <Stack direction="row" spacing={0.75} alignItems="center" sx={{ color: version.published ? 'success.main' : 'text.secondary', fontWeight: 600 }}>
+                                  {version.published ? <CheckCircleOutlineIcon fontSize="small" /> : <RadioButtonUncheckedIcon fontSize="small" />}
+                                  <Typography component="span" variant="body2" sx={{ fontWeight: 600 }}>
+                                    {version.published ? 'Published' : 'Draft'}
+                                  </Typography>
+                                </Stack>
+                              </TableCell>
+                              <TableCell>{getContentTypeLabel(version.metadata?.contentType)}</TableCell>
+                              <TableCell sx={{ maxWidth: 420 }}>
+                                <Stack direction="row" spacing={1} alignItems="center" sx={{ minWidth: 0 }}>
+                                  <Typography
+                                    data-testid={`version-preview-${version.version}`}
+                                    title={decodedRaw || '-'}
+                                    sx={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}
+                                  >
+                                    {decodedRaw || '-'}
+                                  </Typography>
+                                  <IconButton size="small" aria-label={`Preview ${versionLabel}`} onClick={() => setPreviewVersion(version)}>
+                                    <VisibilityOutlinedIcon fontSize="small" />
+                                  </IconButton>
+                                </Stack>
+                              </TableCell>
+                            </TableRow>
+                          )
+                        })}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
                 )}
               </Stack>
             )}
 
             {tab === 2 && (
               <Stack spacing={2}>
-                <Stack direction="row" spacing={1} alignItems="center">
-                  <TimelineIcon color="primary" fontSize="small" />
-                  <Typography variant="h6" component="h2">Operations</Typography>
+                <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems={{ md: 'flex-start' }}>
+                  <FormControl fullWidth>
+                    <InputLabel id="diff-base-label">Base</InputLabel>
+                    <Select labelId="diff-base-label" value={diffBase} label="Base" onChange={(event) => setDiffBase(event.target.value)}>
+                      {versions.map((version) => (
+                        <MenuItem key={`base-${version.version}`} value={String(version.version)}>
+                          v{version.version}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                  <FormControl fullWidth>
+                    <InputLabel id="diff-compare-label">Compare</InputLabel>
+                    <Select labelId="diff-compare-label" value={diffCompare} label="Compare" onChange={(event) => setDiffCompare(event.target.value)}>
+                      {versions.map((version) => (
+                        <MenuItem key={`compare-${version.version}`} value={String(version.version)}>
+                          v{version.version}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                  <Button variant="outlined" startIcon={<CompareArrowsIcon />} onClick={() => void handleLoadDiff()} disabled={diffLoading || !diffBase.trim() || !diffCompare.trim()} sx={{ minWidth: 140, whiteSpace: 'nowrap', alignSelf: { md: 'center' } }}>
+                    Show diff
+                  </Button>
                 </Stack>
+                {diffLoading ? (
+                  <LoadingState label="Loading diff" />
+                ) : diffText ? (
+                  <Box aria-label="Diff" component="pre" sx={{ m: 0, minHeight: 160, p: 2, border: 1, borderColor: 'divider', borderRadius: 2, bgcolor: 'background.default', whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontFamily: 'monospace' }}>
+                    {parseAnsiDiff(diffText).map((chunk, index) => (
+                      <Box key={`${chunk.tone}-${index}`} component="span" sx={{ color: chunk.tone === 'removed' ? 'error.main' : chunk.tone === 'added' ? 'success.main' : 'text.primary', fontWeight: chunk.tone === 'plain' ? 400 : 700 }}>
+                        {chunk.text}
+                      </Box>
+                    ))}
+                  </Box>
+                ) : (
+                  <Typography color="text.secondary">Select two versions to compare.</Typography>
+                )}
+              </Stack>
+            )}
+
+            {tab === 3 && (
+              <Stack spacing={2}>
+                {retentionPolicy?.enabled && retentionPolicy.operationPolicy && (
+                  <Alert severity="info" variant="outlined">{retentionPolicy.operationPolicy}</Alert>
+                )}
                 {operations.length === 0 ? (
                   <EmptyState title="No operations found" description="No recorded operations are available for this element yet." />
                 ) : (
@@ -517,9 +525,8 @@ export function ElementDetailPage() {
               </Stack>
             )}
 
-            {tab === 3 && (
+            {tab === 4 && (
               <Stack spacing={2}>
-                <Typography variant="h6" component="h2">Instances</Typography>
                 <Typography color="text.secondary">View instances currently associated with this element in the cluster instances page.</Typography>
                 <Stack direction="row">
                   <Button component={RouterLink} to={`/cluster/instances${buildQuery({ app: appId, env, key })}`} variant="outlined" startIcon={<LaunchIcon />}>
@@ -535,9 +542,7 @@ export function ElementDetailPage() {
       <Dialog open={Boolean(previewVersion)} onClose={() => setPreviewVersion(null)} fullWidth maxWidth="md" aria-labelledby="version-preview-title">
         <DialogTitle id="version-preview-title">Version {previewVersionLabel} Preview</DialogTitle>
         <DialogContent>
-          <Box component="pre" sx={{ m: 0, p: 2, border: 1, borderColor: 'divider', borderRadius: 2, bgcolor: 'background.default', whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontFamily: 'monospace' }}>
-            {previewRaw || '-'}
-          </Box>
+          <ContentViewer value={previewRaw} contentType={previewVersion?.metadata?.contentType} ariaLabel="Version preview content" />
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setPreviewVersion(null)}>Close</Button>

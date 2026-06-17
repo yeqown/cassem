@@ -287,6 +287,10 @@ func (a aclImpl) AddUser(u *concept.User) error {
 }
 
 func (a aclImpl) DisableUser(account string) error {
+	if err := a.rejectSuperadminTarget(account, "disable"); err != nil {
+		return err
+	}
+
 	r, err := a.c.GetKV(context.TODO(), &apicassemdb.GetKVReq{Key: concept.GenUserKey(account)})
 	if err != nil {
 		return fmt.Errorf("aclImpl.DisableUser: %w", err)
@@ -300,8 +304,8 @@ func (a aclImpl) DisableUser(account string) error {
 }
 
 func (a aclImpl) ResetUser(account, password string) error {
-	if strings.HasPrefix(account, "superadmin") {
-		return fmt.Errorf("could not reset superadmin: %w", errorx.Err_PERMISSION_DENIED)
+	if err := a.rejectSuperadminTarget(account, "reset"); err != nil {
+		return err
 	}
 
 	r, err := a.c.GetKV(context.TODO(), &apicassemdb.GetKVReq{Key: concept.GenUserKey(account)})
@@ -335,7 +339,39 @@ func (a aclImpl) saveUser(u *concept.User) error {
 	return nil
 }
 
+func (a aclImpl) userHasRole(account, role string) (bool, error) {
+	bindings, err := a.GetUserRoleBindings(account)
+	if err != nil {
+		return false, err
+	}
+	for _, binding := range bindings {
+		if binding.Role == role {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func (a aclImpl) rejectSuperadminTarget(account, action string) error {
+	ok, err := a.userHasRole(account, concept.Role_SUPERADMIN)
+	if err != nil {
+		return fmt.Errorf("aclImpl.%sSuperadmin: %w", action, err)
+	}
+	if ok {
+		return fmt.Errorf("could not %s superadmin: %w", action, errorx.Err_PERMISSION_DENIED)
+	}
+	return nil
+}
+
 func (a aclImpl) AssignRole(account, role string, domain ...string) error {
+	return a.assignRole(account, role, false, domain...)
+}
+
+func (a aclImpl) assignRole(account, role string, allowSuperadmin bool, domain ...string) error {
+	if normalizeRole(role) == concept.Role_SUPERADMIN && !allowSuperadmin {
+		return fmt.Errorf("could not assign superadmin: %w", errorx.Err_PERMISSION_DENIED)
+	}
+
 	assigned, err := a.e.AddRoleForUser(account, rbacRole(role), domain...)
 	if err != nil {
 		return fmt.Errorf("aclImpl.AssignRole: %w", err)
@@ -359,6 +395,10 @@ func (a aclImpl) AssignRole(account, role string, domain ...string) error {
 }
 
 func (a aclImpl) RevokeRole(account, role string, domain ...string) error {
+	if err := a.rejectSuperadminTarget(account, "revoke"); err != nil {
+		return err
+	}
+
 	assigned, err := a.e.DeleteRoleForUser(account, rbacRole(role), domain...)
 	if err != nil {
 		return fmt.Errorf("aclImpl.RevokeRole: %w", err)
@@ -438,7 +478,7 @@ func (a aclImpl) AutoMigrate() error {
 
 func (a aclImpl) BootstrapAdmin(account, nickname, password string) error {
 	if _, err := a.GetUser(account); err == nil {
-		return a.AssignRole(account, concept.Role_SUPERADMIN, concept.Domain_ALL)
+		return a.assignRole(account, concept.Role_SUPERADMIN, true, concept.Domain_ALL)
 	} else if !errors.Is(err, errorx.Err_NOT_FOUND) {
 		return fmt.Errorf("aclImpl.BootstrapAdmin: %w", err)
 	}
@@ -451,7 +491,7 @@ func (a aclImpl) BootstrapAdmin(account, nickname, password string) error {
 	}); err != nil {
 		return fmt.Errorf("aclImpl.BootstrapAdmin: %w", err)
 	}
-	return a.AssignRole(account, concept.Role_SUPERADMIN, concept.Domain_ALL)
+	return a.assignRole(account, concept.Role_SUPERADMIN, true, concept.Domain_ALL)
 }
 
 // cassemAdapter implements persist.Adapter of casbin acl model.

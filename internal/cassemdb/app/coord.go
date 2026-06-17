@@ -14,6 +14,7 @@ type ICoordinator interface {
 	ttl(key string) (int32, error)
 	expire(key string) error
 	iterate(*rangeParam) (*apicassemdb.RangeResp, error)
+	compactElementHistory(*apicassemdb.CompactElementHistoryReq) (*apicassemdb.CompactElementHistoryResp, error)
 
 	// cluster management operations
 	addNode(addr string) (nodeId uint64, peers []string, err error)

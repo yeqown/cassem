@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type FormEvent } from 'react'
 import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline'
+import ContentCopyIcon from '@mui/icons-material/ContentCopy'
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
 import FolderOpenIcon from '@mui/icons-material/FolderOpen'
 import LayersIcon from '@mui/icons-material/Layers'
@@ -28,6 +29,7 @@ import { DangerConfirmDialog } from '../../components/DangerConfirmDialog'
 import { EmptyState, ErrorState, LoadingState } from '../../components/StateView'
 import type { EnvsResponse } from '../../domain/types'
 import { ApiError, apiRequest, buildQuery } from '../../lib/api'
+import { CopyEnvDialog } from './CopyEnvDialog'
 
 function getErrorMessage(error: unknown, fallback: string) {
   return error instanceof ApiError ? error.message : fallback
@@ -46,6 +48,8 @@ export function EnvsPage() {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [createOpen, setCreateOpen] = useState(false)
+  const [copyOpen, setCopyOpen] = useState(false)
+  const [copyBusy, setCopyBusy] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState('')
   const [envName, setEnvName] = useState('')
   const requestSeq = useRef(0)
@@ -105,13 +109,13 @@ export function EnvsPage() {
   }, [appId, loadEnvs])
 
   function closeCreateDialog() {
-    if (submitting) return
+    if (submitting || copyBusy) return
     setCreateOpen(false)
     setEnvName('')
   }
 
   function closeDeleteDialog() {
-    if (submitting) return
+    if (submitting || copyBusy) return
     setDeleteTarget('')
   }
 
@@ -184,9 +188,19 @@ export function EnvsPage() {
           </Stack>
           <Typography color="text.secondary">Environments separate app configuration by runtime target, such as dev, test, stage, or prod.</Typography>
         </Box>
-        <Button variant="contained" startIcon={<AddCircleOutlineIcon />} onClick={() => setCreateOpen(true)} disabled={submitting || !appId}>
-          Add environment
-        </Button>
+        <Stack direction="row" spacing={1}>
+          <Button
+            variant="outlined"
+            startIcon={<ContentCopyIcon />}
+            onClick={() => setCopyOpen(true)}
+            disabled={submitting || copyBusy || !appId || envs.length === 0}
+          >
+            Copy
+          </Button>
+          <Button variant="contained" startIcon={<AddCircleOutlineIcon />} onClick={() => setCreateOpen(true)} disabled={submitting || copyBusy || !appId}>
+            Add environment
+          </Button>
+        </Stack>
       </Stack>
 
       {error && <ErrorState message={error} />}
@@ -196,9 +210,18 @@ export function EnvsPage() {
         title="Delete environment"
         description={<>This will delete environment <strong>{deleteTarget}</strong> from app <strong>{appId}</strong>.</>}
         confirmLabel="Delete"
-        loading={submitting}
+        loading={submitting || copyBusy}
         onClose={closeDeleteDialog}
         onConfirm={() => void handleDelete()}
+      />
+
+      <CopyEnvDialog
+        open={copyOpen}
+        appId={appId}
+        envs={envs}
+        onClose={() => setCopyOpen(false)}
+        onBusyChange={setCopyBusy}
+        onFinished={loadEnvs}
       />
 
       <Dialog open={createOpen} onClose={closeCreateDialog} fullWidth maxWidth="sm">
@@ -255,7 +278,7 @@ export function EnvsPage() {
                       <Button component={RouterLink} to={`/apps/${encodeURIComponent(appId)}/envs/${encodeURIComponent(env)}/elements`} size="small" startIcon={<LayersIcon />}>
                         Elements
                       </Button>
-                      <Button color="error" size="small" startIcon={<DeleteOutlineIcon />} onClick={() => setDeleteTarget(env)} disabled={submitting}>
+                      <Button color="error" size="small" startIcon={<DeleteOutlineIcon />} onClick={() => setDeleteTarget(env)} disabled={submitting || copyBusy}>
                         Delete
                       </Button>
                     </Stack>

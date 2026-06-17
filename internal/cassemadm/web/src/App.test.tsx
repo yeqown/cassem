@@ -1,8 +1,10 @@
 import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { StrictMode } from 'react'
-import { RouterProvider, createMemoryRouter } from 'react-router-dom'
+import { StrictMode, type ComponentProps } from 'react'
+import { MemoryRouter, RouterProvider, createMemoryRouter } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { CopyEnvDialog } from './features/envs/CopyEnvDialog'
+import { ApiError } from './lib/api'
 import { routes } from './routes'
 
 function renderRoute(path: string) {
@@ -32,6 +34,31 @@ function createDeferred<T>() {
   })
 
   return { promise, resolve }
+}
+
+function renderCopyEnvDialog(props: Partial<ComponentProps<typeof CopyEnvDialog>> = {}) {
+  const onClose = vi.fn()
+  const onBusyChange = vi.fn()
+  const onFinished = vi.fn()
+
+  return {
+    onClose,
+    onBusyChange,
+    onFinished,
+    ...render(
+      <MemoryRouter>
+        <CopyEnvDialog
+          open
+          appId="demo"
+          envs={['prod']}
+          onClose={onClose}
+          onBusyChange={onBusyChange}
+          onFinished={onFinished}
+          {...props}
+        />
+      </MemoryRouter>,
+    ),
+  }
 }
 
 function createJsonResponse<T>(payload: T, status = 200) {
@@ -360,6 +387,568 @@ describe('app shell routing', () => {
     })
   })
 
+  it('creates an env copy task with default-selected source elements and target validation', async () => {
+    localStorage.setItem('cassem.session', 'session')
+    localStorage.setItem('cassem.user', JSON.stringify({ account: 'superadmin@example.com' }))
+
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes('/api/apps/demo/envs?limit=100')) {
+        return Promise.resolve(createJsonResponse({ errcode: 0, data: { envs: ['prod', 'stage'] } }))
+      }
+      if (url.includes('/api/apps/demo/envs/prod/elements?limit=100')) {
+        return Promise.resolve(createJsonResponse({
+          errcode: 0,
+          data: {
+            elements: [
+              { metadata: { key: 'db.url', usingVersion: 2, contentType: 4 }, raw: btoa('mysql://demo') },
+              { metadata: { key: 'feature.flag', usingVersion: 1, contentType: 1 }, raw: btoa('{"enabled":true}') },
+            ],
+            hasMore: false,
+          },
+        }))
+      }
+      return Promise.resolve(createJsonResponse({ errcode: 0, data: {} }))
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const user = userEvent.setup()
+    renderRoute('/apps/demo/envs')
+
+    expect(await screen.findByRole('button', { name: /^copy$/i })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /^copy$/i }))
+
+    const dialog = await screen.findByRole('dialog', { name: /copy environment/i })
+    expect(within(dialog).getByText(/task creation/i)).toBeInTheDocument()
+
+    await user.click(within(dialog).getByRole('combobox', { name: /source env/i }))
+    await user.click(await screen.findByRole('option', { name: /^prod$/i }))
+
+    expect(await within(dialog).findByRole('checkbox', { name: /db\.url/i })).toBeChecked()
+    expect(within(dialog).getByRole('checkbox', { name: /feature\.flag/i })).toBeChecked()
+    expect(within(dialog).getByTestId('copy-summary-selected-elements-value')).toHaveTextContent('2')
+
+    await user.type(within(dialog).getByRole('textbox', { name: /to env/i }), 'STAGE')
+
+    expect(within(dialog).getByText(/environment already exists/i)).toBeInTheDocument()
+    expect(within(dialog).getByRole('button', { name: /start copy/i })).toBeDisabled()
+
+    await user.clear(within(dialog).getByRole('textbox', { name: /to env/i }))
+    await user.type(within(dialog).getByRole('textbox', { name: /to env/i }), 'QA')
+
+    expect(within(dialog).getByRole('textbox', { name: /to env/i })).toHaveValue('qa')
+    expect(within(dialog).getByRole('button', { name: /start copy/i })).toBeEnabled()
+  })
+
+  it('renders optimized env copy task creation controls', async () => {
+    localStorage.setItem('cassem.session', 'session')
+    localStorage.setItem('cassem.user', JSON.stringify({ account: 'superadmin@example.com' }))
+
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      const method = init?.method || 'GET'
+
+      if (method === 'GET' && url === '/api/apps/demo/envs?limit=100') {
+        return Promise.resolve(createJsonResponse({ errcode: 0, data: { envs: ['prod'] } }))
+      }
+      if (method === 'GET' && url === '/api/apps/demo/envs/prod/elements?limit=100') {
+        return Promise.resolve(createJsonResponse({
+          errcode: 0,
+          data: {
+            elements: Array.from({ length: 6 }, (_, index) => ({
+              metadata: { key: `item-${String(index + 1).padStart(2, '0')}`, usingVersion: 1, contentType: 4 },
+              raw: `value-${index + 1}`,
+            })),
+            hasMore: false,
+          },
+        }))
+      }
+
+      throw new Error(`Unhandled request: ${method} ${url}`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const user = userEvent.setup()
+    renderRoute('/apps/demo/envs')
+
+    await user.click(await screen.findByRole('button', { name: /^copy$/i }))
+    const dialog = await screen.findByRole('dialog', { name: /copy environment/i })
+
+    expect(within(dialog).getByRole('combobox', { name: /source env/i })).toHaveAttribute('aria-required', 'true')
+    expect(within(dialog).getByRole('textbox', { name: /to env/i })).toBeRequired()
+    expect(within(dialog).getByRole('switch', { name: /copy empty elements/i })).not.toBeChecked()
+
+    await user.click(within(dialog).getByRole('combobox', { name: /source env/i }))
+    await user.click(await screen.findByRole('option', { name: /^prod$/i }))
+
+    expect(await within(dialog).findByText(/Select all elements \(6\/6\)/i)).toBeInTheDocument()
+    const elementsRegion = within(dialog).getByRole('region', { name: /copy elements list/i })
+    expect(elementsRegion).toHaveStyle({ maxHeight: '240px', overflowY: 'auto' })
+
+    await user.click(within(dialog).getByRole('checkbox', { name: /^item-01$/i }))
+    expect(within(dialog).getByText(/Select all elements \(5\/6\)/i)).toBeInTheDocument()
+
+    const summary = within(dialog).getByTestId('copy-summary-grid')
+    expect(summary).toHaveStyle({ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' })
+
+    const sourceItem = within(summary).getByTestId('copy-summary-source-env')
+    expect(sourceItem).toHaveStyle({ display: 'grid', gridTemplateColumns: '150px minmax(0, 1fr)' })
+    expect(within(summary).getByTestId('copy-summary-source-env-label')).toHaveStyle({ fontWeight: '700' })
+    expect(within(summary).getByTestId('copy-summary-source-env-value')).toHaveTextContent('prod')
+  })
+
+  it('executes an env copy task, continues after element failure, and navigates to copied env', async () => {
+    localStorage.setItem('cassem.session', 'session')
+    localStorage.setItem('cassem.user', JSON.stringify({ account: 'superadmin@example.com' }))
+
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      const method = init?.method || 'GET'
+
+      if (method === 'GET' && url === '/api/apps/demo/envs?limit=100') {
+        return Promise.resolve(createJsonResponse({ errcode: 0, data: { envs: ['prod'] } }))
+      }
+      if (method === 'GET' && url === '/api/apps/demo/envs/prod/elements?limit=100') {
+        return Promise.resolve(createJsonResponse({
+          errcode: 0,
+          data: {
+            elements: [
+              { metadata: { key: 'db.url', usingVersion: 1, contentType: 4 }, raw: btoa('mysql://demo') },
+              { metadata: { key: 'empty.item', usingVersion: 1, contentType: 4 }, raw: '' },
+              { metadata: { key: 'bad.item', usingVersion: 1, contentType: 1 }, raw: btoa('{"bad":true}') },
+            ],
+            hasMore: false,
+          },
+        }))
+      }
+      if (method === 'GET' && url === '/api/apps/demo/envs/prod/elements/db.url') {
+        return Promise.resolve(createJsonResponse({ errcode: 0, data: { metadata: { key: 'db.url', usingVersion: 1, contentType: 4 }, raw: 'mysql://demo' } }))
+      }
+      if (method === 'GET' && url === '/api/apps/demo/envs/prod/elements/empty.item') {
+        return Promise.resolve(createJsonResponse({ errcode: 0, data: { metadata: { key: 'empty.item', usingVersion: 1, contentType: 4 }, raw: '' } }))
+      }
+      if (method === 'GET' && url === '/api/apps/demo/envs/prod/elements/bad.item') {
+        return Promise.resolve(createJsonResponse({ errcode: 0, data: { metadata: { key: 'bad.item', usingVersion: 1, contentType: 1 }, raw: '{"bad":true}' } }))
+      }
+      if (method === 'POST' && url === '/api/apps/demo/envs/qa/elements/db.url') {
+        return Promise.resolve(createJsonResponse({ errcode: 0, data: null }))
+      }
+      if (method === 'POST' && url === '/api/apps/demo/envs/qa/elements/bad.item') {
+        return Promise.resolve(createJsonResponse({ errcode: 2, errmsg: 'create failed' }, 500))
+      }
+      if (method === 'POST' && url === '/api/apps/demo/envs/qa') {
+        return Promise.resolve(createJsonResponse({ errcode: 0, data: null }))
+      }
+
+      throw new Error(`Unhandled request: ${method} ${url}`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const user = userEvent.setup()
+    const router = renderRoute('/apps/demo/envs')
+
+    await user.click(await screen.findByRole('button', { name: /^copy$/i }))
+    const dialog = await screen.findByRole('dialog', { name: /copy environment/i })
+
+    await user.click(within(dialog).getByRole('combobox', { name: /source env/i }))
+    await user.click(await screen.findByRole('option', { name: /^prod$/i }))
+    expect(await within(dialog).findByRole('checkbox', { name: /db\.url/i })).toBeChecked()
+
+    await user.type(within(dialog).getByRole('textbox', { name: /to env/i }), 'qa')
+    await user.click(within(dialog).getByRole('button', { name: /start copy/i }))
+
+    expect(await within(dialog).findByText(/task execution/i)).toBeInTheDocument()
+    expect(await within(dialog).findByRole('progressbar', { name: /copy elements progress/i })).toHaveAttribute('aria-valuenow', '100')
+    expect(within(dialog).getByText(/3\/3 elements processed/i)).toBeInTheDocument()
+
+    const resultsPanel = within(dialog).getByRole('region', { name: /copy results/i })
+    expect(within(resultsPanel).getByTestId('copy-results-success-count')).toHaveTextContent('Success 1')
+    expect(within(resultsPanel).getByTestId('copy-results-success-count')).toHaveStyle({ color: 'rgb(46, 125, 50)' })
+    expect(within(resultsPanel).getByTestId('copy-results-skipped-count')).toHaveTextContent('Skipped 1')
+    expect(within(resultsPanel).getByTestId('copy-results-skipped-count')).toHaveStyle({ color: 'rgb(97, 97, 97)' })
+    expect(within(resultsPanel).getByTestId('copy-results-failed-count')).toHaveTextContent('Failed 1')
+    expect(within(resultsPanel).getByTestId('copy-results-failed-count')).toHaveStyle({ color: 'rgb(211, 47, 47)' })
+
+    const failedTab = within(resultsPanel).getByRole('tab', { name: /failed 1/i })
+    expect(failedTab).toHaveAttribute('aria-selected', 'true')
+    const resultsTable = within(resultsPanel).getByRole('table', { name: /copy results/i })
+    expect(within(resultsTable).getByRole('columnheader', { name: /^key$/i })).toBeInTheDocument()
+    expect(within(resultsTable).getByRole('columnheader', { name: /^state$/i })).toBeInTheDocument()
+    expect(within(resultsTable).queryByRole('columnheader', { name: /^result$/i })).not.toBeInTheDocument()
+    expect(within(resultsTable).getByRole('columnheader', { name: /^reason$/i })).toBeInTheDocument()
+    expect(within(resultsTable).getByRole('row', { name: /bad\.item failed create failed/i })).toHaveStyle({ backgroundColor: 'rgba(211, 47, 47, 0.08)' })
+    expect(within(resultsTable).getByText('Failed')).toHaveStyle({ fontSize: 'inherit', lineHeight: 'inherit' })
+    expect(within(resultsTable).queryByRole('row', { name: /db\.url success -/i })).not.toBeInTheDocument()
+
+    await user.click(within(resultsPanel).getByRole('tab', { name: /success 1/i }))
+    expect(within(resultsTable).getByRole('row', { name: /db\.url success -/i })).toHaveStyle({ backgroundColor: 'rgba(46, 125, 50, 0.08)' })
+    expect(within(resultsTable).queryByRole('row', { name: /bad\.item failed create failed/i })).not.toBeInTheDocument()
+
+    await user.click(within(resultsPanel).getByRole('tab', { name: /skipped 1/i }))
+    expect(within(resultsTable).getByRole('row', { name: /empty\.item skipped empty element skipped/i })).toHaveStyle({ backgroundColor: 'rgba(97, 97, 97, 0.08)' })
+    expect(within(resultsTable).getByText('Skipped')).toHaveStyle({ color: 'rgb(97, 97, 97)' })
+
+    await user.click(within(dialog).getByRole('button', { name: /view copied env/i }))
+
+    expect(router.state.location.pathname).toBe('/ui/apps/demo/envs/qa/elements')
+  })
+
+  it('keeps env copy complete when refresh fails after create and copy succeed', async () => {
+    const onFinished = vi.fn().mockRejectedValue(new ApiError('refresh failed', 2, 500))
+    const onBusyChange = vi.fn()
+
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      const method = init?.method || 'GET'
+
+      if (method === 'GET' && url === '/api/apps/demo/envs/prod/elements?limit=100') {
+        return Promise.resolve(createJsonResponse({
+          errcode: 0,
+          data: {
+            elements: [{ metadata: { key: 'db.url', usingVersion: 1, contentType: 4 }, raw: btoa('mysql://demo') }],
+            hasMore: false,
+          },
+        }))
+      }
+      if (method === 'GET' && url === '/api/apps/demo/envs/prod/elements/db.url') {
+        return Promise.resolve(createJsonResponse({ errcode: 0, data: { metadata: { key: 'db.url', usingVersion: 1, contentType: 4 }, raw: 'mysql://demo' } }))
+      }
+      if (method === 'POST' && url === '/api/apps/demo/envs/qa') {
+        return Promise.resolve(createJsonResponse({ errcode: 0, data: null }))
+      }
+      if (method === 'POST' && url === '/api/apps/demo/envs/qa/elements/db.url') {
+        return Promise.resolve(createJsonResponse({ errcode: 0, data: null }))
+      }
+
+      throw new Error(`Unhandled request: ${method} ${url}`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const user = userEvent.setup()
+    renderCopyEnvDialog({ onBusyChange, onFinished })
+
+    const dialog = await screen.findByRole('dialog', { name: /copy environment/i })
+    await user.click(within(dialog).getByRole('combobox', { name: /source env/i }))
+    await user.click(await screen.findByRole('option', { name: /^prod$/i }))
+    await user.type(within(dialog).getByRole('textbox', { name: /to env/i }), 'qa')
+    await user.click(within(dialog).getByRole('button', { name: /start copy/i }))
+
+    expect(await within(dialog).findByRole('progressbar', { name: /copy elements progress/i })).toHaveAttribute('aria-valuenow', '100')
+    expect(within(dialog).getByText(/1\/1 elements processed/i)).toBeInTheDocument()
+    const resultsPanel = within(dialog).getByRole('region', { name: /copy results/i })
+    expect(within(resultsPanel).getByTestId('copy-results-success-count')).toHaveTextContent('Success 1')
+    expect(within(dialog).queryByText(/failed to create target environment/i)).not.toBeInTheDocument()
+    expect(within(dialog).queryByText(/refresh failed/i)).not.toBeInTheDocument()
+    expect(within(dialog).getByRole('button', { name: /view copied env/i })).toBeEnabled()
+    expect(onFinished).toHaveBeenCalledTimes(1)
+    expect(onBusyChange).toHaveBeenLastCalledWith(false)
+  })
+
+  it('disables env copy creation when estimated copy is zero', async () => {
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      const method = init?.method || 'GET'
+
+      if (method === 'GET' && url === '/api/apps/demo/envs/prod/elements?limit=100') {
+        return Promise.resolve(createJsonResponse({
+          errcode: 0,
+          data: {
+            elements: [
+              { metadata: { key: 'empty.raw', usingVersion: 1, contentType: 4 }, raw: '' },
+              { metadata: { key: 'no.using', contentType: 4 }, raw: 'value' },
+            ],
+            hasMore: false,
+          },
+        }))
+      }
+
+      throw new Error(`Unhandled request: ${method} ${url}`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const user = userEvent.setup()
+    renderCopyEnvDialog({ envs: ['prod'] })
+
+    const dialog = await screen.findByRole('dialog', { name: /copy environment/i })
+    await user.click(within(dialog).getByRole('combobox', { name: /source env/i }))
+    await user.click(await screen.findByRole('option', { name: /^prod$/i }))
+
+    expect(await within(dialog).findByRole('checkbox', { name: /empty\.raw/i })).toBeChecked()
+    expect(within(dialog).getByRole('switch', { name: /copy empty elements/i })).toHaveAccessibleDescription(/empty elements will be skipped/i)
+    expect(within(dialog).getByTestId('copy-summary-empty-elements-value')).toHaveTextContent('2')
+    expect(within(dialog).getByTestId('copy-summary-estimated-skipped-value')).toHaveTextContent('2')
+    expect(within(dialog).getByTestId('copy-summary-estimated-copy-value')).toHaveTextContent('0')
+
+    await user.type(within(dialog).getByRole('textbox', { name: /to env/i }), 'qa')
+
+    expect(within(dialog).getByText(/Estimated copy is 0/i)).toBeInTheDocument()
+    expect(within(dialog).getByRole('button', { name: /start copy/i })).toBeDisabled()
+
+    await user.click(within(dialog).getByRole('switch', { name: /copy empty elements/i }))
+
+    expect(within(dialog).getByRole('switch', { name: /copy empty elements/i })).toHaveAccessibleDescription(/empty elements will be copied/i)
+    expect(within(dialog).getByTestId('copy-summary-estimated-skipped-value')).toHaveTextContent('0')
+    expect(within(dialog).getByTestId('copy-summary-estimated-copy-value')).toHaveTextContent('2')
+    expect(within(dialog).queryByText(/Estimated copy is 0/i)).not.toBeInTheDocument()
+    expect(within(dialog).getByRole('button', { name: /start copy/i })).toBeEnabled()
+  })
+
+  it('records copy-empty element failures when the server rejects empty raw content', async () => {
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      const method = init?.method || 'GET'
+
+      if (method === 'GET' && url === '/api/apps/demo/envs/prod/elements?limit=100') {
+        return Promise.resolve(createJsonResponse({
+          errcode: 0,
+          data: {
+            elements: [{ metadata: { key: 'empty.raw', usingVersion: 1, contentType: 4 }, raw: '' }],
+            hasMore: false,
+          },
+        }))
+      }
+      if (method === 'GET' && url === '/api/apps/demo/envs/prod/elements/empty.raw') {
+        return Promise.resolve(createJsonResponse({ errcode: 0, data: { metadata: { key: 'empty.raw', usingVersion: 1, contentType: 4 }, raw: '' } }))
+      }
+      if (method === 'POST' && url === '/api/apps/demo/envs/qa') {
+        return Promise.resolve(createJsonResponse({ errcode: 0, data: null }))
+      }
+      if (method === 'POST' && url === '/api/apps/demo/envs/qa/elements/empty.raw') {
+        return Promise.resolve(createJsonResponse({ errcode: 3, errmsg: 'raw is required' }, 400))
+      }
+
+      throw new Error(`Unhandled request: ${method} ${url}`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const user = userEvent.setup()
+    renderCopyEnvDialog({ envs: ['prod'] })
+
+    const dialog = await screen.findByRole('dialog', { name: /copy environment/i })
+    await user.click(within(dialog).getByRole('combobox', { name: /source env/i }))
+    await user.click(await screen.findByRole('option', { name: /^prod$/i }))
+    await user.click(within(dialog).getByRole('switch', { name: /copy empty elements/i }))
+    await user.type(within(dialog).getByRole('textbox', { name: /to env/i }), 'qa')
+    await user.click(within(dialog).getByRole('button', { name: /start copy/i }))
+
+    const resultsPanel = await within(dialog).findByRole('region', { name: /copy results/i })
+    expect(within(resultsPanel).getByTestId('copy-results-failed-count')).toHaveTextContent('Failed 1')
+    expect(within(resultsPanel).getByTestId('copy-results-failed-count')).toHaveStyle({ color: 'rgb(211, 47, 47)' })
+    const resultsTable = within(resultsPanel).getByRole('table', { name: /copy results/i })
+    expect(within(resultsTable).getByRole('row', { name: /empty\.raw failed raw is required/i })).toHaveStyle({ backgroundColor: 'rgba(211, 47, 47, 0.08)' })
+  })
+
+  it('loads all source elements before creating an env copy task', async () => {
+    localStorage.setItem('cassem.session', 'session')
+    localStorage.setItem('cassem.user', JSON.stringify({ account: 'superadmin@example.com' }))
+
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      const method = init?.method || 'GET'
+
+      if (method === 'GET' && url === '/api/apps/demo/envs?limit=100') {
+        return Promise.resolve(createJsonResponse({ errcode: 0, data: { envs: ['prod'] } }))
+      }
+      if (method === 'GET' && url === '/api/apps/demo/envs/prod/elements?limit=100&seek=next-page') {
+        return Promise.resolve(createJsonResponse({
+          errcode: 0,
+          data: {
+            elements: [{ metadata: { key: 'second', usingVersion: 1, contentType: 4 }, raw: '2' }],
+            hasMore: false,
+          },
+        }))
+      }
+      if (method === 'GET' && url === '/api/apps/demo/envs/prod/elements?limit=100') {
+        return Promise.resolve(createJsonResponse({
+          errcode: 0,
+          data: {
+            elements: [{ metadata: { key: 'first', usingVersion: 1, contentType: 4 }, raw: '1' }],
+            hasMore: true,
+            nextSeek: 'next-page',
+          },
+        }))
+      }
+
+      throw new Error(`Unhandled request: ${method} ${url}`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const user = userEvent.setup()
+    renderRoute('/apps/demo/envs')
+
+    await user.click(await screen.findByRole('button', { name: /^copy$/i }))
+    const dialog = await screen.findByRole('dialog', { name: /copy environment/i })
+    await user.click(within(dialog).getByRole('combobox', { name: /source env/i }))
+    await user.click(await screen.findByRole('option', { name: /^prod$/i }))
+
+    expect(await within(dialog).findByRole('checkbox', { name: /^first$/i })).toBeChecked()
+    expect(within(dialog).getByRole('checkbox', { name: /^second$/i })).toBeChecked()
+    expect(
+      fetchMock.mock.calls.some(([request, requestInit]) => {
+        const requestUrl = String(request)
+        const requestMethod = requestInit?.method || 'GET'
+        return requestMethod === 'GET' && requestUrl === '/api/apps/demo/envs/prod/elements?limit=100&seek=next-page'
+      }),
+    ).toBe(true)
+  })
+
+  it('disables env page mutations while copy execution is running', async () => {
+    localStorage.setItem('cassem.session', 'session')
+    localStorage.setItem('cassem.user', JSON.stringify({ account: 'superadmin@example.com' }))
+
+    const createEnvRequest = createDeferred<Response>()
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      const method = init?.method || 'GET'
+
+      if (method === 'GET' && url === '/api/apps/demo/envs?limit=100') {
+        return Promise.resolve(createJsonResponse({ errcode: 0, data: { envs: ['prod'] } }))
+      }
+      if (method === 'GET' && url === '/api/apps/demo/envs/prod/elements?limit=100') {
+        return Promise.resolve(createJsonResponse({
+          errcode: 0,
+          data: {
+            elements: [{ metadata: { key: 'db.url', usingVersion: 1, contentType: 4 }, raw: 'value' }],
+            hasMore: false,
+          },
+        }))
+      }
+      if (method === 'POST' && url === '/api/apps/demo/envs/qa') {
+        return createEnvRequest.promise
+      }
+
+      throw new Error(`Unhandled request: ${method} ${url}`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const user = userEvent.setup()
+    renderRoute('/apps/demo/envs')
+
+    const copyButton = await screen.findByRole('button', { name: /^copy$/i })
+    const addButton = screen.getByRole('button', { name: /add environment/i })
+    const row = screen.getByRole('row', { name: /prod/i })
+    const deleteButton = within(row).getByRole('button', { name: /^delete$/i })
+
+    await user.click(copyButton)
+    const dialog = await screen.findByRole('dialog', { name: /copy environment/i })
+    await user.click(within(dialog).getByRole('combobox', { name: /source env/i }))
+    await user.click(await screen.findByRole('option', { name: /^prod$/i }))
+    await user.type(within(dialog).getByRole('textbox', { name: /to env/i }), 'qa')
+    await user.click(within(dialog).getByRole('button', { name: /start copy/i }))
+
+    expect(await within(dialog).findByText(/^Create env$/i)).toBeInTheDocument()
+    expect(within(dialog).getByText(/^doing$/i)).toBeInTheDocument()
+    await waitFor(() => {
+      expect(copyButton).toBeDisabled()
+      expect(addButton).toBeDisabled()
+      expect(deleteButton).toBeDisabled()
+      expect(within(dialog).getByRole('button', { name: /^close$/i })).toBeDisabled()
+    })
+
+    await act(async () => {
+      createEnvRequest.resolve(createJsonResponse({ errcode: 2, errmsg: 'create env failed' }, 500))
+      await createEnvRequest.promise
+    })
+
+    expect(await within(dialog).findByText(/create env failed/i)).toBeInTheDocument()
+    await waitFor(() => {
+      expect(copyButton).toBeEnabled()
+    })
+  })
+
+  it('posts decoded raw content when copying elements', async () => {
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      const method = init?.method || 'GET'
+
+      if (method === 'GET' && url === '/api/apps/demo/envs/prod/elements?limit=100') {
+        return Promise.resolve(createJsonResponse({
+          errcode: 0,
+          data: {
+            elements: [{ metadata: { key: 'db.url', usingVersion: 1, contentType: 4 }, raw: btoa('mysql://demo') }],
+            hasMore: false,
+          },
+        }))
+      }
+      if (method === 'GET' && url === '/api/apps/demo/envs/prod/elements/db.url') {
+        return Promise.resolve(createJsonResponse({ errcode: 0, data: { metadata: { key: 'db.url', usingVersion: 1, contentType: 4 }, raw: btoa('mysql://demo') } }))
+      }
+      if (method === 'POST' && url === '/api/apps/demo/envs/qa') {
+        return Promise.resolve(createJsonResponse({ errcode: 0, data: null }))
+      }
+      if (method === 'POST' && url === '/api/apps/demo/envs/qa/elements/db.url') {
+        expect(init?.body).toBe(JSON.stringify({ raw: 'mysql://demo', contentType: 4 }))
+        return Promise.resolve(createJsonResponse({ errcode: 0, data: null }))
+      }
+
+      throw new Error(`Unhandled request: ${method} ${url}`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const user = userEvent.setup()
+    renderCopyEnvDialog()
+
+    const dialog = await screen.findByRole('dialog', { name: /copy environment/i })
+    await user.click(within(dialog).getByRole('combobox', { name: /source env/i }))
+    await user.click(await screen.findByRole('option', { name: /^prod$/i }))
+    await user.type(within(dialog).getByRole('textbox', { name: /to env/i }), 'qa')
+    await user.click(within(dialog).getByRole('button', { name: /start copy/i }))
+
+    expect(await within(dialog).findByRole('progressbar', { name: /copy elements progress/i })).toHaveAttribute('aria-valuenow', '100')
+    expect(within(dialog).getByText(/1\/1 elements processed/i)).toBeInTheDocument()
+    const resultsPanel = within(dialog).getByRole('region', { name: /copy results/i })
+    expect(within(resultsPanel).getByTestId('copy-results-success-count')).toHaveTextContent('Success 1')
+    expect(within(resultsPanel).getByTestId('copy-results-failed-count')).toHaveTextContent('Failed 0')
+  })
+
+  it('clears busy state when the copy dialog unmounts mid-copy', async () => {
+    const detailRequest = createDeferred<Response>()
+    const onBusyChange = vi.fn()
+
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      const method = init?.method || 'GET'
+
+      if (method === 'GET' && url === '/api/apps/demo/envs/prod/elements?limit=100') {
+        return Promise.resolve(createJsonResponse({
+          errcode: 0,
+          data: {
+            elements: [{ metadata: { key: 'db.url', usingVersion: 1, contentType: 4 }, raw: btoa('mysql://demo') }],
+            hasMore: false,
+          },
+        }))
+      }
+      if (method === 'GET' && url === '/api/apps/demo/envs/prod/elements/db.url') {
+        return detailRequest.promise
+      }
+      if (method === 'POST' && url === '/api/apps/demo/envs/qa') {
+        return Promise.resolve(createJsonResponse({ errcode: 0, data: null }))
+      }
+
+      throw new Error(`Unhandled request: ${method} ${url}`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const user = userEvent.setup()
+    const { unmount } = renderCopyEnvDialog({ onBusyChange })
+
+    const dialog = await screen.findByRole('dialog', { name: /copy environment/i })
+    await user.click(within(dialog).getByRole('combobox', { name: /source env/i }))
+    await user.click(await screen.findByRole('option', { name: /^prod$/i }))
+    await user.type(within(dialog).getByRole('textbox', { name: /to env/i }), 'qa')
+    await user.click(within(dialog).getByRole('button', { name: /start copy/i }))
+
+    await waitFor(() => expect(onBusyChange).toHaveBeenCalledWith(true))
+    unmount()
+
+    expect(onBusyChange).toHaveBeenLastCalledWith(false)
+
+    await act(async () => {
+      detailRequest.resolve(createJsonResponse({ errcode: 0, data: { metadata: { key: 'db.url', usingVersion: 1, contentType: 4 }, raw: 'mysql://demo' } }))
+      await detailRequest.promise
+    })
+  })
+
   it('keeps the latest environments response when refresh overlaps the initial load', async () => {
     localStorage.setItem('cassem.session', 'session')
     localStorage.setItem('cassem.user', JSON.stringify({ account: 'superadmin@example.com' }))
@@ -656,6 +1245,20 @@ describe('app shell routing', () => {
         return Promise.resolve(createJsonResponse({ errcode: 0, data: { operations: [] } }))
       }
 
+      if (url.includes('/api/admin/retention')) {
+        return Promise.resolve(createJsonResponse({
+          errcode: 0,
+          data: {
+            enabled: true,
+            keepVersionCount: 20,
+            keepVersionDays: 30,
+            keepOperationDays: 180,
+            versionPolicy: 'Versions keep current, draft, latest 20, and versions from the last 30 days.',
+            operationPolicy: 'Operation logs keep 180 days.',
+          },
+        }))
+      }
+
       if (url.includes('/api/apps/demo/envs/prod/elements/db.url')) {
         return Promise.resolve(
           createJsonResponse({
@@ -674,6 +1277,7 @@ describe('app shell routing', () => {
     })
     vi.stubGlobal('fetch', fetchMock)
 
+    const user = userEvent.setup()
     renderRoute('/apps/demo/envs/prod/elements/db.url')
 
     expect(await screen.findByRole('heading', { name: /element detail/i })).toBeInTheDocument()
@@ -684,8 +1288,82 @@ describe('app shell routing', () => {
     expect(within(breadcrumbs).getByText(/^db\.url$/i)).toBeInTheDocument()
     expect(screen.queryByText(/app: demo \/ env: prod \/ key: db\.url/i)).not.toBeInTheDocument()
     expect(screen.getByRole('tab', { name: /content/i })).toBeInTheDocument()
-    expect(screen.getByRole('tab', { name: /versions/i })).toBeInTheDocument()
-    expect(screen.getByRole('tab', { name: /operations/i })).toBeInTheDocument()
+    await user.click(screen.getByRole('tab', { name: /versions/i }))
+    expect(await screen.findByText('Versions keep current, draft, latest 20, and versions from the last 30 days.')).toBeInTheDocument()
+    await user.click(screen.getByRole('tab', { name: /operations/i }))
+    expect(await screen.findByText('Operation logs keep 180 days.')).toBeInTheDocument()
+  })
+
+  it('loads element detail when retention policy is unavailable', async () => {
+    localStorage.setItem('cassem.session', 'session')
+    localStorage.setItem('cassem.user', JSON.stringify({ account: 'appdeveloper@example.com' }))
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((input: RequestInfo | URL) => {
+        const url = String(input)
+        if (url.includes('/api/apps/demo/envs/prod/elements/db.url/versions?limit=100')) {
+          return Promise.resolve(createJsonResponse({ errcode: 0, data: { elements: [] } }))
+        }
+        if (url.includes('/api/apps/demo/envs/prod/elements/db.url/operations?limit=100')) {
+          return Promise.resolve(createJsonResponse({ errcode: 0, data: { operations: [] } }))
+        }
+        if (url.includes('/api/admin/retention')) {
+          return Promise.resolve(createJsonResponse({ errcode: 7, errmsg: 'permission denied' }, 403))
+        }
+        return Promise.resolve(createJsonResponse({
+          errcode: 0,
+          data: {
+            metadata: { key: 'db.url', latestVersion: 1, usingVersion: 1, unpublishedVersion: 0, contentType: 4 },
+            raw: btoa('postgres://demo'),
+            version: 1,
+            published: true,
+          },
+        }))
+      }),
+    )
+
+    renderRoute('/apps/demo/envs/prod/elements/db.url')
+
+    expect(await screen.findByRole('heading', { name: /element detail/i })).toBeInTheDocument()
+    expect(screen.getByText('Latest: v1')).toBeInTheDocument()
+    expect(screen.queryByText(/Versions keep current/i)).not.toBeInTheDocument()
+  })
+
+  it('loads element detail while retention policy is still pending', async () => {
+    localStorage.setItem('cassem.session', 'session')
+    localStorage.setItem('cassem.user', JSON.stringify({ account: 'superadmin@example.com' }))
+    const retentionRequest = createDeferred<Response>()
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((input: RequestInfo | URL) => {
+        const url = String(input)
+        if (url.includes('/api/apps/demo/envs/prod/elements/db.url/versions?limit=100')) {
+          return Promise.resolve(createJsonResponse({ errcode: 0, data: { elements: [] } }))
+        }
+        if (url.includes('/api/apps/demo/envs/prod/elements/db.url/operations?limit=100')) {
+          return Promise.resolve(createJsonResponse({ errcode: 0, data: { operations: [] } }))
+        }
+        if (url.includes('/api/admin/retention')) {
+          return retentionRequest.promise
+        }
+        return Promise.resolve(createJsonResponse({
+          errcode: 0,
+          data: {
+            metadata: { key: 'db.url', latestVersion: 1, usingVersion: 1, unpublishedVersion: 0, contentType: 4 },
+            raw: btoa('postgres://demo'),
+            version: 1,
+            published: true,
+          },
+        }))
+      }),
+    )
+
+    renderRoute('/apps/demo/envs/prod/elements/db.url')
+
+    expect(await screen.findByRole('heading', { name: /element detail/i })).toBeInTheDocument()
+    expect(screen.getByText('Latest: v1')).toBeInTheDocument()
   })
 
   it('renders element detail status in the title toolbar', async () => {
@@ -724,7 +1402,8 @@ describe('app shell routing', () => {
     expect(screen.getByText('Current: v1')).toBeInTheDocument()
     expect(screen.getByText('Draft: -')).toBeInTheDocument()
     expect(screen.getByText('Type: PLAINTEXT')).toBeInTheDocument()
-    expect(screen.getByTestId('element-detail-actions')).toHaveStyle({ alignSelf: 'flex-end' })
+    expect(within(screen.getByTestId('element-detail-actions')).getByRole('link', { name: /publish/i })).toBeInTheDocument()
+    expect(within(screen.getByTestId('element-detail-actions')).getByRole('link', { name: /rollback/i })).toBeInTheDocument()
   })
 
   it('renders version history state, current marker, truncated preview, and full preview dialog', async () => {
@@ -782,7 +1461,9 @@ describe('app shell routing', () => {
     await user.click(within(currentRow).getByRole('button', { name: /preview v2/i }))
 
     const dialog = await screen.findByRole('dialog', { name: /version v2 preview/i })
-    expect(dialog.querySelector('pre')?.textContent).toBe(longPreview)
+    const preview = within(dialog).getByLabelText('Version preview content')
+    expect(preview).toHaveTextContent('checkout.enabled=true')
+    expect(preview).toHaveTextContent('checkout.owner=payments')
   })
 
   it('compares element versions with dropdowns and renders readable diff text', async () => {
@@ -826,7 +1507,7 @@ describe('app shell routing', () => {
     const user = userEvent.setup()
     renderRoute('/apps/demo/envs/prod/elements/db.url')
 
-    await user.click(await screen.findByRole('tab', { name: /versions/i }))
+    await user.click(await screen.findByRole('tab', { name: /diff/i }))
     await user.click(screen.getByRole('combobox', { name: /base/i }))
     await user.click(await screen.findByRole('option', { name: 'v1' }))
     await user.click(screen.getByRole('combobox', { name: /compare/i }))
@@ -970,6 +1651,40 @@ describe('app shell routing', () => {
     expect(within(disabledRow as HTMLElement).getByText('Disabled')).toBeInTheDocument()
     expect(within(enabledRow as HTMLElement).getByRole('button', { name: /disable/i })).toBeEnabled()
     expect(within(disabledRow as HTMLElement).getByRole('button', { name: /disable/i })).toBeDisabled()
+  })
+
+  it('blocks privileged actions for superadmin users in the users list', async () => {
+    localStorage.setItem('cassem.session', 'session')
+    localStorage.setItem('cassem.user', JSON.stringify({ account: 'superadmin@example.com' }))
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((input: RequestInfo | URL) => {
+        const url = String(input)
+        if (url.includes('/api/account/users?limit=100')) {
+          return Promise.resolve(createJsonResponse({
+            errcode: 0,
+            data: {
+              users: [
+                { account: 'root@example.com', nickname: 'Root', status: 0, roles: ['superadmin'], bindingCount: 1 },
+              ],
+            },
+          }))
+        }
+        if (url.includes('/api/account/acl/domains')) {
+          return Promise.resolve(createJsonResponse({ errcode: 0, data: { domains: [] } }))
+        }
+        return Promise.resolve(createJsonResponse({ errcode: 0, data: {} }))
+      }),
+    )
+
+    renderRoute('/users')
+
+    const superadminRow = (await screen.findByText('root@example.com')).closest('tr')
+    expect(superadminRow).not.toBeNull()
+    expect(within(superadminRow as HTMLElement).getByRole('button', { name: /manage access/i })).toBeDisabled()
+    expect(within(superadminRow as HTMLElement).getByRole('button', { name: /disable/i })).toBeDisabled()
+    expect(within(superadminRow as HTMLElement).getByRole('button', { name: /reset password/i })).toBeDisabled()
   })
 
   it('uses a Material confirmation dialog before disabling a user', async () => {
@@ -1220,7 +1935,7 @@ describe('app shell routing', () => {
     expect(within(breadcrumbs).getByText(current)).toBeInTheDocument()
   })
 
-  it('renders agents page with refresh control', async () => {
+  it('renders topology page with refresh control', async () => {
     localStorage.setItem('cassem.session', 'session')
     localStorage.setItem('cassem.user', JSON.stringify({ account: 'superadmin@example.com' }))
 
@@ -1236,15 +1951,16 @@ describe('app shell routing', () => {
       ),
     )
 
-    renderRoute('/cluster/agents')
+    renderRoute('/cluster/topology')
 
-    expect(await screen.findByRole('heading', { name: /agents/i })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: /^topology$/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /refresh/i })).toBeInTheDocument()
   })
 
-  it('renders instances page with filter and detail controls', async () => {
+  it('renders instances page with filter, lastSeen, and detail controls', async () => {
     localStorage.setItem('cassem.session', 'session')
     localStorage.setItem('cassem.user', JSON.stringify({ account: 'superadmin@example.com' }))
+    vi.spyOn(Date, 'now').mockReturnValue(1_700_000_065_000)
 
     vi.stubGlobal(
       'fetch',
@@ -1252,7 +1968,13 @@ describe('app shell routing', () => {
         createJsonResponse({
           errcode: 0,
           data: {
-            instances: [{ clientId: 'instance-01', agentId: 'agent-a', clientIp: '10.0.0.1' }],
+            instances: [{
+              clientId: 'instance-01',
+              agentId: 'agent-a',
+              clientIp: '10.0.0.1',
+              lastRenewTimestamp: 1_700_000_000,
+              watching: [{ app: 'demo', env: 'prod', watchKeys: ['db.url'] }],
+            }],
           },
         }),
       ),
@@ -1264,9 +1986,19 @@ describe('app shell routing', () => {
     expect(screen.getByRole('combobox', { name: /^app$/i })).toBeInTheDocument()
     expect(screen.getByRole('combobox', { name: /^env$/i })).toBeInTheDocument()
     expect(screen.getByRole('combobox', { name: /^key$/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /filter/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /refresh all/i })).toBeInTheDocument()
-    expect(await screen.findByRole('button', { name: /detail/i })).toBeInTheDocument()
+    const filterRow = screen.getByTestId('instances-filter-row')
+    expect(within(filterRow).getByRole('combobox', { name: /^app$/i })).toBeInTheDocument()
+    expect(within(filterRow).getByRole('combobox', { name: /^env$/i })).toBeInTheDocument()
+    expect(within(filterRow).getByRole('combobox', { name: /^key$/i })).toBeInTheDocument()
+    expect(within(filterRow).getByRole('button', { name: /filter/i })).toBeInTheDocument()
+    expect(within(filterRow).getByRole('button', { name: /refresh all/i })).toBeInTheDocument()
+
+    const instanceRow = await screen.findByRole('row', { name: /instance-01/i })
+    expect(within(instanceRow).getByText('demo')).toBeInTheDocument()
+    expect(within(instanceRow).getByText('prod')).toBeInTheDocument()
+    expect(within(instanceRow).getByText('db.url')).toBeInTheDocument()
+    expect(within(instanceRow).getByText('1m5s ago')).toBeInTheDocument()
+    expect(within(instanceRow).getByRole('button', { name: /detail/i })).toBeInTheDocument()
   })
 
   it('accepts raw array agents responses from the cluster endpoint', async () => {
@@ -1282,10 +2014,12 @@ describe('app shell routing', () => {
       } as Response),
     )
 
-    renderRoute('/cluster/agents')
+    renderRoute('/cluster/topology')
 
     expect(await screen.findByText('agent-1')).toBeInTheDocument()
-    expect(within(screen.getByTestId('topology-node-agent-1')).getByText(/Addr: 127\.0\.0\.1:7001/i)).toBeInTheDocument()
+    expect(within(screen.getByTestId('topology-node-agent-1')).getByText('Agent')).toBeInTheDocument()
+    expect(within(screen.getByTestId('topology-node-agent-1')).getByLabelText('Healthy')).toBeInTheDocument()
+    expect(within(screen.getByTestId('topology-node-agent-1')).queryByText(/Addr:/i)).not.toBeInTheDocument()
   })
 
   it('loads cluster topology once under strict mode', async () => {
@@ -1306,7 +2040,7 @@ describe('app shell routing', () => {
     )
     vi.stubGlobal('fetch', fetchMock)
 
-    renderStrictRoute('/cluster/agents')
+    renderStrictRoute('/cluster/topology')
 
     expect(await screen.findByText('agent-a')).toBeInTheDocument()
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
@@ -1334,6 +2068,7 @@ describe('app shell routing', () => {
           '/api/apps/demo/envs/prod/elements/db.url',
           '/api/apps/demo/envs/prod/elements/db.url/versions?limit=100',
           '/api/apps/demo/envs/prod/elements/db.url/operations?limit=100',
+          '/api/admin/retention',
         ],
       },
       {
@@ -1442,25 +2177,31 @@ describe('app shell routing', () => {
     })
     vi.stubGlobal('fetch', fetchMock)
 
-    renderRoute('/cluster/agents')
+    renderRoute('/cluster/topology')
 
     expect(await screen.findByRole('heading', { name: /cluster topology/i })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /^topology$/i })).toBeInTheDocument()
     expect(fetchMock).toHaveBeenCalledWith('/api/cluster/topology', expect.any(Object))
+    expect(screen.getByTestId('topology-graph')).toBeInTheDocument()
     expect(screen.getByTestId('topology-dbs')).toBeInTheDocument()
     expect(screen.getByTestId('topology-agents')).toBeInTheDocument()
     expect(screen.getByTestId('topology-instances')).toBeInTheDocument()
-    expect(screen.getByTestId('topology-link-dbs-agents')).toHaveAttribute('aria-label', 'DBs connect to agents')
-    expect(screen.getByTestId('topology-link-agents-instances')).toHaveAttribute('aria-label', 'Agents connect to instances')
+    expect(screen.getByTestId('topology-edge-db-1-agent-a')).toHaveAttribute('aria-label', 'db-1 connects to agent-a')
+    expect(screen.getByTestId('topology-edge-db-1-agent-a')).toHaveAttribute('stroke-dasharray', '10 8')
+    expect(screen.getByTestId('topology-edge-agent-a-instance-group-agent-a')).toHaveAttribute('aria-label', 'agent-a connects to 6 instances')
+    expect(screen.getByTestId('topology-edge-agent-b-instance-07')).toHaveAttribute('aria-label', 'agent-b connects to instance-07')
     expect(screen.getByText('db-1')).toBeInTheDocument()
-    expect(within(screen.getByTestId('topology-node-db-1')).getByText(/IP: 10\.0\.0\.1/i)).toBeInTheDocument()
+    expect(within(screen.getByTestId('topology-node-db-1')).getByText('DB')).toBeInTheDocument()
+    expect(within(screen.getByTestId('topology-node-db-1')).queryByText(/IP:/i)).not.toBeInTheDocument()
     expect(screen.getByText('agent-a')).toBeInTheDocument()
-    expect(within(screen.getByTestId('topology-node-agent-a')).getByText(/IP: 10\.0\.1\.1/i)).toBeInTheDocument()
+    expect(within(screen.getByTestId('topology-node-agent-a')).getByText('Agent')).toBeInTheDocument()
+    expect(within(screen.getByTestId('topology-node-agent-a')).queryByText(/IP:/i)).not.toBeInTheDocument()
     expect(screen.getByText('6 instances')).toBeInTheDocument()
     expect(screen.queryByText('instance-01')).not.toBeInTheDocument()
     expect(screen.getByText('instance-07')).toBeInTheDocument()
-    expect(within(screen.getByTestId('topology-node-db-1')).getByText('Healthy')).toBeInTheDocument()
-    expect(within(screen.getByTestId('topology-node-agent-b')).getByText('Unhealthy')).toBeInTheDocument()
-    expect(within(screen.getByTestId('topology-node-instance-07')).getByText('Offline')).toBeInTheDocument()
+    expect(within(screen.getByTestId('topology-node-db-1')).getByLabelText('Healthy')).toBeInTheDocument()
+    expect(within(screen.getByTestId('topology-node-agent-b')).getByLabelText('Unhealthy')).toBeInTheDocument()
+    expect(within(screen.getByTestId('topology-node-instance-07')).getByLabelText('Offline')).toBeInTheDocument()
   })
 
   it('cascades instance filter candidates from app to env to key', async () => {
@@ -1535,13 +2276,13 @@ describe('app shell routing', () => {
           createJsonResponse({
             errcode: 0,
             data: {
-              instances: [{ clientId: 'instance-01', agentId: 'agent-a', clientIp: '10.0.0.1' }],
+              instances: [{ id: 'instance-01@10.0.0.1', clientId: 'instance-01', agentId: 'agent-a', clientIp: '10.0.0.1' }],
             },
           }),
         )
       }
 
-      if (url.includes('/api/cluster/instances/detail/instance-01')) {
+      if (url.includes('/api/cluster/instances/detail/instance-01%4010.0.0.1')) {
         return Promise.resolve(
           createJsonResponse({
             errcode: 0,
@@ -1685,6 +2426,7 @@ describe('app shell routing', () => {
     await user.click(screen.getByRole('button', { name: /manage access/i }))
     const dialog = await screen.findByRole('dialog')
     await user.click(within(dialog).getByRole('combobox', { name: /role/i }))
+    expect(screen.queryByRole('option', { name: /super admin/i })).not.toBeInTheDocument()
     await user.click(await screen.findByRole('option', { name: /developer/i }))
     await user.click(within(dialog).getByRole('combobox', { name: /scope/i }))
     await user.click(await screen.findByRole('option', { name: /entire app/i }))

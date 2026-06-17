@@ -80,6 +80,9 @@ func (f *kvReadOnlyTestKV) Range(_ context.Context, req *apicassemdb.RangeReq, _
 	}
 	return &apicassemdb.RangeResp{Entities: entities}, nil
 }
+func (f *kvReadOnlyTestKV) CompactElementHistory(context.Context, *apicassemdb.CompactElementHistoryReq, ...grpc.CallOption) (*apicassemdb.CompactElementHistoryResp, error) {
+	return nil, errors.New("unused")
+}
 
 func addElementTestData(t *testing.T, entities map[string]*apicassemdb.Entity, app, env, key string, version int32) {
 	t.Helper()

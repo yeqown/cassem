@@ -181,23 +181,25 @@ func (c *agentInstanceClient) Watch(
 
 	// start a routine to watch
 	runtime.GoFunc("watching", func() error {
-		// FIXME(@yeqown): If agent server could not be reached, watch goroutine would shutdown.
-		// DONE(@yeqown): refresh the watching list while current watch goroutine quit.
-		defer delete(c.watching, app+env)
-
 		r := new(WatchResp)
-	waitLoop:
+		watchingKey := app + env
 		for {
 			select {
 			case <-ctx.Done():
+				delete(c.watching, watchingKey)
 				log.Debug("agentInstanceClient quit, watch Done)")
-				break waitLoop
+				return nil
 			case <-c.ctx.Done():
+				delete(c.watching, watchingKey)
 				log.Debug("agentInstanceClient quit, client Done)")
-				break waitLoop
+				return nil
+			default:
+			}
+
+			select {
 			case <-stream.Context().Done():
 				log.Debug("agentInstanceClient quit, stream Done)")
-				break waitLoop
+				return nil
 			default:
 				if err = stream.RecvMsg(r); err != nil {
 					log.
@@ -220,7 +222,6 @@ func (c *agentInstanceClient) Watch(
 			}
 			// select end
 		}
-		return nil
 	})
 
 	return nil

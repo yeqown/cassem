@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import DeviceHubIcon from '@mui/icons-material/DeviceHub'
 import DnsIcon from '@mui/icons-material/Dns'
 import HubIcon from '@mui/icons-material/Hub'
@@ -7,9 +7,9 @@ import {
   Box,
   Button,
   Chip,
-  Divider,
   Paper,
   Stack,
+  Tooltip,
   Typography,
 } from '@mui/material'
 import { alpha } from '@mui/material/styles'
@@ -99,17 +99,6 @@ function healthLabel(health: HealthState) {
   }
 }
 
-function healthColor(health: HealthState) {
-  switch (health) {
-    case 'healthy':
-      return 'success'
-    case 'unhealthy':
-      return 'warning'
-    case 'offline':
-      return 'default'
-  }
-}
-
 function nodeTestId(kind: string, id: string) {
   const normalized = id.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
   if (!normalized) return `topology-node-${kind}-unknown`
@@ -117,14 +106,66 @@ function nodeTestId(kind: string, id: string) {
   return `topology-node-${kind}-${normalized}`
 }
 
+type TopologyNodeKind = 'db' | 'agent' | 'instance' | 'group'
+
 type TopologyNodeProps = {
-  kind: 'db' | 'agent' | 'instance' | 'group'
+  kind: TopologyNodeKind
   id: string
   ip?: string
   addr?: string
   health: HealthState
   subtitle?: string
   aggregateCount?: number
+  attachedAgentId?: string
+}
+
+type TopologyGraphNode = TopologyNodeProps & {
+  graphId: string
+  edgeToken: string
+  layer: 'dbs' | 'agents' | 'instances'
+  x: number
+  y: number
+}
+
+type TopologyEdge = {
+  key: string
+  from: Pick<TopologyGraphNode, 'x' | 'y'>
+  to: Pick<TopologyGraphNode, 'x' | 'y'>
+  testId: string
+  label: string
+}
+
+type TopologyGraphModel = {
+  nodes: TopologyGraphNode[]
+  edges: TopologyEdge[]
+  height: number
+}
+
+function normalizeGraphToken(id: string) {
+  return id.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'unknown'
+}
+
+function edgeToken(kind: TopologyNodeKind, id: string) {
+  const normalized = normalizeGraphToken(id)
+  if (kind === 'group') return normalized.startsWith('instance-group-') ? normalized : `instance-group-${normalized}`
+  if (kind === 'instance') return normalized.startsWith('instance-') ? normalized : `instance-${normalized}`
+  return normalized
+}
+
+function layerY(index: number, total: number) {
+  if (total <= 1) return 50
+  return 16 + (68 * index) / (total - 1)
+}
+
+function positionLayer(nodes: TopologyNodeProps[], layer: TopologyGraphNode['layer'], x: number) {
+  return nodes.map<TopologyGraphNode>((node, index) => ({
+    ...node,
+    graphId: `${layer}-${edgeToken(node.kind, node.id)}-${index}`,
+    edgeToken: edgeToken(node.kind, node.id),
+    layer,
+    x,
+    y: layerY(index, nodes.length),
+  }))
 }
 
 function NodeIcon({ kind }: Pick<TopologyNodeProps, 'kind'>) {
@@ -136,114 +177,139 @@ function NodeIcon({ kind }: Pick<TopologyNodeProps, 'kind'>) {
 
 function TopologyNode({ kind, id, ip, addr, health, subtitle, aggregateCount }: TopologyNodeProps) {
   const healthTone = health === 'healthy' ? 'success.main' : health === 'unhealthy' ? 'warning.main' : 'text.disabled'
+  const accent = health === 'healthy' ? 'success.main' : health === 'unhealthy' ? 'warning.main' : 'grey.400'
+  const label = aggregateCount ? `${aggregateCount} instances` : id || '-'
+  const typeLabel = kind === 'db' ? 'DB' : kind === 'agent' ? 'Agent' : kind === 'group' ? 'Instances' : 'Instance'
 
   return (
-    <Paper
-      variant="outlined"
-      data-testid={nodeTestId(kind === 'group' ? 'instance-group' : kind, id)}
-      sx={{
-        p: 2,
-        borderColor: (theme) => alpha(theme.palette.divider, 0.9),
-        bgcolor: (theme) => health === 'offline' ? alpha(theme.palette.grey[500], 0.08) : 'background.paper',
-        boxShadow: (theme) => `inset 4px 0 0 ${health === 'offline' ? theme.palette.grey[400] : health === 'unhealthy' ? theme.palette.warning.main : theme.palette.success.main}`,
-      }}
+    <Tooltip
+      arrow
+      title={(
+        <Stack spacing={0.25}>
+          <Typography variant="caption">Type: {typeLabel}</Typography>
+          <Typography variant="caption">ID: {id || '-'}</Typography>
+          <Typography variant="caption">Health: {healthLabel(health)}</Typography>
+          {subtitle && <Typography variant="caption">{subtitle}</Typography>}
+          <Typography variant="caption">IP: {ip || '-'}</Typography>
+          {addr && <Typography variant="caption">Addr: {addr}</Typography>}
+        </Stack>
+      )}
     >
-      <Stack spacing={1.25}>
-        <Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between">
-          <Stack direction="row" spacing={1} alignItems="center" sx={{ minWidth: 0 }}>
-            <Box
-              sx={{
-                width: 30,
-                height: 30,
-                borderRadius: '50%',
-                display: 'grid',
-                placeItems: 'center',
-                color: healthTone,
-                bgcolor: (theme) => alpha(health === 'healthy' ? theme.palette.success.main : health === 'unhealthy' ? theme.palette.warning.main : theme.palette.grey[500], 0.12),
-              }}
-            >
-              <NodeIcon kind={kind} />
-            </Box>
-            <Box sx={{ minWidth: 0 }}>
-              <Typography variant="subtitle2" noWrap>{aggregateCount ? `${aggregateCount} instances` : id || '-'}</Typography>
-              {subtitle && <Typography variant="caption" color="text.secondary" noWrap>{subtitle}</Typography>}
-            </Box>
-          </Stack>
-          <Chip size="small" color={healthColor(health)} label={healthLabel(health)} />
+      <Paper
+        variant="outlined"
+        data-testid={nodeTestId(kind === 'group' ? 'instance-group' : kind, id)}
+        sx={{
+          width: { xs: 96, md: 104 },
+          height: { xs: 96, md: 104 },
+          p: 1,
+          borderRadius: '50%',
+          display: 'grid',
+          placeItems: 'center',
+          textAlign: 'center',
+          borderColor: accent,
+          bgcolor: 'background.paper',
+          backgroundImage: (theme) => `radial-gradient(circle at 50% 18%, ${alpha(health === 'healthy' ? theme.palette.success.main : health === 'unhealthy' ? theme.palette.warning.main : theme.palette.grey[500], 0.14)}, transparent 48%)`,
+          boxShadow: (theme) => `0 10px 26px ${alpha(theme.palette.common.black, 0.10)}, inset 0 0 0 4px ${alpha(health === 'healthy' ? theme.palette.success.main : health === 'unhealthy' ? theme.palette.warning.main : theme.palette.grey[500], 0.12)}`,
+        }}
+      >
+        <Stack spacing={0.35} alignItems="center" sx={{ minWidth: 0, width: '100%' }}>
+          <Box
+            sx={{
+              width: 24,
+              height: 24,
+              borderRadius: '50%',
+              display: 'grid',
+              placeItems: 'center',
+              color: healthTone,
+              bgcolor: (theme) => alpha(health === 'healthy' ? theme.palette.success.main : health === 'unhealthy' ? theme.palette.warning.main : theme.palette.grey[500], 0.14),
+              '& .MuiSvgIcon-root': { fontSize: 18 },
+            }}
+          >
+            <NodeIcon kind={kind} />
+          </Box>
+          <Typography variant="caption" color="text.secondary" sx={{ fontSize: 11, lineHeight: 1 }}>{typeLabel}</Typography>
+          <Typography variant="subtitle2" noWrap sx={{ maxWidth: '100%', fontSize: 14, lineHeight: 1.1 }}>{label}</Typography>
+          <Box
+            aria-label={healthLabel(health)}
+            sx={{
+              width: 10,
+              height: 10,
+              borderRadius: '50%',
+              bgcolor: accent,
+              boxShadow: (theme) => `0 0 0 4px ${alpha(health === 'healthy' ? theme.palette.success.main : health === 'unhealthy' ? theme.palette.warning.main : theme.palette.grey[500], 0.14)}`,
+            }}
+          />
         </Stack>
-        <Divider />
-        <Stack spacing={0.5}>
-          <Typography variant="caption" color="text.secondary">ID: {id || '-'}</Typography>
-          <Typography variant="caption" color="text.secondary">IP: {ip || '-'}</Typography>
-          {addr && <Typography variant="caption" color="text.secondary">Addr: {addr}</Typography>}
-        </Stack>
-      </Stack>
-    </Paper>
+      </Paper>
+    </Tooltip>
   )
 }
 
-type TopologyColumnProps = {
-  title: string
-  description: string
-  testId: string
-  children: ReactNode
-}
+function TopologyGraph({ graph }: { graph: TopologyGraphModel }) {
+  const dbNodes = graph.nodes.filter((node) => node.layer === 'dbs')
+  const agentNodes = graph.nodes.filter((node) => node.layer === 'agents')
+  const instanceNodes = graph.nodes.filter((node) => node.layer === 'instances')
 
-function TopologyColumn({ title, description, testId, children }: TopologyColumnProps) {
-  return (
-    <Stack data-testid={testId} spacing={1.5}>
-      <Box>
-        <Typography variant="overline" color="text.secondary">{title}</Typography>
-        <Typography variant="body2" color="text.secondary">{description}</Typography>
+  function renderNode(node: TopologyGraphNode) {
+    return (
+      <Box
+        key={node.graphId}
+        sx={{
+          position: 'absolute',
+          left: `${node.x}%`,
+          top: `${node.y}%`,
+          transform: 'translate(-50%, -50%)',
+          zIndex: 1,
+        }}
+      >
+        <TopologyNode {...node} />
       </Box>
-      {children}
-    </Stack>
-  )
-}
+    )
+  }
 
-type TopologyLinkProps = {
-  testId: string
-  label: string
-}
-
-function TopologyLink({ testId, label }: TopologyLinkProps) {
   return (
     <Box
-      data-testid={testId}
-      aria-label={label}
+      data-testid="topology-graph"
       sx={{
-        alignSelf: 'stretch',
-        display: 'flex',
-        alignItems: { xs: 'center', lg: 'flex-start' },
-        justifyContent: 'center',
-        minHeight: { xs: 28, lg: 180 },
-        pt: { lg: 9.5 },
+        minWidth: { xs: 760, lg: 'auto' },
+        p: { xs: 3, md: 4 },
+        overflow: 'hidden',
+        borderRadius: 4,
+        border: 1,
+        borderColor: 'divider',
+        bgcolor: (theme) => alpha(theme.palette.primary.main, 0.035),
+        backgroundImage: (theme) => `radial-gradient(circle at 16% 20%, ${alpha(theme.palette.primary.main, 0.12)}, transparent 26%), radial-gradient(circle at 84% 80%, ${alpha(theme.palette.success.main, 0.10)}, transparent 28%)`,
       }}
     >
-      <Box
-        sx={{
-          position: 'relative',
-          width: { xs: 2, lg: '100%' },
-          height: { xs: 28, lg: 2 },
-          bgcolor: (theme) => alpha(theme.palette.primary.main, 0.22),
-          backgroundImage: (theme) => `linear-gradient(90deg, ${alpha(theme.palette.primary.main, 0.08)}, ${alpha(theme.palette.primary.main, 0.72)})`,
-          backgroundSize: { xs: '2px 18px', lg: '28px 2px' },
-          animation: 'topology-flow 1.4s linear infinite',
-          '&::after': {
-            content: '""',
-            position: 'absolute',
-            right: { lg: -2 },
-            bottom: { xs: -2 },
-            top: { lg: -4 },
-            left: { xs: -4 },
-            width: 10,
-            height: 10,
-            borderRadius: '50%',
-            bgcolor: 'primary.main',
-            boxShadow: (theme) => `0 0 0 4px ${alpha(theme.palette.primary.main, 0.12)}`,
-          },
-        }}
-      />
+      <Box sx={{ position: 'relative', height: graph.height }}>
+        <Box
+          component="svg"
+          viewBox="0 0 100 100"
+          preserveAspectRatio="none"
+          sx={{ position: 'absolute', inset: 0, width: '100%', height: '100%', zIndex: 0 }}
+        >
+          {graph.edges.map((edge) => (
+            <line
+              key={edge.key}
+              data-testid={edge.testId}
+              aria-label={edge.label}
+              x1={edge.from.x}
+              y1={edge.from.y}
+              x2={edge.to.x}
+              y2={edge.to.y}
+              vectorEffect="non-scaling-stroke"
+              stroke="currentColor"
+              strokeWidth={2}
+              strokeDasharray="10 8"
+              strokeLinecap="round"
+              style={{ color: 'rgba(25, 118, 210, 0.48)', animation: 'topology-edge-flow 1.2s linear infinite' }}
+            />
+          ))}
+        </Box>
+        <Box data-testid="topology-dbs" sx={{ display: 'contents' }}>{dbNodes.map(renderNode)}</Box>
+        <Box data-testid="topology-agents" sx={{ display: 'contents' }}>{agentNodes.map(renderNode)}</Box>
+        <Box data-testid="topology-instances" sx={{ display: 'contents' }}>{instanceNodes.map(renderNode)}</Box>
+      </Box>
     </Box>
   )
 }
@@ -257,39 +323,94 @@ function groupInstancesByAgent(instances: Instance[]) {
   }, {})
 }
 
-function renderInstanceNodes(instances: Instance[]) {
+function getInstanceGraphNodes(instances: Instance[]) {
   const grouped = groupInstancesByAgent(instances)
 
-  return Object.entries(grouped).flatMap(([agentId, agentInstances]) => {
+  return Object.entries(grouped).flatMap<TopologyNodeProps>(([agentId, agentInstances]) => {
     if (agentInstances.length > INSTANCE_AGGREGATION_THRESHOLD) {
-      return [
-        <TopologyNode
-          key={`group-${agentId}`}
-          kind="group"
-          id={agentId}
-          ip="-"
-          health="healthy"
-          subtitle={`Attached to ${agentId}`}
-          aggregateCount={agentInstances.length}
-        />,
-      ]
+      return [{
+        kind: 'group',
+        id: agentId,
+        ip: '-',
+        health: 'healthy',
+        subtitle: `Attached to ${agentId}`,
+        aggregateCount: agentInstances.length,
+        attachedAgentId: agentId,
+      }]
     }
 
     return agentInstances.map((instance, index) => {
       const id = instance.clientId || `${agentId}-${index + 1}`
-      const health = normalizeHealth(instance.health, instance.lastRenewTimestamp ? 'healthy' : 'offline')
-      return (
-        <TopologyNode
-          key={`${id}-${instance.clientIp || index}`}
-          kind="instance"
-          id={id}
-          ip={instance.clientIp || '-'}
-          health={health}
-          subtitle={`Attached to ${agentId}`}
-        />
-      )
+      return {
+        kind: 'instance',
+        id,
+        ip: instance.clientIp || '-',
+        health: normalizeHealth(instance.health, instance.lastRenewTimestamp ? 'healthy' : 'offline'),
+        subtitle: `Attached to ${agentId}`,
+        attachedAgentId: agentId,
+      }
     })
   })
+}
+
+function buildTopologyGraph(dbs: DBNode[], agents: AgentNode[], instances: Instance[]): TopologyGraphModel {
+  const dbGraphNodes = positionLayer(dbs.map<TopologyNodeProps>((db, index) => {
+    const id = db.id || `db-${index + 1}`
+    return {
+      kind: 'db',
+      id,
+      ip: db.ip || extractHost(db.addr),
+      addr: db.addr,
+      health: normalizeHealth(db.health),
+    }
+  }), 'dbs', 15)
+  const agentGraphNodes = positionLayer(agents.map<TopologyNodeProps>((agent, index) => {
+    const id = agent.agentId || `agent-${index + 1}`
+    return {
+      kind: 'agent',
+      id,
+      ip: agent.ip || extractHost(agent.addr),
+      addr: agent.addr,
+      health: normalizeHealth(agent.health, agent.addr ? 'healthy' : 'offline'),
+    }
+  }), 'agents', 50)
+  const instanceGraphNodes = positionLayer(getInstanceGraphNodes(instances), 'instances', 85)
+  const edges: TopologyEdge[] = []
+
+  dbGraphNodes.forEach((dbNode) => {
+    agentGraphNodes.forEach((agentNode) => {
+      edges.push({
+        key: `${dbNode.graphId}-${agentNode.graphId}`,
+        from: dbNode,
+        to: agentNode,
+        testId: `topology-edge-${dbNode.edgeToken}-${agentNode.edgeToken}`,
+        label: `${dbNode.id} connects to ${agentNode.id}`,
+      })
+    })
+  })
+
+  const agentNodeById = new Map(agentGraphNodes.map((node) => [node.id, node]))
+  instanceGraphNodes.forEach((instanceNode) => {
+    const agentNode = agentNodeById.get(instanceNode.attachedAgentId || '') || agentGraphNodes[0]
+    if (!agentNode) return
+    const label = instanceNode.aggregateCount
+      ? `${agentNode.id} connects to ${instanceNode.aggregateCount} instances`
+      : `${agentNode.id} connects to ${instanceNode.id}`
+    edges.push({
+      key: `${agentNode.graphId}-${instanceNode.graphId}`,
+      from: agentNode,
+      to: instanceNode,
+      testId: `topology-edge-${agentNode.edgeToken}-${instanceNode.edgeToken}`,
+      label,
+    })
+  })
+
+  const maxLayerSize = Math.max(dbGraphNodes.length, agentGraphNodes.length, instanceGraphNodes.length)
+  return {
+    nodes: [...dbGraphNodes, ...agentGraphNodes, ...instanceGraphNodes],
+    edges,
+    height: Math.max(300, maxLayerSize * 116),
+  }
 }
 
 function isTopologyEmpty(topology: ClusterTopologyResponse) {
@@ -341,14 +462,14 @@ export function AgentsPage() {
   const dbs = topology.dbs || EMPTY_DBS
   const agents = topology.agents || EMPTY_AGENTS
   const instances = topology.instances || EMPTY_INSTANCES
-  const instanceNodes = useMemo(() => renderInstanceNodes(instances), [instances])
+  const graph = useMemo(() => buildTopologyGraph(dbs, agents, instances), [dbs, agents, instances])
 
   return (
     <Stack spacing={3}>
       <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} justifyContent="space-between" alignItems={{ md: 'center' }}>
         <Box>
           <Typography variant="h4" component="h1">
-            Agents topology
+            Topology
           </Typography>
           <Typography color="text.secondary">Inspect db, agent, and client instance relationships with live health signals.</Typography>
         </Box>
@@ -367,9 +488,9 @@ export function AgentsPage() {
         <Paper
           sx={{
             p: 3,
-            '@keyframes topology-flow': {
-              from: { backgroundPositionX: 0 },
-              to: { backgroundPositionX: 36 },
+            '@keyframes topology-edge-flow': {
+              from: { strokeDashoffset: 0 },
+              to: { strokeDashoffset: -18 },
             },
           }}
         >
@@ -389,41 +510,8 @@ export function AgentsPage() {
               <Chip label={`${instances.length} instances`} color="primary" variant="outlined" />
             </Stack>
 
-            <Box
-              sx={{
-                display: 'grid',
-                gridTemplateColumns: { xs: '1fr', lg: 'minmax(220px, 1fr) 72px minmax(220px, 1fr) 72px minmax(220px, 1fr)' },
-                gap: { xs: 2, lg: 1.5 },
-                alignItems: 'start',
-              }}
-            >
-              <TopologyColumn title="DBs" description="Configured cassemdb endpoints." testId="topology-dbs">
-                {dbs.map((db: DBNode, index) => {
-                  const id = db.id || `db-${index + 1}`
-                  const health = normalizeHealth(db.health)
-                  const ip = db.ip || extractHost(db.addr)
-                  return <TopologyNode key={`${id}-${db.addr || index}`} kind="db" id={id} ip={ip} addr={db.addr} health={health} />
-                })}
-              </TopologyColumn>
-
-              <TopologyLink testId="topology-link-dbs-agents" label="DBs connect to agents" />
-
-              <TopologyColumn title="Agents" description="Registered edge cache nodes." testId="topology-agents">
-                {agents.map((agent, index) => {
-                  const id = agent.agentId || `agent-${index + 1}`
-                  const health = normalizeHealth(agent.health, agent.addr ? 'healthy' : 'offline')
-                  const ip = agent.ip || extractHost(agent.addr)
-                  return <TopologyNode key={`${id}-${agent.addr || index}`} kind="agent" id={id} ip={ip} addr={agent.addr} health={health} />
-                })}
-              </TopologyColumn>
-
-              <TopologyLink testId="topology-link-agents-instances" label="Agents connect to instances" />
-
-              <TopologyColumn title="Instances" description="Client instances grouped by agent." testId="topology-instances">
-                {instanceNodes.length === 0 ? (
-                  <Typography color="text.secondary">No client instances.</Typography>
-                ) : instanceNodes}
-              </TopologyColumn>
+            <Box sx={{ overflowX: 'auto', pb: 1 }}>
+              <TopologyGraph graph={graph} />
             </Box>
           </Stack>
         </Paper>

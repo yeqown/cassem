@@ -45,7 +45,7 @@ const nav = [
     label: 'Cluster',
     icon: <FolderOpenIcon />,
     children: [
-      { label: 'Agents', path: '/cluster/agents', icon: <HubIcon /> },
+      { label: 'Topology', path: '/cluster/topology', icon: <HubIcon /> },
       { label: 'Instances', path: '/cluster/instances', icon: <DnsIcon /> },
     ],
   },
@@ -73,7 +73,7 @@ export function AppShell() {
     [location.pathname],
   )
 
-  const clusterSelected = selectedPath('/cluster/agents') || selectedPath('/cluster/instances')
+  const clusterSelected = selectedPath('/cluster/topology') || selectedPath('/cluster/instances')
 
   function handleAccountMenuOpen(event: MouseEvent<HTMLElement>) {
     setAccountAnchor(event.currentTarget)

@@ -66,6 +66,7 @@ func (m *LogEntry) validate(all bool) error {
 	if len(errors) > 0 {
 		return LogEntryMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -75,7 +76,7 @@ type LogEntryMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m LogEntryMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -199,6 +200,7 @@ func (m *SetCommand) validate(all bool) error {
 	if len(errors) > 0 {
 		return SetCommandMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -208,7 +210,7 @@ type SetCommandMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m SetCommandMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -326,6 +328,7 @@ func (m *ChangeCommand) validate(all bool) error {
 	if len(errors) > 0 {
 		return ChangeCommandMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -336,7 +339,7 @@ type ChangeCommandMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m ChangeCommandMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -436,6 +439,7 @@ func (m *AddNodeRequest) validate(all bool) error {
 	if len(errors) > 0 {
 		return AddNodeRequestMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -446,7 +450,7 @@ type AddNodeRequestMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m AddNodeRequestMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -537,6 +541,7 @@ func (m *AddNodeResponse) validate(all bool) error {
 	if len(errors) > 0 {
 		return AddNodeResponseMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -547,7 +552,7 @@ type AddNodeResponseMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m AddNodeResponseMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -647,6 +652,7 @@ func (m *RemoveNodeRequest) validate(all bool) error {
 	if len(errors) > 0 {
 		return RemoveNodeRequestMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -657,7 +663,7 @@ type RemoveNodeRequestMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m RemoveNodeRequestMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -748,6 +754,7 @@ func (m *RemoveNodeResponse) validate(all bool) error {
 	if len(errors) > 0 {
 		return RemoveNodeResponseMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -758,7 +765,7 @@ type RemoveNodeResponseMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m RemoveNodeResponseMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}

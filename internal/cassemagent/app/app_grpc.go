@@ -127,6 +127,16 @@ func (d app) Watch(req *agent.WatchReq, server agent.Agent_WatchServer) error {
 		ch = d.instancePool.Register(insId, w.GetApp(), w.GetEnv(), w.GetWatchKeys())
 	}
 
+	if err := d.aggregate.RenewInstance(server.Context(), &concept.Instance{
+		ClientId:           req.GetClientId(),
+		AgentId:            d.uniqueId,
+		ClientIp:           req.GetClientIp(),
+		Watching:           watchings,
+		LastRenewTimestamp: time.Now().Unix(),
+	}); err != nil {
+		return err
+	}
+
 	log.
 		WithFields(log.Fields{"req": req}).
 		Debug("app.Watch called")

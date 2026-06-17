@@ -1,0 +1,1 @@
+export { getContentTypeLabel } from './contentRegistry'

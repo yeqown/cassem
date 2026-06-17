@@ -96,6 +96,9 @@ var defMapping = map[string]objectDef{
 	"GET/api/account/acl/assign":         {object: concept.Object_ACL, act: concept.Action_WRITE},
 	"GET/api/account/acl/revoke":         {object: concept.Object_ACL, act: concept.Action_WRITE},
 
+	// admin
+	"GET/api/admin/retention": {object: concept.Object_CLUSTER, act: concept.Action_READ},
+
 	// cluster
 	"GET/api/cluster/agents":                  {object: concept.Object_CLUSTER, act: concept.Action_READ},
 	"GET/api/cluster/instances":               {object: concept.Object_CLUSTER, act: concept.Action_READ},

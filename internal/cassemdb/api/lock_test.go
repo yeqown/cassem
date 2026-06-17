@@ -62,6 +62,10 @@ func (f *fakeLockKV) Range(context.Context, *RangeReq, ...grpc.CallOption) (*Ran
 	panic("not implemented")
 }
 
+func (f *fakeLockKV) CompactElementHistory(context.Context, *CompactElementHistoryReq, ...grpc.CallOption) (*CompactElementHistoryResp, error) {
+	panic("not implemented")
+}
+
 func TestWithLockReleasesLock(t *testing.T) {
 	kv := newFakeLockKV()
 

@@ -101,6 +101,23 @@ message rangeResp {
   string          nextSeekKey = 3;
 }
 
+message compactElementHistoryReq {
+  string elementKey           = 1 [(validate.rules).string = {min_len: 2, prefix: "cassem/elements/"}];
+  int32  keepVersionCount     = 2 [(validate.rules).int32  = {gte: 1, lte: 10000}];
+  int64  keepVersionSeconds   = 3 [(validate.rules).int64  = {gte: 0}];
+  int64  keepOperationSeconds = 4 [(validate.rules).int64  = {gte: 0}];
+  int32  pageSize             = 5 [(validate.rules).int32  = {gte: 1, lte: 100}];
+};
+
+message compactElementHistoryResp {
+  int32           scannedVersions   = 1;
+  int32           scannedOperations = 2;
+  int32           deletedVersions   = 3;
+  int32           deletedOperations = 4;
+  repeated string failedKeys        = 5;
+  string          error             = 6;
+};
+
 service KV {
   rpc GetKV(getKVReq) returns(getKVResp) {};
   rpc GetKVs(getKVsReq) returns(getKVsResp) {};
@@ -113,4 +130,5 @@ service KV {
   rpc TTL(ttlReq) returns (ttlResp) {};
   rpc Expire(expireReq) returns (empty) {};
   rpc Range(rangeReq) returns (rangeResp) {};
+  rpc CompactElementHistory(compactElementHistoryReq) returns(compactElementHistoryResp) {};
 }

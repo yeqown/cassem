@@ -161,6 +161,10 @@ func (s grpcServer) Range(ctx context.Context, req *apicassemdb.RangeReq) (*apic
 	return result, nil
 }
 
+func (s grpcServer) CompactElementHistory(ctx context.Context, req *apicassemdb.CompactElementHistoryReq) (*apicassemdb.CompactElementHistoryResp, error) {
+	return s.coord.compactElementHistory(req)
+}
+
 // translateChange construct an api.Change from watcher.IChange interface.
 // DONE(@yeqown): use proto to ignore convert procedure.
 func translateChange(change watcher.IChange) *apicassemdb.Change {

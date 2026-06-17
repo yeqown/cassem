@@ -61,6 +61,12 @@ function isUserDisabled(status?: number) {
   return status === 1
 }
 
+function isSuperadminUser(user: User) {
+  return user.roles?.includes('superadmin') || user.accessSummary?.some((binding) => binding.role === 'superadmin') || false
+}
+
+const assignableRoleOptions = roleOptions.filter((role) => role.value !== 'superadmin')
+
 function UserStatusChip({ status }: { status?: number }) {
   return isUserDisabled(status) ? (
     <Chip size="small" color="error" variant="outlined" icon={<BlockIcon />} label="Disabled" />
@@ -459,7 +465,7 @@ export function UsersPage() {
                         <TableCell>{roleLabel(binding.role)}</TableCell>
                         <TableCell>{binding.domain}</TableCell>
                         <TableCell align="right">
-                          <Button color="error" size="small" startIcon={<DeleteOutlineIcon />} disabled={submitting} onClick={() => void handleRevokeBinding(binding)}>
+                          <Button color="error" size="small" startIcon={<DeleteOutlineIcon />} disabled={submitting || binding.role === 'superadmin'} onClick={() => void handleRevokeBinding(binding)}>
                             Revoke
                           </Button>
                         </TableCell>
@@ -475,7 +481,7 @@ export function UsersPage() {
                 <FormControl fullWidth>
                   <InputLabel id="acl-role-label">Role</InputLabel>
                   <Select labelId="acl-role-label" value={roleValue} label="Role" onChange={(event) => setRoleValue(event.target.value as RoleValue)}>
-                    {roleOptions.map((role) => (
+                    {assignableRoleOptions.map((role) => (
                       <MenuItem key={role.value} value={role.value}>{role.label}</MenuItem>
                     ))}
                   </Select>
@@ -554,6 +560,7 @@ export function UsersPage() {
             <TableBody>
               {users.map((user) => {
                 const disabled = isUserDisabled(user.status)
+                const protectedUser = isSuperadminUser(user)
                 return (
                   <TableRow key={user.account} hover>
                     <TableCell>{user.nickname || '-'}</TableCell>
@@ -563,13 +570,13 @@ export function UsersPage() {
                     <TableCell>{user.bindingCount ?? user.accessSummary?.length ?? 0}</TableCell>
                     <TableCell align="right">
                       <Stack direction="row" spacing={1} justifyContent="flex-end">
-                        <Button size="small" startIcon={<AdminPanelSettingsIcon />} disabled={submitting} onClick={() => void handleOpenAccess(user)}>
+                        <Button size="small" startIcon={<AdminPanelSettingsIcon />} disabled={submitting || protectedUser} onClick={() => void handleOpenAccess(user)}>
                           Manage access
                         </Button>
-                        <Button color="warning" size="small" startIcon={<DeleteOutlineIcon />} disabled={submitting || disabled} onClick={() => setDisableTarget(user)}>
+                        <Button color="warning" size="small" startIcon={<DeleteOutlineIcon />} disabled={submitting || disabled || protectedUser} onClick={() => setDisableTarget(user)}>
                           Disable
                         </Button>
-                        <Button size="small" startIcon={<LockResetIcon />} disabled={submitting} onClick={() => setResetTarget(user)}>
+                        <Button size="small" startIcon={<LockResetIcon />} disabled={submitting || protectedUser} onClick={() => setResetTarget(user)}>
                           Reset password
                         </Button>
                       </Stack>

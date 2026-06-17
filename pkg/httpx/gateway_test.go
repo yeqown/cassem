@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -56,6 +57,15 @@ func TestGatewayServeHTTPRoutesHTTPRequests(t *testing.T) {
 			assert.Equal(t, "http", w.Body.String())
 		})
 	}
+}
+
+func TestGatewayServerDoesNotTimeoutStreamingGRPCWrites(t *testing.T) {
+	g := NewGateway(":8080", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}), grpc.NewServer())
+
+	srv := g.server()
+
+	require.Equal(t, time.Duration(0), srv.WriteTimeout)
+	require.Equal(t, 10*time.Second, srv.ReadTimeout)
 }
 
 func TestGatewayServeHTTPRoutesGRPCRequests(t *testing.T) {

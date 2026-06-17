@@ -1,10 +1,15 @@
 package app
 
 import (
+	"context"
+	"net"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/health"
+	"google.golang.org/grpc/health/grpc_health_v1"
 
 	"github.com/yeqown/cassem/api/concept"
 )
@@ -12,6 +17,23 @@ import (
 func TestTopologyInstancePageLimitFitsRangeValidation(t *testing.T) {
 	assert.LessOrEqual(t, topologyInstancePageLimit, 100)
 	assert.GreaterOrEqual(t, topologyInstancePageLimit, 1)
+}
+
+func TestCheckDBHealthAcceptsReachableFollower(t *testing.T) {
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	assert.NoError(t, err)
+	defer listener.Close()
+
+	server := grpc.NewServer()
+	healthServer := health.NewServer()
+	healthServer.SetServingStatus("cassemdb.RaftLeader", grpc_health_v1.HealthCheckResponse_NOT_SERVING)
+	grpc_health_v1.RegisterHealthServer(server, healthServer)
+	go func() {
+		_ = server.Serve(listener)
+	}()
+	defer server.Stop()
+
+	assert.Equal(t, topologyHealthHealthy, checkDBHealth(context.Background(), listener.Addr().String()))
 }
 
 func TestTopologyHealthHelpers(t *testing.T) {

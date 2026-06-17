@@ -3,6 +3,7 @@ package app
 import (
 	"fmt"
 	"log"
+	"net"
 	"os"
 	"time"
 
@@ -32,6 +33,8 @@ type app struct {
 	// ap type agentPool is a pool contains all ap nodes, and agentPool will update
 	// agent nodes  automatically.
 	ap *agentPool
+
+	retention *retentionGC
 }
 
 func New(c *conf.CassemAdminConfig) (*app, error) {
@@ -52,10 +55,16 @@ func New(c *conf.CassemAdminConfig) (*app, error) {
 		}
 	}
 
+	retention, err := newRetentionGC(c.CassemDBEndpoints, c.Retention)
+	if err != nil {
+		return nil, fmt.Errorf("cassemadm.New.RetentionGC: %w", err)
+	}
+
 	d := &app{
 		aggregate: agg,
 		conf:      c,
 		ap:        newAgentPool(agg),
+		retention: retention,
 	}
 
 	return d, nil
@@ -65,8 +74,15 @@ func (d app) Run() {
 	engi := gin.New()
 
 	d.initialHTTP(engi)
+	listener, err := net.Listen("tcp", d.conf.HTTP.Addr)
+	if err != nil {
+		log.Fatal(err)
+	}
+	if d.retention != nil {
+		d.retention.run()
+	}
 
-	if err := engi.Run(d.conf.HTTP.Addr); err != nil {
+	if err = engi.RunListener(listener); err != nil {
 		log.Fatal(err)
 	}
 }
@@ -116,6 +132,11 @@ func (d app) initialHTTP(engi *gin.Engine) {
 		accounta.GET("/acl/domains", d.GetACLDomainOptions)
 		accounta.GET("/acl/assign", d.AssignRole)
 		accounta.GET("/acl/revoke", d.RevokeRole)
+	}
+
+	admin := auth.Group("/admin")
+	{
+		admin.GET("/retention", d.GetRetentionPolicy)
 	}
 
 	apps := auth.Group("/apps")

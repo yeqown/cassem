@@ -84,6 +84,10 @@ func (f *aclTestKV) Range(_ context.Context, req *apicassemdb.RangeReq, _ ...grp
 	return &apicassemdb.RangeResp{Entities: entities}, nil
 }
 
+func (f *aclTestKV) CompactElementHistory(context.Context, *apicassemdb.CompactElementHistoryReq, ...grpc.CallOption) (*apicassemdb.CompactElementHistoryResp, error) {
+	return nil, errors.New("unused")
+}
+
 func TestACLRejectsHardcodedSuperadminUser(t *testing.T) {
 	acl, err := newRBAC(newACLTestKV())
 	require.NoError(t, err)
@@ -118,7 +122,7 @@ func TestACLAutoMigratePersistsPolicies(t *testing.T) {
 	require.NoError(t, err)
 	require.False(t, allowed)
 
-	require.NoError(t, reloaded.AssignRole("alice", "superadmin", concept.Domain_ALL))
+	require.NoError(t, reloaded.AssignRole("alice", concept.Role_ADMIN, concept.Domain_ALL))
 	allowed, err = reloaded.Enforce("alice", concept.Domain_CLUSTER, concept.Object_APP, concept.Action_WRITE)
 	require.NoError(t, err)
 	require.True(t, allowed)
@@ -177,21 +181,64 @@ func TestResetUserAllowsLoginWithNewPassword(t *testing.T) {
 	require.NotEqual(t, u.GetHashedPassword(), hash.WithSalt("old-secret", u.GetSalt()))
 }
 
+func TestAssignRoleRejectsSuperadmin(t *testing.T) {
+	store := newACLTestKV()
+	rbac, err := newRBAC(store)
+	require.NoError(t, err)
+	acl := rbac.(aclImpl)
+
+	require.NoError(t, acl.AddUser(&concept.User{Account: "alice@example.com", Nickname: "Alice", HashedPassword: "secret", Status: concept.User_NORMAL}))
+
+	err = acl.AssignRole("alice@example.com", concept.Role_SUPERADMIN, concept.Domain_ALL)
+	require.ErrorIs(t, err, errorx.Err_PERMISSION_DENIED)
+}
+
+func TestBootstrapAdminCanAssignSuperadmin(t *testing.T) {
+	store := newACLTestKV()
+	rbac, err := newRBAC(store)
+	require.NoError(t, err)
+	acl := rbac.(aclImpl)
+
+	require.NoError(t, acl.BootstrapAdmin("root@example.com", "Root", "secret"))
+
+	roles, err := acl.GetUserRoles("root@example.com")
+	require.NoError(t, err)
+	require.Contains(t, roles, concept.Role_SUPERADMIN)
+}
+
 func TestResetUserRejectsBootstrapSuperadmin(t *testing.T) {
 	store := newACLTestKV()
 	rbac, err := newRBAC(store)
 	require.NoError(t, err)
 	acl := rbac.(aclImpl)
 
-	require.NoError(t, acl.AddUser(&concept.User{
-		Account:        "superadmin@example.com",
-		Nickname:       "superadmin",
-		HashedPassword: "cassem",
-		Status:         concept.User_NORMAL,
-	}))
-	require.NoError(t, acl.AssignRole("superadmin@example.com", concept.Role_SUPERADMIN, concept.Domain_ALL))
+	require.NoError(t, acl.BootstrapAdmin("root@example.com", "Root", "secret"))
 
-	err = acl.ResetUser("superadmin@example.com", "new-password")
+	err = acl.ResetUser("root@example.com", "new-password")
+	require.ErrorIs(t, err, errorx.Err_PERMISSION_DENIED)
+}
+
+func TestDisableUserRejectsBootstrapSuperadmin(t *testing.T) {
+	store := newACLTestKV()
+	rbac, err := newRBAC(store)
+	require.NoError(t, err)
+	acl := rbac.(aclImpl)
+
+	require.NoError(t, acl.BootstrapAdmin("root@example.com", "Root", "secret"))
+
+	err = acl.DisableUser("root@example.com")
+	require.ErrorIs(t, err, errorx.Err_PERMISSION_DENIED)
+}
+
+func TestRevokeRoleRejectsBootstrapSuperadmin(t *testing.T) {
+	store := newACLTestKV()
+	rbac, err := newRBAC(store)
+	require.NoError(t, err)
+	acl := rbac.(aclImpl)
+
+	require.NoError(t, acl.BootstrapAdmin("root@example.com", "Root", "secret"))
+
+	err = acl.RevokeRole("root@example.com", concept.Role_SUPERADMIN, concept.Domain_ALL)
 	require.ErrorIs(t, err, errorx.Err_PERMISSION_DENIED)
 }
 

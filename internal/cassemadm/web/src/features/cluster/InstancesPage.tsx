@@ -27,6 +27,35 @@ function uniqueStrings(values: string[]) {
   return Array.from(new Set(values.filter(Boolean)))
 }
 
+function displayList(values: string[]) {
+  return uniqueStrings(values).join(', ') || '-'
+}
+
+function instanceAppLabel(instance: Instance) {
+  return instance.app || displayList((instance.watching || []).map((watching) => watching.app || ''))
+}
+
+function instanceEnvLabel(instance: Instance) {
+  return instance.env || displayList((instance.watching || []).map((watching) => watching.env || ''))
+}
+
+function instanceKeyLabel(instance: Instance) {
+  return instance.key || displayList((instance.watching || []).flatMap((watching) => watching.watchKeys || []))
+}
+
+function formatLastSeen(timestamp?: number) {
+  if (!timestamp) return '-'
+
+  const elapsed = Math.max(0, Math.floor(Date.now() / 1000) - timestamp)
+  const hours = Math.floor(elapsed / 3600)
+  const minutes = Math.floor((elapsed % 3600) / 60)
+  const seconds = elapsed % 60
+
+  if (hours > 0) return `${hours}h${minutes}m ago`
+  if (minutes > 0) return `${minutes}m${seconds}s ago`
+  return `${seconds}s ago`
+}
+
 async function requestApps() {
   return apiRequest<AppsResponse>(`/api/apps${buildQuery({ limit: 100 })}`)
 }
@@ -278,7 +307,7 @@ function InstancesPageFlow({ initialApp, initialEnv, initialKey }: InstancesPage
           <Typography variant="h6" component="h2">
             Filter by element
           </Typography>
-          <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+          <Stack data-testid="instances-filter-row" direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems={{ xs: 'stretch', md: 'flex-start' }}>
             <Autocomplete
               freeSolo
               options={appOptions}
@@ -303,6 +332,7 @@ function InstancesPageFlow({ initialApp, initialEnv, initialKey }: InstancesPage
                 void loadEnvCandidates(nextApp)
               }}
               renderInput={(params) => <TextField {...params} label="App" helperText="Type or choose an application." />}
+              sx={{ flex: 1 }}
               fullWidth
             />
             <Autocomplete
@@ -326,6 +356,7 @@ function InstancesPageFlow({ initialApp, initialEnv, initialKey }: InstancesPage
                 void loadKeyCandidates(app, nextEnv)
               }}
               renderInput={(params) => <TextField {...params} label="Env" helperText="Choose an environment after app." />}
+              sx={{ flex: 1 }}
               fullWidth
             />
             <Autocomplete
@@ -340,16 +371,17 @@ function InstancesPageFlow({ initialApp, initialEnv, initialKey }: InstancesPage
               }}
               onChange={(_, value) => setKey(value || '')}
               renderInput={(params) => <TextField {...params} label="Key" helperText="Choose an element key after env." />}
+              sx={{ flex: 1 }}
               fullWidth
             />
-          </Stack>
-          <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
-            <Button type="submit" variant="contained" disabled={loading}>
-              Filter
-            </Button>
-            <Button variant="outlined" onClick={() => void handleRefreshAll()} disabled={loading}>
-              Refresh all
-            </Button>
+            <Stack direction="row" spacing={1.5} sx={{ whiteSpace: 'nowrap' }}>
+              <Button type="submit" variant="contained" disabled={loading} sx={{ height: 40 }}>
+                Filter
+              </Button>
+              <Button variant="outlined" onClick={() => void handleRefreshAll()} disabled={loading} sx={{ height: 40 }}>
+                Refresh all
+              </Button>
+            </Stack>
           </Stack>
         </Stack>
       </Paper>
@@ -369,22 +401,24 @@ function InstancesPageFlow({ initialApp, initialEnv, initialKey }: InstancesPage
                 <TableCell>App</TableCell>
                 <TableCell>Env</TableCell>
                 <TableCell>Key</TableCell>
+                <TableCell>Last seen</TableCell>
                 <TableCell align="right">Actions</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {instances.map((instance, index) => {
-                const instanceId = instance.clientId
-                const rowKey = `${instance.clientId || 'unknown'}-${index}`
+                const instanceId = instance.id || instance.clientId
+                const rowKey = `${instanceId || 'unknown'}-${index}`
 
                 return (
                   <TableRow key={rowKey} hover>
                     <TableCell>{instance.clientId || '-'}</TableCell>
                     <TableCell>{instance.agentId || '-'}</TableCell>
                     <TableCell>{instance.clientIp || '-'}</TableCell>
-                    <TableCell>{instance.app || '-'}</TableCell>
-                    <TableCell>{instance.env || '-'}</TableCell>
-                    <TableCell>{instance.key || '-'}</TableCell>
+                    <TableCell>{instanceAppLabel(instance)}</TableCell>
+                    <TableCell>{instanceEnvLabel(instance)}</TableCell>
+                    <TableCell>{instanceKeyLabel(instance)}</TableCell>
+                    <TableCell>{formatLastSeen(instance.lastRenewTimestamp)}</TableCell>
                     <TableCell align="right">
                       <Button size="small" onClick={() => instanceId && void handleLoadDetail(instanceId)} disabled={detailLoading || !instanceId}>
                         Detail

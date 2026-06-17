@@ -6,7 +6,6 @@
 // https://eddycjy.com/posts/go/grpc-gateway/2019-06-22-grpc-gateway-tls/
 //
 // I hope them can help you too.
-//
 package httpx
 
 import (
@@ -63,14 +62,14 @@ func (g gateway) Addr() string {
 	return g.addr
 }
 
-func (g gateway) ListenAndServe() error {
-	srv := http.Server{
-		Addr:         g.Addr(),
-		Handler:      g.http2Wrapper(),
-		ReadTimeout:  10 * time.Second,
-		WriteTimeout: 30 * time.Second,
-		//IdleTimeout:  0,
+func (g gateway) server() *http.Server {
+	return &http.Server{
+		Addr:        g.Addr(),
+		Handler:     g.http2Wrapper(),
+		ReadTimeout: 10 * time.Second,
 	}
+}
 
-	return srv.ListenAndServe()
+func (g gateway) ListenAndServe() error {
+	return g.server().ListenAndServe()
 }

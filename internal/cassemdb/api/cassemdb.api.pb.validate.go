@@ -2060,3 +2060,281 @@ var _ interface {
 	Cause() error
 	ErrorName() string
 } = RangeRespValidationError{}
+
+// Validate checks the field values on CompactElementHistoryReq with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the first error encountered is returned, or nil if there are no violations.
+func (m *CompactElementHistoryReq) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on CompactElementHistoryReq with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// CompactElementHistoryReqMultiError, or nil if none found.
+func (m *CompactElementHistoryReq) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *CompactElementHistoryReq) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	if utf8.RuneCountInString(m.GetElementKey()) < 2 {
+		err := CompactElementHistoryReqValidationError{
+			field:  "ElementKey",
+			reason: "value length must be at least 2 runes",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
+	if !strings.HasPrefix(m.GetElementKey(), "cassem/elements/") {
+		err := CompactElementHistoryReqValidationError{
+			field:  "ElementKey",
+			reason: "value does not have prefix \"cassem/elements/\"",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
+	if val := m.GetKeepVersionCount(); val < 1 || val > 10000 {
+		err := CompactElementHistoryReqValidationError{
+			field:  "KeepVersionCount",
+			reason: "value must be inside range [1, 10000]",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
+	if m.GetKeepVersionSeconds() < 0 {
+		err := CompactElementHistoryReqValidationError{
+			field:  "KeepVersionSeconds",
+			reason: "value must be greater than or equal to 0",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
+	if m.GetKeepOperationSeconds() < 0 {
+		err := CompactElementHistoryReqValidationError{
+			field:  "KeepOperationSeconds",
+			reason: "value must be greater than or equal to 0",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
+	if val := m.GetPageSize(); val < 1 || val > 100 {
+		err := CompactElementHistoryReqValidationError{
+			field:  "PageSize",
+			reason: "value must be inside range [1, 100]",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
+	if len(errors) > 0 {
+		return CompactElementHistoryReqMultiError(errors)
+	}
+	return nil
+}
+
+// CompactElementHistoryReqMultiError is an error wrapping multiple validation
+// errors returned by CompactElementHistoryReq.ValidateAll() if the designated
+// constraints aren't met.
+type CompactElementHistoryReqMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m CompactElementHistoryReqMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m CompactElementHistoryReqMultiError) AllErrors() []error { return m }
+
+// CompactElementHistoryReqValidationError is the validation error returned by
+// CompactElementHistoryReq.Validate if the designated constraints aren't met.
+type CompactElementHistoryReqValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e CompactElementHistoryReqValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e CompactElementHistoryReqValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e CompactElementHistoryReqValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e CompactElementHistoryReqValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e CompactElementHistoryReqValidationError) ErrorName() string {
+	return "CompactElementHistoryReqValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e CompactElementHistoryReqValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sCompactElementHistoryReq.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = CompactElementHistoryReqValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = CompactElementHistoryReqValidationError{}
+
+// Validate checks the field values on CompactElementHistoryResp with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the first error encountered is returned, or nil if there are no violations.
+func (m *CompactElementHistoryResp) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on CompactElementHistoryResp with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// CompactElementHistoryRespMultiError, or nil if none found.
+func (m *CompactElementHistoryResp) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *CompactElementHistoryResp) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	// no validation rules for ScannedVersions
+
+	// no validation rules for ScannedOperations
+
+	// no validation rules for DeletedVersions
+
+	// no validation rules for DeletedOperations
+
+	// no validation rules for Error
+
+	if len(errors) > 0 {
+		return CompactElementHistoryRespMultiError(errors)
+	}
+	return nil
+}
+
+// CompactElementHistoryRespMultiError is an error wrapping multiple validation
+// errors returned by CompactElementHistoryResp.ValidateAll() if the
+// designated constraints aren't met.
+type CompactElementHistoryRespMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m CompactElementHistoryRespMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m CompactElementHistoryRespMultiError) AllErrors() []error { return m }
+
+// CompactElementHistoryRespValidationError is the validation error returned by
+// CompactElementHistoryResp.Validate if the designated constraints aren't met.
+type CompactElementHistoryRespValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e CompactElementHistoryRespValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e CompactElementHistoryRespValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e CompactElementHistoryRespValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e CompactElementHistoryRespValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e CompactElementHistoryRespValidationError) ErrorName() string {
+	return "CompactElementHistoryRespValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e CompactElementHistoryRespValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sCompactElementHistoryResp.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = CompactElementHistoryRespValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = CompactElementHistoryRespValidationError{}
