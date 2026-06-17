@@ -8,7 +8,10 @@ import (
 
 func (d app) GetAppEnvironments(c *gin.Context) {
 	req := new(getAppEnvsReq)
-	_ = c.ShouldBindUri(req)
+	if err := c.ShouldBindUri(req); err != nil {
+		httpx.ResponseError(c, err)
+		return
+	}
 	if err := c.ShouldBind(req); err != nil {
 		httpx.ResponseError(c, err)
 		return

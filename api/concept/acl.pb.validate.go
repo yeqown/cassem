@@ -116,6 +116,7 @@ func (m *User) validate(all bool) error {
 	if len(errors) > 0 {
 		return UserMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -175,7 +176,7 @@ type UserMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m UserMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -297,6 +298,7 @@ func (m *Casbin) validate(all bool) error {
 	if len(errors) > 0 {
 		return CasbinMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -306,7 +308,7 @@ type CasbinMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m CasbinMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -409,6 +411,7 @@ func (m *Casbin_Policy) validate(all bool) error {
 	if len(errors) > 0 {
 		return Casbin_PolicyMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -419,7 +422,7 @@ type Casbin_PolicyMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m Casbin_PolicyMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}

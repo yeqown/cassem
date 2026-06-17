@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline'
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline'
 import CompareArrowsIcon from '@mui/icons-material/CompareArrows'
 import Inventory2Icon from '@mui/icons-material/Inventory2'
@@ -38,10 +39,12 @@ import {
 import { alpha } from '@mui/material/styles'
 import { Link as RouterLink, useParams } from 'react-router-dom'
 import { AppBreadcrumbs } from '../../components/AppBreadcrumbs'
+import { DiffViewer } from '../../components/DiffViewer'
 import { EmptyState, ErrorState, LoadingState } from '../../components/StateView'
 import { formatVersionLabel, type DiffResponse, type Element, type ElementOperation, type ElementOperationsResponse, type ElementsResponse, type RetentionPolicy } from '../../domain/types'
 import { ApiError, apiRequest, buildQuery, jsonBody } from '../../lib/api'
 import { decodeRaw } from '../../lib/raw'
+import { readSettings } from '../../lib/settings'
 import { ContentEditor } from './ContentEditor'
 import { ContentViewer } from './ContentViewer'
 import { getContentTypeLabel } from './contentView'
@@ -67,13 +70,6 @@ const operationLabels = new Map<string | number, string>([
   ['3', 'PUBLISH'],
 ])
 
-type DiffTone = 'added' | 'removed' | 'plain'
-
-type DiffChunk = {
-  text: string
-  tone: DiffTone
-}
-
 function getOperationLabel(op?: string | number) {
   if (op === undefined || op === null || op === '') return '-'
   return operationLabels.get(op) || String(op)
@@ -84,27 +80,6 @@ function formatVersionChange(operation: ElementOperation) {
   const current = operation.currentVersion
   if (!last || !current || last === current) return '-'
   return `v${last} → v${current}`
-}
-
-function parseAnsiDiff(value: string) {
-  const chunks: DiffChunk[] = []
-  const pattern = new RegExp(`${String.fromCharCode(27)}\\[(31|32|0)m`, 'g')
-  let tone: DiffTone = 'plain'
-  let cursor = 0
-
-  for (const match of value.matchAll(pattern)) {
-    if (match.index > cursor) {
-      chunks.push({ text: value.slice(cursor, match.index), tone })
-    }
-    tone = match[1] === '31' ? 'removed' : match[1] === '32' ? 'added' : 'plain'
-    cursor = match.index + match[0].length
-  }
-
-  if (cursor < value.length) {
-    chunks.push({ text: value.slice(cursor), tone })
-  }
-
-  return chunks.filter((chunk) => chunk.text.length > 0)
 }
 
 async function requestElement(appId: string, env: string, key: string) {
@@ -136,9 +111,13 @@ export function ElementDetailPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [diffLoading, setDiffLoading] = useState(false)
+  const [diffLoaded, setDiffLoaded] = useState(false)
   const [error, setError] = useState('')
   const [tab, setTab] = useState(0)
+  const [settings] = useState(readSettings)
   const [raw, setRaw] = useState('')
+  const [editRaw, setEditRaw] = useState('')
+  const [newVersionOpen, setNewVersionOpen] = useState(false)
   const [previewVersion, setPreviewVersion] = useState<Element | null>(null)
   const [diffBase, setDiffBase] = useState('')
   const [diffCompare, setDiffCompare] = useState('')
@@ -172,6 +151,8 @@ export function ElementDetailPage() {
         setOperations([])
         setRetentionPolicy(null)
         setRaw('')
+        setEditRaw('')
+        setNewVersionOpen(false)
         setPreviewVersion(null)
         setError('missing app, environment, or key')
         setLoading(false)
@@ -198,10 +179,13 @@ export function ElementDetailPage() {
       setOperations(operationsData.operations || [])
       setRetentionPolicy(null)
       setRaw(decodeRaw(elementData.raw))
+      setEditRaw(decodeRaw(elementData.raw))
+      setNewVersionOpen(false)
       setPreviewVersion(null)
       setDiffBase(versionOptions[0] ? String(versionOptions[0]) : '')
       setDiffCompare(versionOptions.length > 1 ? String(versionOptions[versionOptions.length - 1]) : '')
       setDiffText('')
+      setDiffLoaded(false)
       setError('')
       void requestRetentionPolicy()
         .then((policy) => {
@@ -217,8 +201,11 @@ export function ElementDetailPage() {
       setOperations([])
       setRetentionPolicy(null)
       setRaw('')
+      setEditRaw('')
+      setNewVersionOpen(false)
       setPreviewVersion(null)
       setDiffText('')
+      setDiffLoaded(false)
       setError(getErrorMessage(err, 'failed to load element detail'))
     } finally {
       if (mountedRef.current && requestId === requestSeq.current) setLoading(false)
@@ -241,7 +228,19 @@ export function ElementDetailPage() {
     }
   }, [appId, env, key, loadPage])
 
-  async function handleSave() {
+  function handleOpenNewVersion() {
+    const draftVersion = metadata?.unpublishedVersion
+    if (draftVersion) {
+      setError(`Draft v${draftVersion} already exists. Publish or rollback it before creating a new version.`)
+      return
+    }
+
+    setEditRaw(raw)
+    setError('')
+    setNewVersionOpen(true)
+  }
+
+  async function handleSubmitNewVersion() {
     const startedAppId = appId
     const startedEnv = env
     const startedKey = key
@@ -253,16 +252,17 @@ export function ElementDetailPage() {
     try {
       await apiRequest<void>(
         `/api/apps/${encodeURIComponent(startedAppId)}/envs/${encodeURIComponent(startedEnv)}/elements/${encodeURIComponent(startedKey)}`,
-        { ...jsonBody({ raw }), method: 'PUT' },
+        { ...jsonBody({ raw: editRaw }), method: 'PUT' },
       )
 
       if (!canApplyMutationResult(startedAppId, startedEnv, startedKey)) return
 
+      setNewVersionOpen(false)
       setLoading(true)
       await loadPage()
     } catch (err) {
       if (canApplyMutationResult(startedAppId, startedEnv, startedKey)) {
-        setError(getErrorMessage(err, 'failed to update element content'))
+        setError(getErrorMessage(err, 'failed to create new version'))
       }
     } finally {
       if (mountedRef.current) setSaving(false)
@@ -280,6 +280,7 @@ export function ElementDetailPage() {
     if (!startedAppId || !startedEnv || !startedKey || !base || !compare) return
 
     setDiffLoading(true)
+    setDiffLoaded(false)
     setError('')
 
     try {
@@ -291,9 +292,11 @@ export function ElementDetailPage() {
       if (!canApplyMutationResult(startedAppId, startedEnv, startedKey)) return
 
       setDiffText(data.diff || '')
+      setDiffLoaded(true)
     } catch (err) {
       if (mountedRef.current && requestId === diffRequestSeq.current && canApplyMutationResult(startedAppId, startedEnv, startedKey)) {
         setDiffText('')
+        setDiffLoaded(false)
         setError(getErrorMessage(err, 'failed to load diff'))
       }
     } finally {
@@ -331,6 +334,9 @@ export function ElementDetailPage() {
           </Stack>
         </Box>
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} data-testid="element-detail-actions">
+          <Button variant="outlined" startIcon={<AddCircleOutlineIcon />} onClick={handleOpenNewVersion}>
+            New Version
+          </Button>
           <Button component={RouterLink} to={`/apps/${encodeURIComponent(appId)}/envs/${encodeURIComponent(env)}/elements/${encodeURIComponent(key)}/publish`} variant="outlined" startIcon={<PublishIcon />}>
             Publish
           </Button>
@@ -347,26 +353,25 @@ export function ElementDetailPage() {
       ) : !element ? (
         <EmptyState title="Element not found" description="Reload the page or return to the elements list." />
       ) : (
-        <Paper>
-          <Tabs value={tab} onChange={(_, nextValue: number) => setTab(nextValue)} aria-label="element detail tabs" variant="scrollable" scrollButtons="auto">
-            <Tab label="Content" />
-            <Tab label="Versions" />
-            <Tab label="Diff" />
-            <Tab label="Operations" />
-            <Tab label="Instances" />
-          </Tabs>
-          <Divider />
-          <Box sx={{ p: 3 }}>
-            {tab === 0 && (
-              <Stack spacing={2}>
-                <ContentEditor value={raw} contentType={metadata?.contentType} disabled={saving} onChange={setRaw} />
-                <Stack direction="row" justifyContent="flex-end">
-                  <Button variant="contained" startIcon={<SaveIcon />} onClick={() => void handleSave()} disabled={saving}>Save content</Button>
-                </Stack>
-              </Stack>
-            )}
+        <Stack spacing={3}>
+          <Paper>
+            <Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between" sx={{ px: 3, py: 2, borderBottom: 1, borderColor: 'divider' }}>
+              <Typography variant="h6" component="h2">Content</Typography>
+              <Chip size="small" label={`${getContentTypeLabel(metadata?.contentType)} · read-only`} />
+            </Stack>
+            <ContentViewer value={raw} contentType={metadata?.contentType} ariaLabel="Current content" bordered={false} codeTheme={settings.codeTheme} lineWrapping={settings.editorLineWrapping} minRows={8} showLabel={false} />
+          </Paper>
 
-            {tab === 1 && (
+          <Paper>
+            <Tabs value={tab} onChange={(_, nextValue: number) => setTab(nextValue)} aria-label="element detail tabs" variant="scrollable" scrollButtons="auto">
+              <Tab label="Versions" />
+              <Tab label="Diff" />
+              <Tab label="Operations" />
+              <Tab label="Instances" />
+            </Tabs>
+            <Divider />
+            <Box sx={{ p: 3 }}>
+            {tab === 0 && (
               <Stack spacing={3}>
                 {retentionPolicy?.enabled && retentionPolicy.versionPolicy && (
                   <Alert severity="info" variant="outlined">{retentionPolicy.versionPolicy}</Alert>
@@ -448,7 +453,7 @@ export function ElementDetailPage() {
               </Stack>
             )}
 
-            {tab === 2 && (
+            {tab === 1 && (
               <Stack spacing={2}>
                 <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems={{ md: 'flex-start' }}>
                   <FormControl fullWidth>
@@ -477,21 +482,15 @@ export function ElementDetailPage() {
                 </Stack>
                 {diffLoading ? (
                   <LoadingState label="Loading diff" />
-                ) : diffText ? (
-                  <Box aria-label="Diff" component="pre" sx={{ m: 0, minHeight: 160, p: 2, border: 1, borderColor: 'divider', borderRadius: 2, bgcolor: 'background.default', whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontFamily: 'monospace' }}>
-                    {parseAnsiDiff(diffText).map((chunk, index) => (
-                      <Box key={`${chunk.tone}-${index}`} component="span" sx={{ color: chunk.tone === 'removed' ? 'error.main' : chunk.tone === 'added' ? 'success.main' : 'text.primary', fontWeight: chunk.tone === 'plain' ? 400 : 700 }}>
-                        {chunk.text}
-                      </Box>
-                    ))}
-                  </Box>
+                ) : diffLoaded ? (
+                  <DiffViewer value={diffText} baseLabel={`Base v${diffBase}`} compareLabel={`Compare v${diffCompare}`} />
                 ) : (
                   <Typography color="text.secondary">Select two versions to compare.</Typography>
                 )}
               </Stack>
             )}
 
-            {tab === 3 && (
+            {tab === 2 && (
               <Stack spacing={2}>
                 {retentionPolicy?.enabled && retentionPolicy.operationPolicy && (
                   <Alert severity="info" variant="outlined">{retentionPolicy.operationPolicy}</Alert>
@@ -525,7 +524,7 @@ export function ElementDetailPage() {
               </Stack>
             )}
 
-            {tab === 4 && (
+            {tab === 3 && (
               <Stack spacing={2}>
                 <Typography color="text.secondary">View instances currently associated with this element in the cluster instances page.</Typography>
                 <Stack direction="row">
@@ -535,14 +534,26 @@ export function ElementDetailPage() {
                 </Stack>
               </Stack>
             )}
-          </Box>
-        </Paper>
+            </Box>
+          </Paper>
+        </Stack>
       )}
+
+      <Dialog open={newVersionOpen} onClose={() => setNewVersionOpen(false)} fullWidth maxWidth="md" aria-labelledby="new-version-title">
+        <DialogTitle id="new-version-title">New Version</DialogTitle>
+        <DialogContent>
+          <ContentEditor value={editRaw} contentType={metadata?.contentType} ariaLabel="New version content" codeTheme={settings.codeTheme} disabled={saving} lineWrapping={settings.editorLineWrapping} onChange={setEditRaw} />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setNewVersionOpen(false)} disabled={saving}>Cancel</Button>
+          <Button variant="contained" startIcon={<SaveIcon />} onClick={() => void handleSubmitNewVersion()} disabled={saving}>Submit</Button>
+        </DialogActions>
+      </Dialog>
 
       <Dialog open={Boolean(previewVersion)} onClose={() => setPreviewVersion(null)} fullWidth maxWidth="md" aria-labelledby="version-preview-title">
         <DialogTitle id="version-preview-title">Version {previewVersionLabel} Preview</DialogTitle>
         <DialogContent>
-          <ContentViewer value={previewRaw} contentType={previewVersion?.metadata?.contentType} ariaLabel="Version preview content" />
+          <ContentViewer value={previewRaw} contentType={previewVersion?.metadata?.contentType} ariaLabel="Version preview content" codeTheme={settings.codeTheme} lineWrapping={settings.editorLineWrapping} />
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setPreviewVersion(null)}>Close</Button>

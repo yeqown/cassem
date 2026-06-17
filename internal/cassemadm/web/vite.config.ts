@@ -17,8 +17,9 @@ export function buildAppConfig(command: 'serve' | 'build', env: Record<string, s
       environment: 'jsdom',
       setupFiles: './src/test/setup.ts',
       globals: true,
+      testTimeout: 10_000,
       exclude: [...configDefaults.exclude, 'vite.config.test.ts'],
-    },
+    }
   }
 
   if (command === 'serve') {

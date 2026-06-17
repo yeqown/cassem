@@ -14,12 +14,15 @@ import {
 } from '@mui/material'
 import { useNavigate, useParams } from 'react-router-dom'
 import { AppBreadcrumbs } from '../../components/AppBreadcrumbs'
+import { DiffViewer } from '../../components/DiffViewer'
+import { LoadingState } from '../../components/StateView'
 import { WizardLayout } from '../../components/WizardLayout'
-import { ApiError, apiRequest, jsonBody } from '../../lib/api'
+import type { DiffResponse } from '../../domain/types'
+import { ApiError, apiRequest, buildQuery, jsonBody } from '../../lib/api'
 import { renderVersionMenuItem } from './VersionMenuItem'
 import { requestAgentIdOptions, requestInstanceIdOptions, requestVersionOptions, type VersionOption } from './workflowOptions'
 
-const steps = ['Version', 'Strategy', 'Targets', 'Impact confirmation', 'Result']
+const steps = ['Version', 'Strategy', 'Targets', 'Review diff', 'Impact confirmation', 'Result']
 
 function getErrorMessage(error: unknown, fallback: string) {
   return error instanceof ApiError ? error.message : fallback
@@ -27,6 +30,15 @@ function getErrorMessage(error: unknown, fallback: string) {
 
 function buildDetailPath(appId: string, env: string, key: string) {
   return `/apps/${encodeURIComponent(appId)}/envs/${encodeURIComponent(env)}/elements/${encodeURIComponent(key)}`
+}
+
+async function requestDiff(appId: string, env: string, key: string, base: number, compare: number) {
+  return apiRequest<DiffResponse>(
+    `/api/apps/${encodeURIComponent(appId)}/envs/${encodeURIComponent(env)}/elements/${encodeURIComponent(key)}/diff${buildQuery({
+      base,
+      compare,
+    })}`,
+  )
 }
 
 function getStrategyLabel(publishMode: number) {
@@ -63,6 +75,10 @@ function PublishWizardFlow({ appId, env, elementKey }: PublishWizardFlowProps) {
   const [agentIds, setAgentIds] = useState<string[]>([])
   const [instanceIds, setInstanceIds] = useState<string[]>([])
   const [publishMode, setPublishMode] = useState(2)
+  const [diffText, setDiffText] = useState('')
+  const [diffLoaded, setDiffLoaded] = useState(false)
+  const [diffLoading, setDiffLoading] = useState(false)
+  const [currentVersion, setCurrentVersion] = useState<number | null>(null)
   const [optionsLoading, setOptionsLoading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
@@ -129,6 +145,39 @@ function PublishWizardFlow({ appId, env, elementKey }: PublishWizardFlowProps) {
     }
   }, [appId, elementKey, env, loadOptions])
 
+  async function handleLoadDiffAndAdvance() {
+    if (missingParams || !versionIsValid || diffLoading || submitting) return
+
+    const targetVersion = parsedVersion
+    if (targetVersion === null) return
+
+    setDiffLoading(true)
+    setError('')
+    setDiffLoaded(false)
+    setDiffText('')
+    setCurrentVersion(null)
+    setActiveStep(3)
+
+    try {
+      const diff = await requestDiff(appId, env, elementKey, 0, targetVersion)
+      if (!mountedRef.current) return
+
+      setCurrentVersion(diff.base?.version ?? diff.base?.metadata?.usingVersion ?? usingVersion)
+      setDiffText(diff.diff || '')
+      setDiffLoaded(true)
+      setActiveStep(3)
+    } catch (err) {
+      if (!mountedRef.current) return
+      setDiffText('')
+      setDiffLoaded(false)
+      setCurrentVersion(null)
+      setActiveStep(2)
+      setError(getErrorMessage(err, 'failed to load diff'))
+    } finally {
+      if (mountedRef.current) setDiffLoading(false)
+    }
+  }
+
   async function handlePublish() {
     if (missingParams || !versionIsValid || !grayTargetsAreValid || submitting) return
 
@@ -150,7 +199,7 @@ function PublishWizardFlow({ appId, env, elementKey }: PublishWizardFlowProps) {
       if (!mountedRef.current) return
 
       setResultMessage(`Version ${parsedVersion} was queued for ${getStrategyLabel(publishMode).toLowerCase()}.`)
-      setActiveStep(4)
+      setActiveStep(5)
     } catch (err) {
       if (!mountedRef.current) return
       setError(getErrorMessage(err, 'failed to publish element'))
@@ -190,11 +239,16 @@ function PublishWizardFlow({ appId, env, elementKey }: PublishWizardFlowProps) {
         return
       }
 
-      setActiveStep(3)
+      await handleLoadDiffAndAdvance()
       return
     }
 
     if (activeStep === 3) {
+      setActiveStep(4)
+      return
+    }
+
+    if (activeStep === 4) {
       await handlePublish()
       return
     }
@@ -208,13 +262,15 @@ function PublishWizardFlow({ appId, env, elementKey }: PublishWizardFlowProps) {
     setActiveStep((currentStep) => Math.max(currentStep - 1, 0))
   }
 
-  const nextLabel = activeStep === 3 ? 'Publish' : activeStep === 4 ? 'Done' : 'Next'
+  const nextLabel = activeStep === 4 ? 'Publish' : activeStep === 5 ? 'Done' : 'Next'
   const nextDisabled =
     missingParams ||
     submitting ||
+    diffLoading ||
     (activeStep === 0 && (optionsLoading || !versionIsValid)) ||
-    (activeStep === 2 && !grayTargetsAreValid)
-  const backDisabled = activeStep === 0 || activeStep === 4 || submitting
+    (activeStep === 2 && !grayTargetsAreValid) ||
+    (activeStep === 3 && !diffLoaded)
+  const backDisabled = activeStep === 0 || activeStep === 5 || submitting || diffLoading
 
   return (
     <Stack spacing={3}>
@@ -251,7 +307,12 @@ function PublishWizardFlow({ appId, env, elementKey }: PublishWizardFlowProps) {
                 select
                 label="Version"
                 value={version}
-                onChange={(event) => setVersion(event.target.value)}
+                onChange={(event) => {
+                  setVersion(event.target.value)
+                  setDiffLoaded(false)
+                  setDiffText('')
+                  setCurrentVersion(null)
+                }}
                 required
                 fullWidth
                 disabled={submitting || missingParams || optionsLoading}
@@ -363,6 +424,32 @@ function PublishWizardFlow({ appId, env, elementKey }: PublishWizardFlowProps) {
           {activeStep === 3 && (
             <Stack spacing={2.5}>
               <Typography variant="h6" component="h2">
+                Review diff
+              </Typography>
+              <Typography color="text.secondary">
+                Inspect the change between the current live version and the selected publish version before proceeding.
+              </Typography>
+              <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 3 }}>
+                <Stack spacing={2}>
+                  <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+                    <Box sx={{ flex: 1 }}>
+                      <Typography variant="caption" color="text.secondary">Current version</Typography>
+                      <Typography fontWeight={600}>{currentVersion ?? '-'}</Typography>
+                    </Box>
+                    <Box sx={{ flex: 1 }}>
+                      <Typography variant="caption" color="text.secondary">Publish version</Typography>
+                      <Typography fontWeight={600}>{selectedVersion?.label || '-'}</Typography>
+                    </Box>
+                  </Stack>
+                  {diffLoading ? <LoadingState label="Loading diff" /> : <DiffViewer value={diffText} baseLabel={`Current v${currentVersion ?? '-'}`} compareLabel={selectedVersion?.label || 'Publish version'} />}
+                </Stack>
+              </Paper>
+            </Stack>
+          )}
+
+          {activeStep === 4 && (
+            <Stack spacing={2.5}>
+              <Typography variant="h6" component="h2">
                 Impact confirmation
               </Typography>
               <Typography color="text.secondary">
@@ -407,7 +494,7 @@ function PublishWizardFlow({ appId, env, elementKey }: PublishWizardFlowProps) {
             </Stack>
           )}
 
-          {activeStep === 4 && (
+          {activeStep === 5 && (
             <Stack spacing={2.5}>
               <Typography variant="h6" component="h2">
                 Result

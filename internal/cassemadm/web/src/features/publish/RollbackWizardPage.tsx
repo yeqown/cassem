@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Alert, Box, Paper, Stack, TextField, Typography } from '@mui/material'
 import { useNavigate, useParams } from 'react-router-dom'
 import { AppBreadcrumbs } from '../../components/AppBreadcrumbs'
+import { DiffViewer } from '../../components/DiffViewer'
 import { LoadingState } from '../../components/StateView'
 import { WizardLayout } from '../../components/WizardLayout'
 import type { DiffResponse } from '../../domain/types'
@@ -300,14 +301,7 @@ function RollbackWizardFlow({ appId, env, elementKey }: RollbackWizardFlowProps)
                   {diffLoading ? (
                     <LoadingState label="Loading diff" />
                   ) : diffLoaded ? (
-                    <TextField
-                      label="Diff"
-                      value={diffText || 'No differences returned for this comparison.'}
-                      multiline
-                      minRows={12}
-                      fullWidth
-                      InputProps={{ readOnly: true }}
-                    />
+                    <DiffViewer value={diffText} baseLabel={`Current v${currentVersion ?? '-'}`} compareLabel={selectedVersion?.label || 'Target'} />
                   ) : (
                     <Typography color="text.secondary">No diff loaded yet.</Typography>
                   )}

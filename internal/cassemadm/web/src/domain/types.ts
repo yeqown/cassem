@@ -128,14 +128,18 @@ export type InstanceWatching = {
   watchKeys?: string[]
 }
 
+export type InstanceTarget = {
+  app?: string
+  env?: string
+  key?: string
+}
+
 export type Instance = {
   id?: string
   clientId?: string
   agentId?: string
   clientIp?: string
-  app?: string
-  env?: string
-  key?: string
+  targets?: InstanceTarget[]
   watching?: InstanceWatching[]
   health?: HealthState
   lastRenewTimestamp?: number

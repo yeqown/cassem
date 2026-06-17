@@ -12,6 +12,7 @@ import GroupIcon from '@mui/icons-material/Group'
 import HubIcon from '@mui/icons-material/Hub'
 import LogoutIcon from '@mui/icons-material/Logout'
 import MenuIcon from '@mui/icons-material/Menu'
+import SettingsIcon from '@mui/icons-material/Settings'
 import {
   AppBar,
   Box,
@@ -49,6 +50,7 @@ const nav = [
       { label: 'Instances', path: '/cluster/instances', icon: <DnsIcon /> },
     ],
   },
+  { label: 'Settings', path: '/settings', icon: <SettingsIcon /> },
 ] as const
 
 function getStatusLabel(status?: number) {
@@ -109,7 +111,11 @@ export function AppShell() {
   function renderDrawerContent(collapsed: boolean) {
     return (
       <Box>
-        <Toolbar sx={{ px: collapsed ? 1.5 : 2, justifyContent: collapsed ? 'center' : 'flex-start' }}>
+        <Toolbar
+          data-testid="sidebar-brand"
+          style={{ backgroundColor: theme.palette.primary.main, color: theme.palette.primary.contrastText }}
+          sx={{ px: collapsed ? 1.5 : 2, justifyContent: collapsed ? 'center' : 'flex-start' }}
+        >
           <Stack direction="row" spacing={collapsed ? 0 : 1.5} alignItems="center" sx={{ overflow: 'hidden' }}>
             <Box component="img" data-testid="sidebar-logo" src="/logo.svg" alt="Cassem logo" sx={{ width: 34, height: 34, flexShrink: 0 }} />
             {!collapsed && <Typography variant="h6" sx={{ fontWeight: 700, letterSpacing: 1 }}>CASSEM</Typography>}

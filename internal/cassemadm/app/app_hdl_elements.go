@@ -15,7 +15,10 @@ import (
 
 func (d app) GetAppEnvElements(c *gin.Context) {
 	req := new(getAppEnvElementsReq)
-	_ = c.ShouldBindUri(req)
+	if err := c.ShouldBindUri(req); err != nil {
+		httpx.ResponseError(c, err)
+		return
+	}
 	if err := c.ShouldBind(req); err != nil {
 		httpx.ResponseError(c, err)
 		return
@@ -43,7 +46,10 @@ func (d app) GetAppEnvElements(c *gin.Context) {
 func (d app) GetAppEnvElement(c *gin.Context) {
 	req := new(getAppEnvElementReq)
 
-	_ = c.ShouldBindUri(req)
+	if err := c.ShouldBindUri(req); err != nil {
+		httpx.ResponseError(c, err)
+		return
+	}
 	if err := c.ShouldBind(req); err != nil {
 		httpx.ResponseError(c, err)
 		return
@@ -61,7 +67,10 @@ func (d app) GetAppEnvElement(c *gin.Context) {
 
 func (d app) CreateAppEnvElement(c *gin.Context) {
 	req := new(createAppEnvElementReq)
-	_ = c.ShouldBindUri(req)
+	if err := c.ShouldBindUri(req); err != nil {
+		httpx.ResponseError(c, err)
+		return
+	}
 	if err := c.ShouldBind(req); err != nil {
 		httpx.ResponseError(c, err)
 		return
@@ -79,7 +88,10 @@ func (d app) CreateAppEnvElement(c *gin.Context) {
 
 func (d app) UpdateAppEnvElement(c *gin.Context) {
 	req := new(updateAppEnvElementReq)
-	_ = c.ShouldBindUri(req)
+	if err := c.ShouldBindUri(req); err != nil {
+		httpx.ResponseError(c, err)
+		return
+	}
 	if err := c.ShouldBind(req); err != nil {
 		httpx.ResponseError(c, err)
 		return
@@ -97,7 +109,10 @@ func (d app) UpdateAppEnvElement(c *gin.Context) {
 
 func (d app) DeleteAppEnvElement(c *gin.Context) {
 	req := new(deleteAppEnvElementsReq)
-	_ = c.ShouldBindUri(req)
+	if err := c.ShouldBindUri(req); err != nil {
+		httpx.ResponseError(c, err)
+		return
+	}
 	if err := c.ShouldBind(req); err != nil {
 		httpx.ResponseError(c, err)
 		return
@@ -115,7 +130,10 @@ func (d app) DeleteAppEnvElement(c *gin.Context) {
 func (d app) GetAppEnvElementAllVersions(c *gin.Context) {
 	req := new(getAppEnvElementVersionsReq)
 
-	_ = c.ShouldBindUri(req)
+	if err := c.ShouldBindUri(req); err != nil {
+		httpx.ResponseError(c, err)
+		return
+	}
 	if err := c.ShouldBind(req); err != nil {
 		httpx.ResponseError(c, err)
 		return
@@ -136,7 +154,10 @@ func (d app) GetAppEnvElementAllVersions(c *gin.Context) {
 // DiffAppEnvElement diff between element's versions
 func (d app) DiffAppEnvElement(c *gin.Context) {
 	req := new(diffAppEnvElementsReq)
-	_ = c.ShouldBindUri(req)
+	if err := c.ShouldBindUri(req); err != nil {
+		httpx.ResponseError(c, err)
+		return
+	}
 	if err := c.ShouldBind(req); err != nil {
 		httpx.ResponseError(c, err)
 		return
@@ -174,7 +195,10 @@ func diff(src1, src2 string) string {
 
 func (d app) GetAppEnvElementOperations(c *gin.Context) {
 	req := new(getAppEnvElementOperationsReq)
-	_ = c.ShouldBindUri(req)
+	if err := c.ShouldBindUri(req); err != nil {
+		httpx.ResponseError(c, err)
+		return
+	}
 	if err := c.ShouldBind(req); err != nil {
 		httpx.ResponseError(c, err)
 		return
@@ -192,7 +216,10 @@ func (d app) GetAppEnvElementOperations(c *gin.Context) {
 
 func (d app) RollbackAppEnvElement(c *gin.Context) {
 	req := new(rollbackAppEnvElementReq)
-	_ = c.ShouldBindUri(req)
+	if err := c.ShouldBindUri(req); err != nil {
+		httpx.ResponseError(c, err)
+		return
+	}
 	if err := c.ShouldBind(req); err != nil {
 		httpx.ResponseError(c, err)
 		return
@@ -210,7 +237,10 @@ func (d app) RollbackAppEnvElement(c *gin.Context) {
 
 func (d app) PublishAppEnvElement(c *gin.Context) {
 	req := new(publishAppEnvElementReq)
-	_ = c.ShouldBindUri(req)
+	if err := c.ShouldBindUri(req); err != nil {
+		httpx.ResponseError(c, err)
+		return
+	}
 	if err := c.ShouldBind(req); err != nil {
 		httpx.ResponseError(c, err)
 		return

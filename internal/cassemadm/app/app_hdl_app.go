@@ -27,7 +27,10 @@ func (d app) GetApps(c *gin.Context) {
 
 func (d app) GetApp(c *gin.Context) {
 	req := new(getAppReq)
-	_ = c.ShouldBindUri(req)
+	if err := c.ShouldBindUri(req); err != nil {
+		httpx.ResponseError(c, err)
+		return
+	}
 	if err := c.ShouldBind(req); err != nil {
 		httpx.ResponseError(c, err)
 		return
@@ -44,7 +47,10 @@ func (d app) GetApp(c *gin.Context) {
 
 func (d app) CreateApp(c *gin.Context) {
 	req := new(createAppReq)
-	_ = c.ShouldBindUri(req)
+	if err := c.ShouldBindUri(req); err != nil {
+		httpx.ResponseError(c, err)
+		return
+	}
 	if err := c.ShouldBind(req); err != nil {
 		httpx.ResponseError(c, err)
 		return
@@ -68,7 +74,10 @@ func (d app) CreateApp(c *gin.Context) {
 
 func (d app) DeleteApp(c *gin.Context) {
 	req := new(deleteAppReq)
-	_ = c.ShouldBindUri(req)
+	if err := c.ShouldBindUri(req); err != nil {
+		httpx.ResponseError(c, err)
+		return
+	}
 	if err := c.ShouldBind(req); err != nil {
 		httpx.ResponseError(c, err)
 		return

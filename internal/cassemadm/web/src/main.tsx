@@ -1,18 +1,18 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
-import { CssBaseline, ThemeProvider } from '@mui/material'
+import { CssBaseline } from '@mui/material'
 import { RouterProvider, createBrowserRouter } from 'react-router-dom'
+import { AppThemeProvider } from './AppThemeProvider'
 import { routes } from './routes'
 import { resolveRouterBasename } from './lib/routerBase'
-import { theme } from './theme'
 
 const router = createBrowserRouter(routes, { basename: resolveRouterBasename(import.meta.env.BASE_URL) })
 
 ReactDOM.createRoot(document.getElementById('cassem-admin')!).render(
   <React.StrictMode>
-    <ThemeProvider theme={theme}>
+    <AppThemeProvider>
       <CssBaseline />
       <RouterProvider router={router} />
-    </ThemeProvider>
+    </AppThemeProvider>
   </React.StrictMode>,
 )

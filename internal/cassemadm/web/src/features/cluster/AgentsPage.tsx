@@ -202,7 +202,7 @@ function TopologyNode({ kind, id, ip, addr, health, subtitle, aggregateCount }: 
           width: { xs: 96, md: 104 },
           height: { xs: 96, md: 104 },
           p: 1,
-          borderRadius: '50%',
+          borderRadius: 0,
           display: 'grid',
           placeItems: 'center',
           textAlign: 'center',
@@ -217,7 +217,7 @@ function TopologyNode({ kind, id, ip, addr, health, subtitle, aggregateCount }: 
             sx={{
               width: 24,
               height: 24,
-              borderRadius: '50%',
+              borderRadius: 0,
               display: 'grid',
               placeItems: 'center',
               color: healthTone,
@@ -234,7 +234,7 @@ function TopologyNode({ kind, id, ip, addr, health, subtitle, aggregateCount }: 
             sx={{
               width: 10,
               height: 10,
-              borderRadius: '50%',
+              borderRadius: 0,
               bgcolor: accent,
               boxShadow: (theme) => `0 0 0 4px ${alpha(health === 'healthy' ? theme.palette.success.main : health === 'unhealthy' ? theme.palette.warning.main : theme.palette.grey[500], 0.14)}`,
             }}

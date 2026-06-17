@@ -3,6 +3,7 @@ import {
   Autocomplete,
   Box,
   Button,
+  Link,
   Paper,
   Stack,
   Table,
@@ -14,7 +15,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material'
-import { useSearchParams } from 'react-router-dom'
+import { Link as RouterLink, useSearchParams } from 'react-router-dom'
 import { EmptyState, ErrorState, LoadingState } from '../../components/StateView'
 import type { AppsResponse, ElementsResponse, EnvsResponse, Instance, InstancesResponse } from '../../domain/types'
 import { ApiError, apiRequest, buildQuery } from '../../lib/api'
@@ -27,20 +28,40 @@ function uniqueStrings(values: string[]) {
   return Array.from(new Set(values.filter(Boolean)))
 }
 
-function displayList(values: string[]) {
-  return uniqueStrings(values).join(', ') || '-'
+function renderElementLink(label: string, to: string) {
+  if (!to) return label
+
+  return (
+    <Link component={RouterLink} to={to} underline="hover" color="primary" sx={{ fontWeight: 600, overflowWrap: 'anywhere' }}>
+      {label}
+    </Link>
+  )
 }
 
-function instanceAppLabel(instance: Instance) {
-  return instance.app || displayList((instance.watching || []).map((watching) => watching.app || ''))
-}
+function renderTargets(instance: Instance) {
+  const targets = instance.targets || []
+  if (targets.length === 0) return '-'
 
-function instanceEnvLabel(instance: Instance) {
-  return instance.env || displayList((instance.watching || []).map((watching) => watching.env || ''))
-}
+  return (
+    <Stack spacing={0.75}>
+      {targets.map((target, index) => {
+        const app = target.app || ''
+        const env = target.env || ''
+        const key = target.key || ''
+        const rowKey = `${app}/${env}/${key}/${index}`
 
-function instanceKeyLabel(instance: Instance) {
-  return instance.key || displayList((instance.watching || []).flatMap((watching) => watching.watchKeys || []))
+        return (
+          <Stack key={rowKey} direction="row" spacing={0.75} alignItems="center" flexWrap="wrap">
+            {renderElementLink(app, app ? `/apps/${encodeURIComponent(app)}/envs` : '')}
+            <Typography component="span" color="text.secondary">/</Typography>
+            {renderElementLink(env, app && env ? `/apps/${encodeURIComponent(app)}/envs/${encodeURIComponent(env)}/elements` : '')}
+            <Typography component="span" color="text.secondary">/</Typography>
+            {renderElementLink(key, app && env && key ? `/apps/${encodeURIComponent(app)}/envs/${encodeURIComponent(env)}/elements/${encodeURIComponent(key)}` : '')}
+          </Stack>
+        )
+      })}
+    </Stack>
+  )
 }
 
 function formatLastSeen(timestamp?: number) {
@@ -398,9 +419,7 @@ function InstancesPageFlow({ initialApp, initialEnv, initialKey }: InstancesPage
                 <TableCell>Client</TableCell>
                 <TableCell>Agent</TableCell>
                 <TableCell>IP</TableCell>
-                <TableCell>App</TableCell>
-                <TableCell>Env</TableCell>
-                <TableCell>Key</TableCell>
+                <TableCell>Targets</TableCell>
                 <TableCell>Last seen</TableCell>
                 <TableCell align="right">Actions</TableCell>
               </TableRow>
@@ -415,9 +434,7 @@ function InstancesPageFlow({ initialApp, initialEnv, initialKey }: InstancesPage
                     <TableCell>{instance.clientId || '-'}</TableCell>
                     <TableCell>{instance.agentId || '-'}</TableCell>
                     <TableCell>{instance.clientIp || '-'}</TableCell>
-                    <TableCell>{instanceAppLabel(instance)}</TableCell>
-                    <TableCell>{instanceEnvLabel(instance)}</TableCell>
-                    <TableCell>{instanceKeyLabel(instance)}</TableCell>
+                    <TableCell>{renderTargets(instance)}</TableCell>
                     <TableCell>{formatLastSeen(instance.lastRenewTimestamp)}</TableCell>
                     <TableCell align="right">
                       <Button size="small" onClick={() => instanceId && void handleLoadDetail(instanceId)} disabled={detailLoading || !instanceId}>

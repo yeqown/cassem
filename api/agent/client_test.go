@@ -89,11 +89,11 @@ func (c *failingWatchAgentClient) Renew(_ context.Context, req *RegisterReq, _ .
 	return &EmptyResp{}, nil
 }
 
-func (c *failingWatchAgentClient) Watch(ctx context.Context, _ *WatchReq, _ ...grpc.CallOption) (grpc.ServerStreamingClient[WatchResp], error) {
+func (c *failingWatchAgentClient) Watch(ctx context.Context, _ *WatchReq, _ ...grpc.CallOption) (Agent_WatchClient, error) {
 	return failingWatchStream{ctx: ctx, done: c.streamDone}, nil
 }
 
-func (c *cancelWatchAgentClient) Watch(ctx context.Context, _ *WatchReq, _ ...grpc.CallOption) (grpc.ServerStreamingClient[WatchResp], error) {
+func (c *cancelWatchAgentClient) Watch(ctx context.Context, _ *WatchReq, _ ...grpc.CallOption) (Agent_WatchClient, error) {
 	return cancelWatchStream{ctx: ctx}, nil
 }
 

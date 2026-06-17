@@ -68,10 +68,32 @@ func (m *GetElementReq) validate(all bool) error {
 		errors = append(errors, err)
 	}
 
+	if !_GetElementReq_App_Pattern.MatchString(m.GetApp()) {
+		err := GetElementReqValidationError{
+			field:  "App",
+			reason: "value does not match regex pattern \"^[A-Za-z0-9][A-Za-z0-9_-]*$\"",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
 	if l := utf8.RuneCountInString(m.GetEnv()); l < 3 || l > 30 {
 		err := GetElementReqValidationError{
 			field:  "Env",
 			reason: "value length must be between 3 and 30 runes, inclusive",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
+	if !_GetElementReq_Env_Pattern.MatchString(m.GetEnv()) {
+		err := GetElementReqValidationError{
+			field:  "Env",
+			reason: "value does not match regex pattern \"^[A-Za-z0-9][A-Za-z0-9_-]*$\"",
 		}
 		if !all {
 			return err
@@ -108,7 +130,17 @@ func (m *GetElementReq) validate(all bool) error {
 			_GetElementReq_Keys_Unique[item] = struct{}{}
 		}
 
-		// no validation rules for Keys[idx]
+		if !_GetElementReq_Keys_Pattern.MatchString(item) {
+			err := GetElementReqValidationError{
+				field:  fmt.Sprintf("Keys[%v]", idx),
+				reason: "value does not match regex pattern \"^[A-Za-z0-9][A-Za-z0-9_-]*$\"",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+
 	}
 
 	if len(errors) > 0 {
@@ -188,6 +220,12 @@ var _ interface {
 	Cause() error
 	ErrorName() string
 } = GetElementReqValidationError{}
+
+var _GetElementReq_App_Pattern = regexp.MustCompile("^[A-Za-z0-9][A-Za-z0-9_-]*$")
+
+var _GetElementReq_Env_Pattern = regexp.MustCompile("^[A-Za-z0-9][A-Za-z0-9_-]*$")
+
+var _GetElementReq_Keys_Pattern = regexp.MustCompile("^[A-Za-z0-9][A-Za-z0-9_-]*$")
 
 // Validate checks the field values on GetElementResp with the rules defined in
 // the proto definition for this message. If any rules are violated, the first

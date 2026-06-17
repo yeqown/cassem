@@ -17,6 +17,7 @@ import { ElementsPage } from './features/elements/ElementsPage'
 import { ElementDetailPage } from './features/elements/ElementDetailPage'
 import { PublishWizardPage } from './features/publish/PublishWizardPage'
 import { RollbackWizardPage } from './features/publish/RollbackWizardPage'
+import { SettingsPage } from './features/settings/SettingsPage'
 import { UsersPage } from './features/users/UsersPage'
 import { AppShell } from './layout/AppShell'
 
@@ -72,6 +73,7 @@ export const routes: RouteObject[] = [
               { path: '/apps/:appId/envs/:env/elements/:key/rollback', element: <RollbackWizardPage /> },
               { path: '/apps/:appId/envs/:env/elements/:key', element: <ElementDetailPage /> },
               { path: '/users', element: <UsersPage /> },
+              { path: '/settings', element: <SettingsPage /> },
               { path: '/cluster/agents', element: <Navigate to="/cluster/topology" replace /> },
               { path: '/cluster/topology', element: <AgentsPage /> },
               { path: '/cluster/instances', element: <InstancesPage /> },

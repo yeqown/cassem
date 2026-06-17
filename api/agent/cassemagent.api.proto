@@ -7,9 +7,9 @@ package cassem.agent;
 option go_package = "github.com/yeqown/cassem/api/agent;agent";
 
 message getElementReq {
-  string          app = 1 [(validate.rules).string = {min_len: 3, max_len: 30}];
-  string          env = 2 [(validate.rules).string = {min_len: 3, max_len: 30}];
-  repeated string keys = 3 [(validate.rules).repeated = {unique: true, min_items: 1, max_items: 100}];
+  string          app = 1 [(validate.rules).string = {min_len: 3, max_len: 30, pattern: "^[A-Za-z0-9][A-Za-z0-9_-]*$"}];
+  string          env = 2 [(validate.rules).string = {min_len: 3, max_len: 30, pattern: "^[A-Za-z0-9][A-Za-z0-9_-]*$"}];
+  repeated string keys = 3 [(validate.rules).repeated = {unique: true, min_items: 1, max_items: 100, items: {string: {pattern: "^[A-Za-z0-9][A-Za-z0-9_-]*$"}}}];
 }
 
 message getElementResp {

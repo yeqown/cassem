@@ -94,6 +94,7 @@ func (m *Element) validate(all bool) error {
 	if len(errors) > 0 {
 		return ElementMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -103,7 +104,7 @@ type ElementMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m ElementMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -189,11 +190,38 @@ func (m *ElementMetadata) validate(all bool) error {
 
 	var errors []error
 
-	// no validation rules for Key
+	if !_ElementMetadata_Key_Pattern.MatchString(m.GetKey()) {
+		err := ElementMetadataValidationError{
+			field:  "Key",
+			reason: "value does not match regex pattern \"^[A-Za-z0-9][A-Za-z0-9_-]*$\"",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
 
-	// no validation rules for App
+	if !_ElementMetadata_App_Pattern.MatchString(m.GetApp()) {
+		err := ElementMetadataValidationError{
+			field:  "App",
+			reason: "value does not match regex pattern \"^[A-Za-z0-9][A-Za-z0-9_-]*$\"",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
 
-	// no validation rules for Env
+	if !_ElementMetadata_Env_Pattern.MatchString(m.GetEnv()) {
+		err := ElementMetadataValidationError{
+			field:  "Env",
+			reason: "value does not match regex pattern \"^[A-Za-z0-9][A-Za-z0-9_-]*$\"",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
 
 	// no validation rules for LatestVersion
 
@@ -208,6 +236,7 @@ func (m *ElementMetadata) validate(all bool) error {
 	if len(errors) > 0 {
 		return ElementMetadataMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -218,7 +247,7 @@ type ElementMetadataMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m ElementMetadataMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -282,6 +311,12 @@ var _ interface {
 	ErrorName() string
 } = ElementMetadataValidationError{}
 
+var _ElementMetadata_Key_Pattern = regexp.MustCompile("^[A-Za-z0-9][A-Za-z0-9_-]*$")
+
+var _ElementMetadata_App_Pattern = regexp.MustCompile("^[A-Za-z0-9][A-Za-z0-9_-]*$")
+
+var _ElementMetadata_Env_Pattern = regexp.MustCompile("^[A-Za-z0-9][A-Za-z0-9_-]*$")
+
 // Validate checks the field values on AppMetadata with the rules defined in
 // the proto definition for this message. If any rules are violated, the first
 // error encountered is returned, or nil if there are no violations.
@@ -304,7 +339,16 @@ func (m *AppMetadata) validate(all bool) error {
 
 	var errors []error
 
-	// no validation rules for Id
+	if !_AppMetadata_Id_Pattern.MatchString(m.GetId()) {
+		err := AppMetadataValidationError{
+			field:  "Id",
+			reason: "value does not match regex pattern \"^[A-Za-z0-9][A-Za-z0-9_-]*$\"",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
 
 	// no validation rules for Description
 
@@ -321,6 +365,7 @@ func (m *AppMetadata) validate(all bool) error {
 	if len(errors) > 0 {
 		return AppMetadataMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -330,7 +375,7 @@ type AppMetadataMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m AppMetadataMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -394,6 +439,8 @@ var _ interface {
 	ErrorName() string
 } = AppMetadataValidationError{}
 
+var _AppMetadata_Id_Pattern = regexp.MustCompile("^[A-Za-z0-9][A-Za-z0-9_-]*$")
+
 // Validate checks the field values on ElementOperation with the rules defined
 // in the proto definition for this message. If any rules are violated, the
 // first error encountered is returned, or nil if there are no violations.
@@ -433,6 +480,7 @@ func (m *ElementOperation) validate(all bool) error {
 	if len(errors) > 0 {
 		return ElementOperationMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -443,7 +491,7 @@ type ElementOperationMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m ElementOperationMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -574,6 +622,7 @@ func (m *Instance) validate(all bool) error {
 	if len(errors) > 0 {
 		return InstanceMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -583,7 +632,7 @@ type InstanceMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m InstanceMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -678,6 +727,7 @@ func (m *AgentInstance) validate(all bool) error {
 	if len(errors) > 0 {
 		return AgentInstanceMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -688,7 +738,7 @@ type AgentInstanceMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m AgentInstanceMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -808,6 +858,7 @@ func (m *AgentInstanceChange) validate(all bool) error {
 	if len(errors) > 0 {
 		return AgentInstanceChangeMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -818,7 +869,7 @@ type AgentInstanceChangeMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m AgentInstanceChangeMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -906,13 +957,48 @@ func (m *Instance_Watching) validate(all bool) error {
 
 	var errors []error
 
-	// no validation rules for App
+	if !_Instance_Watching_App_Pattern.MatchString(m.GetApp()) {
+		err := Instance_WatchingValidationError{
+			field:  "App",
+			reason: "value does not match regex pattern \"^[A-Za-z0-9][A-Za-z0-9_-]*$\"",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
 
-	// no validation rules for Env
+	if !_Instance_Watching_Env_Pattern.MatchString(m.GetEnv()) {
+		err := Instance_WatchingValidationError{
+			field:  "Env",
+			reason: "value does not match regex pattern \"^[A-Za-z0-9][A-Za-z0-9_-]*$\"",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
+	for idx, item := range m.GetWatchKeys() {
+		_, _ = idx, item
+
+		if !_Instance_Watching_WatchKeys_Pattern.MatchString(item) {
+			err := Instance_WatchingValidationError{
+				field:  fmt.Sprintf("WatchKeys[%v]", idx),
+				reason: "value does not match regex pattern \"^[A-Za-z0-9][A-Za-z0-9_-]*$\"",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+
+	}
 
 	if len(errors) > 0 {
 		return Instance_WatchingMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -923,7 +1009,7 @@ type Instance_WatchingMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m Instance_WatchingMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -988,3 +1074,9 @@ var _ interface {
 	Cause() error
 	ErrorName() string
 } = Instance_WatchingValidationError{}
+
+var _Instance_Watching_App_Pattern = regexp.MustCompile("^[A-Za-z0-9][A-Za-z0-9_-]*$")
+
+var _Instance_Watching_Env_Pattern = regexp.MustCompile("^[A-Za-z0-9][A-Za-z0-9_-]*$")
+
+var _Instance_Watching_WatchKeys_Pattern = regexp.MustCompile("^[A-Za-z0-9][A-Za-z0-9_-]*$")

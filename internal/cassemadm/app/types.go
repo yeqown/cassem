@@ -5,14 +5,14 @@ import (
 )
 
 type commonAppEnvRequest struct {
-	AppId string `uri:"appId" binding:"required"`
-	Env   string `uri:"env" binding:"required"`
+	AppId string `uri:"appId" binding:"required,identifier"`
+	Env   string `uri:"env" binding:"required,identifier"`
 }
 
 type commonAppEnvEltRequest struct {
-	AppId      string `uri:"appId" form:"app" binding:"required"`
-	Env        string `uri:"env" form:"env" binding:"required"`
-	ElementKey string `uri:"key" form:"key" binding:"required"`
+	AppId      string `uri:"appId" form:"app" binding:"required,identifier"`
+	Env        string `uri:"env" form:"env" binding:"required,identifier"`
+	ElementKey string `uri:"key" form:"key" binding:"required,identifier"`
 }
 
 type commonPagingRequest struct {
@@ -24,7 +24,7 @@ type getAppEnvElementsReq struct {
 	commonAppEnvRequest
 	commonPagingRequest
 
-	ElementKeys []string `form:"key"`
+	ElementKeys []string `form:"key" binding:"omitempty,dive,identifier"`
 	Query       string   `form:"query"`
 }
 
@@ -83,23 +83,23 @@ type pagingAppsReq struct {
 }
 
 type createAppReq struct {
-	App         string `uri:"appId" binding:"required"`
+	App         string `uri:"appId" binding:"required,identifier"`
 	Name        string `json:"name" binding:"required"`
 	Description string `json:"description" binding:"required"`
 }
 
 type deleteAppReq struct {
-	App string `uri:"appId" binding:"required"`
+	App string `uri:"appId" binding:"required,identifier"`
 }
 
 type getAppReq struct {
-	App string `uri:"appId" binding:"required"`
+	App string `uri:"appId" binding:"required,identifier"`
 }
 
 type getAppEnvsReq struct {
 	commonPagingRequest
 
-	App string `uri:"appId" binding:"required"`
+	App string `uri:"appId" binding:"required,identifier"`
 }
 
 type createAppEnvReq struct {

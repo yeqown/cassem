@@ -1,24 +1,25 @@
 package app
 
 import (
-	"strings"
-
 	"github.com/gin-gonic/gin"
 
 	"github.com/yeqown/cassem/api/concept"
 	"github.com/yeqown/cassem/pkg/httpx"
 )
 
+type instanceTargetView struct {
+	App string `json:"app"`
+	Env string `json:"env"`
+	Key string `json:"key"`
+}
+
 type instanceView struct {
-	ID                 string                       `json:"id,omitempty"`
-	ClientID           string                       `json:"clientId,omitempty"`
-	AgentID            string                       `json:"agentId,omitempty"`
-	ClientIP           string                       `json:"clientIp,omitempty"`
-	App                string                       `json:"app"`
-	Env                string                       `json:"env"`
-	Key                string                       `json:"key"`
-	Watching           []*concept.Instance_Watching `json:"watching,omitempty"`
-	LastRenewTimestamp int64                        `json:"lastRenewTimestamp,omitempty"`
+	ID                 string               `json:"id,omitempty"`
+	ClientID           string               `json:"clientId,omitempty"`
+	AgentID            string               `json:"agentId,omitempty"`
+	ClientIP           string               `json:"clientIp,omitempty"`
+	Targets            []instanceTargetView `json:"targets"`
+	LastRenewTimestamp int64                `json:"lastRenewTimestamp,omitempty"`
 }
 
 type instancesResp struct {
@@ -37,10 +38,7 @@ func newInstanceView(instance *concept.Instance) instanceView {
 		ClientID:           instance.GetClientId(),
 		AgentID:            instance.GetAgentId(),
 		ClientIP:           instance.GetClientIp(),
-		App:                joinUnique(instanceWatchingApps(instance.GetWatching())),
-		Env:                joinUnique(instanceWatchingEnvs(instance.GetWatching())),
-		Key:                joinUnique(instanceWatchingKeys(instance.GetWatching())),
-		Watching:           instance.GetWatching(),
+		Targets:            instanceTargets(instance.GetWatching()),
 		LastRenewTimestamp: instance.GetLastRenewTimestamp(),
 	}
 }
@@ -60,44 +58,23 @@ func newInstancesResp(result *concept.GetInstancesResult) instancesResp {
 	return out
 }
 
-func instanceWatchingApps(watchings []*concept.Instance_Watching) []string {
-	values := make([]string, 0, len(watchings))
+func instanceTargets(watchings []*concept.Instance_Watching) []instanceTargetView {
+	seen := make(map[instanceTargetView]struct{})
+	targets := make([]instanceTargetView, 0)
 	for _, watching := range watchings {
-		values = append(values, watching.GetApp())
-	}
-	return values
-}
-
-func instanceWatchingEnvs(watchings []*concept.Instance_Watching) []string {
-	values := make([]string, 0, len(watchings))
-	for _, watching := range watchings {
-		values = append(values, watching.GetEnv())
-	}
-	return values
-}
-
-func instanceWatchingKeys(watchings []*concept.Instance_Watching) []string {
-	values := make([]string, 0, len(watchings))
-	for _, watching := range watchings {
-		values = append(values, watching.GetWatchKeys()...)
-	}
-	return values
-}
-
-func joinUnique(values []string) string {
-	seen := make(map[string]struct{}, len(values))
-	out := make([]string, 0, len(values))
-	for _, value := range values {
-		if value == "" {
-			continue
+		for _, key := range watching.GetWatchKeys() {
+			target := instanceTargetView{App: watching.GetApp(), Env: watching.GetEnv(), Key: key}
+			if target.App == "" || target.Env == "" || target.Key == "" {
+				continue
+			}
+			if _, ok := seen[target]; ok {
+				continue
+			}
+			seen[target] = struct{}{}
+			targets = append(targets, target)
 		}
-		if _, ok := seen[value]; ok {
-			continue
-		}
-		seen[value] = struct{}{}
-		out = append(out, value)
 	}
-	return strings.Join(out, ", ")
+	return targets
 }
 
 func (d app) GetInstance(c *gin.Context) {

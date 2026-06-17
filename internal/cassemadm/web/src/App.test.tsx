@@ -5,12 +5,17 @@ import { MemoryRouter, RouterProvider, createMemoryRouter } from 'react-router-d
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { CopyEnvDialog } from './features/envs/CopyEnvDialog'
 import { ApiError } from './lib/api'
+import { AppThemeProvider } from './AppThemeProvider'
 import { routes } from './routes'
 
 function renderRoute(path: string) {
   const entry = path.startsWith('/ui') ? path : `/ui${path}`
   const router = createMemoryRouter(routes, { basename: '/ui', initialEntries: [entry] })
-  render(<RouterProvider router={router} />)
+  render(
+    <AppThemeProvider>
+      <RouterProvider router={router} />
+    </AppThemeProvider>,
+  )
   return router
 }
 
@@ -21,7 +26,9 @@ function renderStrictRoute(path: string) {
     router,
     ...render(
       <StrictMode>
-        <RouterProvider router={router} />
+        <AppThemeProvider>
+          <RouterProvider router={router} />
+        </AppThemeProvider>
       </StrictMode>,
     ),
   }
@@ -97,6 +104,17 @@ function createWorkflowFetchMock(extra?: (input: RequestInfo | URL, init?: Reque
       return Promise.resolve(createJsonResponse({ errcode: 0, data: { instances: [{ clientId: 'instance-01', agentId: 'agent-a' }, { clientId: 'instance-02', agentId: 'agent-b' }] } }))
     }
 
+    if (url.includes('/api/apps/demo/envs/prod/elements/db.url/diff?')) {
+      return Promise.resolve(createJsonResponse({
+        errcode: 0,
+        data: {
+          base: { metadata: { key: 'db.url', usingVersion: 2, latestVersion: 3, unpublishedVersion: 3, contentType: 4 }, raw: btoa('v2'), version: 2, published: true },
+          compare: { metadata: { key: 'db.url', usingVersion: 2, latestVersion: 3, unpublishedVersion: 3, contentType: 4 }, raw: btoa('v3'), version: 3, published: false },
+          diff: 'value-v[31m2[0m[32m3[0m',
+        },
+      }))
+    }
+
     return Promise.resolve(createJsonResponse({ errcode: 0, data: null }))
   })
 }
@@ -128,6 +146,48 @@ describe('app shell routing', () => {
 
     expect(screen.getByRole('button', { name: /login/i })).toBeInTheDocument()
     expect(router.state.location.pathname).toBe('/ui/login')
+  })
+
+  it('renders settings page from sidebar and saves local preferences', async () => {
+    localStorage.setItem('cassem.session', 'session')
+    localStorage.setItem('cassem.user', JSON.stringify({ account: 'superadmin@example.com' }))
+
+    const user = userEvent.setup()
+    renderRoute('/settings')
+
+    expect(await screen.findByRole('heading', { name: /settings/i })).toBeInTheDocument()
+    for (const brand of screen.getAllByTestId('sidebar-brand')) {
+      expect(brand).toHaveStyle({ backgroundColor: '#2454ff' })
+    }
+    expect(screen.getByRole('link', { name: /settings/i })).toHaveAttribute('href', '/ui/settings')
+    expect(within(screen.getByRole('navigation', { name: /navigation/i })).getAllByRole('link').at(-1)).toHaveAccessibleName('Settings')
+
+    const editorLayout = screen.getByTestId('editor-settings-layout')
+    expect(editorLayout).toHaveAttribute('data-preview-position', 'right')
+    expect(within(editorLayout).getAllByTestId(/editor-settings-panel|code-theme-preview-panel/).map((panel) => panel.getAttribute('data-testid'))).toEqual([
+      'editor-settings-panel',
+      'code-theme-preview-panel',
+    ])
+    const preview = within(editorLayout).getByLabelText('Code theme preview')
+    expect(preview).toHaveAttribute('data-code-theme', 'github-light-plus')
+    expect(preview).toHaveTextContent('"enabled": true')
+
+    await user.click(screen.getByRole('combobox', { name: /code theme/i }))
+    await user.click(await screen.findByRole('option', { name: 'One Dark' }))
+    expect(preview).toHaveAttribute('data-code-theme', 'one-dark')
+    await user.click(screen.getByRole('combobox', { name: /ui theme/i }))
+    await user.click(await screen.findByRole('option', { name: 'Purple' }))
+    for (const brand of screen.getAllByTestId('sidebar-brand')) {
+      expect(brand).toHaveStyle({ backgroundColor: '#7c3aed' })
+    }
+    await user.click(screen.getByRole('switch', { name: /editor line wrapping/i }))
+    expect(preview.querySelector('.cm-lineWrapping')).toBeNull()
+
+    expect(JSON.parse(localStorage.getItem('cassem.settings') || '{}')).toEqual({
+      codeTheme: 'one-dark',
+      uiTheme: 'purple',
+      editorLineWrapping: false,
+    })
   })
 
   it('navigates to the saved protected route after login', async () => {
@@ -1230,7 +1290,7 @@ describe('app shell routing', () => {
     expect(fetchMock).toHaveBeenCalledWith('/api/apps/demo/envs/prod/elements?limit=30', expect.any(Object))
   })
 
-  it('renders element detail page with content, versions, and operations tabs', async () => {
+  it('renders element detail page with fixed content, versions, and operations tabs', async () => {
     localStorage.setItem('cassem.session', 'session')
     localStorage.setItem('cassem.user', JSON.stringify({ account: 'superadmin@example.com' }))
 
@@ -1287,7 +1347,8 @@ describe('app shell routing', () => {
     expect(within(breadcrumbs).queryByRole('link', { name: /^db\.url$/i })).not.toBeInTheDocument()
     expect(within(breadcrumbs).getByText(/^db\.url$/i)).toBeInTheDocument()
     expect(screen.queryByText(/app: demo \/ env: prod \/ key: db\.url/i)).not.toBeInTheDocument()
-    expect(screen.getByRole('tab', { name: /content/i })).toBeInTheDocument()
+    expect(screen.getByLabelText('Current content')).toHaveTextContent('postgres://demo')
+    expect(screen.queryByRole('tab', { name: /content/i })).not.toBeInTheDocument()
     await user.click(screen.getByRole('tab', { name: /versions/i }))
     expect(await screen.findByText('Versions keep current, draft, latest 20, and versions from the last 30 days.')).toBeInTheDocument()
     await user.click(screen.getByRole('tab', { name: /operations/i }))
@@ -1402,8 +1463,166 @@ describe('app shell routing', () => {
     expect(screen.getByText('Current: v1')).toBeInTheDocument()
     expect(screen.getByText('Draft: -')).toBeInTheDocument()
     expect(screen.getByText('Type: PLAINTEXT')).toBeInTheDocument()
+    expect(within(screen.getByTestId('element-detail-actions')).getByRole('button', { name: /new version/i })).toBeInTheDocument()
     expect(within(screen.getByTestId('element-detail-actions')).getByRole('link', { name: /publish/i })).toBeInTheDocument()
     expect(within(screen.getByTestId('element-detail-actions')).getByRole('link', { name: /rollback/i })).toBeInTheDocument()
+  })
+
+  it('keeps current content above the tabs and removes the content tab', async () => {
+    localStorage.setItem('cassem.session', 'session')
+    localStorage.setItem('cassem.user', JSON.stringify({ account: 'superadmin@example.com' }))
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((input: RequestInfo | URL) => {
+        const url = String(input)
+        if (url.includes('/api/apps/demo/envs/prod/elements/db.url/versions?limit=100')) {
+          return Promise.resolve(createJsonResponse({ errcode: 0, data: { elements: [] } }))
+        }
+        if (url.includes('/api/apps/demo/envs/prod/elements/db.url/operations?limit=100')) {
+          return Promise.resolve(createJsonResponse({ errcode: 0, data: { operations: [] } }))
+        }
+        return Promise.resolve(createJsonResponse({
+          errcode: 0,
+          data: {
+            metadata: { key: 'db.url', latestVersion: 2, usingVersion: 1, unpublishedVersion: 0, contentType: 4 },
+            raw: btoa('postgres://demo'),
+            version: 1,
+            published: true,
+          },
+        }))
+      }),
+    )
+
+    renderRoute('/apps/demo/envs/prod/elements/db.url')
+
+    const content = await screen.findByLabelText('Current content')
+    const tablist = screen.getByRole('tablist', { name: /element detail tabs/i })
+    expect(content).toHaveTextContent('postgres://demo')
+    expect(screen.queryByRole('tab', { name: /content/i })).not.toBeInTheDocument()
+    expect(within(tablist).getAllByRole('tab').map((tab) => tab.textContent)).toEqual(['Versions', 'Diff', 'Operations', 'Instances'])
+  })
+
+  it('applies saved code theme to element detail viewers and editors', async () => {
+    localStorage.setItem('cassem.session', 'session')
+    localStorage.setItem('cassem.user', JSON.stringify({ account: 'superadmin@example.com' }))
+    localStorage.setItem('cassem.settings', JSON.stringify({ codeTheme: 'one-dark', editorLineWrapping: false }))
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((input: RequestInfo | URL) => {
+        const url = String(input)
+        if (url.includes('/api/apps/demo/envs/prod/elements/db.url/versions?limit=100')) {
+          return Promise.resolve(createJsonResponse({ errcode: 0, data: { elements: [] } }))
+        }
+        if (url.includes('/api/apps/demo/envs/prod/elements/db.url/operations?limit=100')) {
+          return Promise.resolve(createJsonResponse({ errcode: 0, data: { operations: [] } }))
+        }
+        return Promise.resolve(createJsonResponse({
+          errcode: 0,
+          data: {
+            metadata: { key: 'db.url', latestVersion: 2, usingVersion: 1, unpublishedVersion: 0, contentType: 'JSON' },
+            raw: btoa('{"enabled":true}'),
+            version: 1,
+            published: true,
+          },
+        }))
+      }),
+    )
+
+    const user = userEvent.setup()
+    renderRoute('/apps/demo/envs/prod/elements/db.url')
+
+    const currentContent = await screen.findByLabelText('Current content')
+    expect(currentContent).toHaveAttribute('data-code-theme', 'one-dark')
+    expect(currentContent.querySelector('.cm-lineWrapping')).toBeNull()
+
+    await user.click(screen.getByRole('button', { name: /new version/i }))
+
+    const editor = await screen.findByTestId('content-editor')
+    expect(editor).toHaveAttribute('data-code-theme', 'one-dark')
+    expect(editor.querySelector('.cm-lineWrapping')).toBeNull()
+  })
+
+  it('opens new version editing in a dialog and submits content updates', async () => {
+    localStorage.setItem('cassem.session', 'session')
+    localStorage.setItem('cassem.user', JSON.stringify({ account: 'superadmin@example.com' }))
+
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url.includes('/api/apps/demo/envs/prod/elements/db.url/versions?limit=100')) {
+        return Promise.resolve(createJsonResponse({ errcode: 0, data: { elements: [] } }))
+      }
+      if (url.includes('/api/apps/demo/envs/prod/elements/db.url/operations?limit=100')) {
+        return Promise.resolve(createJsonResponse({ errcode: 0, data: { operations: [] } }))
+      }
+      if (init?.method === 'PUT') {
+        return Promise.resolve(createJsonResponse({ errcode: 0, data: null }))
+      }
+      return Promise.resolve(createJsonResponse({
+        errcode: 0,
+        data: {
+          metadata: { key: 'db.url', latestVersion: 2, usingVersion: 1, unpublishedVersion: 0, contentType: 4 },
+          raw: btoa('postgres://demo'),
+          version: 1,
+          published: true,
+        },
+      }))
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const user = userEvent.setup()
+    renderRoute('/apps/demo/envs/prod/elements/db.url')
+
+    await user.click(await screen.findByRole('button', { name: /new version/i }))
+    const dialog = await screen.findByRole('dialog', { name: /new version/i })
+    expect(within(dialog).getByLabelText('New version content')).toHaveTextContent('postgres://demo')
+
+    await user.click(within(dialog).getByRole('button', { name: /submit/i }))
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/apps/demo/envs/prod/elements/db.url',
+        expect.objectContaining({ method: 'PUT' }),
+      )
+    })
+  })
+
+  it('blocks new version creation when a draft already exists', async () => {
+    localStorage.setItem('cassem.session', 'session')
+    localStorage.setItem('cassem.user', JSON.stringify({ account: 'superadmin@example.com' }))
+
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes('/api/apps/demo/envs/prod/elements/db.url/versions?limit=100')) {
+        return Promise.resolve(createJsonResponse({ errcode: 0, data: { elements: [] } }))
+      }
+      if (url.includes('/api/apps/demo/envs/prod/elements/db.url/operations?limit=100')) {
+        return Promise.resolve(createJsonResponse({ errcode: 0, data: { operations: [] } }))
+      }
+      return Promise.resolve(createJsonResponse({
+        errcode: 0,
+        data: {
+          metadata: { key: 'db.url', latestVersion: 3, usingVersion: 2, unpublishedVersion: 3, contentType: 4 },
+          raw: btoa('postgres://demo'),
+          version: 2,
+          published: true,
+        },
+      }))
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const user = userEvent.setup()
+    renderRoute('/apps/demo/envs/prod/elements/db.url')
+
+    await user.click(await screen.findByRole('button', { name: /new version/i }))
+
+    expect(await screen.findByText('Draft v3 already exists. Publish or rollback it before creating a new version.')).toBeInTheDocument()
+    expect(screen.queryByRole('dialog', { name: /new version/i })).not.toBeInTheDocument()
+    expect(fetchMock).not.toHaveBeenCalledWith(
+      '/api/apps/demo/envs/prod/elements/db.url',
+      expect.objectContaining({ method: 'PUT' }),
+    )
   })
 
   it('renders version history state, current marker, truncated preview, and full preview dialog', async () => {
@@ -1521,10 +1740,62 @@ describe('app shell routing', () => {
       )
     })
     const diff = await screen.findByLabelText('Diff')
-    expect(within(diff).getByText('value-v')).toBeInTheDocument()
-    expect(within(diff).getByText('1')).toBeInTheDocument()
-    expect(within(diff).getByText('2')).toBeInTheDocument()
+    expect(diff).toHaveAttribute('data-variant', 'split')
     expect(diff).not.toHaveTextContent(/\[31m|\[32m|\[0m/)
+
+    const row = within(diff).getByTestId('diff-row-1')
+    expect(row).toHaveAttribute('data-left-tone', 'removed')
+    expect(row).toHaveAttribute('data-right-tone', 'added')
+    expect(within(row).getAllByText('value-v')).toHaveLength(2)
+    expect(within(row).getByText('1', { selector: 'span' })).toBeInTheDocument()
+    expect(within(row).getByText('2', { selector: 'span' })).toBeInTheDocument()
+  })
+
+  it('shows empty diff message when compared element versions have no changes', async () => {
+    localStorage.setItem('cassem.session', 'session')
+    localStorage.setItem('cassem.user', JSON.stringify({ account: 'superadmin@example.com' }))
+
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes('/api/apps/demo/envs/prod/elements/db.url/diff')) {
+        return Promise.resolve(createJsonResponse({ errcode: 0, data: { diff: '' } }))
+      }
+      if (url.includes('/api/apps/demo/envs/prod/elements/db.url/versions?limit=100')) {
+        return Promise.resolve(createJsonResponse({
+          errcode: 0,
+          data: {
+            elements: [
+              { metadata: { key: 'db.url', contentType: 4 }, raw: btoa('value-v1'), version: 1, published: true },
+              { metadata: { key: 'db.url', contentType: 4 }, raw: btoa('value-v2'), version: 2, published: true },
+            ],
+          },
+        }))
+      }
+      if (url.includes('/api/apps/demo/envs/prod/elements/db.url/operations?limit=100')) {
+        return Promise.resolve(createJsonResponse({ errcode: 0, data: { operations: [] } }))
+      }
+      return Promise.resolve(createJsonResponse({
+        errcode: 0,
+        data: {
+          metadata: { key: 'db.url', latestVersion: 2, usingVersion: 2, unpublishedVersion: 0, contentType: 4 },
+          raw: btoa('value-v2'),
+          version: 2,
+          published: true,
+        },
+      }))
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const user = userEvent.setup()
+    renderRoute('/apps/demo/envs/prod/elements/db.url')
+
+    await user.click(await screen.findByRole('tab', { name: /diff/i }))
+    await user.click(screen.getByRole('button', { name: /show diff/i }))
+
+    const diff = await screen.findByLabelText('Diff')
+    expect(diff).toHaveAttribute('data-variant', 'split')
+    expect(diff).toHaveTextContent('No differences returned for this comparison.')
+    expect(screen.queryByText('Select two versions to compare.')).not.toBeInTheDocument()
   })
 
   it('shows operation action, actor, time, and version change in order', async () => {
@@ -1968,13 +2239,27 @@ describe('app shell routing', () => {
         createJsonResponse({
           errcode: 0,
           data: {
-            instances: [{
-              clientId: 'instance-01',
-              agentId: 'agent-a',
-              clientIp: '10.0.0.1',
-              lastRenewTimestamp: 1_700_000_000,
-              watching: [{ app: 'demo', env: 'prod', watchKeys: ['db.url'] }],
-            }],
+            instances: [
+              {
+                clientId: 'instance-01',
+                agentId: 'agent-a',
+                clientIp: '10.0.0.1',
+                lastRenewTimestamp: 1_700_000_000,
+                targets: [
+                  { app: 'demo', env: 'prod', key: 'db_url' },
+                  { app: 'demo', env: 'prod', key: 'feature_flag' },
+                ],
+              },
+              {
+                clientId: 'instance-02',
+                agentId: 'agent-b',
+                clientIp: '10.0.0.2',
+                targets: [
+                  { app: 'test', env: 'default', key: 'ele1' },
+                  { app: 'test', env: 'default', key: 'config' },
+                ],
+              },
+            ],
           },
         }),
       ),
@@ -1993,12 +2278,27 @@ describe('app shell routing', () => {
     expect(within(filterRow).getByRole('button', { name: /filter/i })).toBeInTheDocument()
     expect(within(filterRow).getByRole('button', { name: /refresh all/i })).toBeInTheDocument()
 
+    expect(screen.getByRole('columnheader', { name: /targets/i })).toBeInTheDocument()
+    expect(screen.queryByRole('columnheader', { name: /^app$/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('columnheader', { name: /^env$/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('columnheader', { name: /^key$/i })).not.toBeInTheDocument()
+
     const instanceRow = await screen.findByRole('row', { name: /instance-01/i })
-    expect(within(instanceRow).getByText('demo')).toBeInTheDocument()
-    expect(within(instanceRow).getByText('prod')).toBeInTheDocument()
-    expect(within(instanceRow).getByText('db.url')).toBeInTheDocument()
+    expect(within(instanceRow).getAllByRole('link', { name: 'demo' })).toHaveLength(2)
+    expect(within(instanceRow).getAllByRole('link', { name: 'prod' })).toHaveLength(2)
+    expect(within(instanceRow).getByRole('link', { name: 'db_url' })).toHaveAttribute('href', '/ui/apps/demo/envs/prod/elements/db_url')
+    expect(within(instanceRow).getByRole('link', { name: 'feature_flag' })).toHaveAttribute(
+      'href',
+      '/ui/apps/demo/envs/prod/elements/feature_flag',
+    )
     expect(within(instanceRow).getByText('1m5s ago')).toBeInTheDocument()
     expect(within(instanceRow).getByRole('button', { name: /detail/i })).toBeInTheDocument()
+
+    const joinedKeyRow = await screen.findByRole('row', { name: /instance-02/i })
+    expect(within(joinedKeyRow).getAllByRole('link', { name: 'test' })).toHaveLength(2)
+    expect(within(joinedKeyRow).getAllByRole('link', { name: 'default' })).toHaveLength(2)
+    expect(within(joinedKeyRow).getByRole('link', { name: 'ele1' })).toHaveAttribute('href', '/ui/apps/test/envs/default/elements/ele1')
+    expect(within(joinedKeyRow).getByRole('link', { name: 'config' })).toHaveAttribute('href', '/ui/apps/test/envs/default/elements/config')
   })
 
   it('accepts raw array agents responses from the cluster endpoint', async () => {
@@ -2593,8 +2893,8 @@ describe('app shell routing', () => {
     expect(screen.getByTestId('wizard-title-actions')).toHaveStyle({ maxWidth: '1080px', marginLeft: 'auto', marginRight: 'auto' })
     expect(screen.getByTestId('wizard-surface')).toHaveStyle({ maxWidth: '1080px', marginLeft: 'auto', marginRight: 'auto' })
     expect(screen.getByTestId('wizard-stepper-frame')).toHaveStyle({ maxWidth: '1080px' })
-    expect(screen.getByTestId('wizard-content-frame')).toHaveStyle({ maxWidth: '1080px', paddingLeft: 'calc(100% / 10)', paddingRight: 'calc(100% / 10)' })
-    expect(screen.getByTestId('wizard-actions-frame')).toHaveStyle({ maxWidth: '1080px', paddingLeft: 'calc(100% / 10)', paddingRight: 'calc(100% / 10)' })
+    expect(screen.getByTestId('wizard-content-frame')).toHaveStyle({ maxWidth: '1080px', paddingLeft: 'calc(100% / 12)', paddingRight: 'calc(100% / 12)' })
+    expect(screen.getByTestId('wizard-actions-frame')).toHaveStyle({ maxWidth: '1080px', paddingLeft: 'calc(100% / 12)', paddingRight: 'calc(100% / 12)' })
   })
 
   it('aligns publish impact confirmation fields in a compact grid', async () => {
@@ -2610,6 +2910,7 @@ describe('app shell routing', () => {
     await user.click(screen.getByRole('button', { name: /^next$/i }))
     await user.click(screen.getByRole('button', { name: /^next$/i }))
     await user.click(screen.getByRole('button', { name: /^next$/i }))
+    await user.click(await screen.findByRole('button', { name: /^next$/i }))
 
     expect(screen.getByRole('heading', { name: /impact confirmation/i })).toBeInTheDocument()
     expect(screen.getByTestId('publish-impact-grid')).toHaveStyle({ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' })
@@ -2668,6 +2969,36 @@ describe('app shell routing', () => {
     expect(screen.getByText(/full publish does not use explicit agent or instance targets/i)).toBeInTheDocument()
   })
 
+  it('shows publish review diff before impact confirmation', async () => {
+    localStorage.setItem('cassem.session', 'session')
+    localStorage.setItem('cassem.user', JSON.stringify({ account: 'superadmin@example.com' }))
+
+    const fetchMock = createWorkflowFetchMock()
+    vi.stubGlobal('fetch', fetchMock)
+
+    const user = userEvent.setup()
+    renderRoute('/apps/demo/envs/prod/elements/db.url/publish')
+
+    await user.click(await screen.findByRole('combobox', { name: /^version$/i }))
+    await user.click(await screen.findByRole('option', { name: /^v3 draft$/i }))
+    await user.click(screen.getByRole('button', { name: /^next$/i }))
+    await user.click(screen.getByRole('button', { name: /^next$/i }))
+    await user.click(screen.getByRole('button', { name: /^next$/i }))
+
+    const diff = await screen.findByLabelText('Diff')
+    expect(diff).toHaveAttribute('data-variant', 'split')
+    expect(diff).not.toHaveTextContent(/\[31m|\[32m|\[0m/)
+    expect(screen.getByRole('heading', { name: /review diff/i })).toBeInTheDocument()
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/apps/demo/envs/prod/elements/db.url/diff?base=0&compare=3',
+      expect.any(Object),
+    )
+
+    await user.click(screen.getByRole('button', { name: /^next$/i }))
+
+    expect(screen.getByRole('heading', { name: /impact confirmation/i })).toBeInTheDocument()
+  })
+
   it('submits gray publish targets from candidate multiselects', async () => {
     localStorage.setItem('cassem.session', 'session')
     localStorage.setItem('cassem.user', JSON.stringify({ account: 'superadmin@example.com' }))
@@ -2692,6 +3023,8 @@ describe('app shell routing', () => {
     await user.click(await screen.findByRole('option', { name: /^agent-a$/i }))
     await user.click(screen.getByRole('combobox', { name: /instance ids/i }))
     await user.click(await screen.findByRole('option', { name: /^instance-01$/i }))
+    await user.click(screen.getByRole('button', { name: /^next$/i }))
+    expect(await screen.findByRole('heading', { name: /review diff/i })).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: /^next$/i }))
     await user.click(screen.getByRole('button', { name: /^publish$/i }))
 
@@ -2755,7 +3088,10 @@ describe('app shell routing', () => {
       await diffRequest.promise
     })
 
-    expect(await screen.findByDisplayValue('changed')).toBeInTheDocument()
+    const diff = await screen.findByLabelText('Diff')
+    expect(diff).toHaveAttribute('data-variant', 'split')
+    expect(diff).toHaveTextContent('changed')
+    expect(screen.queryByDisplayValue('changed')).not.toBeInTheDocument()
   })
 
   it('disables rollback progression when there are no older target candidates', async () => {
