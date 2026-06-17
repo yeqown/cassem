@@ -35,6 +35,7 @@ import {
 } from '@mui/material'
 import { Link as RouterLink, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../auth/AuthProvider'
+import { assetUrl } from '../lib/assets'
 
 const expandedDrawerWidth = 248
 const collapsedDrawerWidth = 88
@@ -117,7 +118,7 @@ export function AppShell() {
           sx={{ px: collapsed ? 1.5 : 2, justifyContent: collapsed ? 'center' : 'flex-start' }}
         >
           <Stack direction="row" spacing={collapsed ? 0 : 1.5} alignItems="center" sx={{ overflow: 'hidden' }}>
-            <Box component="img" data-testid="sidebar-logo" src="/logo.svg" alt="Cassem logo" sx={{ width: 34, height: 34, flexShrink: 0 }} />
+            <Box component="img" data-testid="sidebar-logo" src={assetUrl('logo.svg')} alt="Cassem logo" sx={{ width: 34, height: 34, flexShrink: 0 }} />
             {!collapsed && <Typography variant="h6" sx={{ fontWeight: 700, letterSpacing: 1 }}>CASSEM</Typography>}
           </Stack>
         </Toolbar>

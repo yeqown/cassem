@@ -88,11 +88,11 @@ The cluster script uses Podman Compose by default. Use `CONTAINER_TOOL=docker ma
 
 ## Web UI Development
 
-The embedded admin UI source lives in [`internal/cassemadm/web`](./internal/cassemadm/web). For local Web UI development, run the Vite dev server on its own `IP:PORT` and proxy `/api` requests to `cassemadm` instead of relying on embedded `/ui/` serving.
+The embedded admin UI source lives in [`web`](./web). For local Web UI development, run the Vite dev server on its own `IP:PORT` and proxy `/api` requests to `cassemadm` instead of relying on embedded `/ui/` serving.
 
 ```bash
 make ui.install
-CASSEMADM_API_TARGET=http://127.0.0.1:20218 npm run dev --prefix internal/cassemadm/web -- --port 4173
+CASSEMADM_API_TARGET=http://127.0.0.1:20218 npm run dev --prefix web -- --port 4173
 ```
 
 Then open `http://<your-ip>:4173/` for the standalone dev UI. If you started the local cluster with `make cluster.start`, the default admin API target is `http://127.0.0.1:20218`.

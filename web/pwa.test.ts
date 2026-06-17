@@ -37,9 +37,9 @@ describe('pwa icons', () => {
 
     expect(manifest.name).toBe('Cassem Admin')
     expect(manifest.icons).toEqual([
-      { src: '/logo.svg', type: 'image/svg+xml', sizes: 'any', purpose: 'any' },
-      { src: '/icon-192.png', type: 'image/png', sizes: '192x192', purpose: 'any maskable' },
-      { src: '/icon-512.png', type: 'image/png', sizes: '512x512', purpose: 'any maskable' },
+      { src: 'logo.svg', type: 'image/svg+xml', sizes: 'any', purpose: 'any' },
+      { src: 'icon-192.png', type: 'image/png', sizes: '192x192', purpose: 'any maskable' },
+      { src: 'icon-512.png', type: 'image/png', sizes: '512x512', purpose: 'any maskable' },
     ])
   })
 })

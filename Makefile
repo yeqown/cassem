@@ -34,23 +34,23 @@ help:
 	@echo "  lint                 Run golangci-lint"
 	@echo "  vet                  Run go vet"
 
-internal/cassemadm/web/node_modules/.deps-installed: internal/cassemadm/web/package.json internal/cassemadm/web/package-lock.json
-	npm ci --prefix internal/cassemadm/web
-	touch internal/cassemadm/web/node_modules/.deps-installed
+web/node_modules/.deps-installed: web/package.json web/package-lock.json
+	npm ci --prefix web
+	touch web/node_modules/.deps-installed
 
-ui.install: internal/cassemadm/web/node_modules/.deps-installed
+ui.install: web/node_modules/.deps-installed
 
-ui.build: internal/cassemadm/web/node_modules/.deps-installed
-	npm run build --prefix internal/cassemadm/web
+ui.build: web/node_modules/.deps-installed
+	npm run build --prefix web
 
-ui.test: internal/cassemadm/web/node_modules/.deps-installed
-	npm run test:run --prefix internal/cassemadm/web
+ui.test: web/node_modules/.deps-installed
+	npm run test:run --prefix web
 
-ui.lint: internal/cassemadm/web/node_modules/.deps-installed
-	npm run lint --prefix internal/cassemadm/web
+ui.lint: web/node_modules/.deps-installed
+	npm run lint --prefix web
 
-ui.typecheck: internal/cassemadm/web/node_modules/.deps-installed
-	npm run typecheck --prefix internal/cassemadm/web
+ui.typecheck: web/node_modules/.deps-installed
+	npm run typecheck --prefix web
 
 build-image: ui.build
 	mkdir -p ./bin

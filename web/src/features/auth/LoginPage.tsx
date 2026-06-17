@@ -3,6 +3,7 @@ import { Alert, Box, Button, Paper, Stack, TextField, Typography } from '@mui/ma
 import { useLocation } from 'react-router-dom'
 import { useAuth } from '../../auth/AuthProvider'
 import { ApiError } from '../../lib/api'
+import { assetUrl } from '../../lib/assets'
 
 export function LoginPage() {
   const { login } = useAuth()
@@ -26,7 +27,7 @@ export function LoginPage() {
   return (
     <Box
       data-testid="login-background"
-      style={{ backgroundImage: 'url(/login-topology.svg)' }}
+      style={{ backgroundImage: `url(${assetUrl('login-topology.svg')})` }}
       sx={{
         minHeight: '100vh',
         display: 'grid',
@@ -57,7 +58,7 @@ export function LoginPage() {
       >
         <Stack spacing={2}>
           <Stack data-testid="login-brand" direction="row" spacing={2} alignItems="center">
-            <Box component="img" src="/logo.svg" alt="Cassem logo" sx={{ width: 72, height: 72, flexShrink: 0 }} />
+            <Box component="img" src={assetUrl('logo.svg')} alt="Cassem logo" sx={{ width: 72, height: 72, flexShrink: 0 }} />
             <Box>
               <Typography variant="overline" color="primary">
                 CASSEM
