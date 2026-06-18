@@ -14,6 +14,7 @@ import {
 } from '@mui/material'
 import { alpha } from '@mui/material/styles'
 import { EmptyState, ErrorState, LoadingState } from '../../components/StateView'
+import { useErrorState } from '../../components/useErrorState'
 import type { AgentNode, ClusterTopologyResponse, CommonResponse, DBNode, HealthState, Instance } from '../../domain/types'
 import { ApiError } from '../../lib/api'
 import { clearSession, getSession } from '../../lib/session'
@@ -420,7 +421,7 @@ function isTopologyEmpty(topology: ClusterTopologyResponse) {
 export function AgentsPage() {
   const [topology, setTopology] = useState<ClusterTopologyResponse>({ dbs: [], agents: [], instances: [] })
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
+  const [error, setError] = useErrorState()
   const requestSeq = useRef(0)
   const mountedRef = useRef(false)
   const lastLoadKeyRef = useRef('')
@@ -441,7 +442,7 @@ export function AgentsPage() {
     } finally {
       if (mountedRef.current && requestId === requestSeq.current) setLoading(false)
     }
-  }, [])
+  }, [setError])
 
   useEffect(() => {
     mountedRef.current = true
@@ -478,11 +479,11 @@ export function AgentsPage() {
         </Button>
       </Stack>
 
-      {error && <ErrorState message={error} />}
+      {error.message && <ErrorState message={error.message} eventKey={error.eventKey} />}
 
       {loading ? (
         <LoadingState label="Loading cluster topology" />
-      ) : error ? null : isTopologyEmpty(topology) ? (
+      ) : error.message ? null : isTopologyEmpty(topology) ? (
         <EmptyState title="No topology nodes found" description="No db, agent, or instance nodes were returned by the backend." />
       ) : (
         <Paper

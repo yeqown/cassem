@@ -17,6 +17,7 @@ import {
 } from '@mui/material'
 import { Link as RouterLink, useSearchParams } from 'react-router-dom'
 import { EmptyState, ErrorState, LoadingState } from '../../components/StateView'
+import { useErrorState } from '../../components/useErrorState'
 import type { AppsResponse, ElementsResponse, EnvsResponse, Instance, InstancesResponse } from '../../domain/types'
 import { ApiError, apiRequest, buildQuery } from '../../lib/api'
 
@@ -115,7 +116,7 @@ function InstancesPageFlow({ initialApp, initialEnv, initialKey }: InstancesPage
   const [detail, setDetail] = useState<unknown>(null)
   const [loading, setLoading] = useState(true)
   const [detailLoading, setDetailLoading] = useState(false)
-  const [error, setError] = useState('')
+  const [error, setError] = useErrorState()
   const [detailError, setDetailError] = useState('')
   const [filterError, setFilterError] = useState('')
   const requestSeq = useRef(0)
@@ -144,7 +145,7 @@ function InstancesPageFlow({ initialApp, initialEnv, initialKey }: InstancesPage
     } finally {
       if (mountedRef.current && requestId === requestSeq.current) setLoading(false)
     }
-  }, [])
+  }, [setError])
 
   const applyFilter = useCallback(
     async (nextApp: string, nextEnv: string, nextKey: string) => {
@@ -173,7 +174,7 @@ function InstancesPageFlow({ initialApp, initialEnv, initialKey }: InstancesPage
         if (mountedRef.current && requestId === requestSeq.current) setLoading(false)
       }
     },
-    [loadAll],
+    [loadAll, setError],
   )
 
   const loadApps = useCallback(async () => {
@@ -320,7 +321,7 @@ function InstancesPageFlow({ initialApp, initialEnv, initialKey }: InstancesPage
         <Typography color="text.secondary">Inspect cluster clients, filter by element ownership, and load individual instance detail.</Typography>
       </Box>
 
-      {error && <ErrorState message={error} />}
+      {error.message && <ErrorState message={error.message} eventKey={error.eventKey} />}
       {filterError && <ErrorState message={filterError} />}
 
       <Paper component="form" onSubmit={(event) => void handleFilter(event)} sx={{ p: 3 }}>
@@ -409,7 +410,7 @@ function InstancesPageFlow({ initialApp, initialEnv, initialKey }: InstancesPage
 
       {loading ? (
         <LoadingState label="Loading instances" />
-      ) : error ? null : instances.length === 0 ? (
+      ) : error.message ? null : instances.length === 0 ? (
         <EmptyState title="No instances found" description="Adjust the filter or refresh the full cluster instance list." />
       ) : (
         <TableContainer component={Paper}>

@@ -41,6 +41,7 @@ import { Link as RouterLink, useParams } from 'react-router-dom'
 import { AppBreadcrumbs } from '../../components/AppBreadcrumbs'
 import { DiffViewer } from '../../components/DiffViewer'
 import { EmptyState, ErrorState, LoadingState } from '../../components/StateView'
+import { useErrorState } from '../../components/useErrorState'
 import { formatVersionLabel, type Element, type ElementOperation, type ElementOperationsResponse, type ElementsResponse, type RetentionPolicy } from '../../domain/types'
 import { ApiError, apiRequest, buildQuery, jsonBody } from '../../lib/api'
 import { decodeRaw } from '../../lib/raw'
@@ -111,7 +112,7 @@ export function ElementDetailPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [diffLoaded, setDiffLoaded] = useState(false)
-  const [error, setError] = useState('')
+  const [error, setError] = useErrorState()
   const [tab, setTab] = useState(0)
   const [settings] = useState(readSettings)
   const [raw, setRaw] = useState('')
@@ -128,7 +129,7 @@ export function ElementDetailPage() {
 
   useLayoutEffect(() => {
     locationRef.current = { appId, env, key }
-  }, [appId, env, key])
+  }, [appId, env, key, setError])
 
   const canApplyMutationResult = useCallback(
     (startedAppId: string, startedEnv: string, startedKey: string) =>
@@ -208,7 +209,7 @@ export function ElementDetailPage() {
     } finally {
       if (mountedRef.current && requestId === requestSeq.current) setLoading(false)
     }
-  }, [appId, env, key])
+  }, [appId, env, key, setError])
 
   useEffect(() => {
     mountedRef.current = true
@@ -330,7 +331,7 @@ export function ElementDetailPage() {
         </Stack>
       </Stack>
 
-      {error && <ErrorState message={error} />}
+      {error.message && <ErrorState message={error.message} eventKey={error.eventKey} />}
 
       {loading ? (
         <LoadingState label="Loading element detail" />

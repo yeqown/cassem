@@ -27,6 +27,7 @@ import { Link as RouterLink, useParams } from 'react-router-dom'
 import { AppBreadcrumbs } from '../../components/AppBreadcrumbs'
 import { DangerConfirmDialog } from '../../components/DangerConfirmDialog'
 import { EmptyState, ErrorState, LoadingState } from '../../components/StateView'
+import { useErrorState } from '../../components/useErrorState'
 import type { EnvsResponse } from '../../domain/types'
 import { ApiError, apiRequest, buildQuery } from '../../lib/api'
 import { CopyEnvDialog } from './CopyEnvDialog'
@@ -46,7 +47,7 @@ export function EnvsPage() {
   const [envs, setEnvs] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState('')
+  const [error, setError] = useErrorState()
   const [createOpen, setCreateOpen] = useState(false)
   const [copyOpen, setCopyOpen] = useState(false)
   const [copyBusy, setCopyBusy] = useState(false)
@@ -59,7 +60,7 @@ export function EnvsPage() {
 
   useLayoutEffect(() => {
     appIdRef.current = appId
-  }, [appId])
+  }, [appId, setError])
 
   const canApplyMutationResult = useCallback(
     (startedAppId: string) => mountedRef.current && appIdRef.current === startedAppId,
@@ -90,7 +91,7 @@ export function EnvsPage() {
     } finally {
       if (mountedRef.current && requestId === requestSeq.current) setLoading(false)
     }
-  }, [appId])
+  }, [appId, setError])
 
   useEffect(() => {
     mountedRef.current = true
@@ -203,7 +204,7 @@ export function EnvsPage() {
         </Stack>
       </Stack>
 
-      {error && <ErrorState message={error} />}
+      {error.message && <ErrorState message={error.message} eventKey={error.eventKey} />}
 
       <DangerConfirmDialog
         open={Boolean(deleteTarget)}
@@ -259,7 +260,7 @@ export function EnvsPage() {
       {loading ? (
         <LoadingState label="Loading environments" />
       ) : envs.length === 0 ? (
-        error ? null : <EmptyState title="No environments found" description="Create an environment for this app to manage its elements." />
+        error.message ? null : <EmptyState title="No environments found" description="Create an environment for this app to manage its elements." />
       ) : (
         <TableContainer component={Paper}>
           <Table>

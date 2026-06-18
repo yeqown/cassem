@@ -27,6 +27,7 @@ import { Link as RouterLink, useParams } from 'react-router-dom'
 import { AppBreadcrumbs } from '../../components/AppBreadcrumbs'
 import { DangerConfirmDialog } from '../../components/DangerConfirmDialog'
 import { EmptyState, ErrorState, LoadingState } from '../../components/StateView'
+import { useErrorState } from '../../components/useErrorState'
 import { contentTypes, formatVersionLabel, type Element, type ElementsResponse } from '../../domain/types'
 import { ApiError, apiRequest, buildQuery, jsonBody } from '../../lib/api'
 import { ContentEditor } from './ContentEditor'
@@ -54,7 +55,7 @@ export function ElementsPage() {
   const [elements, setElements] = useState<Element[]>([])
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState('')
+  const [error, setError] = useErrorState()
   const [queryInput, setQueryInput] = useState('')
   const [query, setQuery] = useState('')
   const [pageSize, setPageSize] = useState(defaultPageSize)
@@ -122,7 +123,7 @@ export function ElementsPage() {
         }
       }
     },
-    [appId, env],
+    [appId, env, setError],
   )
 
   useEffect(() => {
@@ -282,7 +283,7 @@ export function ElementsPage() {
         </Button>
       </Stack>
 
-      {error && <ErrorState message={error} />}
+      {error.message && <ErrorState message={error.message} eventKey={error.eventKey} />}
 
       <DangerConfirmDialog
         open={Boolean(deleteTarget)}
@@ -365,7 +366,7 @@ export function ElementsPage() {
       {loading ? (
         <LoadingState label="Loading elements" />
       ) : elements.length === 0 ? (
-        error ? null : <EmptyState title="No matching records" description={query ? 'Try a different key search or create a new element.' : 'Add an element to manage versioned configuration.'} />
+        error.message ? null : <EmptyState title="No matching records" description={query ? 'Try a different key search or create a new element.' : 'Add an element to manage versioned configuration.'} />
       ) : (
         <Paper>
           <TableContainer data-testid="elements-table-scroll" sx={{ maxHeight: 560, overflowY: 'auto' }}>

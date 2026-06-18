@@ -13,20 +13,21 @@ export function LoadingState({ label = 'Loading' }: { label?: string }) {
   )
 }
 
-export function ErrorState({ message }: { message: string }) {
+export function ErrorState({ message, eventKey }: { message: string; eventKey?: string | number }) {
   const { showToast } = useToast()
   const normalizedMessage = message.trim()
+  const dedupeKey = eventKey === undefined ? normalizedMessage : `${String(eventKey)}:${normalizedMessage}`
 
   useEffect(() => {
-    if (!normalizedMessage || recentlyEmittedMessages.has(normalizedMessage)) return
+    if (!normalizedMessage || recentlyEmittedMessages.has(dedupeKey)) return
 
-    recentlyEmittedMessages.add(normalizedMessage)
+    recentlyEmittedMessages.add(dedupeKey)
     showToast(normalizedMessage, 'error')
 
     setTimeout(() => {
-      recentlyEmittedMessages.delete(normalizedMessage)
+      recentlyEmittedMessages.delete(dedupeKey)
     }, 0)
-  }, [normalizedMessage, showToast])
+  }, [dedupeKey, normalizedMessage, showToast])
 
   return null
 }

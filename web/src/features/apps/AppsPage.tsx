@@ -27,6 +27,7 @@ import { Link as RouterLink } from 'react-router-dom'
 import { AppBreadcrumbs } from '../../components/AppBreadcrumbs'
 import { DangerConfirmDialog } from '../../components/DangerConfirmDialog'
 import { EmptyState, ErrorState, LoadingState } from '../../components/StateView'
+import { useErrorState } from '../../components/useErrorState'
 import type { AppMetadata, AppsResponse } from '../../domain/types'
 import { ApiError, apiRequest, buildQuery, jsonBody } from '../../lib/api'
 
@@ -49,7 +50,7 @@ export function AppsPage() {
   const [apps, setApps] = useState<AppMetadata[]>([])
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState('')
+  const [error, setError] = useErrorState()
   const [createOpen, setCreateOpen] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<AppMetadata | null>(null)
   const [appId, setAppId] = useState('')
@@ -85,7 +86,7 @@ export function AppsPage() {
     } finally {
       if (mountedRef.current && requestId === requestSeq.current) setLoading(false)
     }
-  }, [pageSize, query, seek])
+  }, [pageSize, query, seek, setError])
 
   useEffect(() => {
     mountedRef.current = true
@@ -218,7 +219,7 @@ export function AppsPage() {
         </Button>
       </Stack>
 
-      {error && <ErrorState message={error} />}
+      {error.message && <ErrorState message={error.message} eventKey={error.eventKey} />}
 
       <Stack component="form" onSubmit={handleSearch} direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems={{ md: 'center' }}>
         <TextField
@@ -297,7 +298,7 @@ export function AppsPage() {
       {loading ? (
         <LoadingState label="Loading apps" />
       ) : apps.length === 0 ? (
-        error ? null : <EmptyState title="No apps found" description="Create an app to start organizing environments and elements." />
+        error.message ? null : <EmptyState title="No apps found" description="Create an app to start organizing environments and elements." />
       ) : (
         <Paper>
           <TableContainer>

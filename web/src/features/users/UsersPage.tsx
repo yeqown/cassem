@@ -35,6 +35,7 @@ import {
 } from '@mui/material'
 import { DangerConfirmDialog } from '../../components/DangerConfirmDialog'
 import { EmptyState, ErrorState, LoadingState } from '../../components/StateView'
+import { useErrorState } from '../../components/useErrorState'
 import { useToast } from '../../components/ToastProvider'
 import type { DomainOptionsResponse, RoleValue, User, UserAccessBinding, UserAccessResponse, UsersResponse } from '../../domain/types'
 import { ApiError, apiRequest, buildQuery, jsonBody } from '../../lib/api'
@@ -97,7 +98,7 @@ export function UsersPage() {
   const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState('')
+  const [error, setError] = useErrorState()
   const [createOpen, setCreateOpen] = useState(false)
   const [createForm, setCreateForm] = useState<CreateFormState>({ account: '', nickname: '', password: '' })
   const [disableTarget, setDisableTarget] = useState<User | null>(null)
@@ -142,7 +143,7 @@ export function UsersPage() {
     } finally {
       if (mountedRef.current && requestId === requestSeq.current) setLoading(false)
     }
-  }, [])
+  }, [setError])
 
   const loadDomainOptions = useCallback(async () => {
     try {
@@ -153,7 +154,7 @@ export function UsersPage() {
       if (!mountedRef.current) return
       setError(getErrorMessage(err, 'failed to load ACL domains'))
     }
-  }, [])
+  }, [setError])
 
   useEffect(() => {
     mountedRef.current = true
@@ -356,7 +357,7 @@ export function UsersPage() {
         </Button>
       </Stack>
 
-      {error && <ErrorState message={error} />}
+      {error.message && <ErrorState message={error.message} eventKey={error.eventKey} />}
 
       <DangerConfirmDialog
         open={Boolean(disableTarget)}
@@ -541,7 +542,7 @@ export function UsersPage() {
 
       {loading ? (
         <LoadingState label="Loading users" />
-      ) : error ? null : users.length === 0 ? (
+      ) : error.message ? null : users.length === 0 ? (
         <EmptyState title="No users found" description="Add a user to start managing account access." />
       ) : (
         <TableContainer component={Paper}>
