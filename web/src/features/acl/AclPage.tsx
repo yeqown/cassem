@@ -1,12 +1,8 @@
 import { useMemo, useState, type FormEvent } from 'react'
-import { Alert, Box, Button, MenuItem, Paper, Stack, TextField, Typography } from '@mui/material'
+import { Box, Button, MenuItem, Paper, Stack, TextField, Typography } from '@mui/material'
+import { useToast } from '../../components/ToastProvider'
 import { roleOptions, type RoleValue } from '../../domain/types'
 import { ApiError, apiRequest, buildQuery } from '../../lib/api'
-
-type Feedback = {
-  severity: 'success' | 'error'
-  message: string
-}
 
 type AclFormState = {
   account: string
@@ -26,9 +22,9 @@ function parseDomains(input: string) {
 }
 
 export function AclPage() {
+  const { showToast } = useToast()
   const [form, setForm] = useState<AclFormState>({ account: '', role: 'appdeveloper', domains: '' })
   const [submitting, setSubmitting] = useState(false)
-  const [feedback, setFeedback] = useState<Feedback | null>(null)
 
   const account = form.account.trim()
   const domains = useMemo(() => parseDomains(form.domains), [form.domains])
@@ -37,27 +33,16 @@ export function AclPage() {
     setForm((current) => ({ ...current, [field]: value }))
   }
 
-  function clearFeedback() {
-    setFeedback(null)
-  }
-
   async function submitAclAction(action: 'assign' | 'revoke') {
     if (!account) return
 
     setSubmitting(true)
-    clearFeedback()
 
     try {
       await apiRequest<void>(`/api/account/acl/${action}${buildQuery({ account, role: form.role, domain: domains.length ? domains : undefined })}`)
-      setFeedback({
-        severity: 'success',
-        message: action === 'assign' ? 'Role assigned successfully.' : 'Role revoked successfully.',
-      })
+      showToast(action === 'assign' ? 'Role assigned successfully.' : 'Role revoked successfully.', 'success')
     } catch (error) {
-      setFeedback({
-        severity: 'error',
-        message: getErrorMessage(error, action === 'assign' ? 'Failed to assign role.' : 'Failed to revoke role.'),
-      })
+      showToast(getErrorMessage(error, action === 'assign' ? 'Failed to assign role.' : 'Failed to revoke role.'), 'error')
     } finally {
       setSubmitting(false)
     }
@@ -77,8 +62,6 @@ export function AclPage() {
           Assign or revoke fixed backend roles. Leave domains empty to use the backend default cluster domain.
         </Typography>
       </Box>
-
-      {feedback && <Alert severity={feedback.severity}>{feedback.message}</Alert>}
 
       <Paper component="form" onSubmit={handleSubmit} sx={{ p: 3 }}>
         <Stack spacing={2}>

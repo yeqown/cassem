@@ -14,7 +14,7 @@ type ContentViewerProps = {
   showLabel?: boolean
 }
 
-export function ContentViewer({ value, contentType, ariaLabel = 'Content preview', bordered = true, codeTheme = 'github-light-plus', lineWrapping = true, minRows = 7, showLabel = true }: ContentViewerProps) {
+export function ContentViewer({ value, contentType, ariaLabel = 'Content preview', bordered = true, codeTheme = 'github-light-plus', lineWrapping = true, minRows = 7, showLabel = false }: ContentViewerProps) {
   const minHeight = `${minRows * 24}px`
 
   return (
@@ -33,6 +33,7 @@ export function ContentViewer({ value, contentType, ariaLabel = 'Content preview
           value={value || '-'}
           minHeight={minHeight}
           basicSetup={{ lineNumbers: true, foldGutter: true, highlightActiveLine: false, highlightActiveLineGutter: false }}
+          theme="none"
           editable={false}
           readOnly
           extensions={getContentExtensions(contentType, codeTheme, lineWrapping)}

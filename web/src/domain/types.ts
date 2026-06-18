@@ -99,12 +99,6 @@ export type RetentionPolicy = {
   operationPolicy: string
 }
 
-export type DiffResponse = {
-  base?: Element
-  compare?: Element
-  diff: string
-}
-
 export type HealthState = 'healthy' | 'unhealthy' | 'offline'
 
 export type AgentNode = {

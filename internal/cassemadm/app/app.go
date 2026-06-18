@@ -163,8 +163,7 @@ func (d app) initialHTTP(engi *gin.Engine) {
 				elt.DELETE("/:key", d.DeleteAppEnvElement)
 
 				elt.GET("/:key/versions", d.GetAppEnvElementAllVersions)
-				elt.GET("/:key/diff", d.DiffAppEnvElement)
-				elt.POST("/:key/rollback", d.RollbackAppEnvElement)
+								elt.POST("/:key/rollback", d.RollbackAppEnvElement)
 				elt.POST("/:key/publish", d.PublishAppEnvElement)
 				elt.GET("/:key/operations", d.GetAppEnvElementOperations)
 			}

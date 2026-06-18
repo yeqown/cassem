@@ -1,26 +1,26 @@
 import { useState, type FormEvent } from 'react'
-import { Alert, Box, Button, Paper, Stack, TextField, Typography } from '@mui/material'
+import { Box, Button, Paper, Stack, TextField, Typography } from '@mui/material'
 import { useLocation } from 'react-router-dom'
 import { useAuth } from '../../auth/AuthProvider'
+import { useToast } from '../../components/ToastProvider'
 import { ApiError } from '../../lib/api'
 import { assetUrl } from '../../lib/assets'
 
 export function LoginPage() {
   const { login } = useAuth()
+  const { showToast } = useToast()
   const location = useLocation()
   const state = location.state as { from?: unknown } | null
   const redirectTo = typeof state?.from === 'string' && state.from.trim() ? state.from : '/dashboard'
   const [account, setAccount] = useState('')
   const [password, setPassword] = useState('')
-  const [error, setError] = useState('')
 
   async function submit(event: FormEvent) {
     event.preventDefault()
-    setError('')
     try {
       await login(account, password, redirectTo)
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'login failed')
+      showToast(err instanceof ApiError ? err.message : 'login failed', 'error')
     }
   }
 
@@ -69,7 +69,6 @@ export function LoginPage() {
               <Typography color="text.secondary">Sign in with a cassemadm account.</Typography>
             </Box>
           </Stack>
-          {error && <Alert severity="error">{error}</Alert>}
           <TextField
             label="Account"
             type="email"

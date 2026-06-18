@@ -230,9 +230,13 @@ func (b *boltRepoImpl) Range(key string, seek string, limit int) (*RangeResult, 
 	err = b.db.View(func(tx *bolt.Tx) error {
 		bucket, leaf, err2 := b.locateBucket(tx, key, false)
 		if err2 != nil {
-			return fmt.Errorf("range.locateBucket: %w", err2)
+			if !errors.Is(err2, ErrNoParentBucket) {
+				return fmt.Errorf("range.locateBucket: %w", err2)
+			}
+			bucket = tx.Bucket(runtime.ToBytes(key))
+		} else {
+			bucket = bucket.Bucket(runtime.ToBytes(leaf))
 		}
-		bucket = bucket.Bucket(runtime.ToBytes(leaf))
 		if bucket == nil {
 			return fmt.Errorf("range.locateLeafBuck: %w", ErrNoSuchBucket)
 		}
@@ -254,7 +258,7 @@ func (b *boltRepoImpl) Range(key string, seek string, limit int) (*RangeResult, 
 
 		for ; k != nil && count < limit; k, v = cur.Next() {
 			entity := &apicassemdb.Entity{
-				Key: runtime.ToString(k),
+				Key: path.Join(key, runtime.ToString(k)),
 			}
 			if v != nil {
 				apicassemdb.MustUnmarshal(v, entity)

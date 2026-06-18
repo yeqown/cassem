@@ -296,8 +296,8 @@ export function AppsPage() {
 
       {loading ? (
         <LoadingState label="Loading apps" />
-      ) : error ? null : apps.length === 0 ? (
-        <EmptyState title="No apps found" description="Create an app to start organizing environments and elements." />
+      ) : apps.length === 0 ? (
+        error ? null : <EmptyState title="No apps found" description="Create an app to start organizing environments and elements." />
       ) : (
         <Paper>
           <TableContainer>

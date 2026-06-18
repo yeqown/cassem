@@ -258,8 +258,8 @@ export function EnvsPage() {
 
       {loading ? (
         <LoadingState label="Loading environments" />
-      ) : error ? null : envs.length === 0 ? (
-        <EmptyState title="No environments found" description="Create an environment for this app to manage its elements." />
+      ) : envs.length === 0 ? (
+        error ? null : <EmptyState title="No environments found" description="Create an environment for this app to manage its elements." />
       ) : (
         <TableContainer component={Paper}>
           <Table>

@@ -355,8 +355,8 @@ export function ElementsPage() {
 
       {loading ? (
         <LoadingState label="Loading elements" />
-      ) : error ? null : elements.length === 0 ? (
-        <EmptyState title="No matching records" description={query ? 'Try a different key search or create a new element.' : 'Add an element to manage versioned configuration.'} />
+      ) : elements.length === 0 ? (
+        error ? null : <EmptyState title="No matching records" description={query ? 'Try a different key search or create a new element.' : 'Add an element to manage versioned configuration.'} />
       ) : (
         <Paper>
           <TableContainer data-testid="elements-table-scroll" sx={{ maxHeight: 560, overflowY: 'auto' }}>

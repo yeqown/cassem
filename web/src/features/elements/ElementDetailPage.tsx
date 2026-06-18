@@ -41,7 +41,7 @@ import { Link as RouterLink, useParams } from 'react-router-dom'
 import { AppBreadcrumbs } from '../../components/AppBreadcrumbs'
 import { DiffViewer } from '../../components/DiffViewer'
 import { EmptyState, ErrorState, LoadingState } from '../../components/StateView'
-import { formatVersionLabel, type DiffResponse, type Element, type ElementOperation, type ElementOperationsResponse, type ElementsResponse, type RetentionPolicy } from '../../domain/types'
+import { formatVersionLabel, type Element, type ElementOperation, type ElementOperationsResponse, type ElementsResponse, type RetentionPolicy } from '../../domain/types'
 import { ApiError, apiRequest, buildQuery, jsonBody } from '../../lib/api'
 import { decodeRaw } from '../../lib/raw'
 import { readSettings } from '../../lib/settings'
@@ -110,7 +110,6 @@ export function ElementDetailPage() {
   const [retentionPolicy, setRetentionPolicy] = useState<RetentionPolicy | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [diffLoading, setDiffLoading] = useState(false)
   const [diffLoaded, setDiffLoaded] = useState(false)
   const [error, setError] = useState('')
   const [tab, setTab] = useState(0)
@@ -121,9 +120,8 @@ export function ElementDetailPage() {
   const [previewVersion, setPreviewVersion] = useState<Element | null>(null)
   const [diffBase, setDiffBase] = useState('')
   const [diffCompare, setDiffCompare] = useState('')
-  const [diffText, setDiffText] = useState('')
+  const [diffPair, setDiffPair] = useState<{ base: Element; compare: Element } | null>(null)
   const requestSeq = useRef(0)
-  const diffRequestSeq = useRef(0)
   const mountedRef = useRef(false)
   const lastLoadKeyRef = useRef('')
   const locationRef = useRef({ appId, env, key })
@@ -184,7 +182,7 @@ export function ElementDetailPage() {
       setPreviewVersion(null)
       setDiffBase(versionOptions[0] ? String(versionOptions[0]) : '')
       setDiffCompare(versionOptions.length > 1 ? String(versionOptions[versionOptions.length - 1]) : '')
-      setDiffText('')
+      setDiffPair(null)
       setDiffLoaded(false)
       setError('')
       void requestRetentionPolicy()
@@ -204,7 +202,7 @@ export function ElementDetailPage() {
       setEditRaw('')
       setNewVersionOpen(false)
       setPreviewVersion(null)
-      setDiffText('')
+      setDiffPair(null)
       setDiffLoaded(false)
       setError(getErrorMessage(err, 'failed to load element detail'))
     } finally {
@@ -269,39 +267,25 @@ export function ElementDetailPage() {
     }
   }
 
-  async function handleLoadDiff() {
-    const startedAppId = appId
-    const startedEnv = env
-    const startedKey = key
-    const base = diffBase.trim()
-    const compare = diffCompare.trim()
-    const requestId = ++diffRequestSeq.current
+  function handleLoadDiff() {
+    const base = Number(diffBase.trim())
+    const compare = Number(diffCompare.trim())
 
-    if (!startedAppId || !startedEnv || !startedKey || !base || !compare) return
+    if (!Number.isFinite(base) || !Number.isFinite(compare) || base <= 0 || compare <= 0) return
 
-    setDiffLoading(true)
-    setDiffLoaded(false)
-    setError('')
+    const baseElement = versions.find((version) => version.version === base)
+    const compareElement = versions.find((version) => version.version === compare)
 
-    try {
-      const data = await apiRequest<DiffResponse>(
-        `/api/apps/${encodeURIComponent(startedAppId)}/envs/${encodeURIComponent(startedEnv)}/elements/${encodeURIComponent(startedKey)}/diff${buildQuery({ base, compare })}`,
-      )
-
-      if (!mountedRef.current || requestId !== diffRequestSeq.current) return
-      if (!canApplyMutationResult(startedAppId, startedEnv, startedKey)) return
-
-      setDiffText(data.diff || '')
-      setDiffLoaded(true)
-    } catch (err) {
-      if (mountedRef.current && requestId === diffRequestSeq.current && canApplyMutationResult(startedAppId, startedEnv, startedKey)) {
-        setDiffText('')
-        setDiffLoaded(false)
-        setError(getErrorMessage(err, 'failed to load diff'))
-      }
-    } finally {
-      if (mountedRef.current && requestId === diffRequestSeq.current) setDiffLoading(false)
+    if (!baseElement || !compareElement) {
+      setDiffPair(null)
+      setDiffLoaded(false)
+      setError('selected versions are not available in the loaded version list')
+      return
     }
+
+    setDiffPair({ base: baseElement, compare: compareElement })
+    setDiffLoaded(true)
+    setError('')
   }
 
   const metadata = element?.metadata
@@ -476,14 +460,17 @@ export function ElementDetailPage() {
                       ))}
                     </Select>
                   </FormControl>
-                  <Button variant="outlined" startIcon={<CompareArrowsIcon />} onClick={() => void handleLoadDiff()} disabled={diffLoading || !diffBase.trim() || !diffCompare.trim()} sx={{ minWidth: 140, whiteSpace: 'nowrap', alignSelf: { md: 'center' } }}>
+                  <Button variant="outlined" startIcon={<CompareArrowsIcon />} onClick={handleLoadDiff} disabled={!diffBase.trim() || !diffCompare.trim()} sx={{ minWidth: 140, whiteSpace: 'nowrap', alignSelf: { md: 'center' } }}>
                     Show diff
                   </Button>
                 </Stack>
-                {diffLoading ? (
-                  <LoadingState label="Loading diff" />
-                ) : diffLoaded ? (
-                  <DiffViewer value={diffText} baseLabel={`Base v${diffBase}`} compareLabel={`Compare v${diffCompare}`} />
+                {diffLoaded && diffPair ? (
+                  <DiffViewer
+                    oldValue={decodeRaw(diffPair.base.raw)}
+                    newValue={decodeRaw(diffPair.compare.raw)}
+                    baseLabel={`Base v${diffBase}`}
+                    compareLabel={`Compare v${diffCompare}`}
+                  />
                 ) : (
                   <Typography color="text.secondary">Select two versions to compare.</Typography>
                 )}

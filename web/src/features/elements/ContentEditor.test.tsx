@@ -15,12 +15,16 @@ describe('ContentEditor', () => {
     expect(editor.querySelector('.cm-lineNumbers')).not.toBeNull()
   })
 
-  it('uses the selected code theme', () => {
+  it('uses the selected code theme for the editor background', () => {
     const onChange = vi.fn()
 
     render(<ContentEditor value={'{"enabled":true}'} contentType={1} disabled={false} codeTheme="one-dark" onChange={onChange} />)
 
-    expect(screen.getByTestId('content-editor')).toHaveAttribute('data-code-theme', 'one-dark')
+    const container = screen.getByTestId('content-editor')
+    const editor = container.querySelector('.cm-editor')
+    expect(container).toHaveAttribute('data-code-theme', 'one-dark')
+    expect(editor).not.toBeNull()
+    expect(getComputedStyle(editor as Element).backgroundColor).toBe('rgb(40, 44, 52)')
   })
 
   it('can disable line wrapping', () => {

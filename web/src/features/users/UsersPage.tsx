@@ -10,7 +10,6 @@ import PersonAddAlt1Icon from '@mui/icons-material/PersonAddAlt1'
 import PersonIcon from '@mui/icons-material/Person'
 import SecurityIcon from '@mui/icons-material/Security'
 import {
-  Alert,
   Box,
   Button,
   Chip,
@@ -36,14 +35,10 @@ import {
 } from '@mui/material'
 import { DangerConfirmDialog } from '../../components/DangerConfirmDialog'
 import { EmptyState, ErrorState, LoadingState } from '../../components/StateView'
+import { useToast } from '../../components/ToastProvider'
 import type { DomainOptionsResponse, RoleValue, User, UserAccessBinding, UserAccessResponse, UsersResponse } from '../../domain/types'
 import { ApiError, apiRequest, buildQuery, jsonBody } from '../../lib/api'
 import { roleOptions } from '../../domain/types'
-
-type Feedback = {
-  severity: 'success' | 'error'
-  message: string
-}
 
 type CreateFormState = {
   account: string
@@ -98,11 +93,11 @@ function buildDomain(scopeMode: ScopeMode, app: string, env: string) {
 }
 
 export function UsersPage() {
+  const { showToast } = useToast()
   const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
-  const [feedback, setFeedback] = useState<Feedback | null>(null)
   const [createOpen, setCreateOpen] = useState(false)
   const [createForm, setCreateForm] = useState<CreateFormState>({ account: '', nickname: '', password: '' })
   const [disableTarget, setDisableTarget] = useState<User | null>(null)
@@ -217,17 +212,16 @@ export function UsersPage() {
     if (!account || !nickname || !password.trim()) return
 
     setSubmitting(true)
-    setFeedback(null)
     setError('')
 
     try {
       await apiRequest<void>('/api/account/add', jsonBody({ account, password, nickname }))
       setCreateOpen(false)
       setCreateForm({ account: '', nickname: '', password: '' })
-      setFeedback({ severity: 'success', message: 'User added successfully.' })
+      showToast('User added successfully.', 'success')
       await loadUsers()
     } catch (err) {
-      setFeedback({ severity: 'error', message: getErrorMessage(err, 'Failed to add user.') })
+      showToast(getErrorMessage(err, 'Failed to add user.'), 'error')
     } finally {
       setSubmitting(false)
     }
@@ -238,16 +232,15 @@ export function UsersPage() {
     if (!account) return
 
     setSubmitting(true)
-    setFeedback(null)
     setError('')
 
     try {
       await apiRequest<void>(`/api/account/disable${buildQuery({ account })}`)
       setDisableTarget(null)
-      setFeedback({ severity: 'success', message: 'User disabled successfully.' })
+      showToast('User disabled successfully.', 'success')
       await loadUsers()
     } catch (err) {
-      setFeedback({ severity: 'error', message: getErrorMessage(err, 'Failed to disable user.') })
+      showToast(getErrorMessage(err, 'Failed to disable user.'), 'error')
     } finally {
       setSubmitting(false)
     }
@@ -260,17 +253,16 @@ export function UsersPage() {
     if (!account || !resetPassword.trim()) return
 
     setSubmitting(true)
-    setFeedback(null)
     setError('')
 
     try {
       await apiRequest<void>('/api/account/reset', jsonBody({ account, password: resetPassword }))
       setResetTarget(null)
       setResetPassword('')
-      setFeedback({ severity: 'success', message: 'Password reset successfully.' })
+      showToast('Password reset successfully.', 'success')
       await loadUsers()
     } catch (err) {
-      setFeedback({ severity: 'error', message: getErrorMessage(err, 'Failed to reset password.') })
+      showToast(getErrorMessage(err, 'Failed to reset password.'), 'error')
     } finally {
       setSubmitting(false)
     }
@@ -293,6 +285,20 @@ export function UsersPage() {
     }
   }
 
+  async function refreshAccessBindings(account: string) {
+    try {
+      const data = await requestUserAccess(account)
+      if (!mountedRef.current) return false
+      setAccessBindings(data.bindings || [])
+      return true
+    } catch (err) {
+      if (mountedRef.current) {
+        showToast(getErrorMessage(err, 'Failed to refresh access bindings.'), 'error')
+      }
+      return false
+    }
+  }
+
   async function handleAddBinding() {
     const account = accessTarget?.account
     if (!account) return
@@ -302,17 +308,14 @@ export function UsersPage() {
     const domain = buildDomain(scopeMode, selectedApp, selectedEnv)
 
     setSubmitting(true)
-    setFeedback(null)
     setError('')
     try {
       await apiRequest<void>(`/api/account/acl/assign${buildQuery({ account, role: roleValue, domain })}`)
-      const data = await requestUserAccess(account)
-      if (!mountedRef.current) return
-      setAccessBindings(data.bindings || [])
-      setFeedback({ severity: 'success', message: 'Role assigned successfully.' })
-      await loadUsers()
+      showToast('Role assigned successfully.', 'success')
+      await refreshAccessBindings(account)
+      void loadUsers()
     } catch (err) {
-      setFeedback({ severity: 'error', message: getErrorMessage(err, 'Failed to assign role.') })
+      showToast(getErrorMessage(err, 'Failed to assign role.'), 'error')
     } finally {
       if (mountedRef.current) setSubmitting(false)
     }
@@ -323,17 +326,14 @@ export function UsersPage() {
     if (!account) return
 
     setSubmitting(true)
-    setFeedback(null)
     setError('')
     try {
       await apiRequest<void>(`/api/account/acl/revoke${buildQuery({ account, role: binding.role, domain: binding.domain })}`)
-      const data = await requestUserAccess(account)
-      if (!mountedRef.current) return
-      setAccessBindings(data.bindings || [])
-      setFeedback({ severity: 'success', message: 'Role revoked successfully.' })
-      await loadUsers()
+      showToast('Role revoked successfully.', 'success')
+      await refreshAccessBindings(account)
+      void loadUsers()
     } catch (err) {
-      setFeedback({ severity: 'error', message: getErrorMessage(err, 'Failed to revoke role.') })
+      showToast(getErrorMessage(err, 'Failed to revoke role.'), 'error')
     } finally {
       if (mountedRef.current) setSubmitting(false)
     }
@@ -356,7 +356,6 @@ export function UsersPage() {
         </Button>
       </Stack>
 
-      {feedback && <Alert severity={feedback.severity}>{feedback.message}</Alert>}
       {error && <ErrorState message={error} />}
 
       <DangerConfirmDialog

@@ -170,6 +170,16 @@ func (s *testRepositoryBBoltSuite) Test_Snapshot_Recover() {
 	s.Equal(ErrNotFound, err)
 }
 
+func (s *testRepositoryBBoltSuite) Test_RangeTopLevelBucket() {
+	err := s.repo.SetKV("top/child", nil, true)
+	s.Require().NoError(err)
+
+	result, err := s.repo.Range("top", "", 10)
+	s.Require().NoError(err)
+	s.Require().Len(result.Items, 1)
+	s.Equal("top/child", result.Items[0].GetKey())
+}
+
 func (s *testRepositoryBBoltSuite) Test_Range() {
 	err := s.repo.UnsetKV("range/dir", true)
 	s.Require().NoError(err)
@@ -193,6 +203,7 @@ func (s *testRepositoryBBoltSuite) Test_Range() {
 	s.Require().NoError(err)
 	s.T().Logf("%+v", result)
 	s.Require().Equal(6, len(result.Items))
+	s.Require().Equal("range/dir/0", result.Items[0].GetKey())
 	s.Require().True(result.HasMore)
 	s.Require().NotEmpty(result.NextSeekKey)
 	s.Require().Equal("6", result.NextSeekKey)

@@ -80,8 +80,7 @@ var defMapping = map[string]objectDef{
 	"DELETE/api/apps/:appId/envs/:env/elements/:key": {object: concept.Object_ELEMENT, act: concept.Action_DELETE},
 
 	"GET/api/apps/:appId/envs/:env/elements/:key/versions":   {object: concept.Object_ELEMENT, act: concept.Action_READ},
-	"GET/api/apps/:appId/envs/:env/elements/:key/diff":       {object: concept.Object_ELEMENT, act: concept.Action_READ},
-	"GET/api/apps/:appId/envs/:env/elements/:key/operations": {object: concept.Object_ELEMENT, act: concept.Action_READ},
+		"GET/api/apps/:appId/envs/:env/elements/:key/operations": {object: concept.Object_ELEMENT, act: concept.Action_READ},
 	"POST/api/apps/:appId/envs/:env/elements/:key/rollback":  {object: concept.Object_ELEMENT, act: concept.Action_PUBLISH},
 	"POST/api/apps/:appId/envs/:env/elements/:key/publish":   {object: concept.Object_ELEMENT, act: concept.Action_PUBLISH},
 

@@ -1,4 +1,8 @@
-import { Alert, Box, CircularProgress, Typography } from '@mui/material'
+import { useEffect } from 'react'
+import { Box, CircularProgress, Typography } from '@mui/material'
+import { useToast } from './ToastProvider'
+
+const recentlyEmittedMessages = new Set<string>()
 
 export function LoadingState({ label = 'Loading' }: { label?: string }) {
   return (
@@ -10,11 +14,21 @@ export function LoadingState({ label = 'Loading' }: { label?: string }) {
 }
 
 export function ErrorState({ message }: { message: string }) {
-  return (
-    <Alert severity="error" sx={{ my: 2 }}>
-      {message}
-    </Alert>
-  )
+  const { showToast } = useToast()
+  const normalizedMessage = message.trim()
+
+  useEffect(() => {
+    if (!normalizedMessage || recentlyEmittedMessages.has(normalizedMessage)) return
+
+    recentlyEmittedMessages.add(normalizedMessage)
+    showToast(normalizedMessage, 'error')
+
+    setTimeout(() => {
+      recentlyEmittedMessages.delete(normalizedMessage)
+    }, 0)
+  }, [normalizedMessage, showToast])
+
+  return null
 }
 
 export function EmptyState({ title, description }: { title: string; description?: string }) {

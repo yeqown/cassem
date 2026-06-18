@@ -6,22 +6,30 @@ export type VersionOption = {
   label: string
   version: number
   published: boolean
+  element: Element
 }
 
 function uniqueStrings(values: string[]) {
   return Array.from(new Set(values.filter(Boolean)))
 }
 
+export function toVersionOption(element: Element) {
+  if (typeof element.version !== 'number' || !Number.isFinite(element.version) || element.version <= 0) return null
+
+  return {
+    value: String(element.version),
+    label: `v${element.version} ${element.published ? 'published' : 'draft'}`,
+    version: element.version,
+    published: Boolean(element.published),
+    element,
+  }
+}
+
 export function toVersionOptions(elements: Element[]) {
   return elements
     .flatMap((element) => {
-      if (typeof element.version !== 'number' || !Number.isFinite(element.version) || element.version <= 0) return []
-      return [{
-        value: String(element.version),
-        label: `v${element.version} ${element.published ? 'published' : 'draft'}`,
-        version: element.version,
-        published: Boolean(element.published),
-      }]
+      const option = toVersionOption(element)
+      return option ? [option] : []
     })
     .sort((left, right) => right.version - left.version)
 }
@@ -41,6 +49,20 @@ export async function requestVersionOptions(appId: string, env: string, key: str
   )
   const elements = data.elements || []
   return { options: toVersionOptions(elements), usingVersion: getUsingVersion(elements) }
+}
+
+export async function requestElement(appId: string, env: string, key: string) {
+  return apiRequest<Element>(`/api/apps/${encodeURIComponent(appId)}/envs/${encodeURIComponent(env)}/elements/${encodeURIComponent(key)}`)
+}
+
+export async function requestElementVersion(appId: string, env: string, key: string, version: number) {
+  return apiRequest<Element>(
+    `/api/apps/${encodeURIComponent(appId)}/envs/${encodeURIComponent(env)}/elements/${encodeURIComponent(key)}${buildQuery({ version })}`,
+  )
+}
+
+export async function requestComparisonElement(appId: string, env: string, key: string, version: number) {
+  return requestElementVersion(appId, env, key, version)
 }
 
 export async function requestAgentIdOptions() {

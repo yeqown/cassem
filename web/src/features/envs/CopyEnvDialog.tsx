@@ -3,7 +3,6 @@ import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline'
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline'
 import WarningAmberIcon from '@mui/icons-material/WarningAmber'
 import {
-  Alert,
   Box,
   Button,
   Checkbox,
@@ -42,6 +41,7 @@ import {
   Typography,
 } from '@mui/material'
 import { useNavigate } from 'react-router-dom'
+import { useToast } from '../../components/ToastProvider'
 import { contentTypes, type Element, type ElementsResponse } from '../../domain/types'
 import { ApiError, apiRequest, buildQuery, jsonBody } from '../../lib/api'
 import { decodeRaw } from '../../lib/raw'
@@ -119,6 +119,18 @@ async function requestElement(appId: string, env: string, key: string) {
   return apiRequest<Element>(`/api/apps/${encodeURIComponent(appId)}/envs/${encodeURIComponent(env)}/elements/${encodeURIComponent(key)}`)
 }
 
+function normalizeContentType(contentType: Element['metadata']['contentType']) {
+  if (typeof contentType === 'number') return contentType
+
+  if (typeof contentType === 'string') {
+    const matched = contentTypes.find((option) => option.label === contentType.toUpperCase())
+    if (matched) return matched.value
+    return contentType
+  }
+
+  return contentTypes[0].value
+}
+
 async function createEnv(appId: string, env: string) {
   return apiRequest<void>(`/api/apps/${encodeURIComponent(appId)}/envs/${encodeURIComponent(env)}`, { method: 'POST' })
 }
@@ -126,7 +138,7 @@ async function createEnv(appId: string, env: string) {
 async function createElement(appId: string, env: string, key: string, element: Element) {
   return apiRequest<void>(
     `/api/apps/${encodeURIComponent(appId)}/envs/${encodeURIComponent(env)}/elements/${encodeURIComponent(key)}`,
-    jsonBody({ raw: decodeRaw(element.raw || ''), contentType: element.metadata.contentType || contentTypes[0].value }),
+    jsonBody({ raw: decodeRaw(element.raw || ''), contentType: normalizeContentType(element.metadata.contentType) }),
   )
 }
 
@@ -181,6 +193,7 @@ function CopyResultState({ status }: { status: CopyResultStatus }) {
 
 export function CopyEnvDialog({ open, appId, envs, onClose, onBusyChange, onFinished }: CopyEnvDialogProps) {
   const navigate = useNavigate()
+  const { showToast } = useToast()
   const [step, setStep] = useState<CopyStep>('create')
   const [sourceEnv, setSourceEnv] = useState('')
   const [targetEnv, setTargetEnv] = useState('')
@@ -196,6 +209,10 @@ export function CopyEnvDialog({ open, appId, envs, onClose, onBusyChange, onFini
   const loadSeq = useRef(0)
   const mountedRef = useRef(false)
   const openRef = useRef(open)
+  const lastTargetErrorRef = useRef('')
+  const lastLoadErrorRef = useRef('')
+  const lastZeroCopyErrorRef = useRef('')
+  const lastCopyErrorRef = useRef('')
 
   const selectedElements = useMemo(() => {
     return elements.filter((element) => selectedKeys.has(getElementKey(element)))
@@ -300,6 +317,46 @@ export function CopyEnvDialog({ open, appId, envs, onClose, onBusyChange, onFini
         if (isActive() && requestId === loadSeq.current) setLoadingElements(false)
       })
   }, [appId, isActive, loadResetState, open, sourceEnv])
+
+  useEffect(() => {
+    if (!targetError) {
+      lastTargetErrorRef.current = ''
+      return
+    }
+    if (lastTargetErrorRef.current === targetError) return
+    lastTargetErrorRef.current = targetError
+    showToast(targetError, 'warning')
+  }, [showToast, targetError])
+
+  useEffect(() => {
+    if (!loadError) {
+      lastLoadErrorRef.current = ''
+      return
+    }
+    if (lastLoadErrorRef.current === loadError) return
+    lastLoadErrorRef.current = loadError
+    showToast(loadError, 'error')
+  }, [loadError, showToast])
+
+  useEffect(() => {
+    if (!zeroCopyError) {
+      lastZeroCopyErrorRef.current = ''
+      return
+    }
+    if (lastZeroCopyErrorRef.current === zeroCopyError) return
+    lastZeroCopyErrorRef.current = zeroCopyError
+    showToast(zeroCopyError, 'warning')
+  }, [showToast, zeroCopyError])
+
+  useEffect(() => {
+    if (!copyError) {
+      lastCopyErrorRef.current = ''
+      return
+    }
+    if (lastCopyErrorRef.current === copyError) return
+    lastCopyErrorRef.current = copyError
+    showToast(copyError, 'error')
+  }, [copyError, showToast])
 
   function handleClose() {
     if (copying) return
@@ -477,7 +534,6 @@ export function CopyEnvDialog({ open, appId, envs, onClose, onBusyChange, onFini
               </FormControl>
 
               {loadingElements && <LinearProgress aria-label="Loading source elements" />}
-              {loadError && <Alert severity="error">{loadError}</Alert>}
 
               {sourceEnv && !loadingElements && !loadError && (
                 <Paper variant="outlined">
@@ -559,13 +615,11 @@ export function CopyEnvDialog({ open, appId, envs, onClose, onBusyChange, onFini
                       <Typography data-testid="copy-summary-estimated-copy-value" color={estimatedCopyCount === 0 ? 'error.main' : 'text.primary'}>{estimatedCopyCount}</Typography>
                     </Box>
                   </Box>
-                  {zeroCopyError && <Alert severity="warning">{zeroCopyError}</Alert>}
                 </Stack>
               </Paper>
             </Stack>
           ) : (
             <Stack spacing={2}>
-              {copyError && <Alert severity="error">{copyError}</Alert>}
               <Paper variant="outlined" sx={{ p: 2 }}>
                 <Stack spacing={2}>
                   <Typography variant="subtitle2">Progress</Typography>

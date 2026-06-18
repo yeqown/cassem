@@ -9,12 +9,13 @@ LDFLAGS := -s \
 	-X main.GitHash=$(shell git rev-parse HEAD)
 COMPOSE := IMAGE_TAG=$(IMAGE_TAG) CASSEM_EXAMPLES_DIR=$(abspath examples) $(CONTAINER_TOOL) compose -p cassem -f examples/compose.cluster.yaml
 
-.PHONY: help build-image ui.install ui.build ui.test ui.lint ui.typecheck cluster.start cluster.stop cluster.restart cluster.status cluster.logs cluster.clean test test.integration lint vet
+.PHONY: help build-cli build-image ui.install ui.build ui.test ui.lint ui.typecheck cluster.start cluster.stop cluster.restart cluster.status cluster.logs cluster.clean test test.integration lint vet
 
 help:
 	@echo "Usage: make <target>"
 	@echo ""
 	@echo "Cluster:"
+	@echo "  build-cli            Build local cassemdb-viewer CLI"
 	@echo "  build-image          Build Linux binaries and local container images"
 	@echo "  cluster.start        Build images and start the local Compose cluster"
 	@echo "  cluster.stop         Stop the local Compose cluster"
@@ -51,6 +52,10 @@ ui.lint: web/node_modules/.deps-installed
 
 ui.typecheck: web/node_modules/.deps-installed
 	npm run typecheck --prefix web
+
+build-cli:
+	mkdir -p ./bin
+	go build -o ./bin/cassemdb-viewer -ldflags "$(LDFLAGS)" ./cmd/cassemdb-viewer
 
 build-image: ui.build
 	mkdir -p ./bin

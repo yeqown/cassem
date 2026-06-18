@@ -28,6 +28,7 @@ export function ContentEditor({ value, contentType, ariaLabel = 'Raw content', c
           value={value}
           minHeight={minHeight}
           basicSetup={{ lineNumbers: true, foldGutter: true }}
+          theme="none"
           editable={!disabled}
           readOnly={disabled}
           extensions={getContentExtensions(contentType, codeTheme, lineWrapping)}

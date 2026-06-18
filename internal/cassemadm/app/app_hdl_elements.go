@@ -1,10 +1,7 @@
 package app
 
 import (
-	"fmt"
-
 	"github.com/gin-gonic/gin"
-	dmp "github.com/sergi/go-diff/diffmatchpatch"
 	"github.com/yeqown/log"
 
 	"github.com/yeqown/cassem/api/concept"
@@ -15,7 +12,7 @@ import (
 
 func (d app) GetAppEnvElements(c *gin.Context) {
 	req := new(getAppEnvElementsReq)
-	if err := c.ShouldBindUri(req); err != nil {
+	if err := bindURIParams(c, req); err != nil {
 		httpx.ResponseError(c, err)
 		return
 	}
@@ -46,7 +43,7 @@ func (d app) GetAppEnvElements(c *gin.Context) {
 func (d app) GetAppEnvElement(c *gin.Context) {
 	req := new(getAppEnvElementReq)
 
-	if err := c.ShouldBindUri(req); err != nil {
+	if err := bindURIParams(c, req); err != nil {
 		httpx.ResponseError(c, err)
 		return
 	}
@@ -67,7 +64,7 @@ func (d app) GetAppEnvElement(c *gin.Context) {
 
 func (d app) CreateAppEnvElement(c *gin.Context) {
 	req := new(createAppEnvElementReq)
-	if err := c.ShouldBindUri(req); err != nil {
+	if err := bindURIParams(c, req); err != nil {
 		httpx.ResponseError(c, err)
 		return
 	}
@@ -77,7 +74,7 @@ func (d app) CreateAppEnvElement(c *gin.Context) {
 	}
 
 	err := d.aggregate.CreateElement(c.Request.Context(),
-		req.AppId, req.Env, req.ElementKey, runtime.ToBytes(req.Raw), req.ContentType)
+		req.AppId, req.Env, req.ElementKey, runtime.ToBytes(req.Raw), req.ContentType.concept())
 	if err != nil {
 		httpx.ResponseError(c, err)
 		return
@@ -88,7 +85,7 @@ func (d app) CreateAppEnvElement(c *gin.Context) {
 
 func (d app) UpdateAppEnvElement(c *gin.Context) {
 	req := new(updateAppEnvElementReq)
-	if err := c.ShouldBindUri(req); err != nil {
+	if err := bindURIParams(c, req); err != nil {
 		httpx.ResponseError(c, err)
 		return
 	}
@@ -109,7 +106,7 @@ func (d app) UpdateAppEnvElement(c *gin.Context) {
 
 func (d app) DeleteAppEnvElement(c *gin.Context) {
 	req := new(deleteAppEnvElementsReq)
-	if err := c.ShouldBindUri(req); err != nil {
+	if err := bindURIParams(c, req); err != nil {
 		httpx.ResponseError(c, err)
 		return
 	}
@@ -130,7 +127,7 @@ func (d app) DeleteAppEnvElement(c *gin.Context) {
 func (d app) GetAppEnvElementAllVersions(c *gin.Context) {
 	req := new(getAppEnvElementVersionsReq)
 
-	if err := c.ShouldBindUri(req); err != nil {
+	if err := bindURIParams(c, req); err != nil {
 		httpx.ResponseError(c, err)
 		return
 	}
@@ -151,51 +148,9 @@ func (d app) GetAppEnvElementAllVersions(c *gin.Context) {
 	httpx.ResponseJSON(c, element)
 }
 
-// DiffAppEnvElement diff between element's versions
-func (d app) DiffAppEnvElement(c *gin.Context) {
-	req := new(diffAppEnvElementsReq)
-	if err := c.ShouldBindUri(req); err != nil {
-		httpx.ResponseError(c, err)
-		return
-	}
-	if err := c.ShouldBind(req); err != nil {
-		httpx.ResponseError(c, err)
-		return
-	}
-
-	base, err := d.aggregate.
-		GetElementWithVersion(c.Request.Context(), req.AppId, req.Env, req.ElementKey, int(req.Base))
-	if err != nil {
-		httpx.ResponseError(c, err)
-		return
-	}
-	compare, err := d.aggregate.
-		GetElementWithVersion(c.Request.Context(), req.AppId, req.Env, req.ElementKey, int(req.Compare))
-	if err != nil {
-		httpx.ResponseError(c, err)
-		return
-	}
-
-	pretty := diff(runtime.ToString(base.GetRaw()), runtime.ToString(compare.GetRaw()))
-	fmt.Println(pretty)
-	httpx.ResponseJSON(c, diffAppEnvElementsResp{
-		Base:    base,
-		Compare: compare,
-		Diff:    pretty,
-	})
-}
-
-func diff(src1, src2 string) string {
-	// TODO(@yeqown): object pool for dmp if needed.
-	_dmp := dmp.New()
-	diffs := _dmp.DiffMain(src1, src2, false)
-
-	return _dmp.DiffPrettyText(diffs)
-}
-
 func (d app) GetAppEnvElementOperations(c *gin.Context) {
 	req := new(getAppEnvElementOperationsReq)
-	if err := c.ShouldBindUri(req); err != nil {
+	if err := bindURIParams(c, req); err != nil {
 		httpx.ResponseError(c, err)
 		return
 	}
@@ -216,7 +171,7 @@ func (d app) GetAppEnvElementOperations(c *gin.Context) {
 
 func (d app) RollbackAppEnvElement(c *gin.Context) {
 	req := new(rollbackAppEnvElementReq)
-	if err := c.ShouldBindUri(req); err != nil {
+	if err := bindURIParams(c, req); err != nil {
 		httpx.ResponseError(c, err)
 		return
 	}
@@ -237,7 +192,7 @@ func (d app) RollbackAppEnvElement(c *gin.Context) {
 
 func (d app) PublishAppEnvElement(c *gin.Context) {
 	req := new(publishAppEnvElementReq)
-	if err := c.ShouldBindUri(req); err != nil {
+	if err := bindURIParams(c, req); err != nil {
 		httpx.ResponseError(c, err)
 		return
 	}

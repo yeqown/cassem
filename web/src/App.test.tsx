@@ -4,8 +4,10 @@ import { StrictMode, type ComponentProps } from 'react'
 import { MemoryRouter, RouterProvider, createMemoryRouter } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { CopyEnvDialog } from './features/envs/CopyEnvDialog'
-import { ApiError } from './lib/api'
+import { AclPage } from './features/acl/AclPage'
 import { AppThemeProvider } from './AppThemeProvider'
+import { ToastProvider, useToast } from './components/ToastProvider'
+import { ApiError } from './lib/api'
 import { routes } from './routes'
 
 function renderRoute(path: string) {
@@ -13,7 +15,9 @@ function renderRoute(path: string) {
   const router = createMemoryRouter(routes, { basename: '/ui', initialEntries: [entry] })
   render(
     <AppThemeProvider>
-      <RouterProvider router={router} />
+      <ToastProvider>
+        <RouterProvider router={router} />
+      </ToastProvider>
     </AppThemeProvider>,
   )
   return router
@@ -27,7 +31,9 @@ function renderStrictRoute(path: string) {
     ...render(
       <StrictMode>
         <AppThemeProvider>
-          <RouterProvider router={router} />
+          <ToastProvider>
+            <RouterProvider router={router} />
+          </ToastProvider>
         </AppThemeProvider>
       </StrictMode>,
     ),
@@ -53,17 +59,21 @@ function renderCopyEnvDialog(props: Partial<ComponentProps<typeof CopyEnvDialog>
     onBusyChange,
     onFinished,
     ...render(
-      <MemoryRouter>
-        <CopyEnvDialog
-          open
-          appId="demo"
-          envs={['prod']}
-          onClose={onClose}
-          onBusyChange={onBusyChange}
-          onFinished={onFinished}
-          {...props}
-        />
-      </MemoryRouter>,
+      <AppThemeProvider>
+        <ToastProvider>
+          <MemoryRouter>
+            <CopyEnvDialog
+              open
+              appId="demo"
+              envs={['prod']}
+              onClose={onClose}
+              onBusyChange={onBusyChange}
+              onFinished={onFinished}
+              {...props}
+            />
+          </MemoryRouter>
+        </ToastProvider>
+      </AppThemeProvider>,
     ),
   }
 }
@@ -104,19 +114,14 @@ function createWorkflowFetchMock(extra?: (input: RequestInfo | URL, init?: Reque
       return Promise.resolve(createJsonResponse({ errcode: 0, data: { instances: [{ clientId: 'instance-01', agentId: 'agent-a' }, { clientId: 'instance-02', agentId: 'agent-b' }] } }))
     }
 
-    if (url.includes('/api/apps/demo/envs/prod/elements/db.url/diff?')) {
-      return Promise.resolve(createJsonResponse({
-        errcode: 0,
-        data: {
-          base: { metadata: { key: 'db.url', usingVersion: 2, latestVersion: 3, unpublishedVersion: 3, contentType: 4 }, raw: btoa('v2'), version: 2, published: true },
-          compare: { metadata: { key: 'db.url', usingVersion: 2, latestVersion: 3, unpublishedVersion: 3, contentType: 4 }, raw: btoa('v3'), version: 3, published: false },
-          diff: 'value-v[31m2[0m[32m3[0m',
-        },
-      }))
-    }
 
     return Promise.resolve(createJsonResponse({ errcode: 0, data: null }))
   })
+}
+
+function ToastProbe() {
+  const { showToast } = useToast()
+  return <button onClick={() => showToast('Saved from toast probe', 'success')}>Show toast</button>
 }
 
 afterEach(() => {
@@ -125,7 +130,106 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
+describe('toast provider', () => {
+  it('shows a top-center snackbar alert', async () => {
+    const user = userEvent.setup()
+
+    render(
+      <AppThemeProvider>
+        <ToastProvider>
+          <ToastProbe />
+        </ToastProvider>
+      </AppThemeProvider>,
+    )
+
+    await user.click(screen.getByRole('button', { name: /show toast/i }))
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent('Saved from toast probe')
+    expect(alert).toHaveClass('MuiAlert-standardSuccess')
+    expect(screen.getByText('Saved from toast probe').closest('.MuiSnackbar-root')).toHaveClass('MuiSnackbar-anchorOriginTopCenter')
+  })
+
+  it('restarts the snackbar when rapid toasts arrive in the same millisecond', async () => {
+    const user = userEvent.setup()
+    const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(1234567890)
+
+    function RapidToastProbe() {
+      const { showToast } = useToast()
+      return (
+        <button
+          onClick={() => {
+            showToast('First toast', 'info')
+            showToast('Second toast', 'warning')
+          }}
+        >
+          Trigger rapid toasts
+        </button>
+      )
+    }
+
+    render(
+      <AppThemeProvider>
+        <ToastProvider>
+          <RapidToastProbe />
+        </ToastProvider>
+      </AppThemeProvider>,
+    )
+
+    await user.click(screen.getByRole('button', { name: /trigger rapid toasts/i }))
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent('Second toast')
+    expect(alert).toHaveClass('MuiAlert-standardWarning')
+    expect(screen.getByText('Second toast').closest('.MuiSnackbar-root')).toHaveClass('MuiSnackbar-anchorOriginTopCenter')
+
+    nowSpy.mockRestore()
+  })
+})
+
 describe('app shell routing', () => {
+  it('shows app load errors as toast feedback', async () => {
+    localStorage.setItem('cassem.session', 'session')
+    localStorage.setItem('cassem.user', JSON.stringify({ account: 'superadmin@example.com' }))
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 500,
+        json: async () => ({ errcode: 2, errmsg: 'failed to load apps' }),
+      }),
+    )
+
+    renderRoute('/apps')
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent(/failed to load apps/i)
+    expect(document.querySelector('.MuiSnackbar-anchorOriginTopCenter')).toBeInTheDocument()
+  })
+
+  it('shows login errors as toast feedback', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 401,
+        json: async () => ({ errcode: 401, errmsg: 'invalid credentials' }),
+      }),
+    )
+
+    const user = userEvent.setup()
+    renderRoute('/login')
+
+    await user.type(screen.getByRole('textbox', { name: /account/i }), 'root@example.com')
+    await user.type(screen.getByLabelText(/password/i), 'bad-password')
+    await user.click(screen.getByRole('button', { name: /login/i }))
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent(/invalid credentials/i)
+    expect(document.querySelector('.MuiSnackbar-anchorOriginTopCenter')).toBeInTheDocument()
+  })
+
   it('renders login when unauthenticated', () => {
     renderRoute('/login')
 
@@ -168,13 +272,16 @@ describe('app shell routing', () => {
       'editor-settings-panel',
       'code-theme-preview-panel',
     ])
+    const previewPanel = screen.getByTestId('code-theme-preview-panel')
     const preview = within(editorLayout).getByLabelText('Code theme preview')
+    expect(previewPanel).not.toHaveTextContent('JSON')
     expect(preview).toHaveAttribute('data-code-theme', 'github-light-plus')
     expect(preview).toHaveTextContent('"enabled": true')
 
     await user.click(screen.getByRole('combobox', { name: /code theme/i }))
     await user.click(await screen.findByRole('option', { name: 'One Dark' }))
     expect(preview).toHaveAttribute('data-code-theme', 'one-dark')
+    expect(getComputedStyle(preview.querySelector('.cm-editor') as Element).backgroundColor).toBe('rgb(40, 44, 52)')
     await user.click(screen.getByRole('combobox', { name: /ui theme/i }))
     await user.click(await screen.findByRole('option', { name: 'Purple' }))
     for (const brand of screen.getAllByTestId('sidebar-brand')) {
@@ -346,6 +453,38 @@ describe('app shell routing', () => {
     expect(fetchMock).toHaveBeenCalledWith('/api/apps?limit=30&query=demo', expect.any(Object))
   })
 
+  it('keeps app rows visible when create validation fails', async () => {
+    localStorage.setItem('cassem.session', 'session')
+    localStorage.setItem('cassem.user', JSON.stringify({ account: 'superadmin@example.com' }))
+
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url.includes('/api/apps?limit=15')) {
+        return Promise.resolve(createJsonResponse({ errcode: 0, data: { apps: [{ id: 'alpha', description: 'Alpha app' }], hasMore: false } }))
+      }
+      if (url.includes('/api/apps/') && init?.method === 'POST') {
+        return Promise.resolve(createJsonResponse({ errcode: 3, errmsg: "Key: 'createAppReq.App' Error:Field validation for 'App' failed on the 'identifier' tag" }, 400))
+      }
+      return Promise.resolve(createJsonResponse({ errcode: 0, data: {} }))
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const user = userEvent.setup()
+    renderRoute('/apps')
+
+    expect(await screen.findByText('alpha')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /add app/i }))
+    await user.type(screen.getByLabelText(/app id/i), '*&……@（#')
+    await user.type(screen.getByLabelText(/description/i), 'invalid app')
+    await user.click(screen.getByRole('button', { name: /^create$/i }))
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/api/apps/'), expect.objectContaining({ method: 'POST' }))
+    })
+    expect(screen.getByText('alpha')).toBeInTheDocument()
+  })
+
   it('keeps the latest apps response when refresh overlaps the initial load', async () => {
     localStorage.setItem('cassem.session', 'session')
     localStorage.setItem('cassem.user', JSON.stringify({ account: 'superadmin@example.com' }))
@@ -447,6 +586,38 @@ describe('app shell routing', () => {
     })
   })
 
+  it('keeps environment rows visible when create validation fails', async () => {
+    localStorage.setItem('cassem.session', 'session')
+    localStorage.setItem('cassem.user', JSON.stringify({ account: 'superadmin@example.com' }))
+
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url.includes('/api/apps/demo/envs?limit=100')) {
+        return Promise.resolve(createJsonResponse({ errcode: 0, data: { envs: ['prod'] } }))
+      }
+      if (url.includes('/api/apps/demo/envs/') && init?.method === 'POST') {
+        return Promise.resolve(createJsonResponse({ errcode: 3, errmsg: "Key: 'createEnvReq.Env' Error:Field validation for 'Env' failed on the 'identifier' tag" }, 400))
+      }
+      return Promise.resolve(createJsonResponse({ errcode: 0, data: {} }))
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const user = userEvent.setup()
+    renderRoute('/apps/demo/envs')
+
+    expect(await screen.findByText('prod')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /add environment/i }))
+    const dialog = await screen.findByRole('dialog')
+    await user.type(within(dialog).getByRole('combobox', { name: /environment/i }), '*&……@（#')
+    await user.click(within(dialog).getByRole('button', { name: /^create$/i }))
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/api/apps/demo/envs/'), expect.objectContaining({ method: 'POST' }))
+    })
+    expect(screen.getByText('prod')).toBeInTheDocument()
+  })
+
   it('creates an env copy task with default-selected source elements and target validation', async () => {
     localStorage.setItem('cassem.session', 'session')
     localStorage.setItem('cassem.user', JSON.stringify({ account: 'superadmin@example.com' }))
@@ -490,7 +661,9 @@ describe('app shell routing', () => {
 
     await user.type(within(dialog).getByRole('textbox', { name: /to env/i }), 'STAGE')
 
-    expect(within(dialog).getByText(/environment already exists/i)).toBeInTheDocument()
+    const targetErrorToasts = await screen.findAllByText(/environment already exists/i)
+    const targetErrorToast = targetErrorToasts.find((node) => node.closest('.MuiSnackbar-root'))
+    expect(targetErrorToast?.closest('.MuiSnackbar-root')).toHaveClass('MuiSnackbar-anchorOriginTopCenter')
     expect(within(dialog).getByRole('button', { name: /start copy/i })).toBeDisabled()
 
     await user.clear(within(dialog).getByRole('textbox', { name: /to env/i }))
@@ -741,7 +914,9 @@ describe('app shell routing', () => {
 
     await user.type(within(dialog).getByRole('textbox', { name: /to env/i }), 'qa')
 
-    expect(within(dialog).getByText(/Estimated copy is 0/i)).toBeInTheDocument()
+    const zeroCopyToasts = await screen.findAllByText(/Estimated copy is 0/i)
+    const zeroCopyToast = zeroCopyToasts.find((node) => node.closest('.MuiSnackbar-root'))
+    expect(zeroCopyToast?.closest('.MuiSnackbar-root')).toHaveClass('MuiSnackbar-anchorOriginTopCenter')
     expect(within(dialog).getByRole('button', { name: /start copy/i })).toBeDisabled()
 
     await user.click(within(dialog).getByRole('switch', { name: /copy empty elements/i }))
@@ -910,10 +1085,56 @@ describe('app shell routing', () => {
       await createEnvRequest.promise
     })
 
-    expect(await within(dialog).findByText(/create env failed/i)).toBeInTheDocument()
+    const copyErrorToast = await screen.findByText(/create env failed/i)
+    expect(copyErrorToast.closest('.MuiSnackbar-root')).toHaveClass('MuiSnackbar-anchorOriginTopCenter')
     await waitFor(() => {
       expect(copyButton).toBeEnabled()
     })
+  })
+
+  it('preserves unknown content types when copying elements', async () => {
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      const method = init?.method || 'GET'
+
+      if (method === 'GET' && url === '/api/apps/demo/envs/prod/elements?limit=100') {
+        return Promise.resolve(createJsonResponse({
+          errcode: 0,
+          data: {
+            elements: [{ metadata: { key: 'config.yaml', usingVersion: 1, contentType: 'YAML' }, raw: btoa('name: demo') }],
+            hasMore: false,
+          },
+        }))
+      }
+      if (method === 'GET' && url === '/api/apps/demo/envs/prod/elements/config.yaml') {
+        return Promise.resolve(createJsonResponse({ errcode: 0, data: { metadata: { key: 'config.yaml', usingVersion: 1, contentType: 'YAML' }, raw: 'name: demo' } }))
+      }
+      if (method === 'POST' && url === '/api/apps/demo/envs/qa') {
+        return Promise.resolve(createJsonResponse({ errcode: 0, data: null }))
+      }
+      if (method === 'POST' && url === '/api/apps/demo/envs/qa/elements/config.yaml') {
+        expect(init?.body).toBe(JSON.stringify({ raw: 'name: demo', contentType: 'YAML' }))
+        return Promise.resolve(createJsonResponse({ errcode: 0, data: null }))
+      }
+
+      throw new Error(`Unhandled request: ${method} ${url}`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const user = userEvent.setup()
+    renderCopyEnvDialog()
+
+    const dialog = await screen.findByRole('dialog', { name: /copy environment/i })
+    await user.click(within(dialog).getByRole('combobox', { name: /source env/i }))
+    await user.click(await screen.findByRole('option', { name: /^prod$/i }))
+    await user.type(within(dialog).getByRole('textbox', { name: /to env/i }), 'qa')
+    await user.click(within(dialog).getByRole('button', { name: /start copy/i }))
+
+    expect(await within(dialog).findByRole('progressbar', { name: /copy elements progress/i })).toHaveAttribute('aria-valuenow', '100')
+    expect(within(dialog).getByText(/1\/1 elements processed/i)).toBeInTheDocument()
+    const resultsPanel = within(dialog).getByRole('region', { name: /copy results/i })
+    expect(within(resultsPanel).getByTestId('copy-results-success-count')).toHaveTextContent('Success 1')
+    expect(within(resultsPanel).getByTestId('copy-results-failed-count')).toHaveTextContent('Failed 0')
   })
 
   it('posts decoded raw content when copying elements', async () => {
@@ -925,19 +1146,64 @@ describe('app shell routing', () => {
         return Promise.resolve(createJsonResponse({
           errcode: 0,
           data: {
-            elements: [{ metadata: { key: 'db.url', usingVersion: 1, contentType: 4 }, raw: btoa('mysql://demo') }],
+            elements: [{ metadata: { key: 'db.url', usingVersion: 1, contentType: 'PLAINTEXT' }, raw: btoa('mysql://demo') }],
             hasMore: false,
           },
         }))
       }
       if (method === 'GET' && url === '/api/apps/demo/envs/prod/elements/db.url') {
-        return Promise.resolve(createJsonResponse({ errcode: 0, data: { metadata: { key: 'db.url', usingVersion: 1, contentType: 4 }, raw: btoa('mysql://demo') } }))
+        return Promise.resolve(createJsonResponse({ errcode: 0, data: { metadata: { key: 'db.url', usingVersion: 1, contentType: 'PLAINTEXT' }, raw: btoa('mysql://demo') } }))
       }
       if (method === 'POST' && url === '/api/apps/demo/envs/qa') {
         return Promise.resolve(createJsonResponse({ errcode: 0, data: null }))
       }
       if (method === 'POST' && url === '/api/apps/demo/envs/qa/elements/db.url') {
         expect(init?.body).toBe(JSON.stringify({ raw: 'mysql://demo', contentType: 4 }))
+        return Promise.resolve(createJsonResponse({ errcode: 0, data: null }))
+      }
+
+      throw new Error(`Unhandled request: ${method} ${url}`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const user = userEvent.setup()
+    renderCopyEnvDialog()
+
+    const dialog = await screen.findByRole('dialog', { name: /copy environment/i })
+    await user.click(within(dialog).getByRole('combobox', { name: /source env/i }))
+    await user.click(await screen.findByRole('option', { name: /^prod$/i }))
+    await user.type(within(dialog).getByRole('textbox', { name: /to env/i }), 'qa')
+    await user.click(within(dialog).getByRole('button', { name: /start copy/i }))
+
+    expect(await within(dialog).findByRole('progressbar', { name: /copy elements progress/i })).toHaveAttribute('aria-valuenow', '100')
+    expect(within(dialog).getByText(/1\/1 elements processed/i)).toBeInTheDocument()
+    const resultsPanel = within(dialog).getByRole('region', { name: /copy results/i })
+    expect(within(resultsPanel).getByTestId('copy-results-success-count')).toHaveTextContent('Success 1')
+    expect(within(resultsPanel).getByTestId('copy-results-failed-count')).toHaveTextContent('Failed 0')
+  })
+
+  it('preserves unknown numeric content types when copying elements', async () => {
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      const method = init?.method || 'GET'
+
+      if (method === 'GET' && url === '/api/apps/demo/envs/prod/elements?limit=100') {
+        return Promise.resolve(createJsonResponse({
+          errcode: 0,
+          data: {
+            elements: [{ metadata: { key: 'config.yaml', usingVersion: 1, contentType: 5 }, raw: btoa('name: demo') }],
+            hasMore: false,
+          },
+        }))
+      }
+      if (method === 'GET' && url === '/api/apps/demo/envs/prod/elements/config.yaml') {
+        return Promise.resolve(createJsonResponse({ errcode: 0, data: { metadata: { key: 'config.yaml', usingVersion: 1, contentType: 5 }, raw: btoa('name: demo') } }))
+      }
+      if (method === 'POST' && url === '/api/apps/demo/envs/qa') {
+        return Promise.resolve(createJsonResponse({ errcode: 0, data: null }))
+      }
+      if (method === 'POST' && url === '/api/apps/demo/envs/qa/elements/config.yaml') {
+        expect(init?.body).toBe(JSON.stringify({ raw: 'name: demo', contentType: 5 }))
         return Promise.resolve(createJsonResponse({ errcode: 0, data: null }))
       }
 
@@ -1288,6 +1554,42 @@ describe('app shell routing', () => {
 
     expect(await screen.findByText('limit-30')).toBeInTheDocument()
     expect(fetchMock).toHaveBeenCalledWith('/api/apps/demo/envs/prod/elements?limit=30', expect.any(Object))
+  })
+
+  it('keeps element rows visible when create validation fails', async () => {
+    localStorage.setItem('cassem.session', 'session')
+    localStorage.setItem('cassem.user', JSON.stringify({ account: 'superadmin@example.com' }))
+
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url.includes('/api/apps/demo/envs/prod/elements?limit=15')) {
+        return Promise.resolve(createJsonResponse({
+          errcode: 0,
+          data: { elements: [{ metadata: { key: 'db.url', latestVersion: 1, usingVersion: 1, unpublishedVersion: 0, contentType: 4 } }], hasMore: false },
+        }))
+      }
+      if (url.includes('/api/apps/demo/envs/prod/elements/') && init?.method === 'POST') {
+        return Promise.resolve(createJsonResponse({ errcode: 3, errmsg: "Key: 'createElementReq.Key' Error:Field validation for 'Key' failed on the 'identifier' tag" }, 400))
+      }
+      return Promise.resolve(createJsonResponse({ errcode: 0, data: {} }))
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const user = userEvent.setup()
+    renderRoute('/apps/demo/envs/prod/elements')
+
+    expect(await screen.findByText('db.url')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /add element/i }))
+    const dialog = await screen.findByRole('dialog')
+    await user.type(within(dialog).getByLabelText(/key/i), '*&……@（#')
+    await user.type(within(dialog).getByLabelText(/raw/i), 'value')
+    await user.click(within(dialog).getByRole('button', { name: /^create$/i }))
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/api/apps/demo/envs/prod/elements/'), expect.objectContaining({ method: 'POST' }))
+    })
+    expect(screen.getByText('db.url')).toBeInTheDocument()
   })
 
   it('renders element detail page with fixed content, versions, and operations tabs', async () => {
@@ -1685,80 +1987,14 @@ describe('app shell routing', () => {
     expect(preview).toHaveTextContent('checkout.owner=payments')
   })
 
-  it('compares element versions with dropdowns and renders readable diff text', async () => {
-    localStorage.setItem('cassem.session', 'session')
-    localStorage.setItem('cassem.user', JSON.stringify({ account: 'superadmin@example.com' }))
-
-    const esc = String.fromCharCode(27)
-    const fetchMock = vi.fn((input: RequestInfo | URL) => {
-      const url = String(input)
-      if (url.includes('/api/apps/demo/envs/prod/elements/db.url/diff')) {
-        return Promise.resolve(createJsonResponse({ errcode: 0, data: { diff: `value-v${esc}[31m1${esc}[0m${esc}[32m2${esc}[0m` } }))
-      }
-      if (url.includes('/api/apps/demo/envs/prod/elements/db.url/versions?limit=100')) {
-        return Promise.resolve(createJsonResponse({
-          errcode: 0,
-          data: {
-            elements: [
-              { metadata: { key: 'db.url', contentType: 4 }, raw: btoa('value-v1'), version: 1, published: true },
-              { metadata: { key: 'db.url', contentType: 4 }, raw: btoa('value-v2'), version: 2, published: true },
-            ],
-          },
-        }))
-      }
-      if (url.includes('/api/apps/demo/envs/prod/elements/db.url/operations?limit=100')) {
-        return Promise.resolve(createJsonResponse({ errcode: 0, data: { operations: [] } }))
-      }
-      return Promise.resolve(
-        createJsonResponse({
-          errcode: 0,
-          data: {
-            metadata: { key: 'db.url', latestVersion: 2, usingVersion: 2, unpublishedVersion: 0, contentType: 4 },
-            raw: btoa('value-v2'),
-            version: 2,
-            published: true,
-          },
-        }),
-      )
-    })
-    vi.stubGlobal('fetch', fetchMock)
-
-    const user = userEvent.setup()
-    renderRoute('/apps/demo/envs/prod/elements/db.url')
-
-    await user.click(await screen.findByRole('tab', { name: /diff/i }))
-    await user.click(screen.getByRole('combobox', { name: /base/i }))
-    await user.click(await screen.findByRole('option', { name: 'v1' }))
-    await user.click(screen.getByRole('combobox', { name: /compare/i }))
-    await user.click(await screen.findByRole('option', { name: 'v2' }))
-    await user.click(screen.getByRole('button', { name: /show diff/i }))
-
-    await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledWith(
-        '/api/apps/demo/envs/prod/elements/db.url/diff?base=1&compare=2',
-        expect.any(Object),
-      )
-    })
-    const diff = await screen.findByLabelText('Diff')
-    expect(diff).toHaveAttribute('data-variant', 'split')
-    expect(diff).not.toHaveTextContent(/\[31m|\[32m|\[0m/)
-
-    const row = within(diff).getByTestId('diff-row-1')
-    expect(row).toHaveAttribute('data-left-tone', 'removed')
-    expect(row).toHaveAttribute('data-right-tone', 'added')
-    expect(within(row).getAllByText('value-v')).toHaveLength(2)
-    expect(within(row).getByText('1', { selector: 'span' })).toBeInTheDocument()
-    expect(within(row).getByText('2', { selector: 'span' })).toBeInTheDocument()
-  })
-
-  it('shows empty diff message when compared element versions have no changes', async () => {
+  it('compares element versions from loaded raw content without calling the diff API', async () => {
     localStorage.setItem('cassem.session', 'session')
     localStorage.setItem('cassem.user', JSON.stringify({ account: 'superadmin@example.com' }))
 
     const fetchMock = vi.fn((input: RequestInfo | URL) => {
       const url = String(input)
       if (url.includes('/api/apps/demo/envs/prod/elements/db.url/diff')) {
-        return Promise.resolve(createJsonResponse({ errcode: 0, data: { diff: '' } }))
+        throw new Error('diff API should not be called')
       }
       if (url.includes('/api/apps/demo/envs/prod/elements/db.url/versions?limit=100')) {
         return Promise.resolve(createJsonResponse({
@@ -1790,12 +2026,67 @@ describe('app shell routing', () => {
     renderRoute('/apps/demo/envs/prod/elements/db.url')
 
     await user.click(await screen.findByRole('tab', { name: /diff/i }))
+    await user.click(screen.getByRole('combobox', { name: /base/i }))
+    await user.click(await screen.findByRole('option', { name: 'v1' }))
+    await user.click(screen.getByRole('combobox', { name: /compare/i }))
+    await user.click(await screen.findByRole('option', { name: 'v2' }))
     await user.click(screen.getByRole('button', { name: /show diff/i }))
 
     const diff = await screen.findByLabelText('Diff')
     expect(diff).toHaveAttribute('data-variant', 'split')
-    expect(diff).toHaveTextContent('No differences returned for this comparison.')
+    await waitFor(() => {
+      expect(diff).toHaveTextContent('value-v1')
+      expect(diff).toHaveTextContent('value-v2')
+    })
+    expect(fetchMock.mock.calls.some(([input]) => String(input).includes('/diff'))).toBe(false)
+  })
+
+  it('shows empty diff message when compared element versions have no changes', async () => {
+    localStorage.setItem('cassem.session', 'session')
+    localStorage.setItem('cassem.user', JSON.stringify({ account: 'superadmin@example.com' }))
+
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes('/api/apps/demo/envs/prod/elements/db.url/diff')) {
+        throw new Error('diff API should not be called')
+      }
+      if (url.includes('/api/apps/demo/envs/prod/elements/db.url/versions?limit=100')) {
+        return Promise.resolve(createJsonResponse({
+          errcode: 0,
+          data: {
+            elements: [
+              { metadata: { key: 'db.url', contentType: 4 }, raw: btoa('value-v2'), version: 1, published: true },
+              { metadata: { key: 'db.url', contentType: 4 }, raw: btoa('value-v2'), version: 2, published: true },
+            ],
+          },
+        }))
+      }
+      if (url.includes('/api/apps/demo/envs/prod/elements/db.url/operations?limit=100')) {
+        return Promise.resolve(createJsonResponse({ errcode: 0, data: { operations: [] } }))
+      }
+      return Promise.resolve(createJsonResponse({
+        errcode: 0,
+        data: {
+          metadata: { key: 'db.url', latestVersion: 2, usingVersion: 2, unpublishedVersion: 0, contentType: 4 },
+          raw: btoa('value-v2'),
+          version: 2,
+          published: true,
+        },
+      }))
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const user = userEvent.setup()
+    renderRoute('/apps/demo/envs/prod/elements/db.url')
+
+    await user.click(await screen.findByRole('tab', { name: /diff/i }))
+    await user.click(screen.getByRole('button', { name: /show diff/i }))
+
+    const diff = await screen.findByLabelText('Diff')
+    expect(diff).toHaveAttribute('data-variant', 'split')
+    expect(diff).toHaveTextContent('No differences found for this comparison.')
     expect(screen.queryByText('Select two versions to compare.')).not.toBeInTheDocument()
+    expect(fetchMock.mock.calls.some(([input]) => String(input).includes('/diff'))).toBe(false)
   })
 
   it('shows operation action, actor, time, and version change in order', async () => {
@@ -2651,7 +2942,8 @@ describe('app shell routing', () => {
         body: JSON.stringify({ account: 'alice@example.com', password: 'secret-123', nickname: 'Alice' }),
       }),
     )
-    expect(await screen.findByText(/user added successfully/i)).toBeInTheDocument()
+    const addedToast = await screen.findByText(/user added successfully/i)
+    expect(addedToast.closest('.MuiSnackbar-root')).toHaveClass('MuiSnackbar-anchorOriginTopCenter')
   })
 
   it('submits disable and reset actions from the users list', async () => {
@@ -2697,7 +2989,87 @@ describe('app shell routing', () => {
         body: JSON.stringify({ account: 'alice@example.com', password: 'new-secret' }),
       }),
     )
-    expect(await screen.findByText(/password reset successfully/i)).toBeInTheDocument()
+    const resetToast = await screen.findByText(/password reset successfully/i)
+    expect(resetToast.closest('.MuiSnackbar-root')).toHaveClass('MuiSnackbar-anchorOriginTopCenter')
+  })
+
+  it('shows ACL feedback as toast', async () => {
+    localStorage.setItem('cassem.session', 'session')
+    localStorage.setItem('cassem.user', JSON.stringify({ account: 'superadmin@example.com' }))
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((input: RequestInfo | URL) => {
+        const url = String(input)
+        if (url.includes('/api/account/acl/assign')) {
+          return Promise.resolve(createJsonResponse({ errcode: 0, data: null }))
+        }
+        return Promise.resolve(createJsonResponse({ errcode: 0, data: null }))
+      }),
+    )
+
+    render(
+      <AppThemeProvider>
+        <ToastProvider>
+          <AclPage />
+        </ToastProvider>
+      </AppThemeProvider>,
+    )
+
+    const user = userEvent.setup()
+    await user.type(screen.getByRole('textbox', { name: /account/i }), 'alice@example.com')
+    await user.click(screen.getByRole('button', { name: /assign role/i }))
+
+    const toast = await screen.findByText(/role assigned successfully/i)
+    expect(toast.closest('.MuiSnackbar-root')).toHaveClass('MuiSnackbar-anchorOriginTopCenter')
+  })
+
+  it('shows a separate access bindings refresh toast after assign role succeeds', async () => {
+    localStorage.setItem('cassem.session', 'session')
+    localStorage.setItem('cassem.user', JSON.stringify({ account: 'superadmin@example.com' }))
+
+    let refreshReject = (_reason?: unknown) => {}
+    let aclLoadCount = 0
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes('/api/account/users?limit=100')) {
+        return Promise.resolve(createJsonResponse({ errcode: 0, data: { users: [{ account: 'alice@example.com', nickname: 'Alice', roles: ['admin'], bindingCount: 1 }] } }))
+      }
+      if (url.includes('/api/account/acl/domains')) {
+        return Promise.resolve(createJsonResponse({ errcode: 0, data: { domains: ['cluster', 'demo/*', 'demo/prod'] } }))
+      }
+      if (url.includes('/api/account/users/alice%40example.com/acl')) {
+        aclLoadCount += 1
+        if (aclLoadCount === 1) {
+          return Promise.resolve(createJsonResponse({ errcode: 0, data: { bindings: [{ role: 'admin', domain: 'cluster' }] } }))
+        }
+        return new Promise<Response>((_resolve, reject) => {
+          refreshReject = reject
+        })
+      }
+      if (url.includes('/api/account/acl/assign')) {
+        return Promise.resolve(createJsonResponse({ errcode: 0, data: null }))
+      }
+      return Promise.resolve(createJsonResponse({ errcode: 0, data: null }))
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const user = userEvent.setup()
+    renderRoute('/users')
+
+    await screen.findByText('alice@example.com')
+    await user.click(screen.getByRole('button', { name: /manage access/i }))
+    const dialog = await screen.findByRole('dialog')
+    await user.click(within(dialog).getByRole('button', { name: /add binding/i }))
+
+    const successToast = await screen.findByText(/role assigned successfully/i)
+    expect(successToast.closest('.MuiSnackbar-root')).toHaveClass('MuiSnackbar-anchorOriginTopCenter')
+
+    refreshReject(new Error('refresh failed'))
+
+    const refreshToast = await screen.findByText(/failed to refresh access bindings/i)
+    expect(refreshToast.closest('.MuiSnackbar-root')).toHaveClass('MuiSnackbar-anchorOriginTopCenter')
+    expect(screen.queryByText(/failed to assign role/i)).not.toBeInTheDocument()
   })
 
   it('assigns ACL bindings from the users access dialog with structured domain selection', async () => {
@@ -2734,6 +3106,8 @@ describe('app shell routing', () => {
     await user.click(await screen.findByRole('option', { name: /^demo$/i }))
     await user.click(within(dialog).getByRole('button', { name: /add binding/i }))
 
+    const toast = await screen.findByText(/role assigned successfully/i)
+    expect(toast.closest('.MuiSnackbar-root')).toHaveClass('MuiSnackbar-anchorOriginTopCenter')
     expect(fetchMock).toHaveBeenCalledWith(
       '/api/account/acl/assign?account=alice%40example.com&role=appdeveloper&domain=demo%2F*',
       expect.any(Object),
@@ -2767,6 +3141,8 @@ describe('app shell routing', () => {
     const dialog = await screen.findByRole('dialog')
     await user.click(within(dialog).getByRole('button', { name: /revoke/i }))
 
+    const toast = await screen.findByText(/role revoked successfully/i)
+    expect(toast.closest('.MuiSnackbar-root')).toHaveClass('MuiSnackbar-anchorOriginTopCenter')
     expect(fetchMock).toHaveBeenCalledWith('/api/account/acl/revoke?account=alice%40example.com&role=admin&domain=cluster', expect.any(Object))
   })
 
@@ -2838,6 +3214,99 @@ describe('app shell routing', () => {
     expect(within(currentPublishedOption).getByTestId('version-status-current')).toBeInTheDocument()
     expect(within(currentPublishedOption).getByText('current')).toBeInTheDocument()
     expect(within(draftOption).getByTestId('version-status-draft')).toBeInTheDocument()
+  })
+
+
+  it('shows publish load errors as a top-center toast', async () => {
+    localStorage.setItem('cassem.session', 'session')
+    localStorage.setItem('cassem.user', JSON.stringify({ account: 'superadmin@example.com' }))
+    vi.stubGlobal(
+      'fetch',
+      createWorkflowFetchMock((input) => {
+        if (String(input).includes('/api/apps/demo/envs/prod/elements/db.url/versions?limit=100')) {
+          return createJsonResponse({ errcode: 2, errmsg: 'failed to load workflow options' }, 500)
+        }
+        return undefined
+      }),
+    )
+
+    renderRoute('/apps/demo/envs/prod/elements/db.url/publish')
+
+    const toast = await screen.findByText(/failed to load workflow options/i)
+    expect(toast.closest('.MuiSnackbar-root')).toHaveClass('MuiSnackbar-anchorOriginTopCenter')
+  })
+
+  it('shows publish success as a top-center toast', async () => {
+    localStorage.setItem('cassem.session', 'session')
+    localStorage.setItem('cassem.user', JSON.stringify({ account: 'superadmin@example.com' }))
+    vi.stubGlobal(
+      'fetch',
+      createWorkflowFetchMock((input, init) => {
+        if (String(input).includes('/api/apps/demo/envs/prod/elements/db.url/publish') && init?.method === 'POST') {
+          return createJsonResponse({ errcode: 0, data: null })
+        }
+        return undefined
+      }),
+    )
+
+    const user = userEvent.setup()
+    renderRoute('/apps/demo/envs/prod/elements/db.url/publish')
+
+    await user.click(await screen.findByRole('combobox', { name: /^version$/i }))
+    await user.click(await screen.findByRole('option', { name: /^v3 draft$/i }))
+    await user.click(screen.getByRole('button', { name: /^next$/i }))
+    await user.click(screen.getByRole('button', { name: /^next$/i }))
+    await user.click(screen.getByRole('button', { name: /^next$/i }))
+    await user.click(screen.getByRole('button', { name: /^next$/i }))
+    await user.click(screen.getByRole('button', { name: /^publish$/i }))
+
+    const toast = await screen.findByText(/version 3 was queued for full publish\./i)
+    expect(toast.closest('.MuiSnackbar-root')).toHaveClass('MuiSnackbar-anchorOriginTopCenter')
+  })
+
+  it('shows rollback load errors as a top-center toast', async () => {
+    localStorage.setItem('cassem.session', 'session')
+    localStorage.setItem('cassem.user', JSON.stringify({ account: 'superadmin@example.com' }))
+    vi.stubGlobal(
+      'fetch',
+      createWorkflowFetchMock((input) => {
+        if (String(input).includes('/api/apps/demo/envs/prod/elements/db.url/versions?limit=100')) {
+          return createJsonResponse({ errcode: 2, errmsg: 'failed to load rollback versions' }, 500)
+        }
+        return undefined
+      }),
+    )
+
+    renderRoute('/apps/demo/envs/prod/elements/db.url/rollback')
+
+    const toast = await screen.findByText(/failed to load rollback versions/i)
+    expect(toast.closest('.MuiSnackbar-root')).toHaveClass('MuiSnackbar-anchorOriginTopCenter')
+  })
+
+  it('shows rollback success as a top-center toast', async () => {
+    localStorage.setItem('cassem.session', 'session')
+    localStorage.setItem('cassem.user', JSON.stringify({ account: 'superadmin@example.com' }))
+    vi.stubGlobal(
+      'fetch',
+      createWorkflowFetchMock((input, init) => {
+        if (String(input).includes('/api/apps/demo/envs/prod/elements/db.url/rollback') && init?.method === 'POST') {
+          return createJsonResponse({ errcode: 0, data: null })
+        }
+        return undefined
+      }),
+    )
+
+    const user = userEvent.setup()
+    renderRoute('/apps/demo/envs/prod/elements/db.url/rollback')
+
+    await user.click(await screen.findByRole('combobox', { name: /target version/i }))
+    await user.click(await screen.findByRole('option', { name: /^v1 published$/i }))
+    await user.click(screen.getByRole('button', { name: /^next$/i }))
+    await user.click(screen.getByRole('button', { name: /^next$/i }))
+    await user.click(screen.getByRole('button', { name: /^rollback$/i }))
+
+    const toast = await screen.findByText(/rollback to version 1 completed successfully\./i)
+    expect(toast.closest('.MuiSnackbar-root')).toHaveClass('MuiSnackbar-anchorOriginTopCenter')
   })
 
   it('cancels publish workflow after confirmation and returns to element detail', async () => {
@@ -2941,8 +3410,7 @@ describe('app shell routing', () => {
     const nextButton = within(wizardActions).getByRole('button', { name: /^next$/i })
 
     expect(within(wizardActions).getByRole('button', { name: /^back$/i })).toBeInTheDocument()
-    expect(screen.getAllByText(/^Gray publish requires at least one agent or instance target\.$/i)).toHaveLength(1)
-    expect(nextButton).toBeDisabled()
+    expect(screen.getByText(/^Gray publish requires at least one agent or instance target\.$/i)).toBeInTheDocument()
 
     await user.click(screen.getByRole('combobox', { name: /instance ids/i }))
     await user.click(await screen.findByRole('option', { name: /^instance-01$/i }))
@@ -2989,14 +3457,59 @@ describe('app shell routing', () => {
     expect(diff).toHaveAttribute('data-variant', 'split')
     expect(diff).not.toHaveTextContent(/\[31m|\[32m|\[0m/)
     expect(screen.getByRole('heading', { name: /review diff/i })).toBeInTheDocument()
-    expect(fetchMock).toHaveBeenCalledWith(
-      '/api/apps/demo/envs/prod/elements/db.url/diff?base=0&compare=3',
-      expect.any(Object),
-    )
+    await waitFor(() => {
+      expect(diff).toHaveTextContent('v2')
+      expect(diff).toHaveTextContent('v3')
+    })
+    expect(fetchMock.mock.calls.some(([input]) => String(input).includes('/diff'))).toBe(false)
 
     await user.click(screen.getByRole('button', { name: /^next$/i }))
 
     expect(screen.getByRole('heading', { name: /impact confirmation/i })).toBeInTheDocument()
+  })
+
+  it('fetches the missing live publish version before showing review diff', async () => {
+    localStorage.setItem('cassem.session', 'session')
+    localStorage.setItem('cassem.user', JSON.stringify({ account: 'superadmin@example.com' }))
+
+    const fetchMock = createWorkflowFetchMock((input) => {
+      const url = String(input)
+      if (url.includes('/api/apps/demo/envs/prod/elements/db.url/versions?limit=100')) {
+        return createJsonResponse({
+          errcode: 0,
+          data: {
+            elements: [
+              { metadata: { key: 'db.url', usingVersion: 5, latestVersion: 6, unpublishedVersion: 6, contentType: 4 }, raw: btoa('v4'), version: 4, published: true },
+              { metadata: { key: 'db.url', usingVersion: 5, latestVersion: 6, unpublishedVersion: 6, contentType: 4 }, raw: btoa('v6'), version: 6, published: false },
+            ],
+          },
+        })
+      }
+
+      if (url.includes('/api/apps/demo/envs/prod/elements/db.url?version=5')) {
+        return createJsonResponse({
+          errcode: 0,
+          data: { metadata: { key: 'db.url', usingVersion: 5, latestVersion: 6, unpublishedVersion: 6, contentType: 4 }, raw: btoa('v5'), version: 5, published: true },
+        })
+      }
+
+      return undefined
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const user = userEvent.setup()
+    renderRoute('/apps/demo/envs/prod/elements/db.url/publish')
+
+    await user.click(await screen.findByRole('combobox', { name: /^version$/i }))
+    await user.click(await screen.findByRole('option', { name: /^v6 draft$/i }))
+    await user.click(screen.getByRole('button', { name: /^next$/i }))
+    await user.click(screen.getByRole('button', { name: /^next$/i }))
+    await user.click(screen.getByRole('button', { name: /^next$/i }))
+
+    expect(await screen.findByRole('heading', { name: /review diff/i })).toBeInTheDocument()
+    expect(screen.getByLabelText('Diff')).toHaveTextContent('v5')
+    expect(screen.getByLabelText('Diff')).toHaveTextContent('v6')
+    expect(fetchMock.mock.calls.some(([input]) => String(input).includes('/api/apps/demo/envs/prod/elements/db.url?version=5'))).toBe(true)
   })
 
   it('submits gray publish targets from candidate multiselects', async () => {
@@ -3041,16 +3554,93 @@ describe('app shell routing', () => {
     )
   })
 
-  it('shows rollback diff loading state while fetching comparison', async () => {
+  it('shows rollback review diff from loaded raw content without fetching comparison', async () => {
     localStorage.setItem('cassem.session', 'session')
     localStorage.setItem('cassem.user', JSON.stringify({ account: 'superadmin@example.com' }))
 
-    const diffRequest = createDeferred<Response>()
-    const fetchMock = createWorkflowFetchMock((input) => {
+    const fetchMock = createWorkflowFetchMock()
+    vi.stubGlobal('fetch', fetchMock)
+
+    const user = userEvent.setup()
+    renderRoute('/apps/demo/envs/prod/elements/db.url/rollback')
+
+    await user.click(await screen.findByRole('combobox', { name: /target version/i }))
+    await user.click(await screen.findByRole('option', { name: /^v1 published$/i }))
+    await user.click(screen.getByRole('button', { name: /^next$/i }))
+
+    const diff = await screen.findByLabelText('Diff')
+    expect(diff).toHaveAttribute('data-variant', 'split')
+    await waitFor(() => {
+      expect(diff).toHaveTextContent('v2')
+      expect(diff).toHaveTextContent('v1')
+    })
+    expect(screen.getByRole('heading', { name: /review diff/i })).toBeInTheDocument()
+    expect(fetchMock.mock.calls.some(([input]) => String(input).includes('/diff'))).toBe(false)
+  })
+
+  it('shows rollback comparison missing as a toast and stays on the version step', async () => {
+    localStorage.setItem('cassem.session', 'session')
+    localStorage.setItem('cassem.user', JSON.stringify({ account: 'superadmin@example.com' }))
+
+    vi.stubGlobal(
+      'fetch',
+      createWorkflowFetchMock((input) => {
+        if (String(input).includes('/api/apps/demo/envs/prod/elements/db.url/versions?limit=100')) {
+          return createJsonResponse({
+            errcode: 0,
+            data: {
+              elements: [
+                { metadata: { key: 'db.url', latestVersion: 3, unpublishedVersion: 0, contentType: 4 }, raw: btoa('v1'), version: 1, published: true },
+                { metadata: { key: 'db.url', latestVersion: 3, unpublishedVersion: 0, contentType: 4 }, raw: btoa('v2'), version: 2, published: true },
+              ],
+            },
+          })
+        }
+        return undefined
+      }),
+    )
+
+    const user = userEvent.setup()
+    renderRoute('/apps/demo/envs/prod/elements/db.url/rollback')
+
+    await user.click(await screen.findByRole('combobox', { name: /target version/i }))
+    await user.click(await screen.findByRole('option', { name: /^v1 published$/i }))
+    await user.click(screen.getByRole('button', { name: /^next$/i }))
+
+    expect(await screen.findByText(/no comparison data is available to review this rollback\./i)).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /rollback element/i })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: /review diff/i })).not.toBeInTheDocument()
+  })
+
+  it('allows rollback when live version is missing from loaded options', async () => {
+    localStorage.setItem('cassem.session', 'session')
+    localStorage.setItem('cassem.user', JSON.stringify({ account: 'superadmin@example.com' }))
+
+    const fetchMock = createWorkflowFetchMock((input, init) => {
       const url = String(input)
-      if (url.includes('/api/apps/demo/envs/prod/elements/db.url/diff?')) {
-        return diffRequest.promise
+      if (url.includes('/api/apps/demo/envs/prod/elements/db.url/versions?limit=100')) {
+        return createJsonResponse({
+          errcode: 0,
+          data: {
+            elements: [
+              { metadata: { key: 'db.url', usingVersion: 5, latestVersion: 5, unpublishedVersion: 0, contentType: 4 }, raw: btoa('v1'), version: 1, published: true },
+              { metadata: { key: 'db.url', usingVersion: 5, latestVersion: 5, unpublishedVersion: 0, contentType: 4 }, raw: btoa('v2'), version: 2, published: true },
+            ],
+          },
+        })
       }
+
+      if (url.includes('/api/apps/demo/envs/prod/elements/db.url?version=5')) {
+        return createJsonResponse({
+          errcode: 0,
+          data: { metadata: { key: 'db.url', latestVersion: 5, usingVersion: 5, unpublishedVersion: 0, contentType: 4 }, raw: btoa('v5'), version: 5, published: true },
+        })
+      }
+
+      if (url.includes('/api/apps/demo/envs/prod/elements/db.url/rollback') && init?.method === 'POST') {
+        return createJsonResponse({ errcode: 0, data: null })
+      }
+
       return undefined
     })
     vi.stubGlobal('fetch', fetchMock)
@@ -3062,36 +3652,69 @@ describe('app shell routing', () => {
     await user.click(await screen.findByRole('option', { name: /^v1 published$/i }))
     await user.click(screen.getByRole('button', { name: /^next$/i }))
 
-    expect(await screen.findByText(/loading diff/i)).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: /review diff/i })).toBeInTheDocument()
+    expect(screen.getByLabelText('Diff')).toHaveTextContent('v5')
+    expect(screen.getByLabelText('Diff')).toHaveTextContent('v1')
 
-    await act(async () => {
-      diffRequest.resolve(
-        createJsonResponse({
+    await user.click(screen.getByRole('button', { name: /^next$/i }))
+    await user.click(screen.getByRole('button', { name: /^rollback$/i }))
+
+    expect(await screen.findByText(/rollback to version 1 completed successfully\./i)).toBeInTheDocument()
+  })
+
+  it('disables rollback controls while fallback comparison is loading', async () => {
+    localStorage.setItem('cassem.session', 'session')
+    localStorage.setItem('cassem.user', JSON.stringify({ account: 'superadmin@example.com' }))
+
+    const liveVersionDeferred = createDeferred<Response>()
+    const fetchMock = createWorkflowFetchMock((input) => {
+      const url = String(input)
+      if (url.includes('/api/apps/demo/envs/prod/elements/db.url/versions?limit=100')) {
+        return createJsonResponse({
           errcode: 0,
           data: {
-            base: {
-              metadata: { key: 'db.url', usingVersion: 2, latestVersion: 3, unpublishedVersion: 3, contentType: 4 },
-              version: 2,
-              raw: btoa('before'),
-              published: true,
-            },
-            compare: {
-              metadata: { key: 'db.url', usingVersion: 2, latestVersion: 3, unpublishedVersion: 3, contentType: 4 },
-              version: 1,
-              raw: btoa('after'),
-              published: true,
-            },
-            diff: 'changed',
+            elements: [
+              { metadata: { key: 'db.url', usingVersion: 5, latestVersion: 5, unpublishedVersion: 0, contentType: 4 }, raw: btoa('v1'), version: 1, published: true },
+              { metadata: { key: 'db.url', usingVersion: 5, latestVersion: 5, unpublishedVersion: 0, contentType: 4 }, raw: btoa('v2'), version: 2, published: true },
+            ],
           },
-        }),
-      )
-      await diffRequest.promise
+        })
+      }
+
+      if (url.includes('/api/apps/demo/envs/prod/elements/db.url?version=5')) {
+        return liveVersionDeferred.promise
+      }
+
+      return undefined
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const user = userEvent.setup()
+    renderRoute('/apps/demo/envs/prod/elements/db.url/rollback')
+
+    await user.click(await screen.findByRole('combobox', { name: /target version/i }))
+    await user.click(await screen.findByRole('option', { name: /^v1 published$/i }))
+    await user.click(screen.getByRole('button', { name: /^next$/i }))
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /^next$/i })).toBeDisabled()
+      expect(screen.getByRole('button', { name: /^back$/i })).toBeDisabled()
+      expect(screen.getByRole('combobox', { name: /target version/i })).toHaveAttribute('aria-disabled', 'true')
     })
 
-    const diff = await screen.findByLabelText('Diff')
-    expect(diff).toHaveAttribute('data-variant', 'split')
-    expect(diff).toHaveTextContent('changed')
-    expect(screen.queryByDisplayValue('changed')).not.toBeInTheDocument()
+    await act(async () => {
+      liveVersionDeferred.resolve(
+        createJsonResponse({
+          errcode: 0,
+          data: { metadata: { key: 'db.url', latestVersion: 5, usingVersion: 5, unpublishedVersion: 0, contentType: 4 }, raw: btoa('v5'), version: 5, published: true },
+        }),
+      )
+      await Promise.resolve()
+    })
+
+    expect(await screen.findByRole('heading', { name: /review diff/i })).toBeInTheDocument()
+    expect(screen.getByLabelText('Diff')).toHaveTextContent('v5')
+    expect(screen.getByLabelText('Diff')).toHaveTextContent('v1')
   })
 
   it('disables rollback progression when there are no older target candidates', async () => {

@@ -1,43 +1,24 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Alert, Box, Paper, Stack, TextField, Typography } from '@mui/material'
+import { Box, Paper, Stack, TextField, Typography } from '@mui/material'
 import { useNavigate, useParams } from 'react-router-dom'
 import { AppBreadcrumbs } from '../../components/AppBreadcrumbs'
 import { DiffViewer } from '../../components/DiffViewer'
-import { LoadingState } from '../../components/StateView'
+import { useToast } from '../../components/ToastProvider'
 import { WizardLayout } from '../../components/WizardLayout'
-import type { DiffResponse } from '../../domain/types'
-import { ApiError, apiRequest, buildQuery, jsonBody } from '../../lib/api'
+import type { Element } from '../../domain/types'
+import { ApiError, apiRequest, jsonBody } from '../../lib/api'
+import { decodeRaw } from '../../lib/raw'
 import { renderVersionMenuItem } from './VersionMenuItem'
-import { requestVersionOptions, type VersionOption } from './workflowOptions'
+import { requestComparisonElement, requestVersionOptions, type VersionOption } from './workflowOptions'
 
 const steps = ['Version', 'Review diff', 'Impact confirmation', 'Result']
 
 function getErrorMessage(error: unknown, fallback: string) {
-  if (error instanceof ApiError) return error.message
-  if (error instanceof Error && error.message.trim()) return error.message
-  return fallback
+  return error instanceof ApiError ? error.message : fallback
 }
 
 function buildDetailPath(appId: string, env: string, key: string) {
   return `/apps/${encodeURIComponent(appId)}/envs/${encodeURIComponent(env)}/elements/${encodeURIComponent(key)}`
-}
-
-async function requestDiff(appId: string, env: string, key: string, base: number, compare: number) {
-  return apiRequest<DiffResponse>(
-    `/api/apps/${encodeURIComponent(appId)}/envs/${encodeURIComponent(env)}/elements/${encodeURIComponent(key)}/diff${buildQuery({
-      base,
-      compare,
-    })}`,
-  )
-}
-
-function resolveBaseVersion(diff: DiffResponse) {
-  const currentVersion = diff.base?.version ?? diff.base?.metadata?.usingVersion
-  if (typeof currentVersion === 'number' && Number.isFinite(currentVersion) && currentVersion > 0) {
-    return currentVersion
-  }
-
-  return null
 }
 
 function isRollbackVersionDisabled(option: VersionOption, usingVersion: number | null) {
@@ -59,20 +40,20 @@ type RollbackWizardFlowProps = {
 
 function RollbackWizardFlow({ appId, env, elementKey }: RollbackWizardFlowProps) {
   const navigate = useNavigate()
+  const { showToast } = useToast()
   const [activeStep, setActiveStep] = useState(0)
   const [version, setVersion] = useState('')
   const [versionOptions, setVersionOptions] = useState<VersionOption[]>([])
   const [usingVersion, setUsingVersion] = useState<number | null>(null)
   const [optionsLoading, setOptionsLoading] = useState(false)
   const [currentVersion, setCurrentVersion] = useState<number | null>(null)
-  const [diffText, setDiffText] = useState('')
+  const [diffPair, setDiffPair] = useState<{ base: Element; compare: Element } | null>(null)
   const [diffLoaded, setDiffLoaded] = useState(false)
   const [diffLoading, setDiffLoading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState('')
-  const [resultMessage, setResultMessage] = useState('')
   const mountedRef = useRef(false)
   const lastLoadKeyRef = useRef('')
+  const diffRequestSeqRef = useRef(0)
   const detailPath = buildDetailPath(appId, env, elementKey)
   const missingParams = !appId || !env || !elementKey
   const selectedVersion = versionOptions.find((option) => option.value === version)
@@ -83,7 +64,6 @@ function RollbackWizardFlow({ appId, env, elementKey }: RollbackWizardFlowProps)
     if (missingParams) return
 
     setOptionsLoading(true)
-    setError('')
 
     try {
       const data = await requestVersionOptions(appId, env, elementKey)
@@ -95,11 +75,11 @@ function RollbackWizardFlow({ appId, env, elementKey }: RollbackWizardFlowProps)
       if (!mountedRef.current) return
       setVersionOptions([])
       setUsingVersion(null)
-      setError(getErrorMessage(err, 'failed to load rollback versions'))
+      showToast(getErrorMessage(err, 'failed to load rollback versions'), 'error')
     } finally {
       if (mountedRef.current) setOptionsLoading(false)
     }
-  }, [appId, elementKey, env, missingParams])
+  }, [appId, elementKey, env, missingParams, showToast])
 
   useEffect(() => {
     mountedRef.current = true
@@ -120,43 +100,66 @@ function RollbackWizardFlow({ appId, env, elementKey }: RollbackWizardFlowProps)
   async function handleLoadDiffAndAdvance() {
     if (missingParams || !versionIsValid || diffLoading || submitting) return
 
-    const targetVersion = parsedVersion
-    if (targetVersion === null) return
+    const targetVersion = selectedVersion
+    const liveVersion = usingVersion !== null ? versionOptions.find((option) => option.version === usingVersion) : null
+    const requestId = diffRequestSeqRef.current + 1
+    diffRequestSeqRef.current = requestId
 
     setDiffLoading(true)
-    setError('')
     setDiffLoaded(false)
-    setDiffText('')
+    setDiffPair(null)
     setCurrentVersion(null)
-    setActiveStep(1)
+
+    if (!targetVersion) {
+      setDiffLoading(false)
+      showToast('select a rollback target before continuing', 'error')
+      return
+    }
+
+    if (liveVersion) {
+      if (targetVersion.version >= liveVersion.version) {
+        setDiffLoading(false)
+        showToast('Rollback target must be older than the current live version.', 'error')
+        return
+      }
+
+      setCurrentVersion(usingVersion)
+      setDiffPair({ base: liveVersion.element, compare: targetVersion.element })
+      setDiffLoaded(true)
+      setActiveStep(1)
+      setDiffLoading(false)
+      return
+    }
+
+    if (usingVersion === null) {
+      setDiffLoading(false)
+      showToast('no comparison data is available to review this rollback.', 'error')
+      return
+    }
 
     try {
-      const diff = await requestDiff(appId, env, elementKey, 0, targetVersion)
-      const baseVersion = resolveBaseVersion(diff)
+      const currentVersionData = await requestComparisonElement(appId, env, elementKey, usingVersion)
+      if (!mountedRef.current || diffRequestSeqRef.current !== requestId) return
 
-      if (!baseVersion) {
-        throw new Error('Unable to determine the current version for diff review.')
+      if (currentVersionData.version !== usingVersion) {
+        showToast('no comparison data is available to review this rollback.', 'error')
+        return
       }
 
-      if (targetVersion >= baseVersion) {
-        throw new Error('Rollback target must be older than the current live version.')
+      if (targetVersion.version >= currentVersionData.version) {
+        showToast('Rollback target must be older than the current live version.', 'error')
+        return
       }
 
-      if (!mountedRef.current) return
-
-      setCurrentVersion(baseVersion)
-      setDiffText(diff.diff || '')
+      setCurrentVersion(usingVersion)
+      setDiffPair({ base: currentVersionData, compare: targetVersion.element })
       setDiffLoaded(true)
       setActiveStep(1)
     } catch (err) {
-      if (!mountedRef.current) return
-      setCurrentVersion(null)
-      setDiffText('')
-      setDiffLoaded(false)
-      setActiveStep(0)
-      setError(getErrorMessage(err, 'failed to load diff'))
+      if (!mountedRef.current || diffRequestSeqRef.current !== requestId) return
+      showToast(getErrorMessage(err, 'no comparison data is available to review this rollback.'), 'error')
     } finally {
-      if (mountedRef.current) setDiffLoading(false)
+      if (mountedRef.current && diffRequestSeqRef.current === requestId) setDiffLoading(false)
     }
   }
 
@@ -164,7 +167,6 @@ function RollbackWizardFlow({ appId, env, elementKey }: RollbackWizardFlowProps)
     if (missingParams || !versionIsValid || submitting) return
 
     setSubmitting(true)
-    setError('')
 
     try {
       await apiRequest<void>(
@@ -174,11 +176,11 @@ function RollbackWizardFlow({ appId, env, elementKey }: RollbackWizardFlowProps)
 
       if (!mountedRef.current) return
 
-      setResultMessage(`Rollback to version ${parsedVersion} completed successfully.`)
+      showToast(`Rollback to version ${parsedVersion} completed successfully.`, 'success')
       setActiveStep(3)
     } catch (err) {
       if (!mountedRef.current) return
-      setError(getErrorMessage(err, 'failed to rollback element'))
+      showToast(getErrorMessage(err, 'failed to rollback element'), 'error')
     } finally {
       if (mountedRef.current) setSubmitting(false)
     }
@@ -187,16 +189,14 @@ function RollbackWizardFlow({ appId, env, elementKey }: RollbackWizardFlowProps)
   async function handleNext() {
     if (submitting || diffLoading) return
 
-    setError('')
-
     if (missingParams) {
-      setError('missing app, environment, or key')
+      showToast('missing app, environment, or key', 'error')
       return
     }
 
     if (activeStep === 0) {
       if (!versionIsValid) {
-        setError('select a rollback target before continuing')
+        showToast('select a rollback target before continuing', 'error')
         return
       }
 
@@ -218,8 +218,7 @@ function RollbackWizardFlow({ appId, env, elementKey }: RollbackWizardFlowProps)
   }
 
   function handleBack() {
-    if (submitting || diffLoading) return
-    setError('')
+    if (submitting) return
     setActiveStep((currentStep) => Math.max(currentStep - 1, 0))
   }
 
@@ -229,13 +228,15 @@ function RollbackWizardFlow({ appId, env, elementKey }: RollbackWizardFlowProps)
 
   return (
     <Stack spacing={3}>
-      <AppBreadcrumbs items={[
-        { label: 'Apps', to: '/apps' },
-        { label: appId || 'unknown', to: `/apps/${encodeURIComponent(appId)}/envs` },
-        { label: env || 'unknown', to: `/apps/${encodeURIComponent(appId)}/envs/${encodeURIComponent(env)}/elements` },
-        { label: elementKey || 'unknown', to: detailPath },
-        { label: 'Rollback' },
-      ]} />
+      <AppBreadcrumbs
+        items={[
+          { label: 'Apps', to: '/apps' },
+          { label: appId || 'unknown', to: `/apps/${encodeURIComponent(appId)}/envs` },
+          { label: env || 'unknown', to: `/apps/${encodeURIComponent(appId)}/envs/${encodeURIComponent(env)}/elements` },
+          { label: elementKey || 'unknown', to: detailPath },
+          { label: 'Rollback' },
+        ]}
+      />
       <WizardLayout
         title="Rollback element"
         steps={steps}
@@ -248,8 +249,6 @@ function RollbackWizardFlow({ appId, env, elementKey }: RollbackWizardFlowProps)
         nextDisabled={nextDisabled}
       >
         <Stack spacing={3}>
-          {error && <Alert severity="error">{error}</Alert>}
-
           {activeStep === 0 && (
             <Stack spacing={2.5}>
               <Typography variant="h6" component="h2">
@@ -265,7 +264,7 @@ function RollbackWizardFlow({ appId, env, elementKey }: RollbackWizardFlowProps)
                 onChange={(event) => {
                   setVersion(event.target.value)
                   setDiffLoaded(false)
-                  setDiffText('')
+                  setDiffPair(null)
                   setCurrentVersion(null)
                 }}
                 required
@@ -273,7 +272,9 @@ function RollbackWizardFlow({ appId, env, elementKey }: RollbackWizardFlowProps)
                 disabled={submitting || diffLoading || missingParams || optionsLoading}
                 helperText={optionsLoading ? 'Loading versions.' : versionOptions.some((option) => !isRollbackVersionDisabled(option, usingVersion)) ? 'Select an older published target version.' : 'No published rollback target version available.'}
               >
-                {versionOptions.length > 0 ? versionOptions.map((option) => renderVersionMenuItem(option, isRollbackVersionDisabled(option, usingVersion), option.version === usingVersion)) : renderVersionMenuItem({ value: '', label: 'No rollback target versions', version: 0, published: true }, true)}
+                {versionOptions.length > 0
+                  ? versionOptions.map((option) => renderVersionMenuItem(option, isRollbackVersionDisabled(option, usingVersion), option.version === usingVersion))
+                  : renderVersionMenuItem({ value: '', label: 'No rollback target versions', version: 0, published: true, element: { metadata: { key: elementKey } } }, true)}
               </TextField>
             </Stack>
           )}
@@ -290,18 +291,27 @@ function RollbackWizardFlow({ appId, env, elementKey }: RollbackWizardFlowProps)
                 <Stack spacing={2}>
                   <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
                     <Box sx={{ flex: 1 }}>
-                      <Typography variant="caption" color="text.secondary">Current version</Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        Current version
+                      </Typography>
                       <Typography fontWeight={600}>{currentVersion ?? '-'}</Typography>
                     </Box>
                     <Box sx={{ flex: 1 }}>
-                      <Typography variant="caption" color="text.secondary">Target version</Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        Target version
+                      </Typography>
                       <Typography fontWeight={600}>{selectedVersion?.label || '-'}</Typography>
                     </Box>
                   </Stack>
-                  {diffLoading ? (
-                    <LoadingState label="Loading diff" />
-                  ) : diffLoaded ? (
-                    <DiffViewer value={diffText} baseLabel={`Current v${currentVersion ?? '-'}`} compareLabel={selectedVersion?.label || 'Target'} />
+                  {diffLoaded && diffPair ? (
+                    <DiffViewer
+                      oldValue={decodeRaw(diffPair.base.raw)}
+                      newValue={decodeRaw(diffPair.compare.raw)}
+                      baseLabel={`Current v${currentVersion ?? '-'}`}
+                      compareLabel={selectedVersion?.label || 'Target'}
+                    />
+                  ) : diffLoading ? (
+                    <Typography color="text.secondary">Loading diff…</Typography>
                   ) : (
                     <Typography color="text.secondary">No diff loaded yet.</Typography>
                   )}
@@ -321,19 +331,33 @@ function RollbackWizardFlow({ appId, env, elementKey }: RollbackWizardFlowProps)
               <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 3 }}>
                 <Box data-testid="rollback-impact-grid" sx={impactGridSx}>
                   <Box sx={{ minWidth: 0 }}>
-                    <Typography variant="caption" color="text.secondary">App</Typography>
-                    <Typography fontWeight={600} sx={{ overflowWrap: 'anywhere' }}>{appId || '-'}</Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      App
+                    </Typography>
+                    <Typography fontWeight={600} sx={{ overflowWrap: 'anywhere' }}>
+                      {appId || '-'}
+                    </Typography>
                   </Box>
                   <Box sx={{ minWidth: 0 }}>
-                    <Typography variant="caption" color="text.secondary">Env</Typography>
-                    <Typography fontWeight={600} sx={{ overflowWrap: 'anywhere' }}>{env || '-'}</Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      Env
+                    </Typography>
+                    <Typography fontWeight={600} sx={{ overflowWrap: 'anywhere' }}>
+                      {env || '-'}
+                    </Typography>
                   </Box>
                   <Box sx={{ minWidth: 0 }}>
-                    <Typography variant="caption" color="text.secondary">Key</Typography>
-                    <Typography fontWeight={600} sx={{ overflowWrap: 'anywhere' }}>{elementKey || '-'}</Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      Key
+                    </Typography>
+                    <Typography fontWeight={600} sx={{ overflowWrap: 'anywhere' }}>
+                      {elementKey || '-'}
+                    </Typography>
                   </Box>
                   <Box sx={{ minWidth: 0 }}>
-                    <Typography variant="caption" color="text.secondary">Target version</Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      Target version
+                    </Typography>
                     <Typography fontWeight={600}>{selectedVersion?.label || '-'}</Typography>
                   </Box>
                 </Box>
@@ -346,9 +370,8 @@ function RollbackWizardFlow({ appId, env, elementKey }: RollbackWizardFlowProps)
               <Typography variant="h6" component="h2">
                 Result
               </Typography>
-              <Alert severity="success">{resultMessage || 'Element rollback request completed successfully.'}</Alert>
               <Typography color="text.secondary">
-                Select Done to return to the element detail page and continue reviewing the element state.
+                Rollback request completed successfully. Select Done to return to the element detail page and continue reviewing the element state.
               </Typography>
             </Stack>
           )}
