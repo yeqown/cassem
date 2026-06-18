@@ -2,7 +2,9 @@ package testutil
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"testing"
@@ -138,4 +140,77 @@ func LoginSuperadmin(t testing.TB, baseURL string) string {
 		t.Fatal("empty superadmin session")
 	}
 	return resp.Session
+}
+
+// CheckCassemAdm verifies the admin control plane is ready by forcing a real login round-trip.
+func CheckCassemAdm(baseURL string, account, password string, timeout, interval time.Duration) error {
+	deadline := time.Now().Add(timeout)
+	var lastErr error
+	for {
+		remaining := time.Until(deadline)
+		if remaining <= 0 {
+			break
+		}
+		if err := checkCassemAdmOnce(baseURL, account, password, remaining); err == nil {
+			return nil
+		} else {
+			lastErr = err
+		}
+		sleepUntilNextProbe(interval, deadline)
+	}
+	return fmt.Errorf("cassemadm %s did not become ready: %w", baseURL, lastErr)
+}
+
+func checkCassemAdmOnce(baseURL, account, password string, timeout time.Duration) error {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	client := &http.Client{}
+	body, err := json.Marshal(map[string]any{
+		"account":  account,
+		"password": password,
+	})
+	if err != nil {
+		return fmt.Errorf("encode login request: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, baseURL+"/api/account/login", bytes.NewReader(body))
+	if err != nil {
+		return fmt.Errorf("create login request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("login request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	raw, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("read login response: %w", err)
+	}
+
+	var out httpx.CommonResponse
+	if err = json.Unmarshal(raw, &out); err != nil {
+		return fmt.Errorf("decode login response %q: %w", string(raw), err)
+	}
+	if resp.StatusCode/100 != 2 || out.ErrCode != httpx.OK {
+		return fmt.Errorf("login returned status=%d errcode=%d errmsg=%s", resp.StatusCode, out.ErrCode, out.ErrMessage)
+	}
+
+	payload, err := json.Marshal(out.Data)
+	if err != nil {
+		return fmt.Errorf("encode login data: %w", err)
+	}
+	var data struct {
+		Session string `json:"session"`
+	}
+	if err = json.Unmarshal(payload, &data); err != nil {
+		return fmt.Errorf("decode login data: %w", err)
+	}
+	if data.Session == "" {
+		return fmt.Errorf("login response has empty session")
+	}
+	return nil
 }

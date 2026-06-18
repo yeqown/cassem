@@ -86,6 +86,38 @@ make cluster.clean
 
 The cluster script uses Podman Compose by default. Use `CONTAINER_TOOL=docker make cluster.start` to run the same workflow with Docker Compose.
 
+### Integration release gate
+
+Run the full local release gate with a clean Compose cluster:
+
+```bash
+make test.integration.cluster
+```
+
+This target builds Web assets and Linux binaries, builds local images, starts the example Compose cluster, waits for cassemdb/cassemadm/cassemagent readiness, runs integration tests in strict mode, prints logs on failure, and removes containers/volumes afterward.
+
+For an already-running local cluster, run only the integration tests:
+
+```bash
+make test.integration
+```
+
+`make test.integration` does not start or stop containers. Missing cluster endpoints may skip tests locally. CI uses `CASSEM_INTEGRATION_STRICT=1`, where missing readiness is a hard failure.
+
+Docker users can override the default Podman runtime:
+
+```bash
+CONTAINER_TOOL=docker make test.integration.cluster
+```
+
+Use the same `IMAGE_TAG` across build and cluster start if running targets manually:
+
+```bash
+IMAGE_TAG=dev-gate make cluster.start
+IMAGE_TAG=dev-gate make test.integration
+make cluster.clean
+```
+
 ## Web UI Development
 
 The embedded admin UI source lives in [`web`](./web). For local Web UI development, run the Vite dev server on its own `IP:PORT` and proxy `/api` requests to `cassemadm` instead of relying on embedded `/ui/` serving.

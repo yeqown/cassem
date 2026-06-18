@@ -63,14 +63,30 @@ type deleteAppEnvElementsReq struct {
 	commonAppEnvEltRequest
 }
 
+type diffAppEnvElementsReq struct {
+	commonAppEnvEltRequest
+
+	Base    uint `form:"base"`
+	Compare uint `form:"compare"`
+}
+
+type diffAppEnvElementsResp struct {
+	Base    *concept.Element `json:"base"`
+	Compare *concept.Element `json:"compare"`
+	Diff    string           `json:"diff"`
+}
+
 type pagingAppsReq struct {
 	commonPagingRequest
 
 	Query string `form:"query"`
 }
 
+type createAppUriReq struct {
+	App string `uri:"appId" binding:"required,identifier"`
+}
+
 type createAppReq struct {
-	App         string `uri:"appId" binding:"required,identifier"`
 	Name        string `json:"name" binding:"required"`
 	Description string `json:"description" binding:"required"`
 }
@@ -196,6 +212,6 @@ type userLoginResp struct {
 
 type assignOrRevokeRoleReq struct {
 	Account string   `form:"account" binding:"required,email"`
-	Role    string   `form:"role" binding:"required,oneof=superadmin admin appowner appdeveloper developer"`
+	Role    string   `form:"role" binding:"required,oneof=superadmin admin appowner appdeveloper developer visitor"`
 	Domains []string `form:"domain"`
 }

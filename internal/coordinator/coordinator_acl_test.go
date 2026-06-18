@@ -193,6 +193,37 @@ func TestAssignRoleRejectsSuperadmin(t *testing.T) {
 	require.ErrorIs(t, err, errorx.Err_PERMISSION_DENIED)
 }
 
+func TestACLVisitorRoleIsReadOnlyWithinAppEnvironment(t *testing.T) {
+	store := newACLTestKV()
+	rbac, err := newRBAC(store)
+	require.NoError(t, err)
+	acl := rbac.(aclImpl)
+
+	require.NoError(t, acl.AddUser(&concept.User{
+		Account:        "viewer@example.com",
+		Nickname:       "Viewer",
+		HashedPassword: "secret",
+		Status:         concept.User_NORMAL,
+	}))
+	require.NoError(t, acl.AssignRole("viewer@example.com", concept.Role_VISITOR, "payment-service/production"))
+
+	allow, err := acl.Enforce("viewer@example.com", "payment-service/production", concept.Object_APP, concept.Action_READ)
+	require.NoError(t, err)
+	require.True(t, allow)
+
+	allow, err = acl.Enforce("viewer@example.com", "payment-service/production", concept.Object_ELEMENT, concept.Action_READ)
+	require.NoError(t, err)
+	require.True(t, allow)
+
+	allow, err = acl.Enforce("viewer@example.com", "payment-service/production", concept.Object_ELEMENT, concept.Action_WRITE)
+	require.NoError(t, err)
+	require.False(t, allow)
+
+	allow, err = acl.Enforce("viewer@example.com", "payment-service/production", concept.Object_ELEMENT, concept.Action_PUBLISH)
+	require.NoError(t, err)
+	require.False(t, allow)
+}
+
 func TestBootstrapAdminCanAssignSuperadmin(t *testing.T) {
 	store := newACLTestKV()
 	rbac, err := newRBAC(store)

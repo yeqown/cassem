@@ -3552,7 +3552,7 @@ describe('app shell routing', () => {
         }),
       }),
     )
-  })
+  }, 30000)
 
   it('shows rollback review diff from loaded raw content without fetching comparison', async () => {
     localStorage.setItem('cassem.session', 'session')

@@ -9,7 +9,7 @@ LDFLAGS := -s \
 	-X main.GitHash=$(shell git rev-parse HEAD)
 COMPOSE := IMAGE_TAG=$(IMAGE_TAG) CASSEM_EXAMPLES_DIR=$(abspath examples) $(CONTAINER_TOOL) compose -p cassem -f examples/compose.cluster.yaml
 
-.PHONY: help build-cli build-image ui.install ui.build ui.test ui.lint ui.typecheck cluster.start cluster.stop cluster.restart cluster.status cluster.logs cluster.clean test test.integration lint vet
+.PHONY: help build-cli build-image ui.install ui.build ui.test ui.lint ui.typecheck cluster.start cluster.stop cluster.restart cluster.status cluster.logs cluster.clean integration.clean integration.start integration.wait integration.logs test test.integration test.integration.releasegate test.integration.cluster lint vet
 
 help:
 	@echo "Usage: make <target>"
@@ -23,6 +23,7 @@ help:
 	@echo "  cluster.status       Show local Compose cluster status"
 	@echo "  cluster.logs         Show local Compose cluster logs"
 	@echo "  cluster.clean        Stop cluster, remove volumes, and remove generated binaries"
+	@echo "  test.integration.cluster  Build, start, wait, test, log, and clean the integration cluster"
 	@echo ""
 	@echo "Quality:"
 	@echo "  ui.install           Install cassemadm Web dependencies"
@@ -96,6 +97,27 @@ cluster.logs:
 cluster.clean:
 	$(COMPOSE) down -v --remove-orphans
 	rm -rf ./bin
+
+integration.clean: cluster.clean
+
+integration.start: cluster.start
+
+integration.wait:
+	CASSEM_INTEGRATION_STRICT=1 go test -tags integration ./tests/testutil -run TestIntegrationClusterReady -count=1 -v
+
+integration.logs: cluster.status cluster.logs
+
+test.integration.releasegate:
+	CASSEM_INTEGRATION_STRICT=1 go test -tags integration ./tests/integration/... -p 1 -count=1 -v
+
+test.integration.cluster:
+	set -e; \
+	status=0; \
+	trap 'status=$$?; if [ $$status -ne 0 ]; then $(MAKE) integration.logs || true; fi; $(MAKE) integration.clean || true; exit $$status' EXIT; \
+	$(MAKE) integration.clean || true; \
+	$(MAKE) integration.start; \
+	$(MAKE) integration.wait; \
+	$(MAKE) test.integration.releasegate
 
 test: ui.typecheck ui.test
 	go test ./...

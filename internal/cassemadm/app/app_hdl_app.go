@@ -46,18 +46,19 @@ func (d app) GetApp(c *gin.Context) {
 }
 
 func (d app) CreateApp(c *gin.Context) {
-	req := new(createAppReq)
-	if err := c.ShouldBindUri(req); err != nil {
+	uriReq := new(createAppUriReq)
+	if err := c.ShouldBindUri(uriReq); err != nil {
 		httpx.ResponseError(c, err)
 		return
 	}
+	req := new(createAppReq)
 	if err := c.ShouldBind(req); err != nil {
 		httpx.ResponseError(c, err)
 		return
 	}
 
 	md := &concept.AppMetadata{
-		Id:          req.App,
+		Id:          uriReq.App,
 		Description: req.Description,
 		CreatedAt:   time.Now().Unix(),
 		Creator:     "todo(@yeqown)",
