@@ -23,7 +23,6 @@ make cluster.logs            # Show local Compose cluster logs
 make cluster.clean           # Stop cluster, remove volumes, and remove generated binaries
 
 make test                    # Run all Go tests
-make test.integration        # Run integration tests against the local cluster
 make vet                     # Run go vet
 make lint                    # Run golangci-lint
 
