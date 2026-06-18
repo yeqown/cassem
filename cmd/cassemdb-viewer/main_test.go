@@ -16,7 +16,6 @@ import (
 	"github.com/urfave/cli/v2"
 	"google.golang.org/grpc"
 
-	dbapi "github.com/yeqown/cassem/internal/cassemdb/api"
 	"github.com/yeqown/log"
 )
 
@@ -177,9 +176,9 @@ func TestNewValueView(t *testing.T) {
 
 func TestNewEntityView(t *testing.T) {
 	t.Run("text", func(t *testing.T) {
-		view := newEntityView(&dbapi.Entity{
+		view := newEntityView(&apikv.Entity{
 			Key:       "cassem/debug/key",
-			Typ:       dbapi.EntityType_ELT,
+			Typ:       apikv.EntityType_ELT,
 			Size:      5,
 			Ttl:       60,
 			CreatedAt: 11,
@@ -198,9 +197,9 @@ func TestNewEntityView(t *testing.T) {
 	})
 
 	t.Run("binary", func(t *testing.T) {
-		view := newEntityView(&dbapi.Entity{
+		view := newEntityView(&apikv.Entity{
 			Key: "cassem/debug/key",
-			Typ: dbapi.EntityType_ELT,
+			Typ: apikv.EntityType_ELT,
 			Val: []byte{0x00, 0xff},
 		})
 
@@ -211,12 +210,12 @@ func TestNewEntityView(t *testing.T) {
 }
 
 func TestNewChangeView(t *testing.T) {
-	view := newChangeView(&dbapi.Change{
-		Op:  dbapi.Change_Set,
+	view := newChangeView(&apikv.Change{
+		Op:  apikv.Change_Set,
 		Key: "cassem/debug/key",
-		Current: &dbapi.Entity{
+		Current: &apikv.Entity{
 			Key:  "cassem/debug/key",
-			Typ:  dbapi.EntityType_ELT,
+			Typ:  apikv.EntityType_ELT,
 			Val:  []byte("next"),
 			Size: 4,
 		},
@@ -239,18 +238,18 @@ func TestWithKVClientUnarySharesTimeoutContext(t *testing.T) {
 		dialKVClient = originalDialer
 		dialClusterClient = originalClusterDialer
 	}()
-	dialClusterClient = func(ctx context.Context, endpoints []string) (dbapi.ClusterClient, func() error, error) {
+	dialClusterClient = func(ctx context.Context, endpoints []string) (apikv.ClusterClient, func() error, error) {
 		return nil, nil, errors.New("discovery unavailable")
 	}
 
 	var dialCtx context.Context
-	dialKVClient = func(ctx context.Context, endpoints []string, mode dbapi.Mode) (dbapi.KVClient, func() error, error) {
+	dialKVClient = func(ctx context.Context, endpoints []string, mode apikv.Mode) (apikv.KVClient, func() error, error) {
 		dialCtx = ctx
 		return nil, func() error { return nil }, nil
 	}
 
 	var rpcCtx context.Context
-	err := withKVClient(ctx, dbapi.Mode_R, true, func(ctx context.Context, client dbapi.KVClient) error {
+	err := withKVClient(ctx, apikv.Mode_R, true, func(ctx context.Context, client apikv.KVClient) error {
 		rpcCtx = ctx
 		return nil
 	})
@@ -267,12 +266,12 @@ func TestWithKVClientUnarySharesTimeoutContext(t *testing.T) {
 }
 
 type fakeClusterClient struct {
-	dbapi.ClusterClient
-	members []*dbapi.ClusterMember
+	apikv.ClusterClient
+	members []*apikv.ClusterMember
 }
 
-func (f fakeClusterClient) ListMembers(ctx context.Context, in *dbapi.ListMembersRequest, opts ...grpc.CallOption) (*dbapi.ListMembersResponse, error) {
-	return &dbapi.ListMembersResponse{Members: f.members}, nil
+func (f fakeClusterClient) ListMembers(ctx context.Context, in *apikv.ListMembersRequest, opts ...grpc.CallOption) (*apikv.ListMembersResponse, error) {
+	return &apikv.ListMembersResponse{Members: f.members}, nil
 }
 
 func TestWithKVClientDiscoversWriteEndpointsFromSeed(t *testing.T) {
@@ -286,21 +285,21 @@ func TestWithKVClientDiscoversWriteEndpointsFromSeed(t *testing.T) {
 		dialClusterClient = originalClusterDialer
 	}()
 
-	dialClusterClient = func(ctx context.Context, endpoints []string) (dbapi.ClusterClient, func() error, error) {
+	dialClusterClient = func(ctx context.Context, endpoints []string) (apikv.ClusterClient, func() error, error) {
 		assert.Equal(t, []string{"127.0.0.1:2021"}, endpoints)
-		return fakeClusterClient{members: []*dbapi.ClusterMember{
+		return fakeClusterClient{members: []*apikv.ClusterMember{
 			{NodeId: 1, GrpcEndpoint: "127.0.0.1:2021"},
 			{NodeId: 2, GrpcEndpoint: "127.0.0.1:2022"},
 		}}, func() error { return nil }, nil
 	}
 
 	var gotEndpoints []string
-	dialKVClient = func(ctx context.Context, endpoints []string, mode dbapi.Mode) (dbapi.KVClient, func() error, error) {
+	dialKVClient = func(ctx context.Context, endpoints []string, mode apikv.Mode) (apikv.KVClient, func() error, error) {
 		gotEndpoints = endpoints
 		return nil, func() error { return nil }, nil
 	}
 
-	err := withKVClient(ctx, dbapi.Mode_X, true, func(ctx context.Context, client dbapi.KVClient) error {
+	err := withKVClient(ctx, apikv.Mode_X, true, func(ctx context.Context, client apikv.KVClient) error {
 		return nil
 	})
 	require.NoError(t, err)
@@ -318,17 +317,17 @@ func TestWithKVClientFallsBackToExplicitEndpointsWhenDiscoveryFails(t *testing.T
 		dialClusterClient = originalClusterDialer
 	}()
 
-	dialClusterClient = func(ctx context.Context, endpoints []string) (dbapi.ClusterClient, func() error, error) {
+	dialClusterClient = func(ctx context.Context, endpoints []string) (apikv.ClusterClient, func() error, error) {
 		return nil, nil, errors.New("discovery unavailable")
 	}
 
 	var gotEndpoints []string
-	dialKVClient = func(ctx context.Context, endpoints []string, mode dbapi.Mode) (dbapi.KVClient, func() error, error) {
+	dialKVClient = func(ctx context.Context, endpoints []string, mode apikv.Mode) (apikv.KVClient, func() error, error) {
 		gotEndpoints = endpoints
 		return nil, func() error { return nil }, nil
 	}
 
-	err := withKVClient(ctx, dbapi.Mode_X, true, func(ctx context.Context, client dbapi.KVClient) error {
+	err := withKVClient(ctx, apikv.Mode_X, true, func(ctx context.Context, client apikv.KVClient) error {
 		return nil
 	})
 	require.NoError(t, err)
@@ -346,18 +345,18 @@ func TestWithKVClientWatchSeparatesDialAndOperationContext(t *testing.T) {
 		dialKVClient = originalDialer
 		dialClusterClient = originalClusterDialer
 	}()
-	dialClusterClient = func(ctx context.Context, endpoints []string) (dbapi.ClusterClient, func() error, error) {
+	dialClusterClient = func(ctx context.Context, endpoints []string) (apikv.ClusterClient, func() error, error) {
 		return nil, nil, errors.New("discovery unavailable")
 	}
 
 	var dialCtx context.Context
-	dialKVClient = func(ctx context.Context, endpoints []string, mode dbapi.Mode) (dbapi.KVClient, func() error, error) {
+	dialKVClient = func(ctx context.Context, endpoints []string, mode apikv.Mode) (apikv.KVClient, func() error, error) {
 		dialCtx = ctx
 		return nil, func() error { return nil }, nil
 	}
 
 	var rpcCtx context.Context
-	err := withKVClient(ctx, dbapi.Mode_R, false, func(ctx context.Context, client dbapi.KVClient) error {
+	err := withKVClient(ctx, apikv.Mode_R, false, func(ctx context.Context, client apikv.KVClient) error {
 		rpcCtx = ctx
 		return nil
 	})
@@ -411,9 +410,9 @@ func TestRenderCLIErrorJSON(t *testing.T) {
 }
 
 func TestEntityViewJSONUsesStructuredValue(t *testing.T) {
-	view := newEntityView(&dbapi.Entity{
+	view := newEntityView(&apikv.Entity{
 		Key: "cassem/debug/key",
-		Typ: dbapi.EntityType_ELT,
+		Typ: apikv.EntityType_ELT,
 		Val: []byte{0x00, 0xff},
 	})
 
@@ -431,17 +430,17 @@ func TestEntityViewJSONUsesStructuredValue(t *testing.T) {
 }
 
 func TestChangeViewJSONUsesStructuredValue(t *testing.T) {
-	view := newChangeView(&dbapi.Change{
-		Op:  dbapi.Change_Set,
+	view := newChangeView(&apikv.Change{
+		Op:  apikv.Change_Set,
 		Key: "cassem/debug/key",
-		Last: &dbapi.Entity{
+		Last: &apikv.Entity{
 			Key: "cassem/debug/key",
-			Typ: dbapi.EntityType_ELT,
+			Typ: apikv.EntityType_ELT,
 			Val: []byte("prev"),
 		},
-		Current: &dbapi.Entity{
+		Current: &apikv.Entity{
 			Key: "cassem/debug/key",
-			Typ: dbapi.EntityType_ELT,
+			Typ: apikv.EntityType_ELT,
 			Val: []byte{0x00, 0xff},
 		},
 	})
@@ -504,7 +503,7 @@ func TestPrintEntityViewsShowsDirectoryRowsCleanly(t *testing.T) {
 	set.Bool("json", false, "")
 	ctx := cli.NewContext(app, set, nil)
 
-	require.NoError(t, printEntityViews(ctx, []entityView{newEntityView(&dbapi.Entity{Key: "normalized"})}))
+	require.NoError(t, printEntityViews(ctx, []entityView{newEntityView(&apikv.Entity{Key: "normalized"})}))
 
 	got := out.String()
 	assert.Contains(t, got, "normalized")
@@ -521,7 +520,7 @@ func TestPrintEntityViewsTruncatesLongValues(t *testing.T) {
 	set.Bool("json", false, "")
 	ctx := cli.NewContext(app, set, nil)
 
-	view := newEntityView(&dbapi.Entity{Key: "cassem/debug/key", Typ: dbapi.EntityType_ELT, Val: []byte("0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")})
+	view := newEntityView(&apikv.Entity{Key: "cassem/debug/key", Typ: apikv.EntityType_ELT, Val: []byte("0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")})
 	require.NoError(t, printEntityViews(ctx, []entityView{view}))
 
 	got := out.String()
@@ -548,12 +547,12 @@ func TestListCommandDefaultsPrefixToCassem(t *testing.T) {
 	originalDialer := dialKVClient
 	defer func() { dialKVClient = originalDialer }()
 
-	var gotReq *dbapi.RangeReq
-	dialKVClient = func(ctx context.Context, endpoints []string, mode dbapi.Mode) (dbapi.KVClient, func() error, error) {
+	var gotReq *apikv.RangeReq
+	dialKVClient = func(ctx context.Context, endpoints []string, mode apikv.Mode) (apikv.KVClient, func() error, error) {
 		return fakeKVClient{
-			rangeFunc: func(ctx context.Context, req *dbapi.RangeReq) (*dbapi.RangeResp, error) {
+			rangeFunc: func(ctx context.Context, req *apikv.RangeReq) (*apikv.RangeResp, error) {
 				gotReq = req
-				return &dbapi.RangeResp{}, nil
+				return &apikv.RangeResp{}, nil
 			},
 		}, func() error { return nil }, nil
 	}
@@ -575,10 +574,10 @@ func TestListCommandUsesRangeEntityKeys(t *testing.T) {
 	originalDialer := dialKVClient
 	defer func() { dialKVClient = originalDialer }()
 
-	dialKVClient = func(ctx context.Context, endpoints []string, mode dbapi.Mode) (dbapi.KVClient, func() error, error) {
+	dialKVClient = func(ctx context.Context, endpoints []string, mode apikv.Mode) (apikv.KVClient, func() error, error) {
 		return fakeKVClient{
-			rangeFunc: func(ctx context.Context, req *dbapi.RangeReq) (*dbapi.RangeResp, error) {
-				return &dbapi.RangeResp{Entities: []*dbapi.Entity{{Key: "cassem/acl"}}}, nil
+			rangeFunc: func(ctx context.Context, req *apikv.RangeReq) (*apikv.RangeResp, error) {
+				return &apikv.RangeResp{Entities: []*apikv.Entity{{Key: "cassem/acl"}}}, nil
 			},
 		}, func() error { return nil }, nil
 	}
@@ -590,45 +589,45 @@ func TestListCommandUsesRangeEntityKeys(t *testing.T) {
 }
 
 type fakeKVClient struct {
-	rangeFunc func(context.Context, *dbapi.RangeReq) (*dbapi.RangeResp, error)
+	rangeFunc func(context.Context, *apikv.RangeReq) (*apikv.RangeResp, error)
 }
 
-func (f fakeKVClient) GetKV(context.Context, *dbapi.GetKVReq, ...grpc.CallOption) (*dbapi.GetKVResp, error) {
+func (f fakeKVClient) GetKV(context.Context, *apikv.GetKVReq, ...grpc.CallOption) (*apikv.GetKVResp, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (f fakeKVClient) GetKVs(context.Context, *dbapi.GetKVsReq, ...grpc.CallOption) (*dbapi.GetKVsResp, error) {
+func (f fakeKVClient) GetKVs(context.Context, *apikv.GetKVsReq, ...grpc.CallOption) (*apikv.GetKVsResp, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (f fakeKVClient) SetKV(context.Context, *dbapi.SetKVReq, ...grpc.CallOption) (*dbapi.Empty, error) {
+func (f fakeKVClient) SetKV(context.Context, *apikv.SetKVReq, ...grpc.CallOption) (*apikv.Empty, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (f fakeKVClient) UnsetKV(context.Context, *dbapi.UnsetKVReq, ...grpc.CallOption) (*dbapi.Empty, error) {
+func (f fakeKVClient) UnsetKV(context.Context, *apikv.UnsetKVReq, ...grpc.CallOption) (*apikv.Empty, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (f fakeKVClient) Watch(context.Context, *dbapi.WatchReq, ...grpc.CallOption) (dbapi.KV_WatchClient, error) {
+func (f fakeKVClient) Watch(context.Context, *apikv.WatchReq, ...grpc.CallOption) (apikv.KV_WatchClient, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (f fakeKVClient) TTL(context.Context, *dbapi.TtlReq, ...grpc.CallOption) (*dbapi.TtlResp, error) {
+func (f fakeKVClient) TTL(context.Context, *apikv.TtlReq, ...grpc.CallOption) (*apikv.TtlResp, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (f fakeKVClient) Expire(context.Context, *dbapi.ExpireReq, ...grpc.CallOption) (*dbapi.Empty, error) {
+func (f fakeKVClient) Expire(context.Context, *apikv.ExpireReq, ...grpc.CallOption) (*apikv.Empty, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (f fakeKVClient) Range(ctx context.Context, req *dbapi.RangeReq, opts ...grpc.CallOption) (*dbapi.RangeResp, error) {
+func (f fakeKVClient) Range(ctx context.Context, req *apikv.RangeReq, opts ...grpc.CallOption) (*apikv.RangeResp, error) {
 	if f.rangeFunc == nil {
 		return nil, errors.New("not implemented")
 	}
 	return f.rangeFunc(ctx, req)
 }
 
-func (f fakeKVClient) CompactElementHistory(context.Context, *dbapi.CompactElementHistoryReq, ...grpc.CallOption) (*dbapi.CompactElementHistoryResp, error) {
+func (f fakeKVClient) CompactElementHistory(context.Context, *apikv.CompactElementHistoryReq, ...grpc.CallOption) (*apikv.CompactElementHistoryResp, error) {
 	return nil, errors.New("not implemented")
 }
 

@@ -14,7 +14,6 @@ import (
 	"github.com/yeqown/log"
 
 	"github.com/yeqown/cassem/api/concept"
-	apicassemdb "github.com/yeqown/cassem/internal/cassemdb/api"
 	"github.com/yeqown/cassem/pkg/errorx"
 	"github.com/yeqown/cassem/pkg/hash"
 )
@@ -47,7 +46,7 @@ m = g(r.sub, p.sub, r.dom) && \
 // g(r.sub, p.sub, r.dom) && r.dom == p.dom && r.obj == p.obj && r.act == p.act
 
 type aclImpl struct {
-	c apicassemdb.KVClient
+	c apikv.KVClient
 	a *cassemAdapter
 	e *casbin.Enforcer
 }
@@ -70,7 +69,7 @@ func rbacRole(role string) string {
 }
 
 // newRBAC construct a RBAC ACL interface.
-func newRBAC(c apicassemdb.KVClient) (concept.RBAC, error) {
+func newRBAC(c apikv.KVClient) (concept.RBAC, error) {
 	a := &cassemAdapter{cassemdb: c}
 
 	m, err := model.NewModelFromString(_casbinModel)
@@ -122,18 +121,18 @@ func newRBAC(c apicassemdb.KVClient) (concept.RBAC, error) {
 }
 
 func (a aclImpl) GetUser(account string) (*concept.User, error) {
-	r, err := a.c.GetKV(context.TODO(), &apicassemdb.GetKVReq{Key: concept.GenUserKey(account)})
+	r, err := a.c.GetKV(context.TODO(), &apikv.GetKVReq{Key: concept.GenUserKey(account)})
 	if err != nil {
 		return nil, fmt.Errorf("aclImpl.GetUser: %w", err)
 	}
 
 	u := new(concept.User)
-	apicassemdb.MustUnmarshal(r.GetEntity().GetVal(), u)
+	apikv.MustUnmarshal(r.GetEntity().GetVal(), u)
 	return u, nil
 }
 
 func (a aclImpl) GetUsers(seek string, limit int) (*concept.GetUsersResult, error) {
-	r, err := a.c.Range(context.TODO(), &apicassemdb.RangeReq{
+	r, err := a.c.Range(context.TODO(), &apikv.RangeReq{
 		Key:   concept.GenUserDirKey(),
 		Seek:  seek,
 		Limit: int32(limit),
@@ -152,7 +151,7 @@ func (a aclImpl) GetUsers(seek string, limit int) (*concept.GetUsersResult, erro
 
 	for _, entity := range r.GetEntities() {
 		u := new(concept.User)
-		apicassemdb.MustUnmarshal(entity.GetVal(), u)
+		apikv.MustUnmarshal(entity.GetVal(), u)
 		result.Users = append(result.Users, u)
 	}
 
@@ -248,11 +247,11 @@ func (a aclImpl) ListDomainOptions() ([]string, error) {
 	return options, nil
 }
 
-func (a aclImpl) rangeAll(key string) ([]*apicassemdb.Entity, error) {
-	entities := make([]*apicassemdb.Entity, 0)
+func (a aclImpl) rangeAll(key string) ([]*apikv.Entity, error) {
+	entities := make([]*apikv.Entity, 0)
 	seek := ""
 	for {
-		resp, err := a.c.Range(context.TODO(), &apicassemdb.RangeReq{Key: key, Seek: seek, Limit: aclDomainRangeLimit})
+		resp, err := a.c.Range(context.TODO(), &apikv.RangeReq{Key: key, Seek: seek, Limit: aclDomainRangeLimit})
 		if err != nil {
 			return nil, err
 		}
@@ -270,8 +269,8 @@ func (a aclImpl) AddUser(u *concept.User) error {
 	u.HashedPassword = hash.WithSalt(u.HashedPassword, u.Salt)
 
 	// save
-	data := apicassemdb.Must(apicassemdb.Marshal(u))
-	r, err := a.c.SetKV(context.TODO(), &apicassemdb.SetKVReq{
+	data := apikv.Must(apikv.Marshal(u))
+	r, err := a.c.SetKV(context.TODO(), &apikv.SetKVReq{
 		Key:       concept.GenUserKey(u.GetAccount()),
 		IsDir:     false,
 		Ttl:       0,
@@ -291,13 +290,13 @@ func (a aclImpl) DisableUser(account string) error {
 		return err
 	}
 
-	r, err := a.c.GetKV(context.TODO(), &apicassemdb.GetKVReq{Key: concept.GenUserKey(account)})
+	r, err := a.c.GetKV(context.TODO(), &apikv.GetKVReq{Key: concept.GenUserKey(account)})
 	if err != nil {
 		return fmt.Errorf("aclImpl.DisableUser: %w", err)
 	}
 
 	u := new(concept.User)
-	apicassemdb.MustUnmarshal(r.GetEntity().GetVal(), u)
+	apikv.MustUnmarshal(r.GetEntity().GetVal(), u)
 	u.Status = concept.User_FORBIDDEN
 
 	return a.saveUser(u)
@@ -308,13 +307,13 @@ func (a aclImpl) ResetUser(account, password string) error {
 		return err
 	}
 
-	r, err := a.c.GetKV(context.TODO(), &apicassemdb.GetKVReq{Key: concept.GenUserKey(account)})
+	r, err := a.c.GetKV(context.TODO(), &apikv.GetKVReq{Key: concept.GenUserKey(account)})
 	if err != nil {
 		return fmt.Errorf("aclImpl.ResetUser: %w", err)
 	}
 
 	u := new(concept.User)
-	apicassemdb.MustUnmarshal(r.GetEntity().GetVal(), u)
+	apikv.MustUnmarshal(r.GetEntity().GetVal(), u)
 	u.Salt = hash.RandKey(8)
 	u.HashedPassword = hash.WithSalt(password, u.Salt)
 	u.Status = concept.User_NORMAL
@@ -323,8 +322,8 @@ func (a aclImpl) ResetUser(account, password string) error {
 }
 
 func (a aclImpl) saveUser(u *concept.User) error {
-	data := apicassemdb.Must(apicassemdb.Marshal(u))
-	r, err := a.c.SetKV(context.TODO(), &apicassemdb.SetKVReq{
+	data := apikv.Must(apikv.Marshal(u))
+	r, err := a.c.SetKV(context.TODO(), &apikv.SetKVReq{
 		Key:       concept.GenUserKey(u.Account),
 		IsDir:     false,
 		Ttl:       0,
@@ -498,13 +497,13 @@ func (a aclImpl) BootstrapAdmin(account, nickname, password string) error {
 
 // cassemAdapter implements persist.Adapter of casbin acl model.
 type cassemAdapter struct {
-	cassemdb apicassemdb.KVClient
+	cassemdb apikv.KVClient
 }
 
 func (c cassemAdapter) LoadPolicy(model model.Model) error {
 	r, err := c.cassemdb.GetKV(
 		context.TODO(),
-		&apicassemdb.GetKVReq{Key: concept.GenAclPolicyKey()},
+		&apikv.GetKVReq{Key: concept.GenAclPolicyKey()},
 	)
 	if err != nil {
 		if errors.Is(err, errorx.Err_NOT_FOUND) {
@@ -516,7 +515,7 @@ func (c cassemAdapter) LoadPolicy(model model.Model) error {
 
 	// c.casbinEntity = r.GetEntity()
 	s := new(concept.Casbin)
-	apicassemdb.MustUnmarshal(r.GetEntity().GetVal(), s)
+	apikv.MustUnmarshal(r.GetEntity().GetVal(), s)
 
 	for _, p := range s.GetPolicies() {
 		loadPolicyLine(p, model)
@@ -564,8 +563,8 @@ func (c cassemAdapter) SavePolicy(model model.Model) error {
 		}
 	}
 
-	data := apicassemdb.Must(apicassemdb.Marshal(s))
-	_, err := c.cassemdb.SetKV(context.TODO(), &apicassemdb.SetKVReq{
+	data := apikv.Must(apikv.Marshal(s))
+	_, err := c.cassemdb.SetKV(context.TODO(), &apikv.SetKVReq{
 		Key:       concept.GenAclPolicyKey(),
 		IsDir:     false,
 		Ttl:       0,

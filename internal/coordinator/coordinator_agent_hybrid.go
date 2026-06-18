@@ -9,7 +9,6 @@ import (
 	"github.com/yeqown/log"
 
 	"github.com/yeqown/cassem/api/concept"
-	apicassemdb "github.com/yeqown/cassem/internal/cassemdb/api"
 )
 
 const (
@@ -17,19 +16,19 @@ const (
 )
 
 type agentInsHybrid struct {
-	cassemdb apicassemdb.KVClient
+	cassemdb apikv.KVClient
 }
 
-//func NewAgentInstanceHybrid(endpoints []string) (AgentHybrid, error) {
-//	cc, err := apicassemdb.DialWithMode(endpoints, apicassemdb.Mode_X)
+// func NewAgentInstanceHybrid(endpoints []string) (AgentHybrid, error) {
+//	cc, err := apikv.DialWithMode(endpoints, apikv.Mode_X)
 //	if err != nil {
 //		return nil, errors.Wrap(err, "NewInstanceHybrid")
 //	}
-//	return &agentInsHybrid{cassemdb: apicassemdb.NewKVClient(cc)}, nil
-//}
+//	return &agentInsHybrid{cassemdb: apikv.NewKVClient(cc)}, nil
+// }
 
 func (_h agentInsHybrid) Watch(ctx context.Context, ch chan<- *concept.AgentInstanceChange) error {
-	stream, err := _h.cassemdb.Watch(ctx, &apicassemdb.WatchReq{
+	stream, err := _h.cassemdb.Watch(ctx, &apikv.WatchReq{
 		Keys: []string{_AGENT_PREFIX},
 	})
 	if err != nil {
@@ -39,7 +38,7 @@ func (_h agentInsHybrid) Watch(ctx context.Context, ch chan<- *concept.AgentInst
 		return err
 	}
 
-	change := new(apicassemdb.Change)
+	change := new(apikv.Change)
 	ctx2, cancel := context.WithCancel(stream.Context())
 	defer cancel()
 loop:
@@ -96,7 +95,7 @@ func (_h agentInsHybrid) Register(ctx context.Context, ins *concept.AgentInstanc
 		return fmt.Errorf("cassem.concept.agentInsHybrid.Register: %w", err)
 	}
 
-	_, err = _h.cassemdb.SetKV(ctx, &apicassemdb.SetKVReq{
+	_, err = _h.cassemdb.SetKV(ctx, &apikv.SetKVReq{
 		Key:       concept.WithAgentPrefix(ins.AgentId),
 		IsDir:     false,
 		Ttl:       ttl,
@@ -113,7 +112,7 @@ func (_h agentInsHybrid) Renew(ctx context.Context, ins *concept.AgentInstance, 
 		return fmt.Errorf("cassem.concept.agentInsHybrid.Renew: %w", err)
 	}
 
-	_, err = _h.cassemdb.SetKV(ctx, &apicassemdb.SetKVReq{
+	_, err = _h.cassemdb.SetKV(ctx, &apikv.SetKVReq{
 		Key:       concept.WithAgentPrefix(ins.AgentId),
 		IsDir:     false,
 		Ttl:       ttl,
@@ -125,7 +124,7 @@ func (_h agentInsHybrid) Renew(ctx context.Context, ins *concept.AgentInstance, 
 }
 
 func (_h agentInsHybrid) Unregister(ctx context.Context, agentId string) error {
-	_, err := _h.cassemdb.UnsetKV(ctx, &apicassemdb.UnsetKVReq{
+	_, err := _h.cassemdb.UnsetKV(ctx, &apikv.UnsetKVReq{
 		Key:   concept.WithAgentPrefix(agentId),
 		IsDir: false,
 	})
@@ -134,7 +133,7 @@ func (_h agentInsHybrid) Unregister(ctx context.Context, agentId string) error {
 }
 
 func (_h agentInsHybrid) GetAgents(ctx context.Context, seek string, limit int) (*concept.GetAgentsResult, error) {
-	r, err := _h.cassemdb.Range(ctx, &apicassemdb.RangeReq{
+	r, err := _h.cassemdb.Range(ctx, &apikv.RangeReq{
 		Key:   _AGENT_PREFIX,
 		Seek:  seek,
 		Limit: int32(limit),
@@ -148,7 +147,7 @@ func (_h agentInsHybrid) GetAgents(ctx context.Context, seek string, limit int) 
 			HasMore:  r.GetHasMore(),
 			NextSeek: r.GetNextSeekKey(),
 		},
-		Agents: make([]*concept.AgentInstance,0, len(r.GetEntities())),
+		Agents: make([]*concept.AgentInstance, 0, len(r.GetEntities())),
 	}
 	for _, v := range r.GetEntities() {
 		agent := new(concept.AgentInstance)

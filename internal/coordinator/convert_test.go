@@ -8,7 +8,6 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/yeqown/cassem/api/concept"
-	apicassemdb "github.com/yeqown/cassem/internal/cassemdb/api"
 )
 
 func marshalTestProto(t testing.TB, msg proto.Message) []byte {
@@ -21,12 +20,12 @@ func marshalTestProto(t testing.TB, msg proto.Message) []byte {
 func TestConvertFromEntitiesToElements(t *testing.T) {
 	baseKey := concept.GenElementKey("app", "prod", "feature")
 	metadata := &concept.ElementMetadata{Key: "feature", App: "app", Env: "prod", UsingVersion: 2}
-	entity := &apicassemdb.Entity{
+	entity := &apikv.Entity{
 		Key: concept.WithVersion(baseKey, 2),
 		Val: marshalTestProto(t, &concept.Element{Version: 2, Raw: []byte("enabled"), Published: true}),
 	}
 
-	out := ConvertFromEntitiesToElements([]*apicassemdb.Entity{
+	out := ConvertFromEntitiesToElements([]*apikv.Entity{
 		entity,
 		{Key: concept.WithVersion(baseKey, 3), Val: []byte("bad proto")},
 	}, map[string]*concept.ElementMetadata{baseKey: metadata})
@@ -44,7 +43,7 @@ func TestConvertFromEntitiesToMetadata(t *testing.T) {
 	badKey := concept.GenElementKey("app", "prod", "bad")
 	using := &concept.ElementMetadata{Key: "using", App: "app", Env: "prod", UsingVersion: 2, UnpublishedVersion: 3}
 	unpublished := &concept.ElementMetadata{Key: "draft", App: "app", Env: "prod", UnpublishedVersion: 4}
-	entities := []*apicassemdb.Entity{
+	entities := []*apikv.Entity{
 		{Key: concept.WithMetadataSuffix(usingKey), Val: marshalTestProto(t, using)},
 		{Key: concept.WithMetadataSuffix(unpublishedKey), Val: marshalTestProto(t, unpublished)},
 		{Key: concept.WithMetadataSuffix(badKey), Val: []byte("bad proto")},
@@ -70,20 +69,20 @@ func TestConvertFromEntitiesToMetadata(t *testing.T) {
 
 func TestConvertChangeToChange(t *testing.T) {
 	ins := &concept.AgentInstance{AgentId: "agent-1", Addr: "127.0.0.1:9000"}
-	current := &apicassemdb.Entity{Val: marshalTestProto(t, ins)}
+	current := &apikv.Entity{Val: marshalTestProto(t, ins)}
 
 	tests := []struct {
 		name   string
-		change *apicassemdb.Change
+		change *apikv.Change
 		wantOK bool
 		wantOp concept.ChangeOp
 	}{
 		{name: "nil", change: nil, wantOK: false},
-		{name: "set new", change: &apicassemdb.Change{Op: apicassemdb.Change_Set, Current: current}, wantOK: true, wantOp: concept.ChangeOp_NEW},
-		{name: "set update", change: &apicassemdb.Change{Op: apicassemdb.Change_Set, Last: &apicassemdb.Entity{}, Current: current}, wantOK: true, wantOp: concept.ChangeOp_UPDATE},
-		{name: "unset", change: &apicassemdb.Change{Op: apicassemdb.Change_Unset, Current: current}, wantOK: true, wantOp: concept.ChangeOp_DELETE},
-		{name: "invalid op", change: &apicassemdb.Change{Op: apicassemdb.Change_Invalid, Current: current}, wantOK: false},
-		{name: "invalid proto", change: &apicassemdb.Change{Op: apicassemdb.Change_Set, Current: &apicassemdb.Entity{Val: []byte("bad proto")}}, wantOK: false},
+		{name: "set new", change: &apikv.Change{Op: apikv.Change_Set, Current: current}, wantOK: true, wantOp: concept.ChangeOp_NEW},
+		{name: "set update", change: &apikv.Change{Op: apikv.Change_Set, Last: &apikv.Entity{}, Current: current}, wantOK: true, wantOp: concept.ChangeOp_UPDATE},
+		{name: "unset", change: &apikv.Change{Op: apikv.Change_Unset, Current: current}, wantOK: true, wantOp: concept.ChangeOp_DELETE},
+		{name: "invalid op", change: &apikv.Change{Op: apikv.Change_Invalid, Current: current}, wantOK: false},
+		{name: "invalid proto", change: &apikv.Change{Op: apikv.Change_Set, Current: &apikv.Entity{Val: []byte("bad proto")}}, wantOK: false},
 	}
 
 	for _, tt := range tests {

@@ -5,7 +5,7 @@ import (
 	"os"
 	"time"
 
-	cassemdb "github.com/yeqown/cassem/internal/cassemdb/app"
+	cassemdb "github.com/yeqown/cassem/internal/cassemkv/app"
 	"github.com/yeqown/cassem/pkg/conf"
 
 	"github.com/urfave/cli/v2"

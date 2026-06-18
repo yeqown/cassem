@@ -18,8 +18,8 @@ import (
 
 	"github.com/kballard/go-shellquote"
 	"github.com/urfave/cli/v2"
-	dbapi "github.com/yeqown/cassem/internal/cassemdb/api"
 	"github.com/yeqown/log"
+	apikv "github.com/yeqown/cassem/api/kv"
 )
 
 const defaultEndpoint = "127.0.0.1:2021"
@@ -30,20 +30,20 @@ func defaultCLILogLevel() log.Level {
 	return log.LevelWarning
 }
 
-var dialKVClient = func(ctx context.Context, endpoints []string, mode dbapi.Mode) (dbapi.KVClient, func() error, error) {
-	conn, err := dbapi.DialWithModeContext(ctx, endpoints, mode)
+var dialKVClient = func(ctx context.Context, endpoints []string, mode apikv.Mode) (apikv.KVClient, func() error, error) {
+	conn, err := apikv.DialWithModeContext(ctx, endpoints, mode)
 	if err != nil {
 		return nil, nil, err
 	}
-	return dbapi.NewKVClient(conn), conn.Close, nil
+	return apikv.NewKVClient(conn), conn.Close, nil
 }
 
-var dialClusterClient = func(ctx context.Context, endpoints []string) (dbapi.ClusterClient, func() error, error) {
-	conn, err := dbapi.DialWithModeContext(ctx, endpoints, dbapi.Mode_R)
+var dialClusterClient = func(ctx context.Context, endpoints []string) (apikv.ClusterClient, func() error, error) {
+	conn, err := apikv.DialWithModeContext(ctx, endpoints, apikv.Mode_R)
 	if err != nil {
 		return nil, nil, err
 	}
-	return dbapi.NewClusterClient(conn), conn.Close, nil
+	return apikv.NewClusterClient(conn), conn.Close, nil
 }
 
 func main() {
@@ -118,15 +118,15 @@ func newValueView(value []byte) valueView {
 	return valueView{Encoding: "base64", Data: base64.StdEncoding.EncodeToString(value)}
 }
 
-func newEntityView(entity *dbapi.Entity) entityView {
+func newEntityView(entity *apikv.Entity) entityView {
 	if entity == nil {
 		return entityView{}
 	}
 
-	if entity.GetTyp() == dbapi.EntityType_UNKNOWN && entity.GetSize() == 0 && entity.GetCreatedAt() == 0 && entity.GetUpdatedAt() == 0 && len(entity.GetVal()) == 0 {
+	if entity.GetTyp() == apikv.EntityType_UNKNOWN && entity.GetSize() == 0 && entity.GetCreatedAt() == 0 && entity.GetUpdatedAt() == 0 && len(entity.GetVal()) == 0 {
 		return entityView{
 			Key:          entity.GetKey(),
-			Type:         dbapi.EntityType_DIR.String(),
+			Type:         apikv.EntityType_DIR.String(),
 			DisplayValue: "<dir>",
 			IsDir:        true,
 		}
@@ -149,7 +149,7 @@ func newEntityView(entity *dbapi.Entity) entityView {
 	}
 }
 
-func newChangeView(change *dbapi.Change) changeView {
+func newChangeView(change *apikv.Change) changeView {
 	if change == nil {
 		return changeView{}
 	}
@@ -203,7 +203,7 @@ func discoverEndpoints(ctx context.Context, seedEndpoints []string) ([]string, e
 		}
 	}()
 
-	resp, err := client.ListMembers(ctx, &dbapi.ListMembersRequest{})
+	resp, err := client.ListMembers(ctx, &apikv.ListMembersRequest{})
 	if err != nil {
 		return nil, fmt.Errorf("list cluster members: %w", err)
 	}
@@ -227,8 +227,8 @@ func discoverEndpoints(ctx context.Context, seedEndpoints []string) ([]string, e
 	return endpoints, nil
 }
 
-func resolveDialEndpoints(ctx context.Context, seedEndpoints []string, mode dbapi.Mode) []string {
-	if mode != dbapi.Mode_X && len(seedEndpoints) > 1 {
+func resolveDialEndpoints(ctx context.Context, seedEndpoints []string, mode apikv.Mode) []string {
+	if mode != apikv.Mode_X && len(seedEndpoints) > 1 {
 		return seedEndpoints
 	}
 	endpoints, err := discoverEndpoints(ctx, seedEndpoints)
@@ -521,7 +521,7 @@ func buildCommands() []*cli.Command {
 	}
 }
 
-func withKVClient(c *cli.Context, mode dbapi.Mode, useTimeout bool, fn func(context.Context, dbapi.KVClient) error) error {
+func withKVClient(c *cli.Context, mode apikv.Mode, useTimeout bool, fn func(context.Context, apikv.KVClient) error) error {
 	operationCtx := c.Context
 	dialCtx := operationCtx
 	cancel := func() {}
@@ -647,8 +647,8 @@ func getCommand(c *cli.Context) error {
 	}
 
 	key := c.Args().Get(0)
-	return withKVClient(c, dbapi.Mode_R, true, func(ctx context.Context, client dbapi.KVClient) error {
-		resp, err := client.GetKV(ctx, &dbapi.GetKVReq{Key: key})
+	return withKVClient(c, apikv.Mode_R, true, func(ctx context.Context, client apikv.KVClient) error {
+		resp, err := client.GetKV(ctx, &apikv.GetKVReq{Key: key})
 		if err != nil {
 			return fmt.Errorf("get key %q: %w", key, err)
 		}
@@ -662,8 +662,8 @@ func mgetCommand(c *cli.Context) error {
 	}
 
 	keys := c.Args().Slice()
-	return withKVClient(c, dbapi.Mode_R, true, func(ctx context.Context, client dbapi.KVClient) error {
-		resp, err := client.GetKVs(ctx, &dbapi.GetKVsReq{Keys: keys})
+	return withKVClient(c, apikv.Mode_R, true, func(ctx context.Context, client apikv.KVClient) error {
+		resp, err := client.GetKVs(ctx, &apikv.GetKVsReq{Keys: keys})
 		if err != nil {
 			return fmt.Errorf("mget keys: %w", err)
 		}
@@ -684,8 +684,8 @@ func listCommand(c *cli.Context) error {
 
 	prefix := c.String("prefix")
 	seek := c.String("seek")
-	return withKVClient(c, dbapi.Mode_R, true, func(ctx context.Context, client dbapi.KVClient) error {
-		resp, err := client.Range(ctx, &dbapi.RangeReq{Key: prefix, Seek: seek, Limit: int32(limit)})
+	return withKVClient(c, apikv.Mode_R, true, func(ctx context.Context, client apikv.KVClient) error {
+		resp, err := client.Range(ctx, &apikv.RangeReq{Key: prefix, Seek: seek, Limit: int32(limit)})
 		if err != nil {
 			return fmt.Errorf("list prefix %q: %w", prefix, err)
 		}
@@ -723,8 +723,8 @@ func ttlCommand(c *cli.Context) error {
 	}
 
 	key := c.Args().Get(0)
-	return withKVClient(c, dbapi.Mode_R, true, func(ctx context.Context, client dbapi.KVClient) error {
-		resp, err := client.TTL(ctx, &dbapi.TtlReq{Key: key})
+	return withKVClient(c, apikv.Mode_R, true, func(ctx context.Context, client apikv.KVClient) error {
+		resp, err := client.TTL(ctx, &apikv.TtlReq{Key: key})
 		if err != nil {
 			return fmt.Errorf("ttl key %q: %w", key, err)
 		}
@@ -757,8 +757,8 @@ func setCommand(c *cli.Context) error {
 		return err
 	}
 
-	return withKVClient(c, dbapi.Mode_X, true, func(ctx context.Context, client dbapi.KVClient) error {
-		_, err := client.SetKV(ctx, &dbapi.SetKVReq{
+	return withKVClient(c, apikv.Mode_X, true, func(ctx context.Context, client apikv.KVClient) error {
+		_, err := client.SetKV(ctx, &apikv.SetKVReq{
 			Key:       key,
 			IsDir:     c.Bool("dir"),
 			Ttl:       int32(c.Int("ttl")),
@@ -778,8 +778,8 @@ func unsetCommand(c *cli.Context) error {
 	}
 
 	key := c.Args().Get(0)
-	return withKVClient(c, dbapi.Mode_X, true, func(ctx context.Context, client dbapi.KVClient) error {
-		_, err := client.UnsetKV(ctx, &dbapi.UnsetKVReq{Key: key, IsDir: c.Bool("dir")})
+	return withKVClient(c, apikv.Mode_X, true, func(ctx context.Context, client apikv.KVClient) error {
+		_, err := client.UnsetKV(ctx, &apikv.UnsetKVReq{Key: key, IsDir: c.Bool("dir")})
 		if err != nil {
 			return fmt.Errorf("unset key %q: %w", key, err)
 		}
@@ -793,8 +793,8 @@ func expireCommand(c *cli.Context) error {
 	}
 
 	key := c.Args().Get(0)
-	return withKVClient(c, dbapi.Mode_X, true, func(ctx context.Context, client dbapi.KVClient) error {
-		_, err := client.Expire(ctx, &dbapi.ExpireReq{Key: key})
+	return withKVClient(c, apikv.Mode_X, true, func(ctx context.Context, client apikv.KVClient) error {
+		_, err := client.Expire(ctx, &apikv.ExpireReq{Key: key})
 		if err != nil {
 			return fmt.Errorf("expire key %q: %w", key, err)
 		}
@@ -808,8 +808,8 @@ func watchCommand(c *cli.Context) error {
 	}
 
 	keys := c.Args().Slice()
-	return withKVClient(c, dbapi.Mode_R, false, func(ctx context.Context, client dbapi.KVClient) error {
-		stream, err := client.Watch(ctx, &dbapi.WatchReq{Keys: keys})
+	return withKVClient(c, apikv.Mode_R, false, func(ctx context.Context, client apikv.KVClient) error {
+		stream, err := client.Watch(ctx, &apikv.WatchReq{Keys: keys})
 		if err != nil {
 			return fmt.Errorf("watch keys: %w", err)
 		}

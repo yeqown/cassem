@@ -10,73 +10,72 @@ import (
 	"google.golang.org/grpc"
 
 	"github.com/yeqown/cassem/api/concept"
-	apicassemdb "github.com/yeqown/cassem/internal/cassemdb/api"
 	"github.com/yeqown/cassem/pkg/errorx"
 )
 
 type instanceHybridTestKV struct {
-	entities map[string]*apicassemdb.Entity
+	entities map[string]*apikv.Entity
 	setErr   map[string]error
 	unsetErr map[string]error
-	set      []*apicassemdb.SetKVReq
-	unset    []*apicassemdb.UnsetKVReq
+	set      []*apikv.SetKVReq
+	unset    []*apikv.UnsetKVReq
 }
 
 func newInstanceHybridTestKV() *instanceHybridTestKV {
 	return &instanceHybridTestKV{
-		entities: make(map[string]*apicassemdb.Entity),
+		entities: make(map[string]*apikv.Entity),
 		setErr:   make(map[string]error),
 		unsetErr: make(map[string]error),
 	}
 }
 
-func (f *instanceHybridTestKV) GetKV(_ context.Context, req *apicassemdb.GetKVReq, _ ...grpc.CallOption) (*apicassemdb.GetKVResp, error) {
+func (f *instanceHybridTestKV) GetKV(_ context.Context, req *apikv.GetKVReq, _ ...grpc.CallOption) (*apikv.GetKVResp, error) {
 	entity, ok := f.entities[req.GetKey()]
 	if !ok {
 		return nil, errorx.Err_NOT_FOUND
 	}
-	return &apicassemdb.GetKVResp{Entity: entity}, nil
+	return &apikv.GetKVResp{Entity: entity}, nil
 }
 
-func (f *instanceHybridTestKV) GetKVs(context.Context, *apicassemdb.GetKVsReq, ...grpc.CallOption) (*apicassemdb.GetKVsResp, error) {
+func (f *instanceHybridTestKV) GetKVs(context.Context, *apikv.GetKVsReq, ...grpc.CallOption) (*apikv.GetKVsResp, error) {
 	return nil, errors.New("unused")
 }
 
-func (f *instanceHybridTestKV) SetKV(_ context.Context, req *apicassemdb.SetKVReq, _ ...grpc.CallOption) (*apicassemdb.Empty, error) {
+func (f *instanceHybridTestKV) SetKV(_ context.Context, req *apikv.SetKVReq, _ ...grpc.CallOption) (*apikv.Empty, error) {
 	f.set = append(f.set, req)
 	if err := f.setErr[req.GetKey()]; err != nil {
 		return nil, err
 	}
-	f.entities[req.GetKey()] = &apicassemdb.Entity{Key: req.GetKey(), Val: req.GetVal(), Ttl: req.GetTtl()}
-	return &apicassemdb.Empty{}, nil
+	f.entities[req.GetKey()] = &apikv.Entity{Key: req.GetKey(), Val: req.GetVal(), Ttl: req.GetTtl()}
+	return &apikv.Empty{}, nil
 }
 
-func (f *instanceHybridTestKV) UnsetKV(_ context.Context, req *apicassemdb.UnsetKVReq, _ ...grpc.CallOption) (*apicassemdb.Empty, error) {
+func (f *instanceHybridTestKV) UnsetKV(_ context.Context, req *apikv.UnsetKVReq, _ ...grpc.CallOption) (*apikv.Empty, error) {
 	f.unset = append(f.unset, req)
 	if err := f.unsetErr[req.GetKey()]; err != nil {
 		return nil, err
 	}
 	delete(f.entities, req.GetKey())
-	return &apicassemdb.Empty{}, nil
+	return &apikv.Empty{}, nil
 }
 
-func (f *instanceHybridTestKV) Watch(context.Context, *apicassemdb.WatchReq, ...grpc.CallOption) (apicassemdb.KV_WatchClient, error) {
+func (f *instanceHybridTestKV) Watch(context.Context, *apikv.WatchReq, ...grpc.CallOption) (apikv.KV_WatchClient, error) {
 	return nil, errors.New("unused")
 }
 
-func (f *instanceHybridTestKV) TTL(context.Context, *apicassemdb.TtlReq, ...grpc.CallOption) (*apicassemdb.TtlResp, error) {
+func (f *instanceHybridTestKV) TTL(context.Context, *apikv.TtlReq, ...grpc.CallOption) (*apikv.TtlResp, error) {
 	return nil, errors.New("unused")
 }
 
-func (f *instanceHybridTestKV) Expire(context.Context, *apicassemdb.ExpireReq, ...grpc.CallOption) (*apicassemdb.Empty, error) {
+func (f *instanceHybridTestKV) Expire(context.Context, *apikv.ExpireReq, ...grpc.CallOption) (*apikv.Empty, error) {
 	return nil, errors.New("unused")
 }
 
-func (f *instanceHybridTestKV) Range(context.Context, *apicassemdb.RangeReq, ...grpc.CallOption) (*apicassemdb.RangeResp, error) {
+func (f *instanceHybridTestKV) Range(context.Context, *apikv.RangeReq, ...grpc.CallOption) (*apikv.RangeResp, error) {
 	return nil, errors.New("unused")
 }
 
-func (f *instanceHybridTestKV) CompactElementHistory(context.Context, *apicassemdb.CompactElementHistoryReq, ...grpc.CallOption) (*apicassemdb.CompactElementHistoryResp, error) {
+func (f *instanceHybridTestKV) CompactElementHistory(context.Context, *apikv.CompactElementHistoryReq, ...grpc.CallOption) (*apikv.CompactElementHistoryResp, error) {
 	return nil, errors.New("unused")
 }
 
@@ -109,7 +108,7 @@ func TestInstanceHybridUnregisterInstanceReturnsAllReversedDeleteErrors(t *testi
 	require.NoError(t, err)
 
 	kv := newInstanceHybridTestKV()
-	kv.entities[concept.GenInstanceNormalKey(ins.Id())] = &apicassemdb.Entity{Key: concept.GenInstanceNormalKey(ins.Id()), Val: data}
+	kv.entities[concept.GenInstanceNormalKey(ins.Id())] = &apikv.Entity{Key: concept.GenInstanceNormalKey(ins.Id()), Val: data}
 	firstFailedKey := concept.GenInstanceReversedKeyWithInsId("app", "env", "key1", ins.Id())
 	secondFailedKey := concept.GenInstanceReversedKeyWithInsId("app", "env", "key2", ins.Id())
 	kv.unsetErr[firstFailedKey] = errors.New("first")

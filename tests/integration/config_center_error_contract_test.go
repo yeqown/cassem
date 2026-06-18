@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	apicassemdb "github.com/yeqown/cassem/internal/cassemdb/api"
 	"github.com/yeqown/cassem/pkg/errorx"
 	"github.com/yeqown/cassem/pkg/httpx"
 	"github.com/yeqown/cassem/tests/testutil"
@@ -49,9 +48,9 @@ func TestConfigCenterReleaseGate_APIErrorMappingSmoke(t *testing.T) {
 	rawCC, err := grpc.NewClient(cluster.DBEndpoints[0], grpc.WithTransportCredentials(insecure.NewCredentials()))
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = rawCC.Close() })
-	rawClient := apicassemdb.NewKVClient(rawCC)
+	rawClient := apikv.NewKVClient(rawCC)
 	rawCtx, rawCancel := context.WithTimeout(context.Background(), 3*time.Second)
-	_, err = rawClient.GetKV(rawCtx, &apicassemdb.GetKVReq{Key: missingKVKey})
+	_, err = rawClient.GetKV(rawCtx, &apikv.GetKVReq{Key: missingKVKey})
 	rawCancel()
 	require.Error(t, err)
 	rawStatus, ok := status.FromError(err)
@@ -59,11 +58,11 @@ func TestConfigCenterReleaseGate_APIErrorMappingSmoke(t *testing.T) {
 	require.Equal(t, codes.NotFound, rawStatus.Code())
 	require.Equal(t, "NOT_FOUND", rawStatus.Message())
 
-	cc := testutil.DialCassemDB(t, cluster.DBEndpoints, apicassemdb.Mode_X)
+	cc := testutil.DialCassemDB(t, cluster.DBEndpoints, apikv.Mode_X)
 	t.Cleanup(func() { _ = cc.Close() })
-	client := apicassemdb.NewKVClient(cc)
+	client := apikv.NewKVClient(cc)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-	_, err = client.GetKV(ctx, &apicassemdb.GetKVReq{Key: missingKVKey})
+	_, err = client.GetKV(ctx, &apikv.GetKVReq{Key: missingKVKey})
 	cancel()
 	require.Error(t, err)
 	require.True(t, errors.Is(err, errorx.Err_NOT_FOUND))

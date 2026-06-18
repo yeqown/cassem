@@ -16,7 +16,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/yeqown/cassem/api/agent"
 	"github.com/yeqown/cassem/api/concept"
-	apicassemdb "github.com/yeqown/cassem/internal/cassemdb/api"
 	"github.com/yeqown/cassem/tests/testutil"
 	"google.golang.org/grpc"
 )
@@ -166,27 +165,27 @@ func TestGrayPublishToInstance(t *testing.T) {
 
 func TestKVTTLExpireThroughDB(t *testing.T) {
 	cluster := testutil.UseDBCluster(t)
-	cc := testutil.DialCassemDB(t, cluster.DBEndpoints, apicassemdb.Mode_X)
+	cc := testutil.DialCassemDB(t, cluster.DBEndpoints, apikv.Mode_X)
 	t.Cleanup(func() { _ = cc.Close() })
-	client := apicassemdb.NewKVClient(cc)
+	client := apikv.NewKVClient(cc)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	dir := fmt.Sprintf("tests/ttl/%d", time.Now().UnixNano())
 	key := dir + "/item"
-	_, err := client.SetKV(ctx, &apicassemdb.SetKVReq{Key: key, Val: []byte("ttl"), Ttl: 1, Overwrite: true})
+	_, err := client.SetKV(ctx, &apikv.SetKVReq{Key: key, Val: []byte("ttl"), Ttl: 1, Overwrite: true})
 	require.NoError(t, err)
 
 	require.Eventually(t, func() bool {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 		defer cancel()
-		_, err := client.GetKV(ctx, &apicassemdb.GetKVReq{Key: key})
+		_, err := client.GetKV(ctx, &apikv.GetKVReq{Key: key})
 		return err != nil
 	}, 5*time.Second, 200*time.Millisecond)
 
 	ctx, cancel = context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	r, err := client.Range(ctx, &apicassemdb.RangeReq{Key: dir, Limit: 100})
+	r, err := client.Range(ctx, &apikv.RangeReq{Key: dir, Limit: 100})
 	require.NoError(t, err)
 	for _, entity := range r.GetEntities() {
 		require.NotEqual(t, key, entity.GetKey())

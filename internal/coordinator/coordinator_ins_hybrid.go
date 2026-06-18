@@ -9,7 +9,6 @@ import (
 	"github.com/yeqown/log"
 
 	"github.com/yeqown/cassem/api/concept"
-	apicassemdb "github.com/yeqown/cassem/internal/cassemdb/api"
 	"github.com/yeqown/cassem/pkg/errorx"
 	"github.com/yeqown/cassem/pkg/runtime"
 )
@@ -19,19 +18,19 @@ var (
 )
 
 type instanceHybrid struct {
-	cassemdb apicassemdb.KVClient
+	cassemdb apikv.KVClient
 }
 
-//func NewInstanceHybrid(endpoints []string) (InstanceHybrid, error) {
-//	cc, err := apicassemdb.DialWithMode(endpoints, apicassemdb.Mode_X)
+// func NewInstanceHybrid(endpoints []string) (InstanceHybrid, error) {
+//	cc, err := apikv.DialWithMode(endpoints, apikv.Mode_X)
 //	if err != nil {
 //		return nil, errors.Wrap(err, "NewInstanceHybrid")
 //	}
 //
 //	return instanceHybrid{
-//		cassemdb: apicassemdb.NewKVClient(cc),
+//		cassemdb: apikv.NewKVClient(cc),
 //	}, nil
-//}
+// }
 
 func (i instanceHybrid) GetInstances(
 	ctx context.Context, seek string, limit int) (*concept.GetInstancesResult, error) {
@@ -44,7 +43,7 @@ func (i instanceHybrid) GetInstances(
 		}).
 		Debug("instanceHybrid.GetInstances")
 
-	r, err := i.cassemdb.Range(ctx, &apicassemdb.RangeReq{
+	r, err := i.cassemdb.Range(ctx, &apikv.RangeReq{
 		Key:   k,
 		Seek:  seek,
 		Limit: int32(limit),
@@ -69,19 +68,19 @@ func (i instanceHybrid) GetInstances(
 		result.Instances = append(result.Instances, ins)
 	}
 
-	//// get all instance detail information.
-	//r2, err2 := i.cassemdb.GetKVs(ctx, &apicassemdb.GetKVsReq{
+	// // get all instance detail information.
+	// r2, err2 := i.cassemdb.GetKVs(ctx, &apikv.GetKVsReq{
 	//	Keys: insIds,
-	//})
-	//if err2 != nil {
+	// })
+	// if err2 != nil {
 	//	return nil, fmt.Errorf("instanceHybrid.GetInstances: %w", err)
-	//}
+	// }
 	//
-	//for _, v := range r2.GetEntities() {
+	// for _, v := range r2.GetEntities() {
 	//	ins := new(concept.Instance)
 	//	_ = concept.UnmarshalProto(v.GetVal(), ins)
 	//	instances = append(instances, ins)
-	//}
+	// }
 
 	return result, nil
 }
@@ -98,7 +97,7 @@ func (i instanceHybrid) GetInstancesByElement(
 		}).
 		Debug("instanceHybrid.GetInstances")
 
-	r, err := i.cassemdb.Range(ctx, &apicassemdb.RangeReq{
+	r, err := i.cassemdb.Range(ctx, &apikv.RangeReq{
 		Key:   k,
 		Seek:  "",
 		Limit: 100,
@@ -124,7 +123,7 @@ func (i instanceHybrid) GetInstancesByElement(
 		insIds = append(insIds, insId)
 	}
 	// get all instance detail information.
-	r2, err2 := i.cassemdb.GetKVs(ctx, &apicassemdb.GetKVsReq{
+	r2, err2 := i.cassemdb.GetKVs(ctx, &apikv.GetKVsReq{
 		Keys: insIds,
 	})
 	if err2 != nil {
@@ -145,7 +144,7 @@ func (i instanceHybrid) GetInstancesByElement(
 
 func (i instanceHybrid) GetInstance(ctx context.Context, insId string) (*concept.Instance, error) {
 	k := concept.GenInstanceNormalKey(insId)
-	r, err := i.cassemdb.GetKV(ctx, &apicassemdb.GetKVReq{
+	r, err := i.cassemdb.GetKV(ctx, &apikv.GetKVReq{
 		Key: k,
 	})
 	if err != nil {
@@ -165,7 +164,7 @@ func (i instanceHybrid) RegisterInstance(ctx context.Context, ins *concept.Insta
 	insId := ins.Id()
 	k := concept.GenInstanceNormalKey(insId)
 
-	r, err := i.cassemdb.GetKV(ctx, &apicassemdb.GetKVReq{
+	r, err := i.cassemdb.GetKV(ctx, &apikv.GetKVReq{
 		Key: k,
 	})
 	if err != nil && !errors.Is(err, errorx.Err_NOT_FOUND) {
@@ -203,7 +202,7 @@ func (i instanceHybrid) setInstanceInfo(ctx context.Context, ins *concept.Instan
 	if err != nil {
 		return fmt.Errorf("instanceHybrid.setInstanceInfo.marshal: %w", err)
 	}
-	_, err = i.cassemdb.SetKV(ctx, &apicassemdb.SetKVReq{
+	_, err = i.cassemdb.SetKV(ctx, &apikv.SetKVReq{
 		Key:       k,
 		IsDir:     false,
 		Ttl:       120,
@@ -218,7 +217,7 @@ func (i instanceHybrid) setInstanceInfo(ctx context.Context, ins *concept.Instan
 	for _, w := range ins.GetWatching() {
 		for _, key := range w.GetWatchKeys() {
 			k2 := concept.GenInstanceReversedKeyWithInsId(w.GetApp(), w.GetEnv(), key, insId)
-			_, err = i.cassemdb.SetKV(ctx, &apicassemdb.SetKVReq{
+			_, err = i.cassemdb.SetKV(ctx, &apikv.SetKVReq{
 				Key:       k2,
 				IsDir:     false,
 				Ttl:       120,
@@ -245,16 +244,16 @@ func (i instanceHybrid) setInstanceInfo(ctx context.Context, ins *concept.Instan
 
 func (i instanceHybrid) RenewInstance(ctx context.Context, ins *concept.Instance) error {
 	// check duplicate instance
-	//insId := ins.Id()
-	//k := concept.GenInstanceNormalKey(insId)
-	//r, _ := i.cassemdb.GetKV(ctx, &apicassemdb.GetKVReq{
+	// insId := ins.Id()
+	// k := concept.GenInstanceNormalKey(insId)
+	// r, _ := i.cassemdb.GetKV(ctx, &apikv.GetKVReq{
 	//	Key: k,
-	//})
-	//if r.GetEntity() != nil {
+	// })
+	// if r.GetEntity() != nil {
 	//	if ins.LastRenewTimestamp.IsZero() {
 	//		ins.LastRenewTimestamp = r.GetEntity().Get
 	//	}
-	//}
+	// }
 
 	return i.setInstanceInfo(ctx, ins)
 }
@@ -269,7 +268,7 @@ func (i instanceHybrid) UnregisterInstance(ctx context.Context, insId string) er
 		Debug("instanceHybrid.UnregisterInstance")
 
 	// try to get instance detail
-	r, err := i.cassemdb.GetKV(ctx, &apicassemdb.GetKVReq{
+	r, err := i.cassemdb.GetKV(ctx, &apikv.GetKVReq{
 		Key: k,
 	})
 	if err != nil {
@@ -286,7 +285,7 @@ func (i instanceHybrid) UnregisterInstance(ctx context.Context, insId string) er
 	}
 
 	// unset normalized kv
-	_, err = i.cassemdb.UnsetKV(ctx, &apicassemdb.UnsetKVReq{
+	_, err = i.cassemdb.UnsetKV(ctx, &apikv.UnsetKVReq{
 		Key:   k,
 		IsDir: false,
 	})
@@ -298,7 +297,7 @@ func (i instanceHybrid) UnregisterInstance(ctx context.Context, insId string) er
 	for _, w := range ins.GetWatching() {
 		for _, key := range w.GetWatchKeys() {
 			k2 := concept.GenInstanceReversedKeyWithInsId(w.GetApp(), w.GetEnv(), key, insId)
-			_, err = i.cassemdb.UnsetKV(ctx, &apicassemdb.UnsetKVReq{
+			_, err = i.cassemdb.UnsetKV(ctx, &apikv.UnsetKVReq{
 				Key: k2,
 			})
 			if err != nil {

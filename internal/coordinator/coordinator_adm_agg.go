@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/yeqown/cassem/api/concept"
-	apicassemdb "github.com/yeqown/cassem/internal/cassemdb/api"
 )
 
 type admAggregate struct {
@@ -16,12 +15,12 @@ type admAggregate struct {
 }
 
 func NewAdmAggregate(endpoints []string) (concept.AdmAggregate, error) {
-	cc, err := apicassemdb.DialWithMode(endpoints, apicassemdb.Mode_X)
+	cc, err := apikv.DialWithMode(endpoints, apikv.Mode_X)
 	if err != nil {
 		return nil, err
 	}
 
-	c := apicassemdb.NewKVClient(cc)
+	c := apikv.NewKVClient(cc)
 
 	acl, err := newRBAC(c)
 	if err != nil {

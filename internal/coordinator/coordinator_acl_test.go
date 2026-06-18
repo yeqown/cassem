@@ -12,58 +12,57 @@ import (
 	"google.golang.org/grpc"
 
 	"github.com/yeqown/cassem/api/concept"
-	apicassemdb "github.com/yeqown/cassem/internal/cassemdb/api"
 	"github.com/yeqown/cassem/pkg/errorx"
 	"github.com/yeqown/cassem/pkg/hash"
 )
 
 type aclTestKV struct {
-	data map[string]*apicassemdb.Entity
+	data map[string]*apikv.Entity
 }
 
 func newACLTestKV() *aclTestKV {
-	return &aclTestKV{data: make(map[string]*apicassemdb.Entity)}
+	return &aclTestKV{data: make(map[string]*apikv.Entity)}
 }
 
-func (f *aclTestKV) GetKV(_ context.Context, req *apicassemdb.GetKVReq, _ ...grpc.CallOption) (*apicassemdb.GetKVResp, error) {
+func (f *aclTestKV) GetKV(_ context.Context, req *apikv.GetKVReq, _ ...grpc.CallOption) (*apikv.GetKVResp, error) {
 	entity, ok := f.data[req.GetKey()]
 	if !ok {
 		return nil, errorx.Err_NOT_FOUND
 	}
-	return &apicassemdb.GetKVResp{Entity: entity}, nil
+	return &apikv.GetKVResp{Entity: entity}, nil
 }
 
-func (f *aclTestKV) GetKVs(context.Context, *apicassemdb.GetKVsReq, ...grpc.CallOption) (*apicassemdb.GetKVsResp, error) {
+func (f *aclTestKV) GetKVs(context.Context, *apikv.GetKVsReq, ...grpc.CallOption) (*apikv.GetKVsResp, error) {
 	return nil, errors.New("unused")
 }
 
-func (f *aclTestKV) SetKV(_ context.Context, req *apicassemdb.SetKVReq, _ ...grpc.CallOption) (*apicassemdb.Empty, error) {
-	f.data[req.GetKey()] = apicassemdb.NewEntityWithCreated(req.GetKey(), req.GetVal(), 0, 1)
-	return &apicassemdb.Empty{}, nil
+func (f *aclTestKV) SetKV(_ context.Context, req *apikv.SetKVReq, _ ...grpc.CallOption) (*apikv.Empty, error) {
+	f.data[req.GetKey()] = apikv.NewEntityWithCreated(req.GetKey(), req.GetVal(), 0, 1)
+	return &apikv.Empty{}, nil
 }
 
-func (f *aclTestKV) UnsetKV(context.Context, *apicassemdb.UnsetKVReq, ...grpc.CallOption) (*apicassemdb.Empty, error) {
+func (f *aclTestKV) UnsetKV(context.Context, *apikv.UnsetKVReq, ...grpc.CallOption) (*apikv.Empty, error) {
 	return nil, errors.New("unused")
 }
 
-func (f *aclTestKV) Watch(context.Context, *apicassemdb.WatchReq, ...grpc.CallOption) (apicassemdb.KV_WatchClient, error) {
+func (f *aclTestKV) Watch(context.Context, *apikv.WatchReq, ...grpc.CallOption) (apikv.KV_WatchClient, error) {
 	return nil, errors.New("unused")
 }
 
-func (f *aclTestKV) TTL(context.Context, *apicassemdb.TtlReq, ...grpc.CallOption) (*apicassemdb.TtlResp, error) {
+func (f *aclTestKV) TTL(context.Context, *apikv.TtlReq, ...grpc.CallOption) (*apikv.TtlResp, error) {
 	return nil, errors.New("unused")
 }
 
-func (f *aclTestKV) Expire(context.Context, *apicassemdb.ExpireReq, ...grpc.CallOption) (*apicassemdb.Empty, error) {
+func (f *aclTestKV) Expire(context.Context, *apikv.ExpireReq, ...grpc.CallOption) (*apikv.Empty, error) {
 	return nil, errors.New("unused")
 }
 
-func (f *aclTestKV) Range(_ context.Context, req *apicassemdb.RangeReq, _ ...grpc.CallOption) (*apicassemdb.RangeResp, error) {
+func (f *aclTestKV) Range(_ context.Context, req *apikv.RangeReq, _ ...grpc.CallOption) (*apikv.RangeResp, error) {
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
 
-	entities := make([]*apicassemdb.Entity, 0)
+	entities := make([]*apikv.Entity, 0)
 	for key, entity := range f.data {
 		if req.GetKey() != "" && !strings.HasPrefix(key, req.GetKey()) {
 			continue
@@ -73,18 +72,18 @@ func (f *aclTestKV) Range(_ context.Context, req *apicassemdb.RangeReq, _ ...grp
 		}
 		entities = append(entities, entity)
 	}
-	slices.SortFunc(entities, func(a, b *apicassemdb.Entity) int { return strings.Compare(a.GetKey(), b.GetKey()) })
+	slices.SortFunc(entities, func(a, b *apikv.Entity) int { return strings.Compare(a.GetKey(), b.GetKey()) })
 	if len(entities) > int(req.GetLimit()) {
-		return &apicassemdb.RangeResp{
+		return &apikv.RangeResp{
 			Entities:    entities[:req.GetLimit()],
 			HasMore:     true,
 			NextSeekKey: concept.ExtractPureKey(entities[req.GetLimit()].GetKey()),
 		}, nil
 	}
-	return &apicassemdb.RangeResp{Entities: entities}, nil
+	return &apikv.RangeResp{Entities: entities}, nil
 }
 
-func (f *aclTestKV) CompactElementHistory(context.Context, *apicassemdb.CompactElementHistoryReq, ...grpc.CallOption) (*apicassemdb.CompactElementHistoryResp, error) {
+func (f *aclTestKV) CompactElementHistory(context.Context, *apikv.CompactElementHistoryReq, ...grpc.CallOption) (*apikv.CompactElementHistoryResp, error) {
 	return nil, errors.New("unused")
 }
 
@@ -145,8 +144,8 @@ func TestAutoMigrateRemovesLegacyRoleSubjectBypass(t *testing.T) {
 		{Ptype: "p", V0: concept.Role_SUPERADMIN, V1: concept.Domain_ALL, V2: concept.Object_ALL, V3: concept.Action_ANY},
 		{Ptype: "g", V0: "alice", V1: concept.Role_SUPERADMIN, V2: concept.Domain_ALL},
 	}}
-	store.data[concept.GenAclPolicyKey()] = apicassemdb.NewEntityWithCreated(
-		concept.GenAclPolicyKey(), apicassemdb.Must(apicassemdb.Marshal(legacy)), 0, 1)
+	store.data[concept.GenAclPolicyKey()] = apikv.NewEntityWithCreated(
+		concept.GenAclPolicyKey(), apikv.Must(apikv.Marshal(legacy)), 0, 1)
 
 	rbac, err := newRBAC(store)
 	require.NoError(t, err)
@@ -277,8 +276,8 @@ func TestACLListDomainOptionsPagesAppsAndEnvironments(t *testing.T) {
 	store := newACLTestKV()
 	for i := range 101 {
 		app := fmt.Sprintf("app-%03d", i)
-		store.data[concept.GenAppKey(app)] = apicassemdb.NewEntityWithCreated(concept.GenAppKey(app), []byte("app"), 0, 1)
-		store.data[concept.GenAppElementEnvKey(app, "prod")] = apicassemdb.NewEntityWithCreated(concept.GenAppElementEnvKey(app, "prod"), []byte("env"), 0, 1)
+		store.data[concept.GenAppKey(app)] = apikv.NewEntityWithCreated(concept.GenAppKey(app), []byte("app"), 0, 1)
+		store.data[concept.GenAppElementEnvKey(app, "prod")] = apikv.NewEntityWithCreated(concept.GenAppElementEnvKey(app, "prod"), []byte("env"), 0, 1)
 	}
 
 	rbac, err := newRBAC(store)
@@ -294,8 +293,8 @@ func TestACLListDomainOptionsPagesAppsAndEnvironments(t *testing.T) {
 
 func TestACLGetUsersAndRoles(t *testing.T) {
 	store := newACLTestKV()
-	store.data[concept.GenAppKey("demo")] = apicassemdb.NewEntityWithCreated(concept.GenAppKey("demo"), []byte("app"), 0, 1)
-	store.data[concept.GenAppElementEnvKey("demo", "prod")] = apicassemdb.NewEntityWithCreated(concept.GenAppElementEnvKey("demo", "prod"), []byte("env"), 0, 1)
+	store.data[concept.GenAppKey("demo")] = apikv.NewEntityWithCreated(concept.GenAppKey("demo"), []byte("app"), 0, 1)
+	store.data[concept.GenAppElementEnvKey("demo", "prod")] = apikv.NewEntityWithCreated(concept.GenAppElementEnvKey("demo", "prod"), []byte("env"), 0, 1)
 
 	rbac, err := newRBAC(store)
 	require.NoError(t, err)

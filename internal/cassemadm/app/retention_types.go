@@ -6,7 +6,6 @@ import (
 	"strconv"
 	"time"
 
-	apicassemdb "github.com/yeqown/cassem/internal/cassemdb/api"
 	"github.com/yeqown/cassem/pkg/conf"
 )
 
@@ -41,14 +40,14 @@ type retentionFailureRecord struct {
 	OccurredAt int64    `json:"occurredAt"`
 }
 
-func retentionPolicyFromConfig(c *conf.RetentionConfig) *apicassemdb.CompactElementHistoryReq {
+func retentionPolicyFromConfig(c *conf.RetentionConfig) *apikv.CompactElementHistoryReq {
 	if c == nil {
 		c = conf.DefaultRetentionConfig()
 	}
 
 	daySeconds := int64((24 * time.Hour) / time.Second)
 
-	return &apicassemdb.CompactElementHistoryReq{
+	return &apikv.CompactElementHistoryReq{
 		KeepVersionCount:     int32(c.KeepVersionCountValue()),
 		KeepVersionSeconds:   int64(c.KeepVersionDaysValue()) * daySeconds,
 		KeepOperationSeconds: int64(c.KeepOperationDaysValue()) * daySeconds,

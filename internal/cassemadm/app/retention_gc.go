@@ -11,13 +11,12 @@ import (
 	"github.com/yeqown/log"
 
 	"github.com/yeqown/cassem/api/concept"
-	apicassemdb "github.com/yeqown/cassem/internal/cassemdb/api"
 	"github.com/yeqown/cassem/pkg/conf"
 	"github.com/yeqown/cassem/pkg/runtime"
 )
 
 type retentionGC struct {
-	client apicassemdb.KVClient
+	client apikv.KVClient
 	config *conf.RetentionConfig
 }
 
@@ -32,12 +31,12 @@ func newRetentionGC(endpoints []string, config *conf.RetentionConfig) (*retentio
 		return &retentionGC{config: config}, nil
 	}
 
-	cc, err := apicassemdb.DialWithMode(endpoints, apicassemdb.Mode_X)
+	cc, err := apikv.DialWithMode(endpoints, apikv.Mode_X)
 	if err != nil {
 		return nil, fmt.Errorf("retention gc dial cassemdb: %w", err)
 	}
 
-	return &retentionGC{client: apicassemdb.NewKVClient(cc), config: config}, nil
+	return &retentionGC{client: apikv.NewKVClient(cc), config: config}, nil
 }
 
 func (g *retentionGC) run() {
@@ -119,14 +118,14 @@ func (g *retentionGC) inert() bool {
 	return g == nil || g.config == nil || !g.config.EnabledValue() || g.client == nil
 }
 
-func (g *retentionGC) compactElement(ctx context.Context, ref retentionElementRef) (*apicassemdb.CompactElementHistoryResp, error) {
+func (g *retentionGC) compactElement(ctx context.Context, ref retentionElementRef) (*apikv.CompactElementHistoryResp, error) {
 	req := retentionPolicyFromConfig(g.config)
 	req.ElementKey = concept.GenElementKey(ref.App, ref.Env, ref.Key)
 	return g.client.CompactElementHistory(ctx, req)
 }
 
 func (g *retentionGC) loadCursor(ctx context.Context) retentionCursor {
-	resp, err := g.client.GetKV(ctx, &apicassemdb.GetKVReq{Key: retentionCursorKey})
+	resp, err := g.client.GetKV(ctx, &apikv.GetKVReq{Key: retentionCursorKey})
 	if err != nil || resp.GetEntity() == nil {
 		return retentionCursor{}
 	}
@@ -255,7 +254,7 @@ func (g *retentionGC) rangeLeavesPage(ctx context.Context, root string, seek str
 }
 
 func (g *retentionGC) rangeLeavesPageWithError(ctx context.Context, root string, seek string) ([]string, bool, string, error) {
-	resp, err := g.client.Range(ctx, &apicassemdb.RangeReq{
+	resp, err := g.client.Range(ctx, &apikv.RangeReq{
 		Key:   root,
 		Seek:  seek,
 		Limit: int32(g.config.ElementPageSizeValue()),
@@ -289,7 +288,7 @@ func (g *retentionGC) persistJSON(ctx context.Context, key string, value any, tt
 	if err != nil {
 		return fmt.Errorf("marshal retention json %s: %w", key, err)
 	}
-	_, err = g.client.SetKV(ctx, &apicassemdb.SetKVReq{Key: key, Val: data, Ttl: ttl, Overwrite: true})
+	_, err = g.client.SetKV(ctx, &apikv.SetKVReq{Key: key, Val: data, Ttl: ttl, Overwrite: true})
 	if err != nil {
 		return fmt.Errorf("set retention json %s: %w", key, err)
 	}

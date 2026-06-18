@@ -1,0 +1,55 @@
+package storage
+
+import (
+	"strings"
+)
+
+// KV is a proxy who helps convert data between logic and persistence.Not only all parameters of KV
+// are logic datatype, but also all return values.
+type KV interface {
+	// GetKV get value of key
+	GetKV(key string, isDir bool) (*apikv.Entity, error)
+
+	// SetKV save key and value
+	SetKV(key string, value *apikv.Entity, isDir bool) error
+
+	// UnsetKV save key and value
+	UnsetKV(key string, isDir bool) error
+
+	// Range iterates all keys or buckets under the given key.
+	Range(key string, seek string, limit int) (*RangeResult, error)
+
+	Snapshot() ([]byte, error)
+	RecoverSnapshot(snapshot []byte) error
+}
+
+type RangeResult struct {
+	Items       []*apikv.Entity
+	HasMore     bool
+	NextSeekKey string
+	ExpiredKeys []string
+}
+
+func KeySplitter(s string) (paths []string, leaf string) {
+	arr := strings.Split(s, "/")
+	l := len(arr)
+	if l < 1 {
+		return
+	}
+
+	leaf = arr[l-1]
+	if l > 1 {
+		paths = arr[:l-1]
+	}
+
+	return
+}
+
+func isEmptyLeaf(leaf string) bool {
+	if len(leaf) == 0 {
+		return true
+	}
+
+	leaf = strings.TrimSpace(leaf)
+	return len(leaf) == 0
+}

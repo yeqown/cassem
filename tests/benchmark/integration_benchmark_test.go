@@ -10,22 +10,21 @@ import (
 	"time"
 
 	"github.com/yeqown/cassem/api/concept"
-	apicassemdb "github.com/yeqown/cassem/internal/cassemdb/api"
 	"github.com/yeqown/cassem/tests/testutil"
 )
 
 func BenchmarkCassemDBSetKV32B(b *testing.B) {
 	cluster := testutil.UseDBCluster(b)
-	cc := testutil.DialCassemDB(b, cluster.DBEndpoints, apicassemdb.Mode_X)
+	cc := testutil.DialCassemDB(b, cluster.DBEndpoints, apikv.Mode_X)
 	b.Cleanup(func() { _ = cc.Close() })
-	client := apicassemdb.NewKVClient(cc)
+	client := apikv.NewKVClient(cc)
 	payload := []byte("12312312312312312312312312312312")
 
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-		_, err := client.SetKV(ctx, &apicassemdb.SetKVReq{
+		_, err := client.SetKV(ctx, &apikv.SetKVReq{
 			Key:       fmt.Sprintf("benchmark/cassemdb/set/%d", i),
 			Val:       payload,
 			Ttl:       30,
@@ -40,13 +39,13 @@ func BenchmarkCassemDBSetKV32B(b *testing.B) {
 
 func BenchmarkCassemDBGetKV(b *testing.B) {
 	cluster := testutil.UseDBCluster(b)
-	cc := testutil.DialCassemDB(b, cluster.DBEndpoints, apicassemdb.Mode_X)
+	cc := testutil.DialCassemDB(b, cluster.DBEndpoints, apikv.Mode_X)
 	b.Cleanup(func() { _ = cc.Close() })
-	client := apicassemdb.NewKVClient(cc)
+	client := apikv.NewKVClient(cc)
 	key := "benchmark/cassemdb/get/key"
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	_, err := client.SetKV(ctx, &apicassemdb.SetKVReq{Key: key, Val: []byte("value"), Ttl: 30, Overwrite: true})
+	_, err := client.SetKV(ctx, &apikv.SetKVReq{Key: key, Val: []byte("value"), Ttl: 30, Overwrite: true})
 	cancel()
 	if err != nil {
 		b.Fatal(err)
@@ -57,7 +56,7 @@ func BenchmarkCassemDBGetKV(b *testing.B) {
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
 			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-			_, err := client.GetKV(ctx, &apicassemdb.GetKVReq{Key: key})
+			_, err := client.GetKV(ctx, &apikv.GetKVReq{Key: key})
 			cancel()
 			if err != nil {
 				b.Fatal(err)

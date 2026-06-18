@@ -8,8 +8,7 @@ import (
 	"time"
 
 	"github.com/yeqown/cassem/internal/cassemagent/infras/lru"
-	apicassemdb "github.com/yeqown/cassem/internal/cassemdb/api"
-	"github.com/yeqown/cassem/internal/cassemdb/infras/storage"
+	"github.com/yeqown/cassem/internal/cassemkv/infras/storage"
 	"github.com/yeqown/cassem/pkg/conf"
 	"github.com/yeqown/log"
 )
@@ -65,7 +64,7 @@ func BenchmarkStorageRepositoryWrite(b *testing.B) {
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
 				key := fmt.Sprintf("benchmark/write/%s/%d", tc.name, i)
-				entity := apicassemdb.NewEntityWithCreated(key, payload, 30, time.Now().Unix())
+				entity := apikv.NewEntityWithCreated(key, payload, 30, time.Now().Unix())
 				if err = repo.SetKV(key, entity, false); err != nil {
 					b.Fatal(err)
 				}
@@ -84,7 +83,7 @@ func BenchmarkStorageRepositoryRange(b *testing.B) {
 	payload := []byte(strings.Repeat("a", 128))
 	for i := 0; i < 1000; i++ {
 		key := fmt.Sprintf("benchmark/range/%04d", i)
-		entity := apicassemdb.NewEntityWithCreated(key, payload, 30, time.Now().Unix())
+		entity := apikv.NewEntityWithCreated(key, payload, 30, time.Now().Unix())
 		if err = repo.SetKV(key, entity, false); err != nil {
 			b.Fatal(err)
 		}

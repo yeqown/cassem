@@ -6,11 +6,10 @@ import (
 	"net"
 	"time"
 
-	apicassemdb "github.com/yeqown/cassem/internal/cassemdb/api"
 	"google.golang.org/grpc"
 )
 
-func DialCassemDB(t TB, endpoints []string, mode apicassemdb.Mode) *grpc.ClientConn {
+func DialCassemDB(t TB, endpoints []string, mode apikv.Mode) *grpc.ClientConn {
 	t.Helper()
 
 	var (
@@ -19,7 +18,7 @@ func DialCassemDB(t TB, endpoints []string, mode apicassemdb.Mode) *grpc.ClientC
 	)
 	deadline := time.Now().Add(30 * time.Second)
 	for time.Now().Before(deadline) {
-		cc, err = apicassemdb.DialWithMode(endpoints, mode)
+		cc, err = apikv.DialWithMode(endpoints, mode)
 		if err == nil {
 			return cc
 		}
@@ -40,11 +39,11 @@ func CheckCassemDB(endpoints []string, timeout time.Duration) error {
 	deadline := time.Now().Add(timeout)
 	var lastErr error
 	for time.Now().Before(deadline) {
-		cc, err := apicassemdb.DialWithMode(endpoints, apicassemdb.Mode_X)
+		cc, err := apikv.DialWithMode(endpoints, apikv.Mode_X)
 		if err == nil {
-			client := apicassemdb.NewKVClient(cc)
+			client := apikv.NewKVClient(cc)
 			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-			_, lastErr = client.SetKV(ctx, &apicassemdb.SetKVReq{
+			_, lastErr = client.SetKV(ctx, &apikv.SetKVReq{
 				Key:       fmt.Sprintf("tests/health/%d", time.Now().UnixNano()),
 				Val:       []byte("ok"),
 				Overwrite: true,

@@ -10,7 +10,6 @@ import (
 	proto "google.golang.org/protobuf/proto"
 
 	"github.com/yeqown/cassem/api/concept"
-	apicassemdb "github.com/yeqown/cassem/internal/cassemdb/api"
 	"github.com/yeqown/cassem/pkg/errorx"
 )
 
@@ -18,18 +17,18 @@ var _ concept.KVWriteOnly = kvWriteOnly{}
 
 // kvWriteOnly can read and write to cassemdb.
 type kvWriteOnly struct {
-	cassemdb apicassemdb.KVClient
+	cassemdb apikv.KVClient
 }
 
 // NewKVHybrid with endpoints these endpoints of cassemdb.
 func NewKVHybrid(endpoints []string) (concept.KVWriteOnly, error) {
-	cc, err := apicassemdb.DialWithMode(endpoints, apicassemdb.Mode_X)
+	cc, err := apikv.DialWithMode(endpoints, apikv.Mode_X)
 	if err != nil {
 		return nil, fmt.Errorf("NewWriter: %w", err)
 	}
 
 	return kvWriteOnly{
-		cassemdb: apicassemdb.NewKVClient(cc),
+		cassemdb: apikv.NewKVClient(cc),
 	}, nil
 }
 
@@ -108,7 +107,7 @@ func (_h kvWriteOnly) UpdateElement(ctx context.Context, app, env, key string, r
 
 func (_h kvWriteOnly) DeleteElement(ctx context.Context, app, env, eltKey string) error {
 	k := concept.GenElementKey(app, env, eltKey)
-	_, err := _h.cassemdb.UnsetKV(ctx, &apicassemdb.UnsetKVReq{
+	_, err := _h.cassemdb.UnsetKV(ctx, &apikv.UnsetKVReq{
 		Key:   k,
 		IsDir: true,
 	})
@@ -121,12 +120,12 @@ func (_h kvWriteOnly) DeleteElement(ctx context.Context, app, env, eltKey string
 
 func (_h kvWriteOnly) CreateEnvironment(ctx context.Context, app, env string) error {
 	k := concept.GenAppElementEnvKey(app, env)
-	_, err := _h.cassemdb.SetKV(ctx, &apicassemdb.SetKVReq{
+	_, err := _h.cassemdb.SetKV(ctx, &apikv.SetKVReq{
 		Key:   k,
 		IsDir: true,
-		//Ttl:                  0,
-		//Val:                  nil,
-		//Overwrite:            false,
+		// Ttl:                  0,
+		// Val:                  nil,
+		// Overwrite:            false,
 	})
 
 	return err
@@ -134,12 +133,12 @@ func (_h kvWriteOnly) CreateEnvironment(ctx context.Context, app, env string) er
 
 func (_h kvWriteOnly) DeleteEnvironment(ctx context.Context, app, env string) error {
 	k := concept.GenAppElementEnvKey(app, env)
-	_, err := _h.cassemdb.UnsetKV(ctx, &apicassemdb.UnsetKVReq{
+	_, err := _h.cassemdb.UnsetKV(ctx, &apikv.UnsetKVReq{
 		Key:   k,
 		IsDir: true,
-		//Ttl:                  0,
-		//Val:                  nil,
-		//Overwrite:            false,
+		// Ttl:                  0,
+		// Val:                  nil,
+		// Overwrite:            false,
 	})
 	if err != nil {
 		return err
@@ -241,14 +240,14 @@ func (_h kvWriteOnly) DeleteApp(ctx context.Context, appId string) error {
 	k := concept.GenAppKey(appId)
 	eleKey := concept.GenAppElementKey(appId)
 
-	_, err := _h.cassemdb.UnsetKV(ctx, &apicassemdb.UnsetKVReq{
+	_, err := _h.cassemdb.UnsetKV(ctx, &apikv.UnsetKVReq{
 		Key:   eleKey,
 		IsDir: true,
 	})
 	if err != nil {
 		return err
 	}
-	_, err = _h.cassemdb.UnsetKV(ctx, &apicassemdb.UnsetKVReq{
+	_, err = _h.cassemdb.UnsetKV(ctx, &apikv.UnsetKVReq{
 		Key:   k,
 		IsDir: false,
 	})
@@ -265,7 +264,7 @@ func (_h kvWriteOnly) getElementWithoutMetadata(ctx context.Context, key string,
 		return nil, fmt.Errorf("version could not be 0: %w", errorx.Err_INVALID_ARGUMENT)
 	}
 
-	r, err := _h.cassemdb.GetKV(ctx, &apicassemdb.GetKVReq{Key: concept.WithVersion(key, int(version))})
+	r, err := _h.cassemdb.GetKV(ctx, &apikv.GetKVReq{Key: concept.WithVersion(key, int(version))})
 	if err != nil {
 		return nil, err
 	}
@@ -279,7 +278,7 @@ func (_h kvWriteOnly) getElementWithoutMetadata(ctx context.Context, key string,
 
 // getElementMetadata returns metadata of specified element.
 func (_h kvWriteOnly) getElementMetadata(ctx context.Context, key string) (*concept.ElementMetadata, error) {
-	r, err := _h.cassemdb.GetKV(ctx, &apicassemdb.GetKVReq{Key: concept.WithMetadataSuffix(key)})
+	r, err := _h.cassemdb.GetKV(ctx, &apikv.GetKVReq{Key: concept.WithMetadataSuffix(key)})
 	if err != nil {
 		return nil, err
 	}
@@ -292,7 +291,7 @@ func (_h kvWriteOnly) getElementMetadata(ctx context.Context, key string) (*conc
 }
 
 func (_h kvWriteOnly) deleteOperationPrefix(ctx context.Context, key string) error {
-	_, err := _h.cassemdb.UnsetKV(ctx, &apicassemdb.UnsetKVReq{
+	_, err := _h.cassemdb.UnsetKV(ctx, &apikv.UnsetKVReq{
 		Key:   key,
 		IsDir: true,
 	})
@@ -328,12 +327,12 @@ func (_h kvWriteOnly) saveRaw(ctx context.Context, key string, val proto.Message
 		return fmt.Errorf("%s: %w", err.Error(), errorx.Err_INTERNAL)
 	}
 
-	if _, err = _h.cassemdb.SetKV(ctx, &apicassemdb.SetKVReq{
+	if _, err = _h.cassemdb.SetKV(ctx, &apikv.SetKVReq{
 		Key:       key,
 		Ttl:       ttl,
 		Val:       bytes,
 		Overwrite: overwrite,
-		//IsDir:     false,
+		// IsDir:     false,
 	}); err != nil {
 		return fmt.Errorf("kvWrite.saveRaw: %w", err)
 	}

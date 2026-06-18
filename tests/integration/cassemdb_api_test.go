@@ -10,37 +10,36 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	apicassemdb "github.com/yeqown/cassem/internal/cassemdb/api"
 	"github.com/yeqown/cassem/tests/testutil"
 )
 
 func TestCassemDBReadWriteClient(t *testing.T) {
 	cluster := testutil.UseDBCluster(t)
-	cc := testutil.DialCassemDB(t, cluster.DBEndpoints, apicassemdb.Mode_X)
+	cc := testutil.DialCassemDB(t, cluster.DBEndpoints, apikv.Mode_X)
 	t.Cleanup(func() { _ = cc.Close() })
 
-	client := apicassemdb.NewKVClient(cc)
+	client := apikv.NewKVClient(cc)
 	key := fmt.Sprintf("tests/integration/cassemdb/%d", time.Now().UnixNano())
 	value := []byte("ok")
 
-	_, err := client.SetKV(context.Background(), &apicassemdb.SetKVReq{
+	_, err := client.SetKV(context.Background(), &apikv.SetKVReq{
 		Key:       key,
 		Val:       value,
 		Overwrite: true,
 	})
 	require.NoError(t, err)
 
-	resp, err := client.GetKV(context.Background(), &apicassemdb.GetKVReq{Key: key})
+	resp, err := client.GetKV(context.Background(), &apikv.GetKVReq{Key: key})
 	require.NoError(t, err)
 	require.Equal(t, value, resp.GetEntity().GetVal())
 }
 
 func TestCassemDBDistributedLock(t *testing.T) {
 	cluster := testutil.UseDBCluster(t)
-	cc := testutil.DialCassemDB(t, cluster.DBEndpoints, apicassemdb.Mode_X)
+	cc := testutil.DialCassemDB(t, cluster.DBEndpoints, apikv.Mode_X)
 	t.Cleanup(func() { _ = cc.Close() })
 
-	kv := apicassemdb.NewKVClient(cc)
+	kv := apikv.NewKVClient(cc)
 	lockKey := fmt.Sprintf("locks/tests/integration/%d", time.Now().UnixNano())
 	entered := make(chan struct{})
 	release := make(chan struct{})
@@ -53,7 +52,7 @@ func TestCassemDBDistributedLock(t *testing.T) {
 		panicked := false
 		func() {
 			defer func() { panicked = recover() != nil }()
-			apicassemdb.WithLock(kv, lockKey, 10, func() {
+			apikv.WithLock(kv, lockKey, 10, func() {
 				close(entered)
 				<-release
 			})
@@ -67,7 +66,7 @@ func TestCassemDBDistributedLock(t *testing.T) {
 		panicked := false
 		func() {
 			defer func() { panicked = recover() != nil }()
-			apicassemdb.WithLock(kv, lockKey, 10, func() {})
+			apikv.WithLock(kv, lockKey, 10, func() {})
 		}()
 		close(release)
 		results <- panicked

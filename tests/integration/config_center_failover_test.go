@@ -13,7 +13,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/yeqown/cassem/api/agent"
 	"github.com/yeqown/cassem/api/concept"
-	apicassemdb "github.com/yeqown/cassem/internal/cassemdb/api"
 	"github.com/yeqown/cassem/tests/testutil"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -124,15 +123,15 @@ func compose(t testing.TB, args ...string) {
 }
 
 func testDBWrite(endpoints []string) error {
-	cc, err := apicassemdb.DialWithMode(endpoints, apicassemdb.Mode_X)
+	cc, err := apikv.DialWithMode(endpoints, apikv.Mode_X)
 	if err != nil {
 		return err
 	}
 	defer cc.Close()
-	client := apicassemdb.NewKVClient(cc)
+	client := apikv.NewKVClient(cc)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	_, err = client.SetKV(ctx, &apicassemdb.SetKVReq{
+	_, err = client.SetKV(ctx, &apikv.SetKVReq{
 		Key:       fmt.Sprintf("tests/failover/%d", time.Now().UnixNano()),
 		Val:       []byte("ok"),
 		Overwrite: true,

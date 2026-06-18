@@ -13,7 +13,6 @@ import (
 	"google.golang.org/grpc"
 
 	"github.com/yeqown/cassem/api/concept"
-	apicassemdb "github.com/yeqown/cassem/internal/cassemdb/api"
 	"github.com/yeqown/cassem/pkg/conf"
 )
 
@@ -89,7 +88,7 @@ func TestRetentionRunProcessesBoundedElementsAndPersistsSummary(t *testing.T) {
 func TestRetentionRunCursorAdvancesAfterElementAttempt(t *testing.T) {
 	tests := []struct {
 		name            string
-		response        *apicassemdb.CompactElementHistoryResp
+		response        *apikv.CompactElementHistoryResp
 		err             error
 		expectCleaned   int
 		expectPartial   int
@@ -100,14 +99,14 @@ func TestRetentionRunCursorAdvancesAfterElementAttempt(t *testing.T) {
 	}{
 		{
 			name:           "success",
-			response:       &apicassemdb.CompactElementHistoryResp{DeletedVersions: 1},
+			response:       &apikv.CompactElementHistoryResp{DeletedVersions: 1},
 			expectCleaned:  1,
 			expectDeleted:  1,
 			expectFailures: 0,
 		},
 		{
 			name:            "partial response",
-			response:        &apicassemdb.CompactElementHistoryResp{DeletedVersions: 2, DeletedOperations: 1, Error: "partial cleanup", FailedKeys: []string{"bad-key"}},
+			response:        &apikv.CompactElementHistoryResp{DeletedVersions: 2, DeletedOperations: 1, Error: "partial cleanup", FailedKeys: []string{"bad-key"}},
 			expectPartial:   1,
 			expectFailures:  1,
 			expectDeleted:   2,
@@ -159,7 +158,7 @@ func TestRetentionRunCursorAdvancesAfterElementAttempt(t *testing.T) {
 func TestRetentionRunBadElementDoesNotBlockNextElement(t *testing.T) {
 	fake := newRetentionFakeKV()
 	seedRetentionTree(fake, []string{"demo/prod/a", "demo/prod/b", "demo/prod/c", "demo/prod/d", "demo/prod/e"})
-	fake.compact[concept.GenElementKey("demo", "prod", "b")] = &apicassemdb.CompactElementHistoryResp{
+	fake.compact[concept.GenElementKey("demo", "prod", "b")] = &apikv.CompactElementHistoryResp{
 		DeletedVersions:   2,
 		DeletedOperations: 1,
 		FailedKeys:        []string{"cassem/elements/demo/prod/b/v1"},
@@ -239,7 +238,7 @@ func TestRetentionRunLoadsEmptyCursorForMissingOrInvalidCursor(t *testing.T) {
 		{
 			name: "invalid json",
 			seed: func(t *testing.T, fake *retentionFakeKV) {
-				fake.entities[retentionCursorKey] = &apicassemdb.Entity{Key: retentionCursorKey, Val: []byte("{")}
+				fake.entities[retentionCursorKey] = &apikv.Entity{Key: retentionCursorKey, Val: []byte("{")}
 			},
 		},
 		{
@@ -268,38 +267,38 @@ func TestRetentionRunLoadsEmptyCursorForMissingOrInvalidCursor(t *testing.T) {
 }
 
 type retentionFakeKV struct {
-	entities       map[string]*apicassemdb.Entity
-	compact        map[string]*apicassemdb.CompactElementHistoryResp
+	entities       map[string]*apikv.Entity
+	compact        map[string]*apikv.CompactElementHistoryResp
 	compactErr     map[string]error
-	set            map[string]*apicassemdb.SetKVReq
+	set            map[string]*apikv.SetKVReq
 	compactCalls   []string
 	returnFullKeys bool
 }
 
 func newRetentionFakeKV() *retentionFakeKV {
 	return &retentionFakeKV{
-		entities:   make(map[string]*apicassemdb.Entity),
-		compact:    make(map[string]*apicassemdb.CompactElementHistoryResp),
+		entities:   make(map[string]*apikv.Entity),
+		compact:    make(map[string]*apikv.CompactElementHistoryResp),
 		compactErr: make(map[string]error),
-		set:        make(map[string]*apicassemdb.SetKVReq),
+		set:        make(map[string]*apikv.SetKVReq),
 	}
 }
 
-func (f *retentionFakeKV) GetKV(_ context.Context, req *apicassemdb.GetKVReq, _ ...grpc.CallOption) (*apicassemdb.GetKVResp, error) {
+func (f *retentionFakeKV) GetKV(_ context.Context, req *apikv.GetKVReq, _ ...grpc.CallOption) (*apikv.GetKVResp, error) {
 	entity, ok := f.entities[req.GetKey()]
 	if !ok {
 		return nil, errors.New("not found")
 	}
-	return &apicassemdb.GetKVResp{Entity: entity}, nil
+	return &apikv.GetKVResp{Entity: entity}, nil
 }
 
-func (f *retentionFakeKV) GetKVs(context.Context, *apicassemdb.GetKVsReq, ...grpc.CallOption) (*apicassemdb.GetKVsResp, error) {
+func (f *retentionFakeKV) GetKVs(context.Context, *apikv.GetKVsReq, ...grpc.CallOption) (*apikv.GetKVsResp, error) {
 	return nil, errors.New("unused")
 }
 
-func (f *retentionFakeKV) SetKV(_ context.Context, req *apicassemdb.SetKVReq, _ ...grpc.CallOption) (*apicassemdb.Empty, error) {
+func (f *retentionFakeKV) SetKV(_ context.Context, req *apikv.SetKVReq, _ ...grpc.CallOption) (*apikv.Empty, error) {
 	val := append([]byte(nil), req.GetVal()...)
-	stored := &apicassemdb.SetKVReq{
+	stored := &apikv.SetKVReq{
 		Key:       req.GetKey(),
 		IsDir:     req.GetIsDir(),
 		Ttl:       req.GetTtl(),
@@ -307,27 +306,27 @@ func (f *retentionFakeKV) SetKV(_ context.Context, req *apicassemdb.SetKVReq, _ 
 		Overwrite: req.GetOverwrite(),
 	}
 	f.set[req.GetKey()] = stored
-	f.entities[req.GetKey()] = &apicassemdb.Entity{Key: req.GetKey(), Val: val, Ttl: req.GetTtl(), CreatedAt: time.Now().Unix()}
-	return &apicassemdb.Empty{}, nil
+	f.entities[req.GetKey()] = &apikv.Entity{Key: req.GetKey(), Val: val, Ttl: req.GetTtl(), CreatedAt: time.Now().Unix()}
+	return &apikv.Empty{}, nil
 }
 
-func (f *retentionFakeKV) UnsetKV(context.Context, *apicassemdb.UnsetKVReq, ...grpc.CallOption) (*apicassemdb.Empty, error) {
+func (f *retentionFakeKV) UnsetKV(context.Context, *apikv.UnsetKVReq, ...grpc.CallOption) (*apikv.Empty, error) {
 	return nil, errors.New("unused")
 }
 
-func (f *retentionFakeKV) Watch(context.Context, *apicassemdb.WatchReq, ...grpc.CallOption) (apicassemdb.KV_WatchClient, error) {
+func (f *retentionFakeKV) Watch(context.Context, *apikv.WatchReq, ...grpc.CallOption) (apikv.KV_WatchClient, error) {
 	return nil, errors.New("unused")
 }
 
-func (f *retentionFakeKV) TTL(context.Context, *apicassemdb.TtlReq, ...grpc.CallOption) (*apicassemdb.TtlResp, error) {
+func (f *retentionFakeKV) TTL(context.Context, *apikv.TtlReq, ...grpc.CallOption) (*apikv.TtlResp, error) {
 	return nil, errors.New("unused")
 }
 
-func (f *retentionFakeKV) Expire(context.Context, *apicassemdb.ExpireReq, ...grpc.CallOption) (*apicassemdb.Empty, error) {
+func (f *retentionFakeKV) Expire(context.Context, *apikv.ExpireReq, ...grpc.CallOption) (*apikv.Empty, error) {
 	return nil, errors.New("unused")
 }
 
-func (f *retentionFakeKV) Range(_ context.Context, req *apicassemdb.RangeReq, _ ...grpc.CallOption) (*apicassemdb.RangeResp, error) {
+func (f *retentionFakeKV) Range(_ context.Context, req *apikv.RangeReq, _ ...grpc.CallOption) (*apikv.RangeResp, error) {
 	prefix := req.GetKey() + "/"
 	seen := make(map[string]struct{})
 	leaves := make([]string, 0)
@@ -353,16 +352,16 @@ func (f *retentionFakeKV) Range(_ context.Context, req *apicassemdb.RangeReq, _ 
 		limit = len(leaves)
 	}
 
-	entities := make([]*apicassemdb.Entity, 0, limit)
+	entities := make([]*apikv.Entity, 0, limit)
 	for _, leaf := range leaves[:limit] {
 		entityKey := leaf
 		if f.returnFullKeys {
 			entityKey = prefix + leaf
 		}
-		entities = append(entities, &apicassemdb.Entity{Key: entityKey})
+		entities = append(entities, &apikv.Entity{Key: entityKey})
 	}
 
-	resp := &apicassemdb.RangeResp{Entities: entities}
+	resp := &apikv.RangeResp{Entities: entities}
 	if len(leaves) > limit {
 		resp.HasMore = true
 		resp.NextSeekKey = leaves[limit]
@@ -373,7 +372,7 @@ func (f *retentionFakeKV) Range(_ context.Context, req *apicassemdb.RangeReq, _ 
 	return resp, nil
 }
 
-func (f *retentionFakeKV) CompactElementHistory(_ context.Context, req *apicassemdb.CompactElementHistoryReq, _ ...grpc.CallOption) (*apicassemdb.CompactElementHistoryResp, error) {
+func (f *retentionFakeKV) CompactElementHistory(_ context.Context, req *apikv.CompactElementHistoryReq, _ ...grpc.CallOption) (*apikv.CompactElementHistoryResp, error) {
 	f.compactCalls = append(f.compactCalls, req.GetElementKey())
 	if err := f.compactErr[req.GetElementKey()]; err != nil {
 		return nil, err
@@ -389,7 +388,7 @@ func (f *retentionFakeKV) mustSetJSON(t *testing.T, key string, value any, ttl i
 	t.Helper()
 	data, err := json.Marshal(value)
 	require.NoError(t, err)
-	f.entities[key] = &apicassemdb.Entity{Key: key, Val: data, Ttl: ttl}
+	f.entities[key] = &apikv.Entity{Key: key, Val: data, Ttl: ttl}
 }
 
 func (f *retentionFakeKV) failureSetKeys() []string {
@@ -410,11 +409,11 @@ func seedRetentionTree(fake *retentionFakeKV, refs []string) {
 		appKey := concept.GenAppKey(appID)
 		envKey := concept.GenAppElementEnvKey(appID, env)
 		elementKey := concept.GenElementKey(appID, env, key)
-		fake.entities[appKey] = &apicassemdb.Entity{Key: appKey}
-		fake.entities[envKey] = &apicassemdb.Entity{Key: envKey}
-		fake.entities[elementKey] = &apicassemdb.Entity{Key: elementKey}
+		fake.entities[appKey] = &apikv.Entity{Key: appKey}
+		fake.entities[envKey] = &apikv.Entity{Key: envKey}
+		fake.entities[elementKey] = &apikv.Entity{Key: elementKey}
 		if _, ok := fake.compact[elementKey]; !ok {
-			fake.compact[elementKey] = &apicassemdb.CompactElementHistoryResp{DeletedVersions: 1}
+			fake.compact[elementKey] = &apikv.CompactElementHistoryResp{DeletedVersions: 1}
 		}
 	}
 }

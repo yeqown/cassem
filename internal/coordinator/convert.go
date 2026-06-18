@@ -7,7 +7,6 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/yeqown/cassem/api/concept"
-	apicassemdb "github.com/yeqown/cassem/internal/cassemdb/api"
 	"github.com/yeqown/log"
 )
 
@@ -25,7 +24,7 @@ func UnmarshalProto(data []byte, v proto.Message) error {
 }
 
 // ConvertFromEntitiesToElements converts cassemdb entities to concept Elements.
-func ConvertFromEntitiesToElements(in []*apicassemdb.Entity, mdMapping map[string]*concept.ElementMetadata) (out []*concept.Element) {
+func ConvertFromEntitiesToElements(in []*apikv.Entity, mdMapping map[string]*concept.ElementMetadata) (out []*concept.Element) {
 	out = make([]*concept.Element, 0, len(in))
 	for _, entity := range in {
 		elt := &concept.Element{
@@ -50,7 +49,7 @@ func ConvertFromEntitiesToElements(in []*apicassemdb.Entity, mdMapping map[strin
 // - arr: ElementMetadata in slice structure
 // - mdMapping: ElementMetadata in format: map[app/env/ele]*ElementMetadata
 func ConvertFromEntitiesToMetadata(
-	in []*apicassemdb.Entity, wipeUnpublish bool,
+	in []*apikv.Entity, wipeUnpublish bool,
 ) (keys []string, arr []*concept.ElementMetadata, mdMapping map[string]*concept.ElementMetadata) {
 
 	arr = make([]*concept.ElementMetadata, 0, len(in))
@@ -80,21 +79,21 @@ func ConvertFromEntitiesToMetadata(
 	return keys, arr, mdMapping
 }
 
-// ConvertChangeToChange converts api.Change (cassemdb.api) to concept.AgentInstanceChange.
+// ConvertChangeToChange converts kv.Change (cassemdb.api) to concept.AgentInstanceChange.
 // Make sure of that c1 is agentInstance format rather than any other.
-func ConvertChangeToChange(c1 *apicassemdb.Change) (c2 *concept.AgentInstanceChange, ok bool) {
+func ConvertChangeToChange(c1 *apikv.Change) (c2 *concept.AgentInstanceChange, ok bool) {
 	if c1 == nil {
 		return
 	}
 
 	var op concept.ChangeOp
 	switch c1.GetOp() {
-	case apicassemdb.Change_Set:
+	case apikv.Change_Set:
 		op = concept.ChangeOp_UPDATE
 		if c1.GetLast() == nil {
 			op = concept.ChangeOp_NEW
 		}
-	case apicassemdb.Change_Unset:
+	case apikv.Change_Unset:
 		op = concept.ChangeOp_DELETE
 	default:
 		return
