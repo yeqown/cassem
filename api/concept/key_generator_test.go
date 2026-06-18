@@ -36,6 +36,27 @@ func Test_trimVersion(t *testing.T) {
 	}
 }
 
+func TestGenInstanceReversedKeyUsesNonCollidingSeparator(t *testing.T) {
+	first := GenInstanceReversedKey("a-b", "c", "d")
+	second := GenInstanceReversedKey("a", "b-c", "d")
+	if first == second {
+		t.Fatalf("reverse keys should not collide: %q", first)
+	}
+
+	want := "cassem/instances/reversed/a-b@@@c@@@d"
+	if first != want {
+		t.Fatalf("GenInstanceReversedKey() = %q, want %q", first, want)
+	}
+}
+
+func TestGenInstanceReversedKeyWithInsIdUsesNonCollidingSeparator(t *testing.T) {
+	got := GenInstanceReversedKeyWithInsId("a-b", "c", "d", "ins-1")
+	want := "cassem/instances/reversed/a-b@@@c@@@d/ins-1"
+	if got != want {
+		t.Fatalf("GenInstanceReversedKeyWithInsId() = %q, want %q", got, want)
+	}
+}
+
 func Test_trimMetadata(t *testing.T) {
 	type args struct {
 		key string

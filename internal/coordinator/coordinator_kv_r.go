@@ -2,10 +2,12 @@ package coordinator
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/yeqown/log"
+	"google.golang.org/grpc/codes"
 
 	"github.com/yeqown/cassem/api/concept"
 	apicassemdb "github.com/yeqown/cassem/internal/cassemdb/api"
@@ -84,6 +86,9 @@ func (_r kvReadOnly) GetElementVersions(
 		Keys: []string{concept.WithMetadataSuffix(k)},
 	})
 	if err != nil {
+		return nil, fmt.Errorf("kvReadOnly.GetElementVersions: %w", err)
+	}
+	if err = getKVsNonNotFoundErrors(r); err != nil {
 		return nil, fmt.Errorf("kvReadOnly.GetElementVersions: %w", err)
 	}
 
@@ -213,6 +218,29 @@ func (_r kvReadOnly) GetElementsByKeys(
 	return
 }
 
+func getKVsErrors(resp *apicassemdb.GetKVsResp, ignoreNotFound bool) error {
+	var errs []error
+	for _, item := range resp.GetErrors() {
+		if ignoreNotFound && item.GetCode() == codes.NotFound.String() {
+			continue
+		}
+		errs = append(errs, fmt.Errorf("key %s: %s: %s", item.GetKey(), item.GetCode(), item.GetMessage()))
+	}
+	if len(errs) > 0 {
+		return errors.Join(errs...)
+	}
+
+	return nil
+}
+
+func getKVsNonNotFoundErrors(resp *apicassemdb.GetKVsResp) error {
+	return getKVsErrors(resp, true)
+}
+
+func getKVsAnyErrors(resp *apicassemdb.GetKVsResp) error {
+	return getKVsErrors(resp, false)
+}
+
 // getElementsByKeys get elements by keys.
 // keys contain all key to element.
 func (_r kvReadOnly) getElementsByKeys(
@@ -233,6 +261,9 @@ func (_r kvReadOnly) getElementsByKeys(
 	if err != nil {
 		return nil, fmt.Errorf("kvReadOnly.getElementsByKeys: %v", err)
 	}
+	if err = getKVsNonNotFoundErrors(r); err != nil {
+		return nil, fmt.Errorf("kvReadOnly.getElementsByKeys.metadata: %w", err)
+	}
 
 	// DONE(@yeqown): replace this part of code with convertFromEntitiesToMetadata
 	eleVersionKeys, _, metadataMapping := ConvertFromEntitiesToMetadata(r.GetEntities(), wipeUnpublish)
@@ -244,6 +275,9 @@ func (_r kvReadOnly) getElementsByKeys(
 	})
 	if err2 != nil {
 		return nil, fmt.Errorf("kvReadOnly.getElementsByKeys: %v", err2)
+	}
+	if err2 = getKVsAnyErrors(r2); err2 != nil {
+		return nil, fmt.Errorf("kvReadOnly.getElementsByKeys.version: %w", err2)
 	}
 
 	out := ConvertFromEntitiesToElements(r2.GetEntities(), metadataMapping)

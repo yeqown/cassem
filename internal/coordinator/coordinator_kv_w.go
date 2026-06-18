@@ -108,7 +108,6 @@ func (_h kvWriteOnly) UpdateElement(ctx context.Context, app, env, key string, r
 
 func (_h kvWriteOnly) DeleteElement(ctx context.Context, app, env, eltKey string) error {
 	k := concept.GenElementKey(app, env, eltKey)
-	md, _ := _h.getElementMetadata(ctx, k)
 	_, err := _h.cassemdb.UnsetKV(ctx, &apicassemdb.UnsetKVReq{
 		Key:   k,
 		IsDir: true,
@@ -117,11 +116,7 @@ func (_h kvWriteOnly) DeleteElement(ctx context.Context, app, env, eltKey string
 		return err
 	}
 
-	var lastVersion int32
-	if md != nil {
-		lastVersion = md.GetLatestVersion()
-	}
-	return _h.saveElementOperation(ctx, app, env, eltKey, concept.ElementOperation_UNSET, lastVersion, 0, "")
+	return _h.deleteOperationPrefix(ctx, concept.GenElementOperationKeyPrefix(app, env, eltKey))
 }
 
 func (_h kvWriteOnly) CreateEnvironment(ctx context.Context, app, env string) error {
@@ -146,8 +141,11 @@ func (_h kvWriteOnly) DeleteEnvironment(ctx context.Context, app, env string) er
 		//Val:                  nil,
 		//Overwrite:            false,
 	})
+	if err != nil {
+		return err
+	}
 
-	return err
+	return _h.deleteOperationPrefix(ctx, concept.GenAppEnvOperationKey(app, env))
 }
 
 // RollbackElementVersion reset element's latest published version as rollbackVersion
@@ -258,7 +256,7 @@ func (_h kvWriteOnly) DeleteApp(ctx context.Context, appId string) error {
 		return err
 	}
 
-	return nil
+	return _h.deleteOperationPrefix(ctx, concept.GenAppOperationKey(appId))
 }
 
 // getElementMetadata returns element by specified version without metadata.
@@ -291,6 +289,18 @@ func (_h kvWriteOnly) getElementMetadata(ctx context.Context, key string) (*conc
 	}
 
 	return md, nil
+}
+
+func (_h kvWriteOnly) deleteOperationPrefix(ctx context.Context, key string) error {
+	_, err := _h.cassemdb.UnsetKV(ctx, &apicassemdb.UnsetKVReq{
+		Key:   key,
+		IsDir: true,
+	})
+	if err != nil {
+		return fmt.Errorf("kvWrite.deleteOperationPrefix: %w", err)
+	}
+
+	return nil
 }
 
 func (_h kvWriteOnly) saveElementOperation(ctx context.Context, app, env, key string,

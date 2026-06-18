@@ -12,7 +12,7 @@ Cassem 使用 `cassem/` 作为统一 KV 根前缀。key 由 `api/concept/key_gen
 | 环境目录     | `cassem/elements/{app}/{env}`                                 | 目录 key                     | 给应用环境建立逻辑前缀，供列表与删除使用                |
 | 操作记录     | `cassem/operations/{app}/{env}/{key}/operations/{operatedAt}` | `concept.ElementOperation` | 保存配置变更审计记录                          |
 | 实例正向索引   | `cassem/instances/normalized/{instanceId}`                    | `concept.Instance`         | 保存客户端实例完整信息，TTL 120 秒               |
-| 实例反向索引   | `cassem/instances/reversed/{app}-{env}-{key}/{instanceId}`    | `instanceId` bytes         | 从配置项反查正在 watch 该配置的实例，TTL 120 秒     |
+| 实例反向索引   | `cassem/instances/reversed/{app}@@@{env}@@@{key}/{instanceId}`    | `instanceId` bytes         | 从配置项反查正在 watch 该配置的实例，TTL 120 秒     |
 | Agent 节点 | `cassem/agents/{agentId}`                                     | `concept.AgentInstance`    | 保存 agent 注册信息，TTL 由调用方传入            |
 | ACL 策略   | `cassem/acl/policy`                                           | `concept.Casbin`           | 保存 Casbin policy/grouping policy    |
 | 用户       | `cassem/acl/users/{account}`                                  | `concept.User`             | 保存用户账号、昵称、salt、hash 后密码、状态          |
@@ -70,7 +70,7 @@ cassem/elements/demo/prod/db_url/v2
 2. `PublishElementVersion`：读取目标版本，更新 `metadata.usingVersion`、`usingFingerprint`，清空 `unpublishedVersion`，标记版本 `published=true`，记录 PUBLISH 操作。
 3. `UpdateElement`：要求 `unpublishedVersion=0`，写新版本 `v{latest+1}`，更新 metadata，记录 SET 操作。
 4. `RollbackElementVersion`：读取历史版本，更新 `usingVersion` 与指纹，记录 PUBLISH 操作，remark 写 rollback 信息。
-5. `DeleteElement`：删除 `cassem/elements/{app}/{env}/{key}` 目录前缀，记录 UNSET 操作。
+5. `DeleteElement`：删除 `cassem/elements/{app}/{env}/{key}` 目录前缀，并删除对应 `cassem/operations/{app}/{env}/{key}` 操作记录前缀。
 
 ## 应用与环境
 
@@ -106,7 +106,7 @@ cassem/operations/{app}/{env}/{key}/operations/{operatedAt}
 
 ```text
 cassem/instances/normalized/{instanceId}
-cassem/instances/reversed/{app}-{env}-{key}/{instanceId}
+cassem/instances/reversed/{app}@@@{env}@@@{key}/{instanceId}
 ```
 
 `instanceId` 由 `Instance.Id()` 生成，正向索引 value 为完整 `concept.Instance`。反向索引 value 只保存 `instanceId` bytes，用于根据配置项查找所有 watch 该配置的实例。
@@ -149,7 +149,7 @@ cassem/acl/users/{account}
 | 列出某元素版本              | `cassem/elements/{app}/{env}/{key}`，默认 seek 为 `v` 以跳过 metadata |
 | 列出元素操作               | `cassem/operations/{app}/{env}/{key}/operations`               |
 | 列出实例                 | `cassem/instances/normalized`                                  |
-| 按元素反查实例              | `cassem/instances/reversed/{app}-{env}-{key}`                  |
+| 按元素反查实例              | `cassem/instances/reversed/{app}@@@{env}@@@{key}`                  |
 | 列出 agent             | `cassem/agents`                                                |
 | 列出用户                 | `cassem/acl/users`                                             |
 

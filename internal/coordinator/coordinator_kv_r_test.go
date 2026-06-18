@@ -17,6 +17,7 @@ import (
 
 type kvReadOnlyTestKV struct {
 	entities map[string]*apicassemdb.Entity
+	errors   map[string]*apicassemdb.KeyError
 }
 
 func (f *kvReadOnlyTestKV) GetKV(_ context.Context, req *apicassemdb.GetKVReq, _ ...grpc.CallOption) (*apicassemdb.GetKVResp, error) {
@@ -32,14 +33,20 @@ func (f *kvReadOnlyTestKV) GetKVs(_ context.Context, req *apicassemdb.GetKVsReq,
 		return nil, err
 	}
 	entities := make([]*apicassemdb.Entity, 0, len(req.GetKeys()))
+	errs := make([]*apicassemdb.KeyError, 0)
 	for _, key := range req.GetKeys() {
+		if item, ok := f.errors[key]; ok {
+			errs = append(errs, item)
+			continue
+		}
 		entity, ok := f.entities[key]
 		if !ok {
+			errs = append(errs, &apicassemdb.KeyError{Key: key, Code: "NotFound", Message: "NOT_FOUND"})
 			continue
 		}
 		entities = append(entities, entity)
 	}
-	return &apicassemdb.GetKVsResp{Entities: entities}, nil
+	return &apicassemdb.GetKVsResp{Entities: entities, Errors: errs}, nil
 }
 func (f *kvReadOnlyTestKV) SetKV(context.Context, *apicassemdb.SetKVReq, ...grpc.CallOption) (*apicassemdb.Empty, error) {
 	return nil, errors.New("unused")
@@ -200,6 +207,47 @@ func TestKVReadOnlyGetElementsByKeysReturnsEmptyWhenMetadataHasNoAvailableVersio
 	out, err := (kvReadOnly{cassemdb: kv}).GetElementsByKeys(context.Background(), "app", "env", []string{"key"})
 	require.NoError(t, err)
 	require.Empty(t, out.Elements)
+}
+
+func TestKVReadOnlyGetElementsByKeysIgnoresMetadataNotFoundErrors(t *testing.T) {
+	entities := make(map[string]*apicassemdb.Entity)
+	addElementTestData(t, entities, "app", "env", "exists", 1)
+	kv := &kvReadOnlyTestKV{entities: entities}
+
+	out, err := (kvReadOnly{cassemdb: kv}).GetElementsByKeys(context.Background(), "app", "env", []string{"exists", "missing"})
+	require.NoError(t, err)
+	require.Len(t, out.Elements, 1)
+	require.Equal(t, "exists", out.Elements[0].Metadata.Key)
+}
+
+func TestKVReadOnlyGetElementsByKeysReturnsVersionNotFoundErrors(t *testing.T) {
+	baseKey := concept.GenElementKey("app", "env", "key")
+	metadata := &concept.ElementMetadata{Key: "key", App: "app", Env: "env", UsingVersion: 1, ContentType: concept.ContentType_JSON}
+	metadataData, err := concept.MarshalProto(metadata)
+	require.NoError(t, err)
+	kv := &kvReadOnlyTestKV{entities: map[string]*apicassemdb.Entity{
+		concept.WithMetadataSuffix(baseKey): apicassemdb.NewEntityWithCreated(concept.WithMetadataSuffix(baseKey), metadataData, 0, 1),
+	}}
+
+	_, err = (kvReadOnly{cassemdb: kv}).GetElementsByKeys(context.Background(), "app", "env", []string{"key"})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), concept.WithVersion(baseKey, 1))
+	require.Contains(t, err.Error(), "NotFound")
+}
+
+func TestKVReadOnlyGetElementsByKeysReturnsNonNotFoundMetadataErrors(t *testing.T) {
+	baseKey := concept.GenElementKey("app", "env", "key")
+	kv := &kvReadOnlyTestKV{
+		entities: map[string]*apicassemdb.Entity{},
+		errors: map[string]*apicassemdb.KeyError{
+			concept.WithMetadataSuffix(baseKey): {Key: concept.WithMetadataSuffix(baseKey), Code: "Internal", Message: "boom"},
+		},
+	}
+
+	_, err := (kvReadOnly{cassemdb: kv}).GetElementsByKeys(context.Background(), "app", "env", []string{"key"})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "Internal")
+	require.Contains(t, err.Error(), "boom")
 }
 
 func TestGetElementWithVersionReturnsVersionZeroWhenNoUsingVersion(t *testing.T) {

@@ -6,9 +6,12 @@ import (
 
 	"github.com/yeqown/log"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/reflection"
+	"google.golang.org/grpc/status"
 
 	apicassemdb "github.com/yeqown/cassem/internal/cassemdb/api"
+	"github.com/yeqown/cassem/pkg/errorx"
 	"github.com/yeqown/cassem/pkg/grpcx"
 	"github.com/yeqown/cassem/pkg/watcher"
 )
@@ -52,9 +55,11 @@ func (s grpcServer) GetKV(ctx context.Context, req *apicassemdb.GetKVReq) (*apic
 
 func (s grpcServer) GetKVs(ctx context.Context, req *apicassemdb.GetKVsReq) (*apicassemdb.GetKVsResp, error) {
 	entities := make([]*apicassemdb.Entity, 0, len(req.GetKeys()))
+	errors := make([]*apicassemdb.KeyError, 0)
 	for _, k := range req.GetKeys() {
 		v, err := s.coord.getKV(k)
 		if err != nil {
+			errors = append(errors, newKeyError(k, err))
 			continue
 		}
 
@@ -63,8 +68,27 @@ func (s grpcServer) GetKVs(ctx context.Context, req *apicassemdb.GetKVsReq) (*ap
 
 	resp := &apicassemdb.GetKVsResp{
 		Entities: entities,
+		Errors:   errors,
 	}
 	return resp, nil
+}
+
+func newKeyError(key string, err error) *apicassemdb.KeyError {
+	code := codes.Unknown
+	message := err.Error()
+	if x, ok := errorx.FromError(err); ok {
+		code = x.Code.Code()
+		message = x.Message
+	} else if s, ok := status.FromError(err); ok {
+		code = s.Code()
+		message = s.Message()
+	}
+
+	return &apicassemdb.KeyError{
+		Key:     key,
+		Code:    code.String(),
+		Message: message,
+	}
 }
 
 func (s grpcServer) SetKV(ctx context.Context, req *apicassemdb.SetKVReq) (*apicassemdb.Empty, error) {

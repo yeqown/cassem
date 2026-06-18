@@ -54,8 +54,15 @@ message getKVsReq {
   repeated string keys = 1 [(validate.rules).repeated = {unique: true, min_items: 1, max_items: 100}];
 };
 
+message keyError {
+  string key     = 1;
+  string code    = 2;
+  string message = 3;
+};
+
 message getKVsResp {
-  repeated Entity entities = 1;
+  repeated Entity   entities = 1;
+  repeated keyError errors   = 2;
 };
 
 

@@ -12,8 +12,9 @@ const (
 	_OP_PREFIX   = _ROOT_PREFIX + "operations"
 	// _INS_PREFIX will be divided into two part, one is forward storage, another is reversed index.
 	// 1. root/instances/normalized/instance-id => instance in detail
-	// 2. root/instances/reversed/app-env-key => instances{instance-id}
+	// 2. root/instances/reversed/app@@@env@@@key => instances{instance-id}
 	_INS_PREFIX        = _ROOT_PREFIX + "instances"
+	_INS_REVERSED_SEP  = "@@@"
 	_AGENT_PREFIX      = _ROOT_PREFIX + "agents"
 	_VERSION_PREFIX    = "v"
 	_ACL_POLICY_PREFIX = _ROOT_PREFIX + "acl/policy"
@@ -65,8 +66,20 @@ func WithMetadataSuffix(key string) string {
 	return key + _METADATA_SUFFIX
 }
 
+func GenAppOperationKey(app string) string {
+	return joint(_OP_PREFIX, app)
+}
+
+func GenAppEnvOperationKey(app, env string) string {
+	return joint(_OP_PREFIX, app, env)
+}
+
+func GenElementOperationKeyPrefix(app, env, key string) string {
+	return joint(_OP_PREFIX, app, env, key)
+}
+
 func GenElementOperationDirKey(app, env, key string) string {
-	return joint(_OP_PREFIX, app, env, key, _OPERATIONS_SUFFIX)
+	return joint(GenElementOperationKeyPrefix(app, env, key), _OPERATIONS_SUFFIX)
 }
 
 func GenElementOperationKey(app, env, key string, operatedAt int64) string {
@@ -109,12 +122,12 @@ func GenInstanceNormalDirKey() string {
 }
 
 func GenInstanceReversedKey(app, env, key string) string {
-	k := app + "-" + env + "-" + key
+	k := app + _INS_REVERSED_SEP + env + _INS_REVERSED_SEP + key
 	return joint(_INS_PREFIX, "reversed", k)
 }
 
 func GenInstanceReversedKeyWithInsId(app, env, key string, insId string) string {
-	k := app + "-" + env + "-" + key
+	k := app + _INS_REVERSED_SEP + env + _INS_REVERSED_SEP + key
 	return joint(_INS_PREFIX, "reversed", k, insId)
 }
 

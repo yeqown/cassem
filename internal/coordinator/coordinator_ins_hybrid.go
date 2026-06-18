@@ -59,7 +59,7 @@ func (i instanceHybrid) GetInstances(
 			HasMore:  r.GetHasMore(),
 			NextSeek: r.GetNextSeekKey(),
 		},
-		Instances: make([]*concept.Instance,0, len(r.GetEntities())),
+		Instances: make([]*concept.Instance, 0, len(r.GetEntities())),
 	}
 	for _, v := range r.GetEntities() {
 		// insId := concept.GenInstanceNormalKey(runtime.ToString(v.GetVal()))
@@ -112,7 +112,7 @@ func (i instanceHybrid) GetInstancesByElement(
 			HasMore:  r.GetHasMore(),
 			NextSeek: r.GetNextSeekKey(),
 		},
-		Instances: make([]*concept.Instance,0, len(r.GetEntities())),
+		Instances: make([]*concept.Instance, 0, len(r.GetEntities())),
 	}
 	if len(r.GetEntities()) == 0 {
 		return result, nil
@@ -128,7 +128,10 @@ func (i instanceHybrid) GetInstancesByElement(
 		Keys: insIds,
 	})
 	if err2 != nil {
-		return nil, fmt.Errorf("instanceHybrid.GetInstances: %w", err)
+		return nil, fmt.Errorf("instanceHybrid.GetInstances: %w", err2)
+	}
+	if err2 = getKVsNonNotFoundErrors(r2); err2 != nil {
+		return nil, fmt.Errorf("instanceHybrid.GetInstances.details: %w", err2)
 	}
 
 	for _, v := range r2.GetEntities() {
@@ -196,7 +199,10 @@ func (i instanceHybrid) setInstanceInfo(ctx context.Context, ins *concept.Instan
 		}).
 		Debug("instanceHybrid.UnregisterInstance")
 
-	bytes, _ := concept.MarshalProto(ins)
+	bytes, err := concept.MarshalProto(ins)
+	if err != nil {
+		return fmt.Errorf("instanceHybrid.setInstanceInfo.marshal: %w", err)
+	}
 	_, err = i.cassemdb.SetKV(ctx, &apicassemdb.SetKVReq{
 		Key:       k,
 		IsDir:     false,
@@ -205,10 +211,10 @@ func (i instanceHybrid) setInstanceInfo(ctx context.Context, ins *concept.Instan
 		Overwrite: true,
 	})
 	if err != nil {
-		return fmt.Errorf("instanceHybrid.GetInstance: %w", err)
+		return fmt.Errorf("instanceHybrid.setInstanceInfo.normalized: %w", err)
 	}
 
-	// save reversed kv
+	var reversedErrs []error
 	for _, w := range ins.GetWatching() {
 		for _, key := range w.GetWatchKeys() {
 			k2 := concept.GenInstanceReversedKeyWithInsId(w.GetApp(), w.GetEnv(), key, insId)
@@ -225,9 +231,13 @@ func (i instanceHybrid) setInstanceInfo(ctx context.Context, ins *concept.Instan
 						"key":   k2,
 						"error": err,
 					}).
-					Error("instanceHybrid.GetInstance failed to update reversed")
+					Error("instanceHybrid.setInstanceInfo failed to update reversed")
+				reversedErrs = append(reversedErrs, fmt.Errorf("set reversed key %s: %w", k2, err))
 			}
 		}
+	}
+	if len(reversedErrs) > 0 {
+		return fmt.Errorf("instanceHybrid.setInstanceInfo reversed index errors: %w", errors.Join(reversedErrs...))
 	}
 
 	return nil
@@ -280,8 +290,11 @@ func (i instanceHybrid) UnregisterInstance(ctx context.Context, insId string) er
 		Key:   k,
 		IsDir: false,
 	})
+	if err != nil {
+		return fmt.Errorf("instanceHybrid.UnregisterInstance.normalized: %w", err)
+	}
 
-	// unset reversed kv
+	var reversedErrs []error
 	for _, w := range ins.GetWatching() {
 		for _, key := range w.GetWatchKeys() {
 			k2 := concept.GenInstanceReversedKeyWithInsId(w.GetApp(), w.GetEnv(), key, insId)
@@ -294,10 +307,14 @@ func (i instanceHybrid) UnregisterInstance(ctx context.Context, insId string) er
 						"key":   k2,
 						"error": err,
 					}).
-					Error("instanceHybrid.GetInstance failed to update reversed")
+					Error("instanceHybrid.UnregisterInstance failed to delete reversed")
+				reversedErrs = append(reversedErrs, fmt.Errorf("delete reversed key %s: %w", k2, err))
 			}
 		}
 	}
+	if len(reversedErrs) > 0 {
+		return fmt.Errorf("instanceHybrid.UnregisterInstance reversed index errors: %w", errors.Join(reversedErrs...))
+	}
 
-	return err
+	return nil
 }

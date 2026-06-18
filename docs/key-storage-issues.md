@@ -9,6 +9,7 @@
 | 待决策 | 需要决定是否修、怎么修、何时修 |
 | 建议修复 | 风险明确，建议进入修复计划 |
 | 已决策 | 已确定修复方向，等待实现或排期 |
+| 已修复 | 已完成代码修复并通过目标验证 |
 | 可观察 | 可先补监控/巡检，再决定是否改设计 |
 | 已确认非问题 | 相关路径已经有保护，不作为问题处理 |
 
@@ -16,20 +17,20 @@
 
 | ID | 问题 | 严重级别 | 建议状态 | 主要影响 |
 |---|---|---|---|---|
-| KS-001 | instance reverse key 用 `-` 拼接，存在碰撞 | P0 | 已决策 | 改用 `@@@` 分隔符，避免现有字符集内碰撞 |
-| KS-002 | 删除 app/env/element 不清理 operation history | P0 | 已决策 | 删除对象时同步删除对应 operation prefix |
+| KS-001 | instance reverse key 用 `-` 拼接，存在碰撞 | P0 | 已修复 | 改用 `@@@` 分隔符，避免现有字符集内碰撞 |
+| KS-002 | 删除 app/env/element 不清理 operation history | P0 | 已修复 | 删除对象时同步删除对应 operation prefix |
 | KS-003 | 元素创建/更新/发布是多次独立写入，缺少事务 | P1 | 已决策 / 延迟修复 | 方向为事务化，具体实现待定 |
 | KS-004 | TTL 是懒清理，物理 key 可能长期残留 | P1 | 已决策 / 延迟修复 | 方向为类 etcd Lease TTL 模型 |
-| KS-005 | instance normalized/reversed 索引写删不同步 | P1 | 已决策 | 短期返回 partial error，长期依赖 KS-003 事务根治 |
+| KS-005 | instance normalized/reversed 索引写删不同步 | P1 | 已修复 | 短期返回 partial error，长期依赖 KS-003 事务根治 |
 | KS-006 | key 多后，query 与 retention GC 可能退化 | P2 | 已决策 / 延迟修复 | query/retention 性能问题延迟处理 |
-| KS-007 | `GetKVs` 静默吞掉单 key 错误 | P2 | 已决策 | 增加 per-key error，由调用方判断 NotFound 等错误 |
+| KS-007 | `GetKVs` 静默吞掉单 key 错误 | P2 | 已修复 | 增加 per-key error，由调用方判断 NotFound 等错误 |
 | KS-008 | elements 子树目录删除本身是递归删除 | Info | 已确认非问题 | `metadata` 与 `vN` 能随 element/env/app 删除 |
 
 ---
 
 ## KS-001：instance reverse key 用 `-` 拼接，存在碰撞
 
-**状态：已决策**
+**状态：已修复**
 
 ### 现状
 
@@ -101,7 +102,7 @@ cassem/instances/reversed/{app}@@@{env}@@@{key}/{instanceId}
 
 ## KS-002：删除 app/env/element 不清理 operation history
 
-**状态：已决策**
+**状态：已修复**
 
 ### 现状
 
@@ -301,7 +302,7 @@ Cassem 预期映射：
 
 ## KS-005：instance normalized/reversed 索引写删不同步
 
-**状态：已决策**
+**状态：已修复**
 
 ### 现状
 
@@ -419,7 +420,7 @@ Retention GC 默认每 10 分钟最多处理 20 个元素。
 
 ## KS-007：`GetKVs` 静默吞掉单 key 错误
 
-**状态：已决策**
+**状态：已修复**
 
 ### 现状
 
@@ -512,22 +513,22 @@ message keyError {
 
 ## 建议决策顺序
 
-1. **reverse key**：已决策，保留 reverse index，分隔符改为 `@@@`。
-2. **operation history**：已决策，删除对象时同步删除对应 operation prefix。
+1. **reverse key**：已修复，保留 reverse index，分隔符改为 `@@@`。
+2. **operation history**：已修复，删除对象时同步删除对应 operation prefix。
 3. **事务化**：已决策方向，延迟修复，具体实现待定。
 4. **TTL 主动清理**：已决策方向，采用类 etcd Lease TTL 模型，延迟实现。
-5. **instance 索引一致性**：已决策，短期返回 partial error，长期依赖事务化。
+5. **instance 索引一致性**：已修复，短期返回 partial error，长期依赖事务化。
 6. **query 与 retention 吞吐**：已决策，延迟修复。
-7. **GetKVs 错误语义**：已决策，增加 per-key error，由调用方判断。
+7. **GetKVs 错误语义**：已修复，增加 per-key error，由调用方判断。
 
 ## 后续可拆任务
 
-| 任务 | 前置决策 |
-|---|---|
-| 修改 reverse key 分隔符为 `@@@` | KS-001 |
-| 删除对象时同步删除 operation prefix | KS-002 |
-| 设计事务化 KV 写入能力 | KS-003 |
-| 设计类 etcd Lease TTL 机制 | KS-004 |
-| 修正 instance reversed 写删错误语义 | KS-005 |
-| 评审 query/retention 性能优化 | KS-006 |
-| 为 `GetKVs` 增加 per-key errors | KS-007 |
+| 任务 | 前置决策 | 状态 |
+|---|---|---|
+| 修改 reverse key 分隔符为 `@@@` | KS-001 | 已完成 |
+| 删除对象时同步删除 operation prefix | KS-002 | 已完成 |
+| 设计事务化 KV 写入能力 | KS-003 | 待做 |
+| 设计类 etcd Lease TTL 机制 | KS-004 | 待做 |
+| 修正 instance reversed 写删错误语义 | KS-005 | 已完成 |
+| 评审 query/retention 性能优化 | KS-006 | 待做 |
+| 为 `GetKVs` 增加 per-key errors | KS-007 | 已完成 |
