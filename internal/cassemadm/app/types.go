@@ -63,19 +63,6 @@ type deleteAppEnvElementsReq struct {
 	commonAppEnvEltRequest
 }
 
-type diffAppEnvElementsReq struct {
-	commonAppEnvEltRequest
-
-	Base    uint `form:"base"`
-	Compare uint `form:"compare"`
-}
-
-type diffAppEnvElementsResp struct {
-	Base    *concept.Element `json:"base"`
-	Compare *concept.Element `json:"compare"`
-	Diff    string           `json:"diff"`
-}
-
 type pagingAppsReq struct {
 	commonPagingRequest
 

@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/yeqown/cassem/api/concept"
@@ -65,27 +64,6 @@ func TestCreateElementReqBindsURIAndJSONSeparately(t *testing.T) {
 	require.Equal(t, "checkout-feature-dynamic-risk-control", req.ElementKey)
 	require.Equal(t, `{"enabled":true}`, req.Raw)
 	require.Equal(t, concept.ContentType_JSON, req.ContentType.concept())
-}
-
-func TestDiff(t *testing.T) {
-	tests := []struct {
-		name    string
-		base    string
-		compare string
-		want    string
-	}{
-		{name: "same text", base: "feature=true", compare: "feature=true", want: "feature=true"},
-		{name: "changed text", base: "feature=false", compare: "feature=true", want: "tru"},
-		{name: "added line", base: "a=1\n", compare: "a=1\nb=2\n", want: "b=2"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := diff(tt.base, tt.compare)
-
-			assert.Contains(t, got, tt.want)
-		})
-	}
 }
 
 func TestCreateAppEnvElementBindsJSONBodyAfterURI(t *testing.T) {

@@ -58,9 +58,6 @@ func TestConfigCenterReleaseGate_OnlinePaymentFeatureFlagLifecycle(t *testing.T)
 	current := getElement(t, adm, app, env, key, 0)
 	require.Equal(t, int32(2), current.GetVersion())
 	require.Equal(t, v2, string(current.GetRaw()))
-	var diff map[string]any
-	adm.DoJSON(t, http.MethodGet, fmt.Sprintf("/api/apps/%s/envs/%s/elements/%s/diff?base=1&compare=2", app, env, key), nil, &diff)
-	require.NotEmpty(t, diff)
 	var ops concept.GetElementOperationsResult
 	adm.DoJSON(t, http.MethodGet, fmt.Sprintf("/api/apps/%s/envs/%s/elements/%s/operations", app, env, key), nil, &ops)
 	require.NotEmpty(t, ops.Operations)
