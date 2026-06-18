@@ -231,7 +231,7 @@ func (_r kvReadOnly) getElementsByKeys(
 		Keys: mdKeys,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("kvReadOnly.getElementsByKeys: %w", err)
+		return nil, fmt.Errorf("kvReadOnly.getElementsByKeys: %v", err)
 	}
 
 	// DONE(@yeqown): replace this part of code with convertFromEntitiesToMetadata
@@ -240,7 +240,7 @@ func (_r kvReadOnly) getElementsByKeys(
 		Keys: eleVersionKeys,
 	})
 	if err2 != nil {
-		return nil, fmt.Errorf("kvReadOnly.getElementsByKeys: %w", err)
+		return nil, fmt.Errorf("kvReadOnly.getElementsByKeys: %v", err)
 	}
 
 	out := ConvertFromEntitiesToElements(r2.GetEntities(), metadataMapping)

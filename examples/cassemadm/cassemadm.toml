@@ -13,3 +13,13 @@ cassemdb = [
     bootstrapAccount = "superadmin@example.com"
     bootstrapPassword = "cassem"
     bootstrapNickname = "superadmin"
+
+[retention]
+    enabled = true
+    interval = "10m"
+    maxElementsPerRun = 20
+    elementPageSize = 100
+    keepVersionCount = 20
+    keepVersionDays = 30
+    keepOperationDays = 180
+    failureResultTTL = "48h"

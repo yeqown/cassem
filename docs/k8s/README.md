@@ -1,1 +1,0 @@
-## deploy in k8s
