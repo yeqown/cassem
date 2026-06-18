@@ -234,7 +234,14 @@ func TestWithKVClientUnarySharesTimeoutContext(t *testing.T) {
 	ctx.Context = baseCtx
 
 	originalDialer := dialKVClient
-	defer func() { dialKVClient = originalDialer }()
+	originalClusterDialer := dialClusterClient
+	defer func() {
+		dialKVClient = originalDialer
+		dialClusterClient = originalClusterDialer
+	}()
+	dialClusterClient = func(ctx context.Context, endpoints []string) (dbapi.ClusterClient, func() error, error) {
+		return nil, nil, errors.New("discovery unavailable")
+	}
 
 	var dialCtx context.Context
 	dialKVClient = func(ctx context.Context, endpoints []string, mode dbapi.Mode) (dbapi.KVClient, func() error, error) {
@@ -259,12 +266,33 @@ func TestWithKVClientUnarySharesTimeoutContext(t *testing.T) {
 	_ = app
 }
 
-func TestWithKVClientExpandsSingleWriteEndpointToDefaultCluster(t *testing.T) {
+type fakeClusterClient struct {
+	dbapi.ClusterClient
+	members []*dbapi.ClusterMember
+}
+
+func (f fakeClusterClient) ListMembers(ctx context.Context, in *dbapi.ListMembersRequest, opts ...grpc.CallOption) (*dbapi.ListMembersResponse, error) {
+	return &dbapi.ListMembersResponse{Members: f.members}, nil
+}
+
+func TestWithKVClientDiscoversWriteEndpointsFromSeed(t *testing.T) {
 	_, ctx := newTestCLIContext(t, defaultTimeout)
 	require.NoError(t, ctx.Set("endpoints", "127.0.0.1:2021"))
 
-	originalDialer := dialKVClient
-	defer func() { dialKVClient = originalDialer }()
+	originalKVDialer := dialKVClient
+	originalClusterDialer := dialClusterClient
+	defer func() {
+		dialKVClient = originalKVDialer
+		dialClusterClient = originalClusterDialer
+	}()
+
+	dialClusterClient = func(ctx context.Context, endpoints []string) (dbapi.ClusterClient, func() error, error) {
+		assert.Equal(t, []string{"127.0.0.1:2021"}, endpoints)
+		return fakeClusterClient{members: []*dbapi.ClusterMember{
+			{NodeId: 1, GrpcEndpoint: "127.0.0.1:2021"},
+			{NodeId: 2, GrpcEndpoint: "127.0.0.1:2022"},
+		}}, func() error { return nil }, nil
+	}
 
 	var gotEndpoints []string
 	dialKVClient = func(ctx context.Context, endpoints []string, mode dbapi.Mode) (dbapi.KVClient, func() error, error) {
@@ -276,7 +304,35 @@ func TestWithKVClientExpandsSingleWriteEndpointToDefaultCluster(t *testing.T) {
 		return nil
 	})
 	require.NoError(t, err)
-	assert.Equal(t, []string{"127.0.0.1:2021", "127.0.0.1:2022", "127.0.0.1:2023"}, gotEndpoints)
+	assert.Equal(t, []string{"127.0.0.1:2021", "127.0.0.1:2022"}, gotEndpoints)
+}
+
+func TestWithKVClientFallsBackToExplicitEndpointsWhenDiscoveryFails(t *testing.T) {
+	_, ctx := newTestCLIContext(t, defaultTimeout)
+	require.NoError(t, ctx.Set("endpoints", "127.0.0.1:2021,127.0.0.1:2022"))
+
+	originalKVDialer := dialKVClient
+	originalClusterDialer := dialClusterClient
+	defer func() {
+		dialKVClient = originalKVDialer
+		dialClusterClient = originalClusterDialer
+	}()
+
+	dialClusterClient = func(ctx context.Context, endpoints []string) (dbapi.ClusterClient, func() error, error) {
+		return nil, nil, errors.New("discovery unavailable")
+	}
+
+	var gotEndpoints []string
+	dialKVClient = func(ctx context.Context, endpoints []string, mode dbapi.Mode) (dbapi.KVClient, func() error, error) {
+		gotEndpoints = endpoints
+		return nil, func() error { return nil }, nil
+	}
+
+	err := withKVClient(ctx, dbapi.Mode_X, true, func(ctx context.Context, client dbapi.KVClient) error {
+		return nil
+	})
+	require.NoError(t, err)
+	assert.Equal(t, []string{"127.0.0.1:2021", "127.0.0.1:2022"}, gotEndpoints)
 }
 
 func TestWithKVClientWatchSeparatesDialAndOperationContext(t *testing.T) {
@@ -285,7 +341,14 @@ func TestWithKVClientWatchSeparatesDialAndOperationContext(t *testing.T) {
 	ctx.Context = baseCtx
 
 	originalDialer := dialKVClient
-	defer func() { dialKVClient = originalDialer }()
+	originalClusterDialer := dialClusterClient
+	defer func() {
+		dialKVClient = originalDialer
+		dialClusterClient = originalClusterDialer
+	}()
+	dialClusterClient = func(ctx context.Context, endpoints []string) (dbapi.ClusterClient, func() error, error) {
+		return nil, nil, errors.New("discovery unavailable")
+	}
 
 	var dialCtx context.Context
 	dialKVClient = func(ctx context.Context, endpoints []string, mode dbapi.Mode) (dbapi.KVClient, func() error, error) {

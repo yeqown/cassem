@@ -91,6 +91,9 @@ type peerOperator interface {
 	addPeer(peer string) (nodeID uint64, peers []string, err error)
 	removePeer(nodeID uint64) error
 	getPeers() []string
+	nodeID() uint64
+	raftAddr() string
+	leaderID() uint64
 }
 
 // newRaftNode initiates a raft instance and returns a committed log entry
@@ -558,8 +561,9 @@ func (rc *raftNode) addPeer(peer string) (nodeID uint64, peers []string, err err
 		}).
 		Infof("raftNodeImpl.AddNode received a request from remote node")
 
-	tryAdd := func(peer string) (tryNodeID uint64, tryPeers []string) {
+	tryAdd := func(peer string) (tryNodeID uint64, tryPeers []string, newlyAdded bool) {
 		rc.muPeers.Lock()
+		defer rc.muPeers.Unlock()
 		for idx, p := range rc.peers {
 			// ignore duplicate peer
 			if peer != p {
@@ -568,34 +572,50 @@ func (rc *raftNode) addPeer(peer string) (nodeID uint64, peers []string, err err
 
 			// hit duplicated
 			tryNodeID = uint64(idx + 1)
-			tryPeers = rc.peers
-			rc.muPeers.Unlock()
-			return
+			tryPeers = append([]string(nil), rc.peers...)
+			return tryNodeID, tryPeers, false
+		}
+
+		// Reuse empty slots so raft node ids remain stable after removals.
+		for idx, p := range rc.peers {
+			if p != "" {
+				continue
+			}
+			rc.peers[idx] = peer
+			tryPeers = append([]string(nil), rc.peers...)
+			return uint64(idx + 1), tryPeers, true
 		}
 
 		// not found in before peers
 		rc.peers = append(rc.peers, peer)
-		tryPeers = rc.peers
+		tryPeers = append([]string(nil), rc.peers...)
 		tryNodeID = uint64(len(rc.peers))
-		rc.muPeers.Unlock()
-
-		return
+		return tryNodeID, tryPeers, true
 	}
 
-	rollback := func(idx uint64) {
+	rollback := func(nodeID uint64, peer string) {
+		if nodeID == 0 {
+			return
+		}
 		rc.muPeers.Lock()
-		rc.peers = append(rc.peers[:idx], rc.peers[idx+1:]...)
-		rc.muPeers.RLock()
+		defer rc.muPeers.Unlock()
+		idx := int(nodeID - 1)
+		if idx >= 0 && idx < len(rc.peers) && rc.peers[idx] == peer {
+			rc.peers[idx] = ""
+		}
 	}
 
-	nodeID, peers = tryAdd(peer)
+	var newlyAdded bool
+	nodeID, peers, newlyAdded = tryAdd(peer)
 	if err = rc.changeConf(raftpb.ConfChange{
 		Type:    raftpb.ConfChangeAddNode,
 		NodeID:  nodeID,
 		Context: []byte(peer),
 		ID:      0,
 	}); err != nil {
-		rollback(nodeID)
+		if newlyAdded {
+			rollback(nodeID, peer)
+		}
 		err = fmt.Errorf("raftNode failed to add peer: %w", err)
 	}
 
@@ -603,21 +623,25 @@ func (rc *raftNode) addPeer(peer string) (nodeID uint64, peers []string, err err
 }
 
 func (rc *raftNode) removePeer(nodeID uint64) error {
-	rc.muPeers.RUnlock()
-	length := len(rc.peers)
-	rc.muPeers.RUnlock()
-
-	if length <= int(nodeID) {
+	if nodeID == 0 {
 		return errors.New("invalid nodeID")
 	}
 
-	// TODO(@yeqown): remove peer from peers.
+	rc.muPeers.Lock()
+	idx := int(nodeID - 1)
+	if idx >= len(rc.peers) {
+		rc.muPeers.Unlock()
+		return errors.New("invalid nodeID")
+	}
+	nodeAddr := rc.peers[idx]
+	current := append([]string(nil), rc.peers...)
+	rc.muPeers.Unlock()
 
 	log.
 		WithFields(log.Fields{
 			"nodeID":   nodeID,
-			"nodeAddr": rc.peers[nodeID],
-			"current":  rc.peers,
+			"nodeAddr": nodeAddr,
+			"current":  current,
 		}).
 		Infof("raftNodeImpl.RemoveNode received a request from remote node")
 
@@ -628,17 +652,42 @@ func (rc *raftNode) removePeer(nodeID uint64) error {
 		ID:      0,
 	}); err != nil {
 		return fmt.Errorf("raftNode failed to remove peer: %w", err)
-
 	}
+
+	rc.muPeers.Lock()
+	if idx < len(rc.peers) && rc.peers[idx] == nodeAddr {
+		rc.peers[idx] = ""
+	}
+	rc.muPeers.Unlock()
 
 	return nil
 }
 
 func (rc *raftNode) getPeers() []string {
 	rc.muPeers.RLock()
-	peers := rc.peers
-	rc.muPeers.RUnlock()
+	defer rc.muPeers.RUnlock()
+	peers := make([]string, 0, len(rc.peers))
+	for _, peer := range rc.peers {
+		if peer != "" {
+			peers = append(peers, peer)
+		}
+	}
 	return peers
+}
+
+func (rc *raftNode) nodeID() uint64 {
+	return rc.id
+}
+
+func (rc *raftNode) raftAddr() string {
+	return rc.bindAddress
+}
+
+func (rc *raftNode) leaderID() uint64 {
+	if rc.node == nil {
+		return 0
+	}
+	return rc.node.Status().Lead
 }
 
 func (rc *raftNode) changeConf(cc raftpb.ConfChange) error {

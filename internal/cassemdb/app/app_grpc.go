@@ -196,7 +196,7 @@ func translateChange(change watcher.IChange) *apicassemdb.Change {
 func (s grpcServer) AddNode(
 	ctx context.Context, req *apicassemdb.AddNodeRequest) (resp *apicassemdb.AddNodeResponse, err error) {
 	resp = new(apicassemdb.AddNodeResponse)
-	resp.NodeId, resp.Peers, err = s.coord.addNode(req.GetAddr())
+	resp.NodeId, resp.Peers, err = s.coord.addNode(req.GetRaftAddr(), req.GetGrpcEndpoint())
 	return
 }
 
@@ -205,6 +205,15 @@ func (s grpcServer) RemoveNode(
 	err = s.coord.removeNode(req.GetNodeId())
 	resp = new(apicassemdb.RemoveNodeResponse)
 	return
+}
+
+func (s grpcServer) ListMembers(
+	ctx context.Context, req *apicassemdb.ListMembersRequest) (*apicassemdb.ListMembersResponse, error) {
+	members, err := s.coord.listMembers()
+	if err != nil {
+		return nil, err
+	}
+	return &apicassemdb.ListMembersResponse{Members: members}, nil
 }
 
 //// isClientClosed check whether the error contains any code which indicates client is offline.

@@ -75,6 +75,7 @@ func (m *Entity) validate(all bool) error {
 	if len(errors) > 0 {
 		return EntityMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -84,7 +85,7 @@ type EntityMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m EntityMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -263,6 +264,7 @@ func (m *Change) validate(all bool) error {
 	if len(errors) > 0 {
 		return ChangeMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -272,7 +274,7 @@ type ChangeMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m ChangeMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -392,6 +394,7 @@ func (m *ParentDirectoryChange) validate(all bool) error {
 	if len(errors) > 0 {
 		return ParentDirectoryChangeMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -402,7 +405,7 @@ type ParentDirectoryChangeMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m ParentDirectoryChangeMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -492,6 +495,7 @@ func (m *Empty) validate(all bool) error {
 	if len(errors) > 0 {
 		return EmptyMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -501,7 +505,7 @@ type EmptyMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m EmptyMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -612,6 +616,7 @@ func (m *GetKVReq) validate(all bool) error {
 	if len(errors) > 0 {
 		return GetKVReqMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -621,7 +626,7 @@ type GetKVReqMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m GetKVReqMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -739,6 +744,7 @@ func (m *GetKVResp) validate(all bool) error {
 	if len(errors) > 0 {
 		return GetKVRespMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -748,7 +754,7 @@ type GetKVRespMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m GetKVRespMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -869,6 +875,7 @@ func (m *GetKVsReq) validate(all bool) error {
 	if len(errors) > 0 {
 		return GetKVsReqMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -878,7 +885,7 @@ type GetKVsReqMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m GetKVsReqMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -1001,6 +1008,7 @@ func (m *GetKVsResp) validate(all bool) error {
 	if len(errors) > 0 {
 		return GetKVsRespMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -1010,7 +1018,7 @@ type GetKVsRespMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m GetKVsRespMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -1138,6 +1146,7 @@ func (m *SetKVReq) validate(all bool) error {
 	if len(errors) > 0 {
 		return SetKVReqMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -1147,7 +1156,7 @@ type SetKVReqMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m SetKVReqMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -1249,6 +1258,7 @@ func (m *UnsetKVReq) validate(all bool) error {
 	if len(errors) > 0 {
 		return UnsetKVReqMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -1258,7 +1268,7 @@ type UnsetKVReqMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m UnsetKVReqMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -1379,6 +1389,7 @@ func (m *WatchReq) validate(all bool) error {
 	if len(errors) > 0 {
 		return WatchReqMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -1388,7 +1399,7 @@ type WatchReqMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m WatchReqMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -1498,6 +1509,7 @@ func (m *TtlReq) validate(all bool) error {
 	if len(errors) > 0 {
 		return TtlReqMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -1507,7 +1519,7 @@ type TtlReqMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m TtlReqMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -1597,6 +1609,7 @@ func (m *TtlResp) validate(all bool) error {
 	if len(errors) > 0 {
 		return TtlRespMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -1606,7 +1619,7 @@ type TtlRespMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m TtlRespMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -1717,6 +1730,7 @@ func (m *ExpireReq) validate(all bool) error {
 	if len(errors) > 0 {
 		return ExpireReqMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -1726,7 +1740,7 @@ type ExpireReqMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m ExpireReqMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -1852,6 +1866,7 @@ func (m *RangeReq) validate(all bool) error {
 	if len(errors) > 0 {
 		return RangeReqMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -1861,7 +1876,7 @@ type RangeReqMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m RangeReqMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -1988,6 +2003,7 @@ func (m *RangeResp) validate(all bool) error {
 	if len(errors) > 0 {
 		return RangeRespMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -1997,7 +2013,7 @@ type RangeRespMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m RangeRespMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -2152,6 +2168,7 @@ func (m *CompactElementHistoryReq) validate(all bool) error {
 	if len(errors) > 0 {
 		return CompactElementHistoryReqMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -2162,7 +2179,7 @@ type CompactElementHistoryReqMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m CompactElementHistoryReqMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -2263,6 +2280,7 @@ func (m *CompactElementHistoryResp) validate(all bool) error {
 	if len(errors) > 0 {
 		return CompactElementHistoryRespMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -2273,7 +2291,7 @@ type CompactElementHistoryRespMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m CompactElementHistoryRespMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}

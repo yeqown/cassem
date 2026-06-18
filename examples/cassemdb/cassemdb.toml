@@ -1,5 +1,6 @@
 debug = false
-addr = ":2021"
+listenAddr = "0.0.0.0:2021"
+advertiseAddr = "127.0.0.1:2021"
 
 [bolt]
     db = "cassemdb.kv"

@@ -18,6 +18,14 @@ type RaftNode interface {
 
 	// IsLeader returns current node is leader or not. true mean leader.
 	IsLeader() bool
+	// NodeID returns current raft member id.
+	NodeID() uint64
+	// RaftAddr returns current node raft address.
+	RaftAddr() string
+	// Peers returns known raft peer addresses.
+	Peers() []string
+	// LeaderID returns current leader id, or 0 when unknown.
+	LeaderID() uint64
 	LeaderChangeCh(chan<- bool)
 	ChangeNotifyCh() <-chan watcher.IChange
 	AddNode(addr string) (nodeID uint64, peers []string, err error)

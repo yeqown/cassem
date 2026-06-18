@@ -51,3 +51,18 @@ func TestEntityPositiveTTLExpires(t *testing.T) {
 	assert.True(t, entity.Expired())
 	assert.Equal(t, int32(EXPIRED), entity.GetTtl())
 }
+
+func TestClusterDiscoveryMessagesCompile(t *testing.T) {
+	member := &ClusterMember{
+		NodeId:       1,
+		RaftAddr:     "http://cassemdb1:3021",
+		GrpcEndpoint: "cassemdb1:2021",
+		Leader:       true,
+	}
+	resp := &ListMembersResponse{Members: []*ClusterMember{member}}
+
+	assert.Equal(t, uint64(1), resp.GetMembers()[0].GetNodeId())
+	assert.Equal(t, "http://cassemdb1:3021", resp.GetMembers()[0].GetRaftAddr())
+	assert.Equal(t, "cassemdb1:2021", resp.GetMembers()[0].GetGrpcEndpoint())
+	assert.True(t, resp.GetMembers()[0].GetLeader())
+}

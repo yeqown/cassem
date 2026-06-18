@@ -73,7 +73,8 @@ spec:
               mkdir -p ./storage/${HOSTNAME##*-}
               ./cassemdb \
                 -c /etc/cassemdb/cassemdb.toml \
-                --endpoint=0.0.0.0:2021 \
+                --listen-addr=0.0.0.0:2021 \
+                --advertise-addr=${HOSTNAME}.cassemdb.cassem:2021 \
                 --raft.cluster=http://cassemdb-0.cassemdb.cassem:2022,http://cassemdb-1.cassemdb.cassem:2022,http://cassemdb-2.cassemdb.cassem:2022 \
                 --raft.bind=http://${HOSTNAME}.cassemdb.cassem:2022 \
                 --storage="./storage/${HOSTNAME##*-}"

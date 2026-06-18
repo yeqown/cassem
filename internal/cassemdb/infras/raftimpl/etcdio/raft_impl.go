@@ -513,6 +513,34 @@ func (r *raftNodeImpl) IsLeader() bool {
 	return r.raftState == raft.StateLeader
 }
 
+func (r *raftNodeImpl) NodeID() uint64 {
+	if r.peersOp == nil {
+		return 0
+	}
+	return r.peersOp.nodeID()
+}
+
+func (r *raftNodeImpl) RaftAddr() string {
+	if r.peersOp == nil {
+		return ""
+	}
+	return r.peersOp.raftAddr()
+}
+
+func (r *raftNodeImpl) Peers() []string {
+	if r.peersOp == nil {
+		return nil
+	}
+	return r.peersOp.getPeers()
+}
+
+func (r *raftNodeImpl) LeaderID() uint64 {
+	if r.peersOp == nil {
+		return 0
+	}
+	return r.peersOp.leaderID()
+}
+
 func (r *raftNodeImpl) LeaderChangeCh(c chan<- bool) {
 	// lock
 	r.muLeaderChangeC.Lock()

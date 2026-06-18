@@ -26,8 +26,6 @@ const defaultEndpoint = "127.0.0.1:2021"
 const defaultTimeout = 10 * time.Second
 const maxTableValueWidth = 61
 
-var defaultLocalClusterEndpoints = []string{"127.0.0.1:2021", "127.0.0.1:2022", "127.0.0.1:2023"}
-
 func defaultCLILogLevel() log.Level {
 	return log.LevelWarning
 }
@@ -38,6 +36,14 @@ var dialKVClient = func(ctx context.Context, endpoints []string, mode dbapi.Mode
 		return nil, nil, err
 	}
 	return dbapi.NewKVClient(conn), conn.Close, nil
+}
+
+var dialClusterClient = func(ctx context.Context, endpoints []string) (dbapi.ClusterClient, func() error, error) {
+	conn, err := dbapi.DialWithModeContext(ctx, endpoints, dbapi.Mode_R)
+	if err != nil {
+		return nil, nil, err
+	}
+	return dbapi.NewClusterClient(conn), conn.Close, nil
 }
 
 func main() {
@@ -186,11 +192,51 @@ func parseEndpoints(raw string) []string {
 	return endpoints
 }
 
-func expandEndpointsForMode(endpoints []string, mode dbapi.Mode) []string {
-	if mode != dbapi.Mode_X || len(endpoints) != 1 || endpoints[0] != defaultEndpoint {
+func discoverEndpoints(ctx context.Context, seedEndpoints []string) ([]string, error) {
+	client, closeClient, err := dialClusterClient(ctx, seedEndpoints)
+	if err != nil {
+		return nil, fmt.Errorf("dial cluster discovery: %w", err)
+	}
+	defer func() {
+		if closeClient != nil {
+			_ = closeClient()
+		}
+	}()
+
+	resp, err := client.ListMembers(ctx, &dbapi.ListMembersRequest{})
+	if err != nil {
+		return nil, fmt.Errorf("list cluster members: %w", err)
+	}
+
+	endpoints := make([]string, 0, len(resp.GetMembers()))
+	seen := make(map[string]struct{}, len(resp.GetMembers()))
+	for _, member := range resp.GetMembers() {
+		endpoint := strings.TrimSpace(member.GetGrpcEndpoint())
+		if endpoint == "" {
+			continue
+		}
+		if _, ok := seen[endpoint]; ok {
+			continue
+		}
+		seen[endpoint] = struct{}{}
+		endpoints = append(endpoints, endpoint)
+	}
+	if len(endpoints) == 0 {
+		return nil, errors.New("cluster discovery returned no grpc endpoints")
+	}
+	return endpoints, nil
+}
+
+func resolveDialEndpoints(ctx context.Context, seedEndpoints []string, mode dbapi.Mode) []string {
+	if mode != dbapi.Mode_X && len(seedEndpoints) > 1 {
+		return seedEndpoints
+	}
+	endpoints, err := discoverEndpoints(ctx, seedEndpoints)
+	if err == nil {
 		return endpoints
 	}
-	return append([]string(nil), defaultLocalClusterEndpoints...)
+	log.WithFields(log.Fields{"endpoints": seedEndpoints, "error": err}).Warn("cluster discovery failed, falling back to configured endpoints")
+	return seedEndpoints
 }
 
 func displayValue(value []byte) string {
@@ -487,7 +533,8 @@ func withKVClient(c *cli.Context, mode dbapi.Mode, useTimeout bool, fn func(cont
 	}
 	defer cancel()
 
-	endpoints := expandEndpointsForMode(parseEndpoints(c.String("endpoints")), mode)
+	seedEndpoints := parseEndpoints(c.String("endpoints"))
+	endpoints := resolveDialEndpoints(dialCtx, seedEndpoints, mode)
 	client, closeClient, err := dialKVClient(dialCtx, endpoints, mode)
 	if err != nil {
 		return fmt.Errorf("dial cassemdb: %w", err)

@@ -10,8 +10,10 @@ services:
       - ./cassemdb
       - --conf
       - ./configs/cassemdb.toml
-      - --endpoint
-      - :2021
+      - --listen-addr
+      - 0.0.0.0:2021
+      - --advertise-addr
+      - 127.0.0.1:2021
       - --raft.cluster
       - http://cassemdb1:3021,http://cassemdb2:3022,http://cassemdb3:3023
       - --raft.bind
@@ -30,8 +32,10 @@ services:
       - ./cassemdb
       - --conf
       - ./configs/cassemdb.toml
-      - --endpoint
-      - :2021
+      - --listen-addr
+      - 0.0.0.0:2021
+      - --advertise-addr
+      - 127.0.0.1:2022
       - --raft.cluster
       - http://cassemdb1:3021,http://cassemdb2:3022,http://cassemdb3:3023
       - --raft.bind
@@ -50,8 +54,10 @@ services:
       - ./cassemdb
       - --conf
       - ./configs/cassemdb.toml
-      - --endpoint
-      - :2021
+      - --listen-addr
+      - 0.0.0.0:2021
+      - --advertise-addr
+      - 127.0.0.1:2023
       - --raft.cluster
       - http://cassemdb1:3021,http://cassemdb2:3022,http://cassemdb3:3023
       - --raft.bind

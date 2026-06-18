@@ -32,7 +32,8 @@ message ChangeCommand {
 }
 
 message addNodeRequest {
-  string addr = 1 [(validate.rules).string = {prefix: "http"}];
+  string raft_addr     = 1 [(validate.rules).string = {prefix: "http"}];
+  string grpc_endpoint = 2 [(validate.rules).string = {min_len: 1}];
 }
 message addNodeResponse {
   uint64 node_id = 1;
@@ -44,8 +45,20 @@ message removeNodeRequest {
 }
 message removeNodeResponse {}
 
+message clusterMember {
+  uint64 node_id       = 1;
+  string raft_addr     = 2;
+  string grpc_endpoint = 3;
+  bool   leader        = 4;
+}
+message listMembersRequest {}
+message listMembersResponse {
+  repeated clusterMember members = 1;
+}
+
 // Cluster is a service that manage members in the cassemdb raft cluster.
 service Cluster {
   rpc AddNode(addNodeRequest) returns(addNodeResponse) {};
   rpc RemoveNode(removeNodeRequest) returns(removeNodeResponse) {};
+  rpc ListMembers(listMembersRequest) returns(listMembersResponse) {};
 }

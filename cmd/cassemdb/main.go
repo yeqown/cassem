@@ -91,11 +91,14 @@ var _cliGlobalFlags = []cli.Flag{
 		Required:    false,
 	},
 	&cli.StringFlag{
-		Name:        "endpoint",
-		Value:       "0.0.0.0:2021",
-		DefaultText: "0.0.0.0:2021",
-		Usage:       "specify the endpoint to connect to",
-		Required:    false,
+		Name:     "listen-addr",
+		Usage:    "specify the cassemdb gRPC listen address",
+		Required: true,
+	},
+	&cli.StringFlag{
+		Name:     "advertise-addr",
+		Usage:    "specify the cassemdb gRPC endpoint advertised to clients",
+		Required: true,
 	},
 	&cli.StringFlag{
 		Name:     "raft.cluster",
@@ -123,8 +126,12 @@ func fixConfig(ctx *cli.Context, c *conf.CassemdbConfig) {
 		c.Raft.Base = base
 	}
 
-	if endpoint := ctx.String("endpoint"); endpoint != "" {
-		c.Addr = endpoint
+	if listenAddr := ctx.String("listen-addr"); listenAddr != "" {
+		c.ListenAddr = listenAddr
+	}
+
+	if advertiseAddr := ctx.String("advertise-addr"); advertiseAddr != "" {
+		c.AdvertiseAddr = advertiseAddr
 	}
 
 	if bind := ctx.String("raft.bind"); bind != "" {

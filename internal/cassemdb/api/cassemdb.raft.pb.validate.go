@@ -425,10 +425,21 @@ func (m *AddNodeRequest) validate(all bool) error {
 
 	var errors []error
 
-	if !strings.HasPrefix(m.GetAddr(), "http") {
+	if !strings.HasPrefix(m.GetRaftAddr(), "http") {
 		err := AddNodeRequestValidationError{
-			field:  "Addr",
+			field:  "RaftAddr",
 			reason: "value does not have prefix \"http\"",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
+	if utf8.RuneCountInString(m.GetGrpcEndpoint()) < 1 {
+		err := AddNodeRequestValidationError{
+			field:  "GrpcEndpoint",
+			reason: "value length must be at least 1 runes",
 		}
 		if !all {
 			return err
@@ -830,3 +841,349 @@ var _ interface {
 	Cause() error
 	ErrorName() string
 } = RemoveNodeResponseValidationError{}
+
+// Validate checks the field values on ClusterMember with the rules defined in
+// the proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
+func (m *ClusterMember) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on ClusterMember with the rules defined
+// in the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in ClusterMemberMultiError, or
+// nil if none found.
+func (m *ClusterMember) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *ClusterMember) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	// no validation rules for NodeId
+
+	// no validation rules for RaftAddr
+
+	// no validation rules for GrpcEndpoint
+
+	// no validation rules for Leader
+
+	if len(errors) > 0 {
+		return ClusterMemberMultiError(errors)
+	}
+
+	return nil
+}
+
+// ClusterMemberMultiError is an error wrapping multiple validation errors
+// returned by ClusterMember.ValidateAll() if the designated constraints
+// aren't met.
+type ClusterMemberMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m ClusterMemberMultiError) Error() string {
+	msgs := make([]string, 0, len(m))
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m ClusterMemberMultiError) AllErrors() []error { return m }
+
+// ClusterMemberValidationError is the validation error returned by
+// ClusterMember.Validate if the designated constraints aren't met.
+type ClusterMemberValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e ClusterMemberValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e ClusterMemberValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e ClusterMemberValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e ClusterMemberValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e ClusterMemberValidationError) ErrorName() string { return "ClusterMemberValidationError" }
+
+// Error satisfies the builtin error interface
+func (e ClusterMemberValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sClusterMember.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = ClusterMemberValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = ClusterMemberValidationError{}
+
+// Validate checks the field values on ListMembersRequest with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the first error encountered is returned, or nil if there are no violations.
+func (m *ListMembersRequest) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on ListMembersRequest with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// ListMembersRequestMultiError, or nil if none found.
+func (m *ListMembersRequest) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *ListMembersRequest) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	if len(errors) > 0 {
+		return ListMembersRequestMultiError(errors)
+	}
+
+	return nil
+}
+
+// ListMembersRequestMultiError is an error wrapping multiple validation errors
+// returned by ListMembersRequest.ValidateAll() if the designated constraints
+// aren't met.
+type ListMembersRequestMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m ListMembersRequestMultiError) Error() string {
+	msgs := make([]string, 0, len(m))
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m ListMembersRequestMultiError) AllErrors() []error { return m }
+
+// ListMembersRequestValidationError is the validation error returned by
+// ListMembersRequest.Validate if the designated constraints aren't met.
+type ListMembersRequestValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e ListMembersRequestValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e ListMembersRequestValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e ListMembersRequestValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e ListMembersRequestValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e ListMembersRequestValidationError) ErrorName() string {
+	return "ListMembersRequestValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e ListMembersRequestValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sListMembersRequest.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = ListMembersRequestValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = ListMembersRequestValidationError{}
+
+// Validate checks the field values on ListMembersResponse with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the first error encountered is returned, or nil if there are no violations.
+func (m *ListMembersResponse) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on ListMembersResponse with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// ListMembersResponseMultiError, or nil if none found.
+func (m *ListMembersResponse) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *ListMembersResponse) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	for idx, item := range m.GetMembers() {
+		_, _ = idx, item
+
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, ListMembersResponseValidationError{
+						field:  fmt.Sprintf("Members[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, ListMembersResponseValidationError{
+						field:  fmt.Sprintf("Members[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return ListMembersResponseValidationError{
+					field:  fmt.Sprintf("Members[%v]", idx),
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
+	}
+
+	if len(errors) > 0 {
+		return ListMembersResponseMultiError(errors)
+	}
+
+	return nil
+}
+
+// ListMembersResponseMultiError is an error wrapping multiple validation
+// errors returned by ListMembersResponse.ValidateAll() if the designated
+// constraints aren't met.
+type ListMembersResponseMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m ListMembersResponseMultiError) Error() string {
+	msgs := make([]string, 0, len(m))
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m ListMembersResponseMultiError) AllErrors() []error { return m }
+
+// ListMembersResponseValidationError is the validation error returned by
+// ListMembersResponse.Validate if the designated constraints aren't met.
+type ListMembersResponseValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e ListMembersResponseValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e ListMembersResponseValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e ListMembersResponseValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e ListMembersResponseValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e ListMembersResponseValidationError) ErrorName() string {
+	return "ListMembersResponseValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e ListMembersResponseValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sListMembersResponse.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = ListMembersResponseValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = ListMembersResponseValidationError{}

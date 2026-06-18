@@ -50,6 +50,12 @@ func New(cfg *conf.CassemdbConfig) (*app, error) {
 	if err := cfg.Raft.Fix(); err != nil {
 		return nil, fmt.Errorf("failed to fixRaftConfig in New: %w", err)
 	}
+	if cfg.ListenAddr == "" {
+		return nil, fmt.Errorf("listenAddr is required")
+	}
+	if cfg.AdvertiseAddr == "" {
+		return nil, fmt.Errorf("advertiseAddr is required")
+	}
 
 	if err := d.bootstrap(); err != nil {
 		return nil, err
@@ -63,6 +69,16 @@ func (d *app) bootstrap() (err error) {
 	d.raft = etcdio.NewRaftNode(d.config.Bolt, d.config.Raft)
 
 	d.startRoutines()
+	runtime.GoFunc("cassemdb.registerCurrentMember", func() error {
+		for {
+			if err := d.registerCurrentMember(); err != nil {
+				log.WithField("error", err).Warn("register current cluster member failed")
+				time.Sleep(time.Second)
+				continue
+			}
+			return nil
+		}
+	})
 
 	log.Info("app: raft component loaded")
 	return nil
@@ -152,22 +168,43 @@ func (d *app) servingAPI() error {
 	raftleader.Setup(d.raft.IsLeader(), leadershipC, s)
 
 	if isDebug() {
-		g := httpx.NewGateway(d.config.Addr, debugHTTP(d), s)
+		g := httpx.NewGateway(d.config.ListenAddr, debugHTTP(d), s)
 		return g.ListenAndServe()
 	}
 
-	return serve(s, d.config.Addr)
+	return serve(s, d.config.ListenAddr)
 }
 
 // addNode only leader node would receive such request. MAYBE?
-func (d *app) addNode(addr string) (nodeID uint64, peers []string, err error) {
-	nodeID, peers, err = d.raft.AddNode(addr)
-	return nodeID, peers, err
+func (d *app) addNode(raftAddr string, grpcEndpoint string) (nodeID uint64, peers []string, err error) {
+	if raftAddr == "" {
+		return 0, nil, errors.New("raft addr is required")
+	}
+	if grpcEndpoint == "" {
+		return 0, nil, errors.New("grpc endpoint is required")
+	}
+	nodeID, peers, err = d.raft.AddNode(raftAddr)
+	if err != nil {
+		return nodeID, peers, err
+	}
+	if err = d.upsertClusterMember(clusterMemberRecord{NodeID: nodeID, RaftAddr: raftAddr, GRPCEndpoint: grpcEndpoint}); err != nil {
+		if rollbackErr := d.raft.RemoveNode(nodeID); rollbackErr != nil {
+			return nodeID, peers, fmt.Errorf("raft peer added but cluster member metadata was not updated: %w; rollback failed: %v", err, rollbackErr)
+		}
+		return nodeID, peers, fmt.Errorf("raft peer added but cluster member metadata was not updated; membership rolled back: %w", err)
+	}
+	return nodeID, peers, nil
 }
 
 // removeNode only leader node would receive such request.
 func (d *app) removeNode(nodeID uint64) error {
-	return d.raft.RemoveNode(nodeID)
+	if err := d.raft.RemoveNode(nodeID); err != nil {
+		return err
+	}
+	if err := d.deleteClusterMember(nodeID); err != nil {
+		return fmt.Errorf("raft peer removed but cluster member metadata was not deleted; stale metadata will be hidden by live peer filtering: %w", err)
+	}
+	return nil
 }
 
 func (d *app) getKV(key string) (*apicassemdb.Entity, error) {

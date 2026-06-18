@@ -17,8 +17,9 @@ type ICoordinator interface {
 	compactElementHistory(*apicassemdb.CompactElementHistoryReq) (*apicassemdb.CompactElementHistoryResp, error)
 
 	// cluster management operations
-	addNode(addr string) (nodeId uint64, peers []string, err error)
+	addNode(raftAddr string, grpcEndpoint string) (nodeId uint64, peers []string, err error)
 	removeNode(nodeID uint64) error
+	listMembers() ([]*apicassemdb.ClusterMember, error)
 }
 
 type setKVParam struct {
