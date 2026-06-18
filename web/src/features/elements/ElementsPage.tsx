@@ -29,6 +29,7 @@ import { DangerConfirmDialog } from '../../components/DangerConfirmDialog'
 import { EmptyState, ErrorState, LoadingState } from '../../components/StateView'
 import { contentTypes, formatVersionLabel, type Element, type ElementsResponse } from '../../domain/types'
 import { ApiError, apiRequest, buildQuery, jsonBody } from '../../lib/api'
+import { ContentEditor } from './ContentEditor'
 
 function getErrorMessage(error: unknown, fallback: string) {
   return error instanceof ApiError ? error.message : fallback
@@ -343,7 +344,15 @@ export function ElementsPage() {
                   </MenuItem>
                 ))}
               </TextField>
-              <TextField label="Raw" value={createRaw} onChange={(event) => setCreateRaw(event.target.value)} required fullWidth multiline minRows={10} disabled={submitting} helperText="Paste the full configuration payload for this element." />
+              <Stack spacing={0.75}>
+                <Typography variant="caption" color="text.secondary">
+                  Raw *
+                </Typography>
+                <ContentEditor value={createRaw} contentType={createContentType} ariaLabel="Raw" disabled={submitting} minRows={10} showContentType={false} onChange={setCreateRaw} />
+                <Typography variant="caption" color="text.secondary">
+                  Paste the full configuration payload for this element.
+                </Typography>
+              </Stack>
             </Stack>
           </DialogContent>
           <DialogActions>

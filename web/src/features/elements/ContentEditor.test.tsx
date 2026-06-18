@@ -35,6 +35,32 @@ describe('ContentEditor', () => {
     expect(screen.getByTestId('content-editor').querySelector('.cm-lineWrapping')).toBeNull()
   })
 
+  it('can hide the content type label', () => {
+    const onChange = vi.fn()
+
+    render(<ContentEditor value={'{"enabled":true}'} contentType={1} disabled={false} showContentType={false} onChange={onChange} />)
+
+    expect(screen.queryByText('JSON')).not.toBeInTheDocument()
+  })
+
+  it('limits editor height after max rows', () => {
+    const onChange = vi.fn()
+
+    render(<ContentEditor value={'line\n'.repeat(30)} contentType={4} disabled={false} minRows={4} maxRows={8} onChange={onChange} />)
+
+    const editorShell = screen.getByTestId('content-editor').querySelector('.cm-theme-none')
+    expect(editorShell).not.toBeNull()
+    expect((editorShell as HTMLElement).style.maxHeight).toBe('192px')
+  })
+
+  it('does not highlight an active line over selected content', () => {
+    const onChange = vi.fn()
+
+    render(<ContentEditor value={'first\nlast'} contentType={4} disabled={false} onChange={onChange} />)
+
+    expect(screen.getByTestId('content-editor').querySelector('.cm-activeLine')).toBeNull()
+  })
+
   it('does not render formatting controls', () => {
     const onChange = vi.fn()
 

@@ -107,7 +107,7 @@ function createCodeTheme(theme: CodeTheme) {
         '.cm-gutters': { backgroundColor: definition.background, borderRight: `1px solid ${definition.gutterBorder}`, color: definition.gutter },
         '.cm-activeLine': { backgroundColor: definition.activeLine },
         '.cm-activeLineGutter': { backgroundColor: definition.activeLine },
-        '.cm-selectionBackground': { backgroundColor: `${definition.selection} !important` },
+        '&.cm-focused .cm-selectionBackground, .cm-selectionBackground, .cm-content ::selection': { backgroundColor: `${definition.selection} !important` },
         '&.cm-focused': { outline: 'none' },
       },
       { dark: definition.dark },
