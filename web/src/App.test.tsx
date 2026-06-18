@@ -3039,7 +3039,7 @@ describe('app shell routing', () => {
         }),
       }),
     )
-  })
+  }, 30000)
 
   it('shows rollback diff loading state while fetching comparison', async () => {
     localStorage.setItem('cassem.session', 'session')

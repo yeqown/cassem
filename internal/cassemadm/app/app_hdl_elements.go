@@ -66,18 +66,19 @@ func (d app) GetAppEnvElement(c *gin.Context) {
 }
 
 func (d app) CreateAppEnvElement(c *gin.Context) {
-	req := new(createAppEnvElementReq)
-	if err := c.ShouldBindUri(req); err != nil {
+	uriReq := new(commonAppEnvEltRequest)
+	if err := c.ShouldBindUri(uriReq); err != nil {
 		httpx.ResponseError(c, err)
 		return
 	}
+	req := new(createAppEnvElementReq)
 	if err := c.ShouldBind(req); err != nil {
 		httpx.ResponseError(c, err)
 		return
 	}
 
 	err := d.aggregate.CreateElement(c.Request.Context(),
-		req.AppId, req.Env, req.ElementKey, runtime.ToBytes(req.Raw), req.ContentType)
+		uriReq.AppId, uriReq.Env, uriReq.ElementKey, runtime.ToBytes(req.Raw), req.ContentType)
 	if err != nil {
 		httpx.ResponseError(c, err)
 		return
@@ -87,18 +88,19 @@ func (d app) CreateAppEnvElement(c *gin.Context) {
 }
 
 func (d app) UpdateAppEnvElement(c *gin.Context) {
-	req := new(updateAppEnvElementReq)
-	if err := c.ShouldBindUri(req); err != nil {
+	uriReq := new(commonAppEnvEltRequest)
+	if err := c.ShouldBindUri(uriReq); err != nil {
 		httpx.ResponseError(c, err)
 		return
 	}
+	req := new(updateAppEnvElementReq)
 	if err := c.ShouldBind(req); err != nil {
 		httpx.ResponseError(c, err)
 		return
 	}
 
 	err := d.aggregate.UpdateElement(c.Request.Context(),
-		req.AppId, req.Env, req.ElementKey, runtime.ToBytes(req.Raw))
+		uriReq.AppId, uriReq.Env, uriReq.ElementKey, runtime.ToBytes(req.Raw))
 	if err != nil {
 		httpx.ResponseError(c, err)
 		return
@@ -215,18 +217,19 @@ func (d app) GetAppEnvElementOperations(c *gin.Context) {
 }
 
 func (d app) RollbackAppEnvElement(c *gin.Context) {
-	req := new(rollbackAppEnvElementReq)
-	if err := c.ShouldBindUri(req); err != nil {
+	uriReq := new(commonAppEnvEltRequest)
+	if err := c.ShouldBindUri(uriReq); err != nil {
 		httpx.ResponseError(c, err)
 		return
 	}
+	req := new(rollbackAppEnvElementReq)
 	if err := c.ShouldBind(req); err != nil {
 		httpx.ResponseError(c, err)
 		return
 	}
 
 	err := d.aggregate.
-		RollbackElementVersion(c.Request.Context(), req.AppId, req.Env, req.ElementKey, req.RollbackTo)
+		RollbackElementVersion(c.Request.Context(), uriReq.AppId, uriReq.Env, uriReq.ElementKey, req.RollbackTo)
 	if err != nil {
 		httpx.ResponseError(c, err)
 		return
@@ -236,11 +239,12 @@ func (d app) RollbackAppEnvElement(c *gin.Context) {
 }
 
 func (d app) PublishAppEnvElement(c *gin.Context) {
-	req := new(publishAppEnvElementReq)
-	if err := c.ShouldBindUri(req); err != nil {
+	uriReq := new(commonAppEnvEltRequest)
+	if err := c.ShouldBindUri(uriReq); err != nil {
 		httpx.ResponseError(c, err)
 		return
 	}
+	req := new(publishAppEnvElementReq)
 	if err := c.ShouldBind(req); err != nil {
 		httpx.ResponseError(c, err)
 		return
@@ -249,7 +253,7 @@ func (d app) PublishAppEnvElement(c *gin.Context) {
 	// DONE(@yeqown): trigger dispatch to agents.
 	elem, err := d.aggregate.
 		PublishElementVersion(
-			c.Request.Context(), req.AppId, req.Env, req.ElementKey, req.Publish)
+			c.Request.Context(), uriReq.AppId, uriReq.Env, uriReq.ElementKey, req.Publish)
 	if err != nil {
 		httpx.ResponseError(c, err)
 		return

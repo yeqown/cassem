@@ -29,15 +29,11 @@ type getAppEnvElementsReq struct {
 }
 
 type createAppEnvElementReq struct {
-	commonAppEnvEltRequest
-
 	Raw         string              `json:"raw" binding:"required"`
 	ContentType concept.ContentType `json:"contentType" binding:"required,oneof=1 2 3 4"`
 }
 
 type updateAppEnvElementReq struct {
-	commonAppEnvEltRequest
-
 	Raw string `json:"raw" binding:"required"`
 }
 
@@ -82,8 +78,11 @@ type pagingAppsReq struct {
 	Query string `form:"query"`
 }
 
+type createAppUriReq struct {
+	App string `uri:"appId" binding:"required,identifier"`
+}
+
 type createAppReq struct {
-	App         string `uri:"appId" binding:"required,identifier"`
 	Name        string `json:"name" binding:"required"`
 	Description string `json:"description" binding:"required"`
 }
@@ -123,14 +122,10 @@ type getInstancesByElementReq struct {
 }
 
 type rollbackAppEnvElementReq struct {
-	commonAppEnvEltRequest
-
 	RollbackTo uint32 `json:"version" form:"version" binding:"required"`
 }
 
 type publishAppEnvElementReq struct {
-	commonAppEnvEltRequest
-
 	Publish     uint32                 `json:"version" form:"version" binding:"required"`
 	AgentIds    []string               `json:"agentId" form:"agentId"`
 	InstanceIds []string               `json:"instanceId" form:"instanceId"`
@@ -209,6 +204,6 @@ type userLoginResp struct {
 
 type assignOrRevokeRoleReq struct {
 	Account string   `form:"account" binding:"required,email"`
-	Role    string   `form:"role" binding:"required,oneof=superadmin admin appowner appdeveloper developer"`
+	Role    string   `form:"role" binding:"required,oneof=superadmin admin appowner appdeveloper developer visitor"`
 	Domains []string `form:"domain"`
 }

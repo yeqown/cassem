@@ -463,6 +463,8 @@ func (a aclImpl) AutoMigrate() error {
 		{rbacRole(concept.Role_DEVELOPER), concept.Domain_ALL, concept.Object_APP, concept.Action_READ},
 		{rbacRole(concept.Role_DEVELOPER), concept.Domain_ALL, concept.Object_ELEMENT, concept.Action_READ},
 		{rbacRole(concept.Role_DEVELOPER), concept.Domain_ALL, concept.Object_ELEMENT, concept.Action_WRITE},
+		{rbacRole(concept.Role_VISITOR), concept.Domain_ALL, concept.Object_APP, concept.Action_READ},
+		{rbacRole(concept.Role_VISITOR), concept.Domain_ALL, concept.Object_ELEMENT, concept.Action_READ},
 	} {
 		added, err := a.e.AddPolicy(policy)
 		if err != nil {

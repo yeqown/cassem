@@ -11,10 +11,6 @@ import (
 	"github.com/yeqown/cassem/pkg/httpx"
 )
 
-type req struct {
-	Domain string `uri:"env"`
-}
-
 func Authentication(rbac concept.RBAC) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		sess, ok := GetSessionFromContext(c)
@@ -37,13 +33,9 @@ func Authentication(rbac concept.RBAC) gin.HandlerFunc {
 			return
 		}
 
-		// parse domain(env) from uri
-		r := new(req)
-		_ = c.ShouldBindUri(r)
-		if r.Domain == "" {
-			r.Domain = concept.Domain_CLUSTER
-		}
-		allow, err := rbac.Enforce(sess.Account, r.Domain, def.object, def.act)
+		// App/environment roles must not collapse into cluster-wide permissions.
+		domain := requestDomain(c)
+		allow, err := rbac.Enforce(sess.Account, domain, def.object, def.act)
 		if err != nil {
 			httpx.ResponseErrorAndAbort(c, err)
 			return
@@ -56,6 +48,18 @@ func Authentication(rbac concept.RBAC) gin.HandlerFunc {
 
 		c.Next()
 	}
+}
+
+func requestDomain(c *gin.Context) string {
+	appID := c.Param("appId")
+	env := c.Param("env")
+	if appID != "" && env != "" {
+		return appID + "/" + env
+	}
+	if appID != "" {
+		return appID + "/*"
+	}
+	return concept.Domain_CLUSTER
 }
 
 type objectDef struct {
