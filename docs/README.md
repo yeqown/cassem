@@ -1,6 +1,7 @@
 ## Documentation
 
 - [Key storage structure](key-storage.md)
+- [Key storage issues](key-storage-issues.md)
 
 ### Build Docker image
 
