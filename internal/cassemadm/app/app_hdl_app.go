@@ -57,12 +57,13 @@ func (d app) CreateApp(c *gin.Context) {
 		return
 	}
 
+	operator := concept.OperatorFromContext(c.Request.Context())
 	md := &concept.AppMetadata{
 		Id:          uriReq.App,
 		Description: req.Description,
 		CreatedAt:   time.Now().Unix(),
-		Creator:     "todo(@yeqown)",
-		Owner:       "todo(@yeqown)",
+		Creator:     operator,
+		Owner:       operator,
 	}
 	err := d.aggregate.CreateApp(c.Request.Context(), md)
 	if err != nil {
