@@ -17,7 +17,7 @@ export function buildAppConfig(command: 'serve' | 'build', env: Record<string, s
     base: command === 'serve' ? '/' : '/ui/',
     plugins: [react()],
     build: {
-      outDir: '../internal/cassemadm/ui/dist',
+      outDir: '../internal/cassemadm/dist',
       emptyOutDir: true,
       assetsDir: 'assets',
       rollupOptions: {

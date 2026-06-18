@@ -1,6 +1,7 @@
 package coordinator
 
 import (
+	apikv "github.com/yeqown/cassem/api/kv"
 	"testing"
 
 	"github.com/stretchr/testify/assert"

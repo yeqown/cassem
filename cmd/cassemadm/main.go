@@ -6,7 +6,7 @@ import (
 	"github.com/urfave/cli/v2"
 	"github.com/yeqown/log"
 
-	cassemadm "github.com/yeqown/cassem/internal/cassemadm/app"
+	cassemadm "github.com/yeqown/cassem/internal/cassemadm"
 	"github.com/yeqown/cassem/pkg/conf"
 )
 

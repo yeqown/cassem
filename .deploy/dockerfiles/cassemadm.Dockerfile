@@ -21,6 +21,6 @@ FROM alpine
 WORKDIR /app/cassemadm
 ENV APP_PATH /app/cassemadm
 COPY ./bin/cassemadm $APP_PATH
-COPY ./internal/cassemadm/ui/dist $APP_PATH/dist
+COPY ./internal/cassemadm/dist $APP_PATH/dist
 
 CMD ["./cassemadm", "-conf", "./configs/cassemadm.toml"]

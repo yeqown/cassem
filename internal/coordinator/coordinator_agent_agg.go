@@ -2,6 +2,7 @@ package coordinator
 
 import (
 	"github.com/yeqown/cassem/api/concept"
+	apikv "github.com/yeqown/cassem/api/kv"
 )
 
 type agentAggregate struct {
