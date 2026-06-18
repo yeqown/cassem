@@ -147,7 +147,7 @@ func (_r kvReadOnly) GetElements(
 		}
 		keys := make([]string, 0, len(r.GetEntities()))
 		for _, v := range r.GetEntities() {
-			keys = append(keys, v.GetKey())
+			keys = append(keys, concept.ExtractPureKey(v.GetKey()))
 		}
 
 		result.Elements, err = _r.getElementsByKeys(ctx, app, env, keys, false)
@@ -168,7 +168,7 @@ func (_r kvReadOnly) GetElements(
 		}
 
 		for _, v := range r.GetEntities() {
-			key := v.GetKey()
+			key := concept.ExtractPureKey(v.GetKey())
 			if strings.Contains(strings.ToLower(key), needle) {
 				matched = append(matched, key)
 				if len(matched) > limit {
@@ -236,6 +236,9 @@ func (_r kvReadOnly) getElementsByKeys(
 
 	// DONE(@yeqown): replace this part of code with convertFromEntitiesToMetadata
 	eleVersionKeys, _, metadataMapping := ConvertFromEntitiesToMetadata(r.GetEntities(), wipeUnpublish)
+	if len(eleVersionKeys) == 0 {
+		return []*concept.Element{}, nil
+	}
 	r2, err2 := _r.cassemdb.GetKVs(ctx, &apicassemdb.GetKVsReq{
 		Keys: eleVersionKeys,
 	})
