@@ -1,6 +1,9 @@
 package raftimpl
 
 import (
+	"context"
+
+	apikv "github.com/yeqown/cassem/api/kv"
 	"github.com/yeqown/cassem/pkg/watcher"
 )
 
@@ -9,9 +12,9 @@ type RaftNode interface {
 	// GetKV get value of key
 	GetKV(getReq *apikv.GetKVReq) (*apikv.Entity, error)
 	// SetKV save key and value
-	SetKV(setReq *apikv.SetKVReq) error
+	SetKV(ctx context.Context, setReq *apikv.SetKVReq) error
 	// UnsetKV save key and value
-	UnsetKV(unsetReq *apikv.UnsetKVReq) error
+	UnsetKV(ctx context.Context, unsetReq *apikv.UnsetKVReq) error
 	Range(rangeReq *apikv.RangeReq) (*apikv.RangeResp, error)
 	Expire(expireReq *apikv.ExpireReq) error
 
@@ -27,8 +30,8 @@ type RaftNode interface {
 	LeaderID() uint64
 	LeaderChangeCh(chan<- bool)
 	ChangeNotifyCh() <-chan watcher.IChange
-	AddNode(addr string) (nodeID uint64, peers []string, err error)
-	RemoveNode(nodeID uint64) error
+	AddNode(ctx context.Context, addr string) (nodeID uint64, peers []string, err error)
+	RemoveNode(ctx context.Context, nodeID uint64) error
 
 	Shutdown() error
 }

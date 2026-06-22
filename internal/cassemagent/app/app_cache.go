@@ -14,7 +14,7 @@ type queryCacheResult struct {
 }
 
 // queryFromCache only hit and valid cache element will be returned.
-func (d app) queryFromCache(app, env string, keys ...string) *queryCacheResult {
+func (d *app) queryFromCache(app, env string, keys ...string) *queryCacheResult {
 	r := &queryCacheResult{
 		elems: make([]*concept.Element, 0, len(keys)),
 		miss:  make([]string, 0, len(keys)),
@@ -41,7 +41,7 @@ func (d app) queryFromCache(app, env string, keys ...string) *queryCacheResult {
 	return r
 }
 
-func (d app) updateCache(app, env string, elems ...*concept.Element) {
+func (d *app) updateCache(app, env string, elems ...*concept.Element) {
 	log.
 		WithFields(log.Fields{
 			"app":   app,

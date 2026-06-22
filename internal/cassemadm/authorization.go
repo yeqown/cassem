@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -45,12 +46,12 @@ func Authorization(rbac concept.RBAC, sessionSecret string) gin.HandlerFunc {
 		user, err := rbac.GetUser(sess.Account)
 		if err != nil {
 			log.Warnf("Authentication get user failed: %v", err)
-			httpx.ResponseErrorAndAbort(c, fmt.Errorf("%s: %w", err.Error(), errorx.Err_INTERNAL))
+			httpx.ResponseErrorAndAbort(c, fmt.Errorf("authentication get user: %w", errors.Join(err, errorx.Err_INTERNAL)))
 			return
 		}
 
 		if err = validSession(sess, user); err != nil {
-			httpx.ResponseErrorAndAbort(c, fmt.Errorf("%s: %w", err.Error(), errorx.Err_UNAUTHENTICATED))
+			httpx.ResponseErrorAndAbort(c, fmt.Errorf("valid session: %w", errors.Join(err, errorx.Err_UNAUTHENTICATED)))
 			return
 		}
 
@@ -98,11 +99,11 @@ func parseSession(s string, sessionSecret string) (*Session, error) {
 
 	payload, err := base64.RawURLEncoding.DecodeString(parts[0])
 	if err != nil {
-		return nil, fmt.Errorf("%s: %w", err.Error(), errorx.Err_INVALID_ARGUMENT)
+		return nil, fmt.Errorf("parse session: %w", errors.Join(err, errorx.Err_INVALID_ARGUMENT))
 	}
 	signature, err := base64.RawURLEncoding.DecodeString(parts[1])
 	if err != nil {
-		return nil, fmt.Errorf("%s: %w", err.Error(), errorx.Err_INVALID_ARGUMENT)
+		return nil, fmt.Errorf("parse session: %w", errors.Join(err, errorx.Err_INVALID_ARGUMENT))
 	}
 	if !hmac.Equal(signature, sessionSignature(payload, sessionSecret)) {
 		return nil, fmt.Errorf("invalid session signature: %w", errorx.Err_INVALID_ARGUMENT)
@@ -110,7 +111,7 @@ func parseSession(s string, sessionSecret string) (*Session, error) {
 
 	sess := new(Session)
 	if err = json.Unmarshal(payload, sess); err != nil {
-		return nil, fmt.Errorf("%s: %w", err.Error(), errorx.Err_INVALID_ARGUMENT)
+		return nil, fmt.Errorf("parse session: %w", errors.Join(err, errorx.Err_INVALID_ARGUMENT))
 	}
 
 	return sess, nil

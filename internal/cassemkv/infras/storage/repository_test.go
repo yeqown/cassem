@@ -1,15 +1,18 @@
 package storage
 
 import (
+	apikv "github.com/yeqown/cassem/api/kv"
 	"strconv"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
+	bolt "go.etcd.io/bbolt"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/yeqown/cassem/pkg/conf"
+	"github.com/yeqown/cassem/pkg/runtime"
 )
 
 var (
@@ -177,6 +180,26 @@ func (s *testRepositoryBBoltSuite) Test_RangeTopLevelBucket() {
 	s.Require().NoError(err)
 	s.Require().Len(result.Items, 1)
 	s.Equal("top/child", result.Items[0].GetKey())
+}
+
+func (s *testRepositoryBBoltSuite) Test_RangeReturnsDecodeErrors() {
+	impl := s.repo.(*boltRepoImpl)
+	err := impl.db.Update(func(tx *bolt.Tx) error {
+		bucket, err := tx.CreateBucketIfNotExists(runtime.ToBytes("bad-range"))
+		if err != nil {
+			return err
+		}
+		return bucket.Put(runtime.ToBytes("broken"), []byte("not protobuf"))
+	})
+	s.Require().NoError(err)
+
+	var result *RangeResult
+	s.NotPanics(func() {
+		result, err = s.repo.Range("bad-range", "", 10)
+	})
+	s.Require().Error(err)
+	s.Nil(result)
+	s.Contains(err.Error(), "bad-range/broken")
 }
 
 func (s *testRepositoryBBoltSuite) Test_Range() {

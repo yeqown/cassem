@@ -100,7 +100,8 @@ func (t *testAgentPoolSuite) Test_agentNode_zip() {
 
 func TestAgentPoolConcurrentAccess(t *testing.T) {
 	ap := newAgentPool(nil)
-	node := newAgentNode(&concept.AgentInstance{AgentId: "agent", Addr: "127.0.0.1:1"})
+	node, err := newAgentNode(&concept.AgentInstance{AgentId: "agent", Addr: "127.0.0.1:1"})
+	require.NoError(t, err)
 	ap.nodes["agent"] = node
 	ap.allAgentIds["agent"] = struct{}{}
 
@@ -149,6 +150,14 @@ func TestAgentNodeSnapshotCopiesAnnotations(t *testing.T) {
 	assert.Equal(t, "127.0.0.1:9000", snapshot.Addr)
 	assert.Equal(t, "cn", node.AgentInstance.Annotations["zone"])
 	assert.NotContains(t, node.AgentInstance.Annotations, "new")
+}
+
+func TestNewAgentNodeRejectsInvalidInstance(t *testing.T) {
+	_, err := newAgentNode(nil)
+	require.Error(t, err)
+
+	_, err = newAgentNode(&concept.AgentInstance{AgentId: "agent"})
+	require.Error(t, err)
 }
 
 func TestAgentNodeUpdateInstance(t *testing.T) {

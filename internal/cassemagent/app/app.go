@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/rand"
 	"net"
@@ -53,6 +54,8 @@ type app struct {
 	uniqueId    string
 	quit        chan struct{}
 	regSuccessC chan struct{}
+	ctx         context.Context
+	cancel      context.CancelFunc
 
 	actualRenewInterval int32
 	conf                *conf.CassemAgentConfig
@@ -73,10 +76,13 @@ func New(c *conf.CassemAgentConfig) (*app, error) {
 		return nil, fmt.Errorf("cassemagent.New: %w", err)
 	}
 
+	ctx, cancel := context.WithCancel(context.Background())
 	d := &app{
 		uniqueId:     "",
 		quit:         make(chan struct{}, 1),
 		regSuccessC:  make(chan struct{}),
+		ctx:          ctx,
+		cancel:       cancel,
 		conf:         c,
 		aggregate:    agg,
 		cache:        domain.NewCache(uint(c.ElementCacheSize)),
@@ -86,7 +92,7 @@ func New(c *conf.CassemAgentConfig) (*app, error) {
 	return d, nil
 }
 
-func (d app) Run() {
+func (d *app) Run() {
 	d.genUniqueId()
 	d.startRoutines()
 
@@ -104,7 +110,17 @@ func (d app) Run() {
 	}
 }
 
-func (d app) shutdown() {
+func (d *app) lifecycleContext() context.Context {
+	if d.ctx != nil {
+		return d.ctx
+	}
+	return context.Background()
+}
+
+func (d *app) shutdown() {
+	if d.cancel != nil {
+		d.cancel()
+	}
 	select {
 	case d.quit <- struct{}{}:
 		time.Sleep(5 * time.Second)
@@ -117,7 +133,7 @@ func (d *app) startRoutines() {
 	runtime.GoFunc("app.renewSelf", d.renew)
 }
 
-func (d app) serve() error {
+func (d *app) serve() error {
 	// blocked here until app register itself success
 	<-d.regSuccessC
 
@@ -140,9 +156,9 @@ func (d app) serve() error {
 }
 
 // renew
-func (d app) renew() error {
+func (d *app) renew() error {
 	renewSelf := func() error {
-		timeoutCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		timeoutCtx, cancel := context.WithTimeout(d.lifecycleContext(), 3*time.Second)
 		defer cancel()
 		err := d.aggregate.Renew(timeoutCtx, &concept.AgentInstance{
 			AgentId: d.uniqueId,
@@ -163,30 +179,34 @@ func (d app) renew() error {
 
 	// calculate renew interval
 	d.actualRenewInterval = d.conf.RenewInterval + rand.Int31n(d.conf.TTL-d.conf.RenewInterval)
-	timeoutCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-retryReg:
-	err := d.aggregate.Register(timeoutCtx, &concept.AgentInstance{
-		AgentId: d.uniqueId,
-		Addr:    advertiseAddr(d.conf.Server.Addr, getHostname()),
-		Annotations: map[string]string{
-			"op":            "renew",
-			"hostname":      getHostname(),
-			"ttl":           strconv.Itoa(int(d.conf.TTL)),
-			"renewInterval": strconv.Itoa(int(d.actualRenewInterval)),
-			// "timestamp": time.Now().Format(time.RFC3339),
-		},
-	}, d.conf.TTL)
-	if err != nil {
+	for {
+		timeoutCtx, cancel := context.WithTimeout(d.lifecycleContext(), 3*time.Second)
+		err := d.aggregate.Register(timeoutCtx, &concept.AgentInstance{
+			AgentId: d.uniqueId,
+			Addr:    advertiseAddr(d.conf.Server.Addr, getHostname()),
+			Annotations: map[string]string{
+				"op":            "renew",
+				"hostname":      getHostname(),
+				"ttl":           strconv.Itoa(int(d.conf.TTL)),
+				"renewInterval": strconv.Itoa(int(d.actualRenewInterval)),
+				// "timestamp": time.Now().Format(time.RFC3339),
+			},
+		}, d.conf.TTL)
+		cancel()
+		if err == nil {
+			break
+		}
+		if errors.Is(err, context.Canceled) {
+			return err
+		}
 		log.
 			WithFields(log.Fields{
 				"error": err,
 			}).
 			Error("cassemagent.app.Register failed")
-		goto retryReg
 	}
 
 	d.regSuccessC <- struct{}{}
-	cancel()
 
 	// actualRenewInterval = conf.renewInterval + int32n(conf.TTL - cond.RenewInterval)
 	dur := time.Duration(d.actualRenewInterval) * time.Second
@@ -195,7 +215,7 @@ retryReg:
 		select {
 		case ts := <-ticker.C:
 			log.Info("cassemagent.app renewSelf")
-			if err = renewSelf(); err != nil {
+			if err := renewSelf(); err != nil {
 				log.
 					WithFields(log.Fields{
 						"error": err,
@@ -205,8 +225,8 @@ retryReg:
 			}
 		case <-d.quit:
 			log.Info("cassemagent.app receives a quit signal")
-			timeoutCtx, cancel = context.WithTimeout(context.Background(), 3*time.Second)
-			if err = d.aggregate.Unregister(timeoutCtx, d.uniqueId); err != nil {
+			timeoutCtx, cancel := context.WithTimeout(d.lifecycleContext(), 3*time.Second)
+			if err := d.aggregate.Unregister(timeoutCtx, d.uniqueId); err != nil {
 				log.
 					WithFields(log.Fields{
 						"error": err,

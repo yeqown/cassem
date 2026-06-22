@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/yeqown/log"
@@ -16,7 +17,7 @@ import (
 // query from cassemdb. It failed only when query from local cache and remote both failed.
 //
 // DONE(@yeqown): get from cache first, if not hit send request to cassemdb component, and then refresh caches.
-func (d app) GetElement(ctx context.Context, req *agent.GetElementReq) (*agent.GetElementResp, error) {
+func (d *app) GetElement(ctx context.Context, req *agent.GetElementReq) (*agent.GetElementResp, error) {
 	resp := new(agent.GetElementResp)
 	if len(req.GetKeys()) == 0 {
 		return resp, nil
@@ -49,7 +50,7 @@ var (
 	_emptyResp = new(agent.EmptyResp)
 )
 
-func (d app) Register(ctx context.Context, req *agent.RegisterReq) (*agent.EmptyResp, error) {
+func (d *app) Register(ctx context.Context, req *agent.RegisterReq) (*agent.EmptyResp, error) {
 	ins := &concept.Instance{
 		ClientId:           req.GetClientId(),
 		AgentId:            d.uniqueId,
@@ -65,7 +66,7 @@ func (d app) Register(ctx context.Context, req *agent.RegisterReq) (*agent.Empty
 	return _emptyResp, nil
 }
 
-func (d app) Renew(ctx context.Context, req *agent.RegisterReq) (*agent.EmptyResp, error) {
+func (d *app) Renew(ctx context.Context, req *agent.RegisterReq) (*agent.EmptyResp, error) {
 	ins := &concept.Instance{
 		ClientId:           req.GetClientId(),
 		AgentId:            d.uniqueId,
@@ -81,7 +82,7 @@ func (d app) Renew(ctx context.Context, req *agent.RegisterReq) (*agent.EmptyRes
 	return _emptyResp, nil
 }
 
-func (d app) Unregister(ctx context.Context, req *agent.UnregisterReq) (*agent.EmptyResp, error) {
+func (d *app) Unregister(ctx context.Context, req *agent.UnregisterReq) (*agent.EmptyResp, error) {
 	insId := (&concept.Instance{
 		ClientId: req.GetClientId(),
 		ClientIp: req.GetClientIp(),
@@ -97,10 +98,10 @@ func (d app) Unregister(ctx context.Context, req *agent.UnregisterReq) (*agent.E
 	return _emptyResp, nil
 }
 
-func (d app) Watch(req *agent.WatchReq, server agent.Agent_WatchServer) error {
+func (d *app) Watch(req *agent.WatchReq, server agent.Agent_WatchServer) error {
 	// if connection broken, unregister the instance from app.
 	defer func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		ctx, cancel := context.WithTimeout(d.lifecycleContext(), 10*time.Second)
 		if _, err := d.Unregister(ctx, &agent.UnregisterReq{
 			ClientId: req.GetClientId(),
 			ClientIp: req.GetClientIp(),
@@ -151,6 +152,7 @@ wait:
 				log.
 					WithFields(log.Fields{"element": elem, "err": err}).
 					Error("app.Watch could not send")
+				return fmt.Errorf("app.Watch.send: %w", err)
 			}
 		// maybe need to judge the error in case of client disconnected.
 		case <-server.Context().Done():
@@ -172,7 +174,7 @@ var (
 )
 
 // Dispatch implements apiagent.Delivery service
-func (d app) Dispatch(ctx context.Context, req *agent.DispatchReq) (*agent.DispatchResp, error) {
+func (d *app) Dispatch(ctx context.Context, req *agent.DispatchReq) (*agent.DispatchResp, error) {
 	// DONE(@yeqown): implement dispatch rpc call to related client instances.
 	log.
 		WithFields(log.Fields{

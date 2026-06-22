@@ -382,13 +382,7 @@ func (a aclImpl) assignRole(account, role string, allowSuperadmin bool, domain .
 	}
 
 	if err = a.e.SavePolicy(); err != nil {
-		log.
-			WithFields(log.Fields{
-				"account": account,
-				"role":    role,
-				"domain":  domain,
-			}).
-			Warn("aclImpl.AssignRole failed savePolicy")
+		return fmt.Errorf("aclImpl.AssignRole.savePolicy: %w", err)
 	}
 
 	return nil
@@ -409,13 +403,7 @@ func (a aclImpl) RevokeRole(account, role string, domain ...string) error {
 	}
 
 	if err = a.e.SavePolicy(); err != nil {
-		log.
-			WithFields(log.Fields{
-				"account": account,
-				"role":    role,
-				"domain":  domain,
-			}).
-			Warn("aclImpl.AssignRole failed savePolicy")
+		return fmt.Errorf("aclImpl.RevokeRole.savePolicy: %w", err)
 	}
 
 	return nil
@@ -432,6 +420,7 @@ func (a aclImpl) Enforce(subject, domain, object, act string) (bool, error) {
 				"error":   err,
 			}).
 			Errorf("aclImpl.Enforce failed")
+		return allow, fmt.Errorf("aclImpl.Enforce: %w", err)
 	}
 
 	log.

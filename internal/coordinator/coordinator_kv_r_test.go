@@ -230,7 +230,7 @@ func TestKVReadOnlyGetElementsByKeysReturnsVersionNotFoundErrors(t *testing.T) {
 	}}
 
 	_, err = (kvReadOnly{cassemdb: kv}).GetElementsByKeys(context.Background(), "app", "env", []string{"key"})
-	require.Error(t, err)
+	require.ErrorIs(t, err, errorx.Err_NOT_FOUND)
 	require.Contains(t, err.Error(), concept.WithVersion(baseKey, 1))
 	require.Contains(t, err.Error(), "NotFound")
 }
@@ -245,7 +245,7 @@ func TestKVReadOnlyGetElementsByKeysReturnsNonNotFoundMetadataErrors(t *testing.
 	}
 
 	_, err := (kvReadOnly{cassemdb: kv}).GetElementsByKeys(context.Background(), "app", "env", []string{"key"})
-	require.Error(t, err)
+	require.ErrorIs(t, err, errorx.Err_INTERNAL)
 	require.Contains(t, err.Error(), "Internal")
 	require.Contains(t, err.Error(), "boom")
 }

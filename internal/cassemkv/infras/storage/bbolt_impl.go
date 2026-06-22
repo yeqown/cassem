@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	apikv "github.com/yeqown/cassem/api/kv"
 	"os"
 	"path"
 	"sync"
@@ -256,11 +257,14 @@ func (b *boltRepoImpl) Range(key string, seek string, limit int) (*RangeResult, 
 		}
 
 		for ; k != nil && count < limit; k, v = cur.Next() {
+			entryKey := path.Join(key, runtime.ToString(k))
 			entity := &apikv.Entity{
-				Key: path.Join(key, runtime.ToString(k)),
+				Key: entryKey,
 			}
 			if v != nil {
-				apikv.MustUnmarshal(v, entity)
+				if err2 = apikv.Unmarshal(v, entity); err2 != nil {
+					return fmt.Errorf("range.decode %s: %w", entryKey, err2)
+				}
 				// FIXED: shielding expired data in range
 				if entity.Expired() {
 					result.ExpiredKeys = append(result.ExpiredKeys, entity.Key)

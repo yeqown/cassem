@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	apikv "github.com/yeqown/cassem/api/kv"
 	"net/http"
 	"net/url"
 	"os"
@@ -63,11 +64,13 @@ type raftNode struct {
 	snapshotter      *snap.Snapshotter
 	snapshotterReady chan *snap.Snapshotter // signals when snapshotter is ready
 
-	snapCount uint64
-	transport *rafthttp.Transport
-	stopc     chan struct{} // signals proposal channel closed
-	httpstopc chan struct{} // signals http server to shutdown
-	httpdonec chan struct{} // signals http server shutdown complete
+	snapCount  uint64
+	transport  *rafthttp.Transport
+	stopc      chan struct{} // signals proposal channel closed
+	httpstopc  chan struct{} // signals http server to shutdown
+	httpdonec  chan struct{} // signals http server shutdown complete
+	httpCtx    context.Context
+	httpCancel context.CancelFunc
 
 	logger *zap.Logger
 
@@ -87,8 +90,8 @@ type config struct {
 }
 
 type peerOperator interface {
-	addPeer(peer string) (nodeID uint64, peers []string, err error)
-	removePeer(nodeID uint64) error
+	addPeer(ctx context.Context, peer string) (nodeID uint64, peers []string, err error)
+	removePeer(ctx context.Context, nodeID uint64) error
 	getPeers() []string
 	nodeID() uint64
 	raftAddr() string
@@ -134,6 +137,7 @@ func newRaftNode(
 		// rest of structure populated after WAL replay
 		proposalOnce: sync.Once{},
 	}
+	rc.httpCtx, rc.httpCancel = context.WithCancel(context.Background())
 	go rc.startRaft()
 	return commitC, errorC, rc.snapshotterReady, rc
 }
@@ -353,7 +357,7 @@ func (rc *raftNode) startRaft() {
 
 	runtime.GoFunc("serveRaft", func() error {
 		r := retry.DefaultExponential()
-		return r.Do(context.TODO(), rc.serveRaft)
+		return r.Do(rc.httpCtx, rc.serveRaft)
 	})
 	runtime.GoFunc("serveChannels", func() error { rc.serveChannels(); return nil })
 
@@ -369,6 +373,9 @@ func (rc *raftNode) stop() {
 }
 
 func (rc *raftNode) stopHTTP() {
+	if rc.httpCancel != nil {
+		rc.httpCancel()
+	}
 	rc.transport.Stop()
 	close(rc.httpstopc)
 	<-rc.httpdonec
@@ -463,7 +470,7 @@ func (rc *raftNode) serveChannels() {
 					} else {
 						// blocks until accepted by raft state machine
 						// DONE(@yeqown): return error to request (synchronized?)
-						prop.ErrC <- rc.node.Propose(context.TODO(), apikv.Must(apikv.Marshal(prop.Entry)))
+						prop.ErrC <- rc.node.Propose(prop.Ctx, apikv.Must(apikv.Marshal(prop.Entry)))
 					}
 				}
 			}
@@ -552,7 +559,7 @@ func (rc *raftNode) serveRaft() (err error) {
 	return err
 }
 
-func (rc *raftNode) addPeer(peer string) (nodeID uint64, peers []string, err error) {
+func (rc *raftNode) addPeer(ctx context.Context, peer string) (nodeID uint64, peers []string, err error) {
 	log.
 		WithFields(log.Fields{
 			"addr":    peer,
@@ -606,7 +613,7 @@ func (rc *raftNode) addPeer(peer string) (nodeID uint64, peers []string, err err
 
 	var newlyAdded bool
 	nodeID, peers, newlyAdded = tryAdd(peer)
-	if err = rc.changeConf(raftpb.ConfChange{
+	if err = rc.changeConf(ctx, raftpb.ConfChange{
 		Type:    raftpb.ConfChangeAddNode,
 		NodeID:  nodeID,
 		Context: []byte(peer),
@@ -621,7 +628,7 @@ func (rc *raftNode) addPeer(peer string) (nodeID uint64, peers []string, err err
 	return
 }
 
-func (rc *raftNode) removePeer(nodeID uint64) error {
+func (rc *raftNode) removePeer(ctx context.Context, nodeID uint64) error {
 	if nodeID == 0 {
 		return errors.New("invalid nodeID")
 	}
@@ -644,7 +651,7 @@ func (rc *raftNode) removePeer(nodeID uint64) error {
 		}).
 		Infof("raftNodeImpl.RemoveNode received a request from remote node")
 
-	if err := rc.changeConf(raftpb.ConfChange{
+	if err := rc.changeConf(ctx, raftpb.ConfChange{
 		Type:    raftpb.ConfChangeRemoveNode,
 		NodeID:  nodeID,
 		Context: nil,
@@ -689,9 +696,9 @@ func (rc *raftNode) leaderID() uint64 {
 	return rc.node.Status().Lead
 }
 
-func (rc *raftNode) changeConf(cc raftpb.ConfChange) error {
+func (rc *raftNode) changeConf(ctx context.Context, cc raftpb.ConfChange) error {
 	cc.ID = atomic.AddUint64(&rc.confChangeCount, 1)
-	if err := rc.node.ProposeConfChange(context.TODO(), cc); err != nil {
+	if err := rc.node.ProposeConfChange(ctx, cc); err != nil {
 		return fmt.Errorf("raftNode failed to changeConf: %w", err)
 	}
 

@@ -2,6 +2,7 @@ package benchmark_test
 
 import (
 	"fmt"
+	apikv "github.com/yeqown/cassem/api/kv"
 	"os"
 	"strings"
 	"testing"

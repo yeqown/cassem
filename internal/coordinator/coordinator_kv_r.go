@@ -11,6 +11,7 @@ import (
 	"google.golang.org/grpc/codes"
 
 	"github.com/yeqown/cassem/api/concept"
+	"github.com/yeqown/cassem/pkg/errorx"
 )
 
 const (
@@ -224,13 +225,61 @@ func getKVsErrors(resp *apikv.GetKVsResp, ignoreNotFound bool) error {
 		if ignoreNotFound && item.GetCode() == codes.NotFound.String() {
 			continue
 		}
-		errs = append(errs, fmt.Errorf("key %s: %s: %s", item.GetKey(), item.GetCode(), item.GetMessage()))
+		errs = append(errs, keyErrorToError(item))
 	}
 	if len(errs) > 0 {
 		return errors.Join(errs...)
 	}
 
 	return nil
+}
+
+func keyErrorToError(item *apikv.KeyError) error {
+	msg := fmt.Errorf("key %s: %s: %s", item.GetKey(), item.GetCode(), item.GetMessage())
+	sentinel, ok := keyErrorCodeSentinel(item.GetCode())
+	if !ok {
+		return msg
+	}
+	return errors.Join(msg, sentinel)
+}
+
+func keyErrorCodeSentinel(code string) (error, bool) {
+	switch code {
+	case codes.Canceled.String():
+		return errorx.Err_CANCELLED, true
+	case codes.Unknown.String():
+		return errorx.Err_UNKNOWN, true
+	case codes.InvalidArgument.String():
+		return errorx.Err_INVALID_ARGUMENT, true
+	case codes.DeadlineExceeded.String():
+		return errorx.Err_DEADLINE_EXCEEDED, true
+	case codes.NotFound.String():
+		return errorx.Err_NOT_FOUND, true
+	case codes.AlreadyExists.String():
+		return errorx.Err_ALREADY_EXISTS, true
+	case codes.PermissionDenied.String():
+		return errorx.Err_PERMISSION_DENIED, true
+	case codes.ResourceExhausted.String():
+		return errorx.Err_RESOURCE_EXHAUSTED, true
+	case codes.FailedPrecondition.String():
+		return errorx.Err_FAILED_PRECONDITION, true
+	case codes.Aborted.String():
+		return errorx.Err_ABORTED, true
+	case codes.OutOfRange.String():
+		return errorx.Err_OUT_OF_RANGE, true
+	case codes.Unimplemented.String():
+		return errorx.Err_UNIMPLEMENTED, true
+	case codes.Internal.String():
+		return errorx.Err_INTERNAL, true
+	case codes.Unavailable.String():
+		return errorx.Err_UNAVAILABLE, true
+	case codes.DataLoss.String():
+		return errorx.Err_DATA_LOSS, true
+	case codes.Unauthenticated.String():
+		return errorx.Err_UNAUTHENTICATED, true
+	default:
+		return nil, false
+	}
 }
 
 func getKVsNonNotFoundErrors(resp *apikv.GetKVsResp) error {

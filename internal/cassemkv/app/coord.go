@@ -1,14 +1,17 @@
 package app
 
 import (
+	"context"
+
+	apikv "github.com/yeqown/cassem/api/kv"
 	"github.com/yeqown/cassem/pkg/watcher"
 )
 
 // ICoordinator is a interface for app API layer.
 type ICoordinator interface {
 	getKV(key string) (*apikv.Entity, error)
-	setKV(*setKVParam) error
-	unsetKV(*unsetKVParam) error
+	setKV(context.Context, *setKVParam) error
+	unsetKV(context.Context, *unsetKVParam) error
 	watch(keys ...string) (watcher.IObserver, func())
 	ttl(key string) (int32, error)
 	expire(key string) error
@@ -16,8 +19,8 @@ type ICoordinator interface {
 	compactElementHistory(*apikv.CompactElementHistoryReq) (*apikv.CompactElementHistoryResp, error)
 
 	// cluster management operations
-	addNode(raftAddr string, grpcEndpoint string) (nodeId uint64, peers []string, err error)
-	removeNode(nodeID uint64) error
+	addNode(ctx context.Context, raftAddr string, grpcEndpoint string) (nodeId uint64, peers []string, err error)
+	removeNode(ctx context.Context, nodeID uint64) error
 	listMembers() ([]*apikv.ClusterMember, error)
 }
 

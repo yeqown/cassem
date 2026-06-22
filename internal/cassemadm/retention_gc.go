@@ -16,6 +16,8 @@ import (
 	"github.com/yeqown/cassem/pkg/runtime"
 )
 
+const retentionRunTimeout = 30 * time.Second
+
 type retentionGC struct {
 	client apikv.KVClient
 	config *conf.RetentionConfig
@@ -69,7 +71,8 @@ func (g *retentionGC) runOnce(now time.Time) retentionRunSummary {
 		return summary
 	}
 
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), retentionRunTimeout)
+	defer cancel()
 	maxElements := g.config.MaxElementsPerRunValue()
 	if maxElements <= 0 {
 		summary.FinishedAt = time.Now().Unix()

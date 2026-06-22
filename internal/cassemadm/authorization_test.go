@@ -3,11 +3,14 @@ package cassemadm
 import (
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/yeqown/cassem/pkg/errorx"
 )
 
 func TestSessionRejectsLegacyUnsignedToken(t *testing.T) {
@@ -20,6 +23,13 @@ func TestSessionRejectsLegacyUnsignedToken(t *testing.T) {
 
 	_, err = parseSession(base64.StdEncoding.EncodeToString(legacy), "test-secret")
 	require.Error(t, err)
+}
+
+func TestParseSessionPreservesDecodeCause(t *testing.T) {
+	_, err := parseSession("%%%25.bad", "test-secret")
+	require.ErrorIs(t, err, errorx.Err_INVALID_ARGUMENT)
+	var corrupt base64.CorruptInputError
+	require.True(t, errors.As(err, &corrupt))
 }
 
 func TestSessionRejectsTamperedPayload(t *testing.T) {

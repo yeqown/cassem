@@ -1,13 +1,16 @@
 package app
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"sort"
 	"strings"
 
-	"github.com/yeqown/cassem/pkg/conf"
 	"github.com/yeqown/log"
+
+	apikv "github.com/yeqown/cassem/api/kv"
+	"github.com/yeqown/cassem/pkg/conf"
 )
 
 const clusterMemberKeyPrefix = "cassem/cluster/members"
@@ -70,23 +73,23 @@ func (d *app) registerCurrentMember() error {
 		RaftAddr:     d.raft.RaftAddr(),
 		GRPCEndpoint: advertiseAddr(d.config),
 	}
-	return d.upsertClusterMember(record)
+	return d.upsertClusterMember(context.Background(), record)
 }
 
-func (d *app) upsertClusterMember(record clusterMemberRecord) error {
+func (d *app) upsertClusterMember(ctx context.Context, record clusterMemberRecord) error {
 	data, err := encodeClusterMemberRecord(record)
 	if err != nil {
 		return err
 	}
-	return d.raft.SetKV(&apikv.SetKVReq{
+	return d.raft.SetKV(ctx, &apikv.SetKVReq{
 		Key:       clusterMemberKey(record.NodeID),
 		Val:       data,
 		Overwrite: true,
 	})
 }
 
-func (d *app) deleteClusterMember(nodeID uint64) error {
-	return d.raft.UnsetKV(&apikv.UnsetKVReq{Key: clusterMemberKey(nodeID)})
+func (d *app) deleteClusterMember(ctx context.Context, nodeID uint64) error {
+	return d.raft.UnsetKV(ctx, &apikv.UnsetKVReq{Key: clusterMemberKey(nodeID)})
 }
 
 func (d *app) getClusterMember(nodeID uint64) (clusterMemberRecord, error) {

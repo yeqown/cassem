@@ -1,5 +1,9 @@
 package storage
 
+import (
+	apikv "github.com/yeqown/cassem/api/kv"
+)
+
 type empty struct{}
 
 func (e empty) GetKV(key string, isDir bool) (*apikv.Entity, error) {

@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"sort"
@@ -9,12 +10,13 @@ import (
 	"time"
 
 	"github.com/yeqown/cassem/api/concept"
+	apikv "github.com/yeqown/cassem/api/kv"
 )
 
 type retentionCompactCoordinator interface {
 	getKV(key string) (*apikv.Entity, error)
 	iterate(param *rangeParam) (*apikv.RangeResp, error)
-	unsetKV(param *unsetKVParam) error
+	unsetKV(ctx context.Context, param *unsetKVParam) error
 }
 
 type compactVersion struct {
@@ -68,7 +70,7 @@ func compactElementHistory(coord retentionCompactCoordinator, req *apikv.Compact
 		if keep[version.version] {
 			continue
 		}
-		if err := coord.unsetKV(&unsetKVParam{key: version.key}); err != nil {
+		if err := coord.unsetKV(context.Background(), &unsetKVParam{key: version.key}); err != nil {
 			resp.FailedKeys = append(resp.FailedKeys, version.key)
 			continue
 		}
@@ -80,7 +82,7 @@ func compactElementHistory(coord retentionCompactCoordinator, req *apikv.Compact
 		if operation.operatedAt >= operationCutoff {
 			continue
 		}
-		if err := coord.unsetKV(&unsetKVParam{key: operation.key}); err != nil {
+		if err := coord.unsetKV(context.Background(), &unsetKVParam{key: operation.key}); err != nil {
 			resp.FailedKeys = append(resp.FailedKeys, operation.key)
 			continue
 		}

@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/yeqown/log"
 
+	apikv "github.com/yeqown/cassem/api/kv"
 	raftleader "github.com/yeqown/cassem/internal/cassemkv/infras/raft-leader-grpc"
 	"github.com/yeqown/cassem/internal/cassemkv/infras/raftimpl"
 	"github.com/yeqown/cassem/internal/cassemkv/infras/raftimpl/etcdio"
@@ -17,7 +19,6 @@ import (
 	"github.com/yeqown/cassem/pkg/httpx"
 	"github.com/yeqown/cassem/pkg/runtime"
 	"github.com/yeqown/cassem/pkg/watcher"
-	apikv "github.com/yeqown/cassem/api/kv"
 )
 
 func isDebug() bool {
@@ -176,19 +177,19 @@ func (d *app) servingAPI() error {
 }
 
 // addNode only leader node would receive such request. MAYBE?
-func (d *app) addNode(raftAddr string, grpcEndpoint string) (nodeID uint64, peers []string, err error) {
+func (d *app) addNode(ctx context.Context, raftAddr string, grpcEndpoint string) (nodeID uint64, peers []string, err error) {
 	if raftAddr == "" {
 		return 0, nil, errors.New("raft addr is required")
 	}
 	if grpcEndpoint == "" {
 		return 0, nil, errors.New("grpc endpoint is required")
 	}
-	nodeID, peers, err = d.raft.AddNode(raftAddr)
+	nodeID, peers, err = d.raft.AddNode(ctx, raftAddr)
 	if err != nil {
 		return nodeID, peers, err
 	}
-	if err = d.upsertClusterMember(clusterMemberRecord{NodeID: nodeID, RaftAddr: raftAddr, GRPCEndpoint: grpcEndpoint}); err != nil {
-		if rollbackErr := d.raft.RemoveNode(nodeID); rollbackErr != nil {
+	if err = d.upsertClusterMember(ctx, clusterMemberRecord{NodeID: nodeID, RaftAddr: raftAddr, GRPCEndpoint: grpcEndpoint}); err != nil {
+		if rollbackErr := d.raft.RemoveNode(ctx, nodeID); rollbackErr != nil {
 			return nodeID, peers, fmt.Errorf("raft peer added but cluster member metadata was not updated: %w; rollback failed: %v", err, rollbackErr)
 		}
 		return nodeID, peers, fmt.Errorf("raft peer added but cluster member metadata was not updated; membership rolled back: %w", err)
@@ -197,11 +198,11 @@ func (d *app) addNode(raftAddr string, grpcEndpoint string) (nodeID uint64, peer
 }
 
 // removeNode only leader node would receive such request.
-func (d *app) removeNode(nodeID uint64) error {
-	if err := d.raft.RemoveNode(nodeID); err != nil {
+func (d *app) removeNode(ctx context.Context, nodeID uint64) error {
+	if err := d.raft.RemoveNode(ctx, nodeID); err != nil {
 		return err
 	}
-	if err := d.deleteClusterMember(nodeID); err != nil {
+	if err := d.deleteClusterMember(ctx, nodeID); err != nil {
 		return fmt.Errorf("raft peer removed but cluster member metadata was not deleted; stale metadata will be hidden by live peer filtering: %w", err)
 	}
 	return nil
@@ -221,7 +222,7 @@ const (
 	MAX_TTL = 2 * 24 * 3600
 )
 
-func (d *app) setKV(param *setKVParam) (err error) {
+func (d *app) setKV(ctx context.Context, param *setKVParam) (err error) {
 	if param.ttl < 0 {
 		return errors.New("ttl must be non-negative")
 	}
@@ -235,7 +236,7 @@ func (d *app) setKV(param *setKVParam) (err error) {
 		}).
 		Debug("app.setKV called")
 
-	return d.raft.SetKV(&apikv.SetKVReq{
+	return d.raft.SetKV(ctx, &apikv.SetKVReq{
 		Key:       param.key,
 		IsDir:     param.isDir,
 		Ttl:       param.ttl,
@@ -244,14 +245,14 @@ func (d *app) setKV(param *setKVParam) (err error) {
 	})
 }
 
-func (d *app) unsetKV(param *unsetKVParam) error {
+func (d *app) unsetKV(ctx context.Context, param *unsetKVParam) error {
 	log.
 		WithFields(log.Fields{
 			"param": param,
 		}).
 		Debug("app.unsetKV called")
 
-	return d.raft.UnsetKV(&apikv.UnsetKVReq{
+	return d.raft.UnsetKV(ctx, &apikv.UnsetKVReq{
 		Key:   param.key,
 		IsDir: param.isDir,
 	})

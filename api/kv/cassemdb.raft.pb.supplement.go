@@ -2,6 +2,7 @@ package kv
 
 // import "google.golang.org/protobuf/proto"
 import (
+	"context"
 	"crypto/md5"
 	"encoding/hex"
 	"time"
@@ -111,16 +112,22 @@ func (m *LogEntry) Expired() bool {
 
 // Propose is wrapper of log entry, and only used by node internal.
 type Propose struct {
+	Ctx   context.Context
 	Entry *LogEntry
 	ErrC  chan<- error
 }
 
 func NewPropose(entry *LogEntry, errC chan<- error) *Propose {
-	if entry == nil || errC == nil {
+	return NewProposeWithContext(context.Background(), entry, errC)
+}
+
+func NewProposeWithContext(ctx context.Context, entry *LogEntry, errC chan<- error) *Propose {
+	if ctx == nil || entry == nil || errC == nil {
 		panic("invalid parameters for commit")
 	}
 
 	return &Propose{
+		Ctx:   ctx,
 		Entry: entry,
 		ErrC:  errC,
 	}

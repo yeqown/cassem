@@ -4,19 +4,20 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/stretchr/testify/require"
+	"github.com/yeqown/cassem/api/concept"
+	apikv "github.com/yeqown/cassem/api/kv"
+	"github.com/yeqown/cassem/pkg/errorx"
+	"github.com/yeqown/cassem/pkg/hash"
+	"google.golang.org/grpc"
 	"slices"
 	"strings"
 	"testing"
-	"github.com/stretchr/testify/require"
-	"google.golang.org/grpc"
-	"github.com/yeqown/cassem/api/concept"
-	"github.com/yeqown/cassem/pkg/errorx"
-	"github.com/yeqown/cassem/pkg/hash"
-	apikv "github.com/yeqown/cassem/api/kv"
 )
 
 type aclTestKV struct {
-	data map[string]*apikv.Entity
+	data   map[string]*apikv.Entity
+	setErr error
 }
 
 func newACLTestKV() *aclTestKV {
@@ -36,6 +37,9 @@ func (f *aclTestKV) GetKVs(context.Context, *apikv.GetKVsReq, ...grpc.CallOption
 }
 
 func (f *aclTestKV) SetKV(_ context.Context, req *apikv.SetKVReq, _ ...grpc.CallOption) (*apikv.Empty, error) {
+	if f.setErr != nil {
+		return nil, f.setErr
+	}
 	f.data[req.GetKey()] = apikv.NewEntityWithCreated(req.GetKey(), req.GetVal(), 0, 1)
 	return &apikv.Empty{}, nil
 }
@@ -104,6 +108,18 @@ func TestACLDoesNotBypassBySuperadminSubject(t *testing.T) {
 	allowed, err := acl.Enforce("superadmin", concept.Domain_CLUSTER, concept.Object_APP, concept.Action_WRITE)
 	require.NoError(t, err)
 	require.False(t, allowed)
+}
+
+func TestACLEnforceReturnsEngineErrors(t *testing.T) {
+	acl, err := newRBAC(newACLTestKV())
+	require.NoError(t, err)
+	impl := acl.(aclImpl)
+	impl.e.GetModel()["m"]["m"].Value = "missing_func(r.sub)"
+
+	allowed, err := impl.Enforce("alice", concept.Domain_CLUSTER, concept.Object_APP, concept.Action_READ)
+	require.Error(t, err)
+	require.False(t, allowed)
+	require.Contains(t, err.Error(), "missing_func")
 }
 
 func TestACLAutoMigratePersistsPolicies(t *testing.T) {
@@ -189,6 +205,26 @@ func TestAssignRoleRejectsSuperadmin(t *testing.T) {
 
 	err = acl.AssignRole("alice@example.com", concept.Role_SUPERADMIN, concept.Domain_ALL)
 	require.ErrorIs(t, err, errorx.Err_PERMISSION_DENIED)
+}
+
+func TestAssignAndRevokeRoleReturnSavePolicyErrors(t *testing.T) {
+	store := newACLTestKV()
+	rbac, err := newRBAC(store)
+	require.NoError(t, err)
+	acl := rbac.(aclImpl)
+	store.setErr = errorx.Err_INTERNAL
+
+	err = acl.AssignRole("alice@example.com", concept.Role_ADMIN, concept.Domain_ALL)
+	require.ErrorIs(t, err, errorx.Err_INTERNAL)
+	require.Contains(t, err.Error(), "aclImpl.AssignRole")
+
+	store.setErr = nil
+	require.NoError(t, acl.AssignRole("bob@example.com", concept.Role_ADMIN, concept.Domain_ALL))
+	store.setErr = errorx.Err_INTERNAL
+
+	err = acl.RevokeRole("bob@example.com", concept.Role_ADMIN, concept.Domain_ALL)
+	require.ErrorIs(t, err, errorx.Err_INTERNAL)
+	require.Contains(t, err.Error(), "aclImpl.RevokeRole")
 }
 
 func TestACLVisitorRoleIsReadOnlyWithinAppEnvironment(t *testing.T) {

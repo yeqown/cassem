@@ -10,6 +10,7 @@ import (
 	"google.golang.org/grpc"
 
 	"github.com/yeqown/cassem/api/concept"
+	"github.com/yeqown/cassem/pkg/errorx"
 )
 
 type kvWriteOnlyTestKV struct {
@@ -51,6 +52,18 @@ func (f *kvWriteOnlyTestKV) Range(context.Context, *apikv.RangeReq, ...grpc.Call
 
 func (f *kvWriteOnlyTestKV) CompactElementHistory(context.Context, *apikv.CompactElementHistoryReq, ...grpc.CallOption) (*apikv.CompactElementHistoryResp, error) {
 	return nil, errors.New("unused")
+}
+
+func TestKVWriteOnlySaveRawPreservesMarshalFailure(t *testing.T) {
+	err := (kvWriteOnly{cassemdb: &kvWriteOnlyTestKV{}}).saveRaw(
+		context.Background(),
+		"bad",
+		&concept.AppMetadata{Id: string([]byte{0xff})},
+		0,
+		false,
+	)
+	require.ErrorIs(t, err, errorx.Err_INTERNAL)
+	require.Contains(t, err.Error(), "invalid UTF-8")
 }
 
 func TestKVWriteOnlyDeleteElementDeletesOperationPrefix(t *testing.T) {

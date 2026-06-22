@@ -127,7 +127,7 @@ func (srv *httpServer) SetKV(c *gin.Context) {
 		return
 	}
 
-	err := srv.coord.setKV(&setKVParam{
+	err := srv.coord.setKV(c.Request.Context(), &setKVParam{
 		key:       req.Key,
 		val:       req.Value,
 		isDir:     req.IsDir,
@@ -154,7 +154,7 @@ func (srv *httpServer) DeleteKV(c *gin.Context) {
 		return
 	}
 
-	err := srv.coord.unsetKV(&unsetKVParam{
+	err := srv.coord.unsetKV(c.Request.Context(), &unsetKVParam{
 		key:   req.Key,
 		isDir: req.IsDir,
 	})

@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/md5"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	apikv "github.com/yeqown/cassem/api/kv"
 	"time"
@@ -325,7 +326,7 @@ func (_h kvWriteOnly) saveElementOperation(ctx context.Context, app, env, key st
 func (_h kvWriteOnly) saveRaw(ctx context.Context, key string, val proto.Message, ttl int32, overwrite bool) error {
 	bytes, err := concept.MarshalProto(val)
 	if err != nil {
-		return fmt.Errorf("%s: %w", err.Error(), errorx.Err_INTERNAL)
+		return fmt.Errorf("kvWrite.saveRaw.marshal: %w", errors.Join(err, errorx.Err_INTERNAL))
 	}
 
 	if _, err = _h.cassemdb.SetKV(ctx, &apikv.SetKVReq{

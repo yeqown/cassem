@@ -10,6 +10,7 @@ import (
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/status"
 
+	apikv "github.com/yeqown/cassem/api/kv"
 	"github.com/yeqown/cassem/pkg/errorx"
 	"github.com/yeqown/cassem/pkg/grpcx"
 	"github.com/yeqown/cassem/pkg/watcher"
@@ -91,7 +92,7 @@ func newKeyError(key string, err error) *apikv.KeyError {
 }
 
 func (s grpcServer) SetKV(ctx context.Context, req *apikv.SetKVReq) (*apikv.Empty, error) {
-	err := s.coord.setKV(&setKVParam{
+	err := s.coord.setKV(ctx, &setKVParam{
 		key:       req.GetKey(),
 		val:       req.GetVal(),
 		isDir:     req.GetIsDir(),
@@ -105,7 +106,7 @@ func (s grpcServer) SetKV(ctx context.Context, req *apikv.SetKVReq) (*apikv.Empt
 var _empty = new(apikv.Empty)
 
 func (s grpcServer) UnsetKV(ctx context.Context, req *apikv.UnsetKVReq) (*apikv.Empty, error) {
-	err := s.coord.unsetKV(&unsetKVParam{
+	err := s.coord.unsetKV(ctx, &unsetKVParam{
 		key:   req.GetKey(),
 		isDir: req.GetIsDir(),
 	})
@@ -219,13 +220,13 @@ func translateChange(change watcher.IChange) *apikv.Change {
 func (s grpcServer) AddNode(
 	ctx context.Context, req *apikv.AddNodeRequest) (resp *apikv.AddNodeResponse, err error) {
 	resp = new(apikv.AddNodeResponse)
-	resp.NodeId, resp.Peers, err = s.coord.addNode(req.GetRaftAddr(), req.GetGrpcEndpoint())
+	resp.NodeId, resp.Peers, err = s.coord.addNode(ctx, req.GetRaftAddr(), req.GetGrpcEndpoint())
 	return
 }
 
 func (s grpcServer) RemoveNode(
 	ctx context.Context, req *apikv.RemoveNodeRequest) (resp *apikv.RemoveNodeResponse, err error) {
-	err = s.coord.removeNode(req.GetNodeId())
+	err = s.coord.removeNode(ctx, req.GetNodeId())
 	resp = new(apikv.RemoveNodeResponse)
 	return
 }

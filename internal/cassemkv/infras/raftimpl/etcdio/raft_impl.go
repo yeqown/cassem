@@ -1,8 +1,10 @@
 package etcdio
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	apikv "github.com/yeqown/cassem/api/kv"
 	"strings"
 	"sync"
 	"time"
@@ -147,14 +149,20 @@ func (r *raftNodeImpl) applyCommits(commitCh <-chan *commit, errorCh <-chan erro
 
 		for _, data := range c.data {
 			entry := new(apikv.LogEntry)
-			apikv.MustUnmarshal(runtime.ToBytes(data), entry)
+			if err := apikv.Unmarshal(runtime.ToBytes(data), entry); err != nil {
+				close(c.applyDoneC)
+				return fmt.Errorf("raftNodeImpl.applyCommits.decode log entry: %w", err)
+			}
 
 			log.Debug("raftNodeImpl.applyCommits recv one logEntry")
 
 			switch entry.Action {
 			case apikv.LogEntry_Set:
 				cmd := new(apikv.SetCommand)
-				apikv.MustUnmarshal(entry.Command, cmd)
+				if err := apikv.Unmarshal(entry.Command, cmd); err != nil {
+					close(c.applyDoneC)
+					return fmt.Errorf("raftNodeImpl.applyCommits.decode set command: %w", err)
+				}
 				if cmd.SetKey != "" {
 					if err := r.kvstore.SetKV(cmd.GetSetKey(), cmd.GetValue(), cmd.GetIsDir()); err != nil {
 						log.
@@ -176,7 +184,10 @@ func (r *raftNodeImpl) applyCommits(commitCh <-chan *commit, errorCh <-chan erro
 					continue
 				}
 				cmd := new(apikv.ChangeCommand)
-				apikv.MustUnmarshal(entry.Command, cmd)
+				if err := apikv.Unmarshal(entry.Command, cmd); err != nil {
+					close(c.applyDoneC)
+					return fmt.Errorf("raftNodeImpl.applyCommits.decode change command: %w", err)
+				}
 				change := cmd.GetChange()
 				select {
 				case r.changeC <- change:
@@ -236,7 +247,7 @@ type LogEntryCommand interface {
 }
 
 // propose log to commit
-func (r *raftNodeImpl) propose(cmd LogEntryCommand) error {
+func (r *raftNodeImpl) propose(ctx context.Context, cmd LogEntryCommand) error {
 	if cmd == nil {
 		return errors.New("empty logEntryCommand")
 	}
@@ -247,16 +258,25 @@ func (r *raftNodeImpl) propose(cmd LogEntryCommand) error {
 		CreatedAt: time.Now().Unix(),
 	}
 	errC := make(chan error)
-	r.proposeC <- apikv.NewPropose(entry, errC)
+	select {
+	case r.proposeC <- apikv.NewProposeWithContext(ctx, entry, errC):
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 	log.WithFields(log.Fields{"entry": entry}).Debug("raftNodeImpl.propose done")
-	return <-errC
+	select {
+	case err := <-errC:
+		return err
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
 
 // SetKV set a KV or directory into db storage with other parameters.
 // isDir parameter indicates key means a kv or directory, if it's ture val will be ignored,
 // overwrite indicates the operation MUST BE failed if key exists with storage.ErrExists,
 // ttl means Time To Live, which will only be stored in file and recalculated in memory to use.
-func (r *raftNodeImpl) SetKV(req *apikv.SetKVReq) (err error) {
+func (r *raftNodeImpl) SetKV(ctx context.Context, req *apikv.SetKVReq) (err error) {
 	log.
 		WithFields(log.Fields{
 			"key":       req.GetKey(),
@@ -293,7 +313,7 @@ func (r *raftNodeImpl) SetKV(req *apikv.SetKVReq) (err error) {
 	}
 
 	v := apikv.NewEntityWithCreated(req.GetKey(), req.GetVal(), req.GetTtl(), createdAt)
-	if err = r.propose(&apikv.SetCommand{
+	if err = r.propose(ctx, &apikv.SetCommand{
 		DeleteKey: "",
 		IsDir:     req.GetIsDir(),
 		SetKey:    req.GetKey(),
@@ -328,7 +348,7 @@ func (r *raftNodeImpl) waitAppliedSet(key string, isDir bool, want *apikv.Entity
 	}
 }
 
-func (r *raftNodeImpl) UnsetKV(req *apikv.UnsetKVReq) error {
+func (r *raftNodeImpl) UnsetKV(ctx context.Context, req *apikv.UnsetKVReq) error {
 	last, err := r.kvstore.GetKV(req.GetKey(), req.GetIsDir())
 	if err != nil {
 		log.
@@ -339,7 +359,7 @@ func (r *raftNodeImpl) UnsetKV(req *apikv.UnsetKVReq) error {
 			Warn("raftNodeImpl.triggerWatchingMechanism could to load last value of key")
 	}
 
-	if err = r.propose(&apikv.SetCommand{
+	if err = r.propose(ctx, &apikv.SetCommand{
 		DeleteKey: req.GetKey(),
 		IsDir:     req.GetIsDir(),
 		SetKey:    "",
@@ -381,7 +401,7 @@ func (r *raftNodeImpl) triggerWatchingMechanism(op apikv.Change_Op, key string, 
 			WithFields(log.Fields{"key": key, "cur": cur}).
 			Debug("raftNodeImpl.triggerWatchingMechanism called")
 
-		if err := r.propose(&apikv.ChangeCommand{
+		if err := r.propose(context.Background(), &apikv.ChangeCommand{
 			Change: &apikv.Change{
 				Op:      op,
 				Key:     key,
@@ -424,7 +444,7 @@ func (r *raftNodeImpl) probeRemoveExpired(val *apikv.Entity) (removed bool) {
 	}
 
 	if val.Expired() {
-		if err := r.UnsetKV(&apikv.UnsetKVReq{Key: val.GetKey()}); err != nil {
+		if err := r.UnsetKV(context.Background(), &apikv.UnsetKVReq{Key: val.GetKey()}); err != nil {
 			log.
 				WithFields(log.Fields{"key": val.Key, "error": err}).
 				Error("kvstore.GetKV failed to remove expired key")
@@ -464,7 +484,7 @@ func (r *raftNodeImpl) Range(req *apikv.RangeReq) (*apikv.RangeResp, error) {
 				Debug("raftNodeImpl.Range trigger remove expired keys")
 
 			for _, k := range result.ExpiredKeys {
-				_ = r.UnsetKV(&apikv.UnsetKVReq{Key: k})
+				_ = r.UnsetKV(context.Background(), &apikv.UnsetKVReq{Key: k})
 			}
 		}()
 	}
@@ -499,7 +519,7 @@ func (r *raftNodeImpl) Expire(req *apikv.ExpireReq) error {
 
 	// unset the key value directly or update it's TTL, choose update it's TTL
 	// so that the expiry(expire) operation is same to method's meaning.
-	return r.SetKV(&apikv.SetKVReq{
+	return r.SetKV(context.Background(), &apikv.SetKVReq{
 		Key:       req.GetKey(),
 		IsDir:     false,
 		Ttl:       apikv.EXPIRED,
@@ -552,10 +572,10 @@ func (r *raftNodeImpl) ChangeNotifyCh() <-chan watcher.IChange {
 	return r.changeC
 }
 
-func (r *raftNodeImpl) AddNode(addr string) (nodeID uint64, peers []string, err error) {
-	return r.peersOp.addPeer(addr)
+func (r *raftNodeImpl) AddNode(ctx context.Context, addr string) (nodeID uint64, peers []string, err error) {
+	return r.peersOp.addPeer(ctx, addr)
 }
 
-func (r *raftNodeImpl) RemoveNode(nodeID uint64) error {
-	return r.peersOp.removePeer(nodeID)
+func (r *raftNodeImpl) RemoveNode(ctx context.Context, nodeID uint64) error {
+	return r.peersOp.removePeer(ctx, nodeID)
 }

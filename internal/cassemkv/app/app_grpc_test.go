@@ -7,6 +7,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	apikv "github.com/yeqown/cassem/api/kv"
 	"github.com/yeqown/cassem/pkg/errorx"
 	"github.com/yeqown/cassem/pkg/watcher"
 )
@@ -27,8 +28,10 @@ func (f *grpcGetKVsFakeCoord) getKV(key string) (*apikv.Entity, error) {
 	return entity, nil
 }
 
-func (f *grpcGetKVsFakeCoord) setKV(*setKVParam) error                     { return errors.New("unused") }
-func (f *grpcGetKVsFakeCoord) unsetKV(*unsetKVParam) error                 { return errors.New("unused") }
+func (f *grpcGetKVsFakeCoord) setKV(context.Context, *setKVParam) error { return errors.New("unused") }
+func (f *grpcGetKVsFakeCoord) unsetKV(context.Context, *unsetKVParam) error {
+	return errors.New("unused")
+}
 func (f *grpcGetKVsFakeCoord) watch(...string) (watcher.IObserver, func()) { return nil, func() {} }
 func (f *grpcGetKVsFakeCoord) ttl(string) (int32, error)                   { return 0, errors.New("unused") }
 func (f *grpcGetKVsFakeCoord) expire(string) error                         { return errors.New("unused") }
@@ -38,10 +41,10 @@ func (f *grpcGetKVsFakeCoord) iterate(*rangeParam) (*apikv.RangeResp, error) {
 func (f *grpcGetKVsFakeCoord) compactElementHistory(*apikv.CompactElementHistoryReq) (*apikv.CompactElementHistoryResp, error) {
 	return nil, errors.New("unused")
 }
-func (f *grpcGetKVsFakeCoord) addNode(string, string) (uint64, []string, error) {
+func (f *grpcGetKVsFakeCoord) addNode(context.Context, string, string) (uint64, []string, error) {
 	return 0, nil, errors.New("unused")
 }
-func (f *grpcGetKVsFakeCoord) removeNode(uint64) error { return errors.New("unused") }
+func (f *grpcGetKVsFakeCoord) removeNode(context.Context, uint64) error { return errors.New("unused") }
 func (f *grpcGetKVsFakeCoord) listMembers() ([]*apikv.ClusterMember, error) {
 	return nil, errors.New("unused")
 }

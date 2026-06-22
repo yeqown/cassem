@@ -30,18 +30,23 @@ type agentPool struct {
 	// rwMutex protects goroutines accessing nodes.
 	rwMutex sync.RWMutex
 
-	agg concept.AgentHybrid
+	agg    concept.AgentHybrid
+	ctx    context.Context
+	cancel context.CancelFunc
 	// once make sure agentPool.run will be called only once.
 	once sync.Once
 }
 
 // newAgentPool construct a agentPool instance and automatically run routines.
 func newAgentPool(agg concept.AgentHybrid) *agentPool {
+	ctx, cancel := context.WithCancel(context.Background())
 	p := &agentPool{
 		nodes:       make(map[string]*agentNode, 16),
 		allAgentIds: make(map[string]struct{}, 16),
 		rwMutex:     sync.RWMutex{},
 		agg:         agg,
+		ctx:         ctx,
+		cancel:      cancel,
 		once:        sync.Once{},
 	}
 
@@ -57,11 +62,12 @@ func (p *agentPool) run() {
 	p.once.Do(func() {
 		ch := make(chan *concept.AgentInstanceChange, _SIZE_AGENT_NODE_BUF)
 		runtime.GoFunc("watchingAgentInstanceRaw", func() error {
-			return p.agg.Watch(context.Background(), ch)
+			return p.agg.Watch(p.ctx, ch)
 		})
 		runtime.GoFunc("updateAgentInstance", p.updateAgentInstanceFromCh(ch))
 		runtime.GoFunc("updateAgentNodesManually.cron", func() error {
 			ticker := time.NewTicker(45 * time.Second)
+			defer ticker.Stop()
 			for {
 				// update all ap firstly while cassem adm starting,
 				// in case of which adm recover from panic or exception shutdown.
@@ -70,7 +76,11 @@ func (p *agentPool) run() {
 						WithFields(log.Fields{"error": err}).
 						Warn("agentPool.run failed to updateAgentNodesManually")
 				}
-				<-ticker.C
+				select {
+				case <-ticker.C:
+				case <-p.ctx.Done():
+					return p.ctx.Err()
+				}
 			}
 			// panic("impossible")
 		})
@@ -94,7 +104,7 @@ func (p *agentPool) all() []*concept.AgentInstance {
 
 // DONE(@yeqown): update agent nodes manually at the start of the agent pool.
 func (p *agentPool) updateAgentNodesManually() error {
-	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(p.ctx, 5*time.Second)
 	defer cancel()
 	r, err := p.agg.GetAgents(ctx, "", 100)
 	if err != nil {
@@ -130,7 +140,11 @@ func (p *agentPool) updateAgentNodesManually() error {
 		if ok {
 			node.updateInstance(ins)
 		} else {
-			node = newAgentNode(ins)
+			node, err = newAgentNode(ins)
+			if err != nil {
+				log.WithFields(log.Fields{"agentId": agentId, "error": err}).Warn("agentPool.updateAgentNodesManually skip invalid agent")
+				continue
+			}
 		}
 		newNodes[agentId] = node
 		newAgentIds[agentId] = struct{}{}
@@ -159,7 +173,13 @@ func (p *agentPool) updateAgentInstanceFromCh(ch <-chan *concept.AgentInstanceCh
 				node, ok := p.nodes[agentId]
 				if !ok {
 					// new node
-					node = newAgentNode(change.GetIns())
+					var err error
+					node, err = newAgentNode(change.GetIns())
+					if err != nil {
+						log.WithFields(log.Fields{"agentId": agentId, "error": err}).Warn("agentPool.updateAgentInstanceFromCh skip invalid agent")
+						p.rwMutex.Unlock()
+						continue
+					}
 					p.nodes[agentId] = node
 				} else {
 					// node update
@@ -274,9 +294,12 @@ type agentNode struct {
 // elements could be held by agent node.
 const _SIZE_AGENT_NODE_BUF = 1024
 
-func newAgentNode(ins *concept.AgentInstance) *agentNode {
-	if ins == nil || ins.GetAddr() == "" {
-		panic("")
+func newAgentNode(ins *concept.AgentInstance) (*agentNode, error) {
+	if ins == nil {
+		return nil, fmt.Errorf("agent instance is required")
+	}
+	if ins.GetAddr() == "" {
+		return nil, fmt.Errorf("agent addr is required")
 	}
 
 	u, err := url.Parse(ins.GetAddr())
@@ -296,7 +319,7 @@ func newAgentNode(ins *concept.AgentInstance) *agentNode {
 
 	n.run()
 
-	return n
+	return n, nil
 }
 
 func (n *agentNode) postbox() chan<- agentDispatchItem {

@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"errors"
 	"math"
 	"sort"
@@ -12,6 +13,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/yeqown/cassem/api/concept"
+	apikv "github.com/yeqown/cassem/api/kv"
 )
 
 type retentionCompactFakeCoord struct {
@@ -78,7 +80,7 @@ func (f *retentionCompactFakeCoord) iterate(param *rangeParam) (*apikv.RangeResp
 	return resp, nil
 }
 
-func (f *retentionCompactFakeCoord) unsetKV(param *unsetKVParam) error {
+func (f *retentionCompactFakeCoord) unsetKV(_ context.Context, param *unsetKVParam) error {
 	if err := f.fail[param.key]; err != nil {
 		return err
 	}

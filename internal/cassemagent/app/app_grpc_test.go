@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"testing"
 	"time"
@@ -46,6 +47,30 @@ func TestWatchPersistsWatchingMetadata(t *testing.T) {
 
 	cancel()
 	require.NoError(t, <-done)
+}
+
+func TestWatchReturnsSendErrors(t *testing.T) {
+	sendErr := errors.New("send failed")
+	d := app{
+		uniqueId:     "agent-a",
+		aggregate:    &watchPersistAggregate{},
+		cache:        domain.NewCache(10),
+		instancePool: domain.NewInstancePool(),
+	}
+	insId := (&concept.Instance{ClientId: "client-01", ClientIp: "10.0.0.1"}).Id()
+	d.instancePool.Register(insId, "demo", "prod", []string{"db.url"})
+
+	done := make(chan error, 1)
+	go func() {
+		done <- d.Watch(&agent.WatchReq{
+			ClientId: "client-01",
+			ClientIp: "10.0.0.1",
+			Watching: []*concept.Instance_Watching{{App: "demo", Env: "prod", WatchKeys: []string{"db.url"}}},
+		}, watchServer{ctx: context.Background(), sendErr: sendErr})
+	}()
+
+	d.instancePool.Notify(insId, &concept.Element{Metadata: &concept.ElementMetadata{App: "demo", Env: "prod", Key: "db.url"}})
+	require.ErrorIs(t, <-done, sendErr)
 }
 
 func TestDispatchFiltersTargetInstances(t *testing.T) {
@@ -169,10 +194,11 @@ func (a *watchPersistAggregate) GetAgents(context.Context, string, int) (*concep
 }
 
 type watchServer struct {
-	ctx context.Context
+	ctx     context.Context
+	sendErr error
 }
 
-func (s watchServer) Send(*agent.WatchResp) error { return nil }
+func (s watchServer) Send(*agent.WatchResp) error { return s.sendErr }
 
 func (s watchServer) SetHeader(metadata.MD) error { return nil }
 

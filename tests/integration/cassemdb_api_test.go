@@ -5,6 +5,7 @@ package integration_test
 import (
 	"context"
 	"fmt"
+	apikv "github.com/yeqown/cassem/api/kv"
 	"sync"
 	"testing"
 	"time"

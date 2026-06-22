@@ -5,6 +5,7 @@ package benchmark_test
 import (
 	"context"
 	"fmt"
+	apikv "github.com/yeqown/cassem/api/kv"
 	"net/http"
 	"testing"
 	"time"
