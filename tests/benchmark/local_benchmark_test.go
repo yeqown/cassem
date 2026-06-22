@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/yeqown/cassem/internal/cassemagent/infras/lru"
-	"github.com/yeqown/cassem/internal/cassemkv/infras/storage"
+	"github.com/yeqown/cassem/internal/app/agent/lru"
+	"github.com/yeqown/cassem/internal/app/kv/storage"
 	"github.com/yeqown/cassem/pkg/conf"
 	"github.com/yeqown/log"
 )

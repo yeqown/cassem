@@ -1,7 +1,7 @@
 syntax = "proto3";
 
 package cassem.db;
-option go_package = "github.com/yeqown/cassem/internal/cassemdb/api;api";
+option go_package = "github.com/yeqown/cassem/api/kv;kv";
 
 import "envoyproxy-validate/validate.proto";
 

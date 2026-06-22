@@ -6,7 +6,7 @@ import (
 	"github.com/urfave/cli/v2"
 	"github.com/yeqown/log"
 
-	cassemagent "github.com/yeqown/cassem/internal/cassemagent/app"
+	"github.com/yeqown/cassem/internal/app/agent"
 	"github.com/yeqown/cassem/pkg/conf"
 )
 
@@ -59,7 +59,7 @@ func start(ctx *cli.Context) error {
 		}).
 		Debugf("loaded from CONF file: %+v", c)
 
-	d, err := cassemagent.New(c)
+	d, err := agent.New(c)
 	if err != nil {
 		return err
 	}

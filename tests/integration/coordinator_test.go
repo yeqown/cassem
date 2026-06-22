@@ -10,13 +10,13 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"github.com/yeqown/cassem/api/concept"
-	"github.com/yeqown/cassem/internal/coordinator"
+	"github.com/yeqown/cassem/internal/coord"
 	"github.com/yeqown/cassem/tests/testutil"
 )
 
 func TestCoordinatorAdmAggregateElementLifecycle(t *testing.T) {
 	cluster := testutil.UseDBCluster(t)
-	agg, err := coordinator.NewAdmAggregate(cluster.DBEndpoints)
+	agg, err := coord.NewAdmAggregate(cluster.DBEndpoints)
 	require.NoError(t, err)
 
 	ctx := context.Background()
@@ -55,7 +55,7 @@ func TestCoordinatorAdmAggregateElementLifecycle(t *testing.T) {
 
 func TestCoordinatorAdmAggregateInstanceLifecycle(t *testing.T) {
 	cluster := testutil.UseDBCluster(t)
-	agg, err := coordinator.NewAdmAggregate(cluster.DBEndpoints)
+	agg, err := coord.NewAdmAggregate(cluster.DBEndpoints)
 	require.NoError(t, err)
 
 	ctx := context.Background()
@@ -81,7 +81,7 @@ func TestCoordinatorAdmAggregateInstanceLifecycle(t *testing.T) {
 
 func TestCoordinatorAdmAggregateRBAC(t *testing.T) {
 	cluster := testutil.UseDBCluster(t)
-	agg, err := coordinator.NewAdmAggregate(cluster.DBEndpoints)
+	agg, err := coord.NewAdmAggregate(cluster.DBEndpoints)
 	require.NoError(t, err)
 
 	account := fmt.Sprintf("user-%d@example.com", time.Now().UnixNano())

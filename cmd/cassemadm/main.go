@@ -6,7 +6,7 @@ import (
 	"github.com/urfave/cli/v2"
 	"github.com/yeqown/log"
 
-	cassemadm "github.com/yeqown/cassem/internal/cassemadm"
+	"github.com/yeqown/cassem/internal/app/adm"
 	"github.com/yeqown/cassem/pkg/conf"
 )
 
@@ -58,7 +58,7 @@ func start(ctx *cli.Context) error {
 		}).
 		Debugf("loaded from CONF file: %+v", c)
 
-	d, err := cassemadm.New(c)
+	d, err := adm.New(c)
 	if err != nil {
 		return err
 	}

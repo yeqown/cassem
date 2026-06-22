@@ -5,7 +5,7 @@ import (
 	"os"
 	"time"
 
-	cassemdb "github.com/yeqown/cassem/internal/cassemkv/app"
+	"github.com/yeqown/cassem/internal/app/kv"
 	"github.com/yeqown/cassem/pkg/conf"
 
 	"github.com/urfave/cli/v2"
@@ -64,7 +64,7 @@ func start(ctx *cli.Context) error {
 		}).
 		Debugf("loaded from CONF file: %+v", c)
 
-	d, err := cassemdb.New(c)
+	d, err := kv.New(c)
 	if err != nil {
 		return err
 	}

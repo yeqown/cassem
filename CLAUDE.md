@@ -36,7 +36,7 @@ Single-binary local builds can still be run directly with `go build ./cmd/<binar
 Three separate proto modules, each with its own Makefile:
 
 ```bash
-make -C internal/cassemdb/api        # cassemdb.api.proto, cassemdb.raft.proto
+make -C api/kv                       # cassemdb.api.proto, cassemdb.raft.proto
 make -C api/concept                  # types.proto, acl.proto
 make -C api/agent                    # cassemagent.api.proto
 ```
@@ -69,7 +69,7 @@ The system uses **composition-over-inheritance** to define access profiles:
 - `AdmAggregate` = `KVReadOnly` + `KVWriteOnly` + `InstanceHybrid` + `AgentHybrid` + `RBAC`
 - `AgentAggregate` = `KVReadOnly` + `InstanceHybrid` + `AgentHybrid` (no write or ACL)
 
-Concrete implementations (`coordinator_adm_agg.go`, `coordinator_agent_agg.go`) compose shared interface implementations over a common gRPC connection to cassemdb.
+Concrete implementations (`internal/coord/coordinator_adm_agg.go`, `internal/coord/coordinator_agent_agg.go`) compose shared interface implementations over a common gRPC connection to cassemdb.
 
 ### Data Flow
 
@@ -79,11 +79,11 @@ Concrete implementations (`coordinator_adm_agg.go`, `coordinator_agent_agg.go`) 
 
 ### Leader-Aware gRPC Routing
 
-The cassemdb client (`internal/cassemdb/api/client.go`) uses a custom gRPC resolver (`cassemdb://` scheme). Only the Raft leader marks its gRPC health services as `SERVING`. Write-mode clients (`Mode_X`) use health-checking LB to route to leader; read-mode clients (`Mode_R`) use round-robin to any node.
+The cassemdb client (`api/kv/client.go`) uses a custom gRPC resolver (`cassemdb://` scheme). Only the Raft leader marks its gRPC health services as `SERVING`. Write-mode clients (`Mode_X`) use health-checking LB to route to leader; read-mode clients (`Mode_R`) use round-robin to any node.
 
 ### Element Versioning
 
-Elements enforce a **publish-before-update** workflow: create v1 → review → publish → update creates v2 (fails if v1 is still unpublished). This is enforced in `kvWriteOnly` (`api/concept/coordinator_kv_w.go`), not in the storage layer.
+Elements enforce a **publish-before-update** workflow: create v1 → review → publish → update creates v2 (fails if v1 is still unpublished). This is enforced in `kvWriteOnly` (`internal/coord/coordinator_kv_w.go`), not in the storage layer.
 
 ### Single-Port HTTP+gRPC
 
@@ -95,7 +95,7 @@ Writes produce two Raft log entries: a `SetCommand` (data mutation) followed by 
 
 ### Agent Cache
 
-The agent uses a three-level `sync.Map` hierarchy (`appPool → envPool → elemPool`) with an LRU-2 eviction algorithm (`infras/lru/`). Items must be accessed twice before promotion to the main cache. Items older than 10 seconds (`dirtyTime`) trigger a background refresh.
+The agent uses a three-level `sync.Map` hierarchy (`appPool → envPool → elemPool`) with an LRU-2 eviction algorithm (`internal/app/agent/lru/`). Items must be accessed twice before promotion to the main cache. Items older than 10 seconds (`dirtyTime`) trigger a background refresh.
 
 ## Key Packages
 
@@ -114,7 +114,7 @@ The agent uses a three-level `sync.Map` hierarchy (`appPool → envPool → elem
 
 ## Testing
 
-Tests use `testify/assert`. Unit tests exist in `pkg/`, `api/concept/`, `internal/cassemagent/domain/`, and `internal/cassemdb/infras/storage/`. Some tests use `storage.EmptyImpl` (a no-op KV implementation) as a test double.
+Tests use `testify/assert`. Unit tests exist in `pkg/`, `api/concept/`, `internal/app/agent/`, `internal/app/kv/storage/`, and `internal/coord/`. Some tests use `storage.EmptyImpl` (a no-op KV implementation) as a test double.
 
 ## Configuration
 

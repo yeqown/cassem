@@ -18,8 +18,8 @@ import (
 
 	"github.com/kballard/go-shellquote"
 	"github.com/urfave/cli/v2"
-	"github.com/yeqown/log"
 	apikv "github.com/yeqown/cassem/api/kv"
+	"github.com/yeqown/log"
 )
 
 const defaultEndpoint = "127.0.0.1:2021"

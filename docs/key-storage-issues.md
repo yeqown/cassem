@@ -64,9 +64,9 @@ app=a,   env=b-c, key=d  => a-b-c-d
 - reverse key 拼接：`api/concept/key_generator.go:111`
 - reverse key + instanceId 拼接：`api/concept/key_generator.go:116`
 - `app/env/key` regex 允许 `-`：`api/concept/types.proto:38`、`api/concept/types.proto:101`
-- 反查实例依赖 reverse key：`internal/coordinator/coordinator_ins_hybrid.go:89`
-- 写 reverse key：`internal/coordinator/coordinator_ins_hybrid.go:211`
-- 删除 reverse key：`internal/coordinator/coordinator_ins_hybrid.go:284`
+- 反查实例依赖 reverse key：`internal/coord/coordinator_ins_hybrid.go:89`
+- 写 reverse key：`internal/coord/coordinator_ins_hybrid.go:211`
+- 删除 reverse key：`internal/coord/coordinator_ins_hybrid.go:284`
 
 ### 决策
 
@@ -130,13 +130,13 @@ cassem/operations/{app}/{env}/{key}/operations/{operatedAt}
 ### 证据
 
 - operation key 生成：`api/concept/key_generator.go:68`
-- operation 写入：`internal/coordinator/coordinator_kv_w.go:296`
-- `DeleteElement` 删除 elements 目录后写 UNSET operation：`internal/coordinator/coordinator_kv_w.go:109`
-- `DeleteEnvironment` 只删除 env elements 目录：`internal/coordinator/coordinator_kv_w.go:140`
-- `DeleteApp` 删除 app elements 目录与 app metadata：`internal/coordinator/coordinator_kv_w.go:242`
-- compaction 先加载 element metadata：`internal/cassemdb/app/retention_compact.go:45`
-- compaction 按 metadata 定位 operations：`internal/cassemdb/app/retention_compact.go:55`
-- retention GC 从 `cassem/elements` 扫现存元素：`internal/cassemadm/app/retention_gc.go:154`
+- operation 写入：`internal/coord/coordinator_kv_w.go:296`
+- `DeleteElement` 删除 elements 目录后写 UNSET operation：`internal/coord/coordinator_kv_w.go:109`
+- `DeleteEnvironment` 只删除 env elements 目录：`internal/coord/coordinator_kv_w.go:140`
+- `DeleteApp` 删除 app elements 目录与 app metadata：`internal/coord/coordinator_kv_w.go:242`
+- compaction 先加载 element metadata：`internal/app/kv/retention_compact.go:45`
+- compaction 按 metadata 定位 operations：`internal/app/kv/retention_compact.go:55`
+- retention GC 从 `cassem/elements` 扫现存元素：`internal/app/adm/retention_gc.go:154`
 
 ### 决策
 
@@ -193,16 +193,16 @@ DeleteApp          => cassem/operations/{app}
 
 ### 证据
 
-- `CreateElement` 写 metadata：`internal/coordinator/coordinator_kv_w.go:53`
-- `CreateElement` 写 `v1`：`internal/coordinator/coordinator_kv_w.go:63`
-- `CreateElement` 写 operation：`internal/coordinator/coordinator_kv_w.go:67`
-- `UpdateElement` 写新版本：`internal/coordinator/coordinator_kv_w.go:97`
-- `UpdateElement` 更新 metadata：`internal/coordinator/coordinator_kv_w.go:102`
-- `PublishElementVersion` 更新 metadata：`internal/coordinator/coordinator_kv_w.go:220`
-- `PublishElementVersion` 更新 version flag：`internal/coordinator/coordinator_kv_w.go:226`
-- `DeleteApp` 分两次删除：`internal/coordinator/coordinator_kv_w.go:246`、`internal/coordinator/coordinator_kv_w.go:253`
-- 单次 `SetKV` 是单条 Raft command：`internal/cassemdb/infras/raftimpl/etcdio/raft_impl.go:296`
-- bbolt 单次 `SetKV` 只写一个 key 或目录：`internal/cassemdb/infras/storage/bbolt_impl.go:180`
+- `CreateElement` 写 metadata：`internal/coord/coordinator_kv_w.go:53`
+- `CreateElement` 写 `v1`：`internal/coord/coordinator_kv_w.go:63`
+- `CreateElement` 写 operation：`internal/coord/coordinator_kv_w.go:67`
+- `UpdateElement` 写新版本：`internal/coord/coordinator_kv_w.go:97`
+- `UpdateElement` 更新 metadata：`internal/coord/coordinator_kv_w.go:102`
+- `PublishElementVersion` 更新 metadata：`internal/coord/coordinator_kv_w.go:220`
+- `PublishElementVersion` 更新 version flag：`internal/coord/coordinator_kv_w.go:226`
+- `DeleteApp` 分两次删除：`internal/coord/coordinator_kv_w.go:246`、`internal/coord/coordinator_kv_w.go:253`
+- 单次 `SetKV` 是单条 Raft command：`internal/app/kv/raftimpl/etcdio/raft_impl.go:296`
+- bbolt 单次 `SetKV` 只写一个 key 或目录：`internal/app/kv/storage/bbolt_impl.go:180`
 
 ### 决策
 
@@ -248,15 +248,15 @@ TTL 存在 entity 中。过期判断发生在读取或 range 时；物理删除�
 
 ### 证据
 
-- TTL 计算与过期判断：`internal/cassemdb/api/cassemdb.raft.pb.supplement.go:64`
-- `GetKV` 发现过期后删除：`internal/cassemdb/infras/raftimpl/etcdio/raft_impl.go:414`
-- `probeRemoveExpired` 调用 `UnsetKV`：`internal/cassemdb/infras/raftimpl/etcdio/raft_impl.go:421`
-- `Range` 收集 expired keys：`internal/cassemdb/infras/storage/bbolt_impl.go:265`
-- `Range` 异步删除 expired keys：`internal/cassemdb/infras/raftimpl/etcdio/raft_impl.go:458`
-- 异步删除忽略错误：`internal/cassemdb/infras/raftimpl/etcdio/raft_impl.go:467`
-- instance normalized TTL 120：`internal/coordinator/coordinator_ins_hybrid.go:200`
-- instance reversed TTL 120：`internal/coordinator/coordinator_ins_hybrid.go:215`
-- agent TTL 由调用方传入：`internal/coordinator/coordinator_agent_hybrid.go:93`
+- TTL 计算与过期判断：`api/kv/cassemdb.raft.pb.supplement.go:64`
+- `GetKV` 发现过期后删除：`internal/app/kv/raftimpl/etcdio/raft_impl.go:414`
+- `probeRemoveExpired` 调用 `UnsetKV`：`internal/app/kv/raftimpl/etcdio/raft_impl.go:421`
+- `Range` 收集 expired keys：`internal/app/kv/storage/bbolt_impl.go:265`
+- `Range` 异步删除 expired keys：`internal/app/kv/raftimpl/etcdio/raft_impl.go:458`
+- 异步删除忽略错误：`internal/app/kv/raftimpl/etcdio/raft_impl.go:467`
+- instance normalized TTL 120：`internal/coord/coordinator_ins_hybrid.go:200`
+- instance reversed TTL 120：`internal/coord/coordinator_ins_hybrid.go:215`
+- agent TTL 由调用方传入：`internal/coord/coordinator_agent_hybrid.go:93`
 
 ### 决策
 
@@ -318,13 +318,13 @@ Cassem 预期映射：
 
 ### 证据
 
-- 写 normalized：`internal/coordinator/coordinator_ins_hybrid.go:190`
-- 写 reversed：`internal/coordinator/coordinator_ins_hybrid.go:211`
-- reverse 写失败只打日志：`internal/coordinator/coordinator_ins_hybrid.go:222`
-- `setInstanceInfo` 最终返回 nil：`internal/coordinator/coordinator_ins_hybrid.go:233`
-- unregister 先删 normalized：`internal/coordinator/coordinator_ins_hybrid.go:278`
-- unregister 再删 reversed：`internal/coordinator/coordinator_ins_hybrid.go:284`
-- reverse 删除失败只打日志：`internal/coordinator/coordinator_ins_hybrid.go:291`
+- 写 normalized：`internal/coord/coordinator_ins_hybrid.go:190`
+- 写 reversed：`internal/coord/coordinator_ins_hybrid.go:211`
+- reverse 写失败只打日志：`internal/coord/coordinator_ins_hybrid.go:222`
+- `setInstanceInfo` 最终返回 nil：`internal/coord/coordinator_ins_hybrid.go:233`
+- unregister 先删 normalized：`internal/coord/coordinator_ins_hybrid.go:278`
+- unregister 再删 reversed：`internal/coord/coordinator_ins_hybrid.go:284`
+- reverse 删除失败只打日志：`internal/coord/coordinator_ins_hybrid.go:291`
 
 ### 决策
 
@@ -383,17 +383,17 @@ Retention GC 默认每 10 分钟最多处理 20 个元素。
 
 ### 证据
 
-- bbolt Range 使用 cursor：`internal/cassemdb/infras/storage/bbolt_impl.go:249`
-- Range limit 循环：`internal/cassemdb/infras/storage/bbolt_impl.go:259`
-- 普通列表传入 `seek`：`internal/coordinator/coordinator_kv_r.go:132`
-- query 分支用 `nextSeek := seek`：`internal/coordinator/coordinator_kv_r.go:159`
-- query 分支 Range 传入 `Seek: nextSeek`：`internal/coordinator/coordinator_kv_r.go:161`
-- query 分支做 substring filter：`internal/coordinator/coordinator_kv_r.go:172`
-- query 未凑够结果会继续 Range：`internal/coordinator/coordinator_kv_r.go:160`
-- query 返回 `NextSeek: matched[limit]`：`internal/coordinator/coordinator_kv_r.go:200`
+- bbolt Range 使用 cursor：`internal/app/kv/storage/bbolt_impl.go:249`
+- Range limit 循环：`internal/app/kv/storage/bbolt_impl.go:259`
+- 普通列表传入 `seek`：`internal/coord/coordinator_kv_r.go:132`
+- query 分支用 `nextSeek := seek`：`internal/coord/coordinator_kv_r.go:159`
+- query 分支 Range 传入 `Seek: nextSeek`：`internal/coord/coordinator_kv_r.go:161`
+- query 分支做 substring filter：`internal/coord/coordinator_kv_r.go:172`
+- query 未凑够结果会继续 Range：`internal/coord/coordinator_kv_r.go:160`
+- query 返回 `NextSeek: matched[limit]`：`internal/coord/coordinator_kv_r.go:200`
 - retention 默认 interval 10m：`pkg/conf/cassemadm.go:34`
 - retention 默认每轮 20 个元素：`pkg/conf/cassemadm.go:35`
-- retention 每轮按 `maxElementsPerRun` 停止：`internal/cassemadm/app/retention_gc.go:72`
+- retention 每轮按 `maxElementsPerRun` 停止：`internal/app/adm/retention_gc.go:72`
 
 ### 决策
 
@@ -435,9 +435,9 @@ Retention GC 默认每 10 分钟最多处理 20 个元素。
 
 ### 证据
 
-- `GetKVs` 循环：`internal/cassemdb/app/app_grpc.go:53`
-- 单 key 错误直接跳过：`internal/cassemdb/app/app_grpc.go:56`
-- 成功项才 append：`internal/cassemdb/app/app_grpc.go:61`
+- `GetKVs` 循环：`internal/app/kv/app_grpc.go:53`
+- 单 key 错误直接跳过：`internal/app/kv/app_grpc.go:56`
+- 成功项才 append：`internal/app/kv/app_grpc.go:61`
 
 ### 决策
 
@@ -478,7 +478,7 @@ message keyError {
 
 - 在 proto 中为 `GetKVs` response 增加 `repeated keyError errors`。
 - 定义 `keyError`，至少包含 `key`、错误 `code` 与错误详情/message。
-- 修改 `internal/cassemdb/app/app_grpc.go` 中 `GetKVs` 循环：成功 append 到 `entities`，失败 append 到 `errors`。
+- 修改 `internal/app/kv/app_grpc.go` 中 `GetKVs` 循环：成功 append 到 `entities`，失败 append 到 `errors`。
 - 保持批量读取的 partial success：单 key 失败不直接中断其它 key 读取。
 - 调整 coordinator/调用方逻辑：不要仅依赖返回数量判断结果，改为显式检查 `errors` 并自行决定 `NotFound` 是否可接受。
 - 增加测试覆盖：全部成功、部分 `NotFound`、部分非 `NotFound` 错误、成功与错误混合返回。
@@ -504,10 +504,10 @@ message keyError {
 
 ### 证据
 
-- `DeleteElement` 使用 `IsDir=true`：`internal/coordinator/coordinator_kv_w.go:112`
-- `DeleteEnvironment` 使用 `IsDir=true`：`internal/coordinator/coordinator_kv_w.go:142`
-- `DeleteApp` 删除 app elements bucket：`internal/coordinator/coordinator_kv_w.go:246`
-- bbolt 删除目录用 `DeleteBucket`：`internal/cassemdb/infras/storage/bbolt_impl.go:207`
+- `DeleteElement` 使用 `IsDir=true`：`internal/coord/coordinator_kv_w.go:112`
+- `DeleteEnvironment` 使用 `IsDir=true`：`internal/coord/coordinator_kv_w.go:142`
+- `DeleteApp` 删除 app elements bucket：`internal/coord/coordinator_kv_w.go:246`
+- bbolt 删除目录用 `DeleteBucket`：`internal/app/kv/storage/bbolt_impl.go:207`
 
 ---
 
