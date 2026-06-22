@@ -1582,14 +1582,78 @@ describe('app shell routing', () => {
 
     await user.click(screen.getByRole('button', { name: /add element/i }))
     const dialog = await screen.findByRole('dialog')
+    await user.click(within(dialog).getByRole('combobox', { name: /content type/i }))
+    await user.click(await screen.findByRole('option', { name: /plaintext/i }))
     await user.type(within(dialog).getByLabelText(/key/i), '*&……@（#')
-    await user.type(within(dialog).getByLabelText(/raw/i), 'value')
+    const rawEditor = within(dialog).getAllByRole('textbox').at(-1)
+    expect(rawEditor).toBeDefined()
+    await user.type(rawEditor as HTMLElement, 'value')
     await user.click(within(dialog).getByRole('button', { name: /^create$/i }))
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/api/apps/demo/envs/prod/elements/'), expect.objectContaining({ method: 'POST' }))
     })
     expect(screen.getByText('db.url')).toBeInTheDocument()
+  })
+
+  it('applies saved editor settings to the add element dialog', async () => {
+    localStorage.setItem('cassem.session', 'session')
+    localStorage.setItem('cassem.user', JSON.stringify({ account: 'superadmin@example.com' }))
+    localStorage.setItem('cassem.settings', JSON.stringify({ codeTheme: 'one-dark', editorLineWrapping: false }))
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((input: RequestInfo | URL) => {
+        const url = String(input)
+        if (url.includes('/api/apps/demo/envs/prod/elements?limit=15')) {
+          return Promise.resolve(createJsonResponse({ errcode: 0, data: { elements: [], hasMore: false } }))
+        }
+        return Promise.resolve(createJsonResponse({ errcode: 0, data: {} }))
+      }),
+    )
+
+    const user = userEvent.setup()
+    renderRoute('/apps/demo/envs/prod/elements')
+
+    await user.click(await screen.findByRole('button', { name: /add element/i }))
+    const dialog = await screen.findByRole('dialog', { name: /add element/i })
+    const editor = within(dialog).getByTestId('content-editor')
+
+    expect(editor).toHaveAttribute('data-code-theme', 'one-dark')
+    expect(editor.querySelector('.cm-lineWrapping')).toBeNull()
+  })
+
+  it('blocks invalid structured content in the add element dialog', async () => {
+    localStorage.setItem('cassem.session', 'session')
+    localStorage.setItem('cassem.user', JSON.stringify({ account: 'superadmin@example.com' }))
+
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      void init
+      const url = String(input)
+      if (url.includes('/api/apps/demo/envs/prod/elements?limit=15')) {
+        return Promise.resolve(createJsonResponse({ errcode: 0, data: { elements: [], hasMore: false } }))
+      }
+      return Promise.resolve(createJsonResponse({ errcode: 0, data: {} }))
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const user = userEvent.setup()
+    renderRoute('/apps/demo/envs/prod/elements')
+
+    await user.click(await screen.findByRole('button', { name: /add element/i }))
+    const dialog = await screen.findByRole('dialog', { name: /add element/i })
+    await user.click(within(dialog).getByRole('combobox', { name: /content type/i }))
+    await user.click(await screen.findByRole('option', { name: /ini/i }))
+    await user.type(within(dialog).getByLabelText(/key/i), 'db.config')
+    const rawEditor = within(dialog).getAllByRole('textbox').at(-1)
+    expect(rawEditor).toBeDefined()
+    await user.type(rawEditor as HTMLElement, 'this is not ini')
+
+    await waitFor(() => {
+      expect(within(dialog).getByRole('button', { name: /^create$/i })).toBeDisabled()
+    })
+    expect(within(dialog).getByTestId('content-editor-error')).toHaveTextContent(/line 1, column 1: expected key=value or section header/i)
+    expect(fetchMock.mock.calls.some((call) => (call[1] as RequestInit | undefined)?.method === 'POST')).toBe(false)
   })
 
   it('renders element detail page with fixed content, versions, and operations tabs', async () => {
@@ -1888,6 +1952,111 @@ describe('app shell routing', () => {
         expect.objectContaining({ method: 'PUT' }),
       )
     })
+  })
+
+  it('blocks invalid structured content in the new version dialog', async () => {
+    localStorage.setItem('cassem.session', 'session')
+    localStorage.setItem('cassem.user', JSON.stringify({ account: 'superadmin@example.com' }))
+
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      void init
+      const url = String(input)
+      if (url.includes('/api/apps/demo/envs/prod/elements/db.url/versions?limit=100')) {
+        return Promise.resolve(createJsonResponse({ errcode: 0, data: { elements: [] } }))
+      }
+      if (url.includes('/api/apps/demo/envs/prod/elements/db.url/operations?limit=100')) {
+        return Promise.resolve(createJsonResponse({ errcode: 0, data: { operations: [] } }))
+      }
+      return Promise.resolve(createJsonResponse({
+        errcode: 0,
+        data: {
+          metadata: { key: 'db.url', latestVersion: 2, usingVersion: 1, unpublishedVersion: 0, contentType: 'JSON' },
+          raw: btoa('{"enabled":'),
+          version: 1,
+          published: true,
+        },
+      }))
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const user = userEvent.setup()
+    renderRoute('/apps/demo/envs/prod/elements/db.url')
+
+    await user.click(await screen.findByRole('button', { name: /new version/i }))
+    const dialog = await screen.findByRole('dialog', { name: /new version/i })
+
+    await waitFor(() => {
+      expect(within(dialog).getByRole('button', { name: /submit/i })).toBeDisabled()
+    })
+    expect(within(dialog).getByRole('button', { name: /publish directly/i })).toBeDisabled()
+    expect(within(dialog).getByTestId('content-editor-error')).toHaveTextContent(/json|unexpected|end/i)
+    expect(fetchMock.mock.calls.some((call) => (call[1] as RequestInit | undefined)?.method === 'PUT')).toBe(false)
+  })
+
+  it('publishes a new version directly with full publish mode', async () => {
+    localStorage.setItem('cassem.session', 'session')
+    localStorage.setItem('cassem.user', JSON.stringify({ account: 'superadmin@example.com' }))
+
+    let detailRequests = 0
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      const method = init?.method || 'GET'
+
+      if (url.includes('/api/apps/demo/envs/prod/elements/db.url/versions?limit=100')) {
+        return Promise.resolve(createJsonResponse({ errcode: 0, data: { elements: [] } }))
+      }
+      if (url.includes('/api/apps/demo/envs/prod/elements/db.url/operations?limit=100')) {
+        return Promise.resolve(createJsonResponse({ errcode: 0, data: { operations: [] } }))
+      }
+      if (method === 'PUT' && url === '/api/apps/demo/envs/prod/elements/db.url') {
+        return Promise.resolve(createJsonResponse({ errcode: 0, data: null }))
+      }
+      if (method === 'POST' && url === '/api/apps/demo/envs/prod/elements/db.url/publish') {
+        return Promise.resolve(createJsonResponse({ errcode: 0, data: null }))
+      }
+      if (method === 'GET' && url === '/api/apps/demo/envs/prod/elements/db.url') {
+        detailRequests += 1
+        return Promise.resolve(createJsonResponse({
+          errcode: 0,
+          data: {
+            metadata: detailRequests === 1
+              ? { key: 'db.url', latestVersion: 1, usingVersion: 1, unpublishedVersion: 0, contentType: 4 }
+              : { key: 'db.url', latestVersion: 2, usingVersion: 1, unpublishedVersion: 2, contentType: 4 },
+            raw: btoa('postgres://demo'),
+            version: 1,
+            published: true,
+          },
+        }))
+      }
+
+      return Promise.resolve(createJsonResponse({ errcode: 0, data: {} }))
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const user = userEvent.setup()
+    renderRoute('/apps/demo/envs/prod/elements/db.url')
+
+    await user.click(await screen.findByRole('button', { name: /new version/i }))
+    const dialog = await screen.findByRole('dialog', { name: /new version/i })
+    await user.click(within(dialog).getByRole('button', { name: /publish directly/i }))
+
+    const confirmDialog = await screen.findByRole('dialog', { name: /publish directly/i })
+    expect(confirmDialog).toHaveTextContent(/create a new version and full publish it/i)
+    expect(fetchMock.mock.calls.some(([input, init]) => String(input).endsWith('/publish') && init?.method === 'POST')).toBe(false)
+
+    await user.click(within(confirmDialog).getByRole('button', { name: /publish directly/i }))
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/apps/demo/envs/prod/elements/db.url/publish',
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify({ version: 2, publishMode: 2 }),
+        }),
+      )
+    })
+    const toast = await screen.findByRole('alert')
+    expect(toast).toHaveTextContent(/version 2 was queued for full publish/i)
   })
 
   it('blocks new version creation when a draft already exists', async () => {
@@ -3028,7 +3197,7 @@ describe('app shell routing', () => {
     localStorage.setItem('cassem.session', 'session')
     localStorage.setItem('cassem.user', JSON.stringify({ account: 'superadmin@example.com' }))
 
-    let refreshReject = (_reason?: unknown) => {}
+    let refreshReject: (reason?: unknown) => void = () => {}
     let aclLoadCount = 0
     const fetchMock = vi.fn((input: RequestInfo | URL) => {
       const url = String(input)

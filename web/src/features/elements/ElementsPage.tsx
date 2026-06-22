@@ -30,7 +30,9 @@ import { EmptyState, ErrorState, LoadingState } from '../../components/StateView
 import { useErrorState } from '../../components/useErrorState'
 import { contentTypes, formatVersionLabel, type Element, type ElementsResponse } from '../../domain/types'
 import { ApiError, apiRequest, buildQuery, jsonBody } from '../../lib/api'
+import { readSettings } from '../../lib/settings'
 import { ContentEditor } from './ContentEditor'
+import { validateContent, type ContentValidationResult } from './contentValidation'
 
 function getErrorMessage(error: unknown, fallback: string) {
   return error instanceof ApiError ? error.message : fallback
@@ -64,9 +66,11 @@ export function ElementsPage() {
   const [loadingMore, setLoadingMore] = useState(false)
   const [createOpen, setCreateOpen] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState('')
+  const [settings] = useState(readSettings)
   const [createKey, setCreateKey] = useState('')
   const [createRaw, setCreateRaw] = useState('')
   const [createContentType, setCreateContentType] = useState<number>(contentTypes[0].value)
+  const [createValidation, setCreateValidation] = useState<ContentValidationResult>({ valid: true })
   const requestSeq = useRef(0)
   const mountedRef = useRef(false)
   const lastLoadKeyRef = useRef('')
@@ -142,6 +146,16 @@ export function ElementsPage() {
     }
   }, [appId, env, loadElements])
 
+  useEffect(() => {
+    if (!createOpen) return
+
+    const timer = window.setTimeout(() => {
+      setCreateValidation(validateContent(createContentType, createRaw))
+    }, 250)
+
+    return () => window.clearTimeout(timer)
+  }, [createOpen, createContentType, createRaw])
+
   async function handleSearchSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const nextQuery = queryInput.trim()
@@ -185,6 +199,7 @@ export function ElementsPage() {
     setCreateKey('')
     setCreateRaw('')
     setCreateContentType(contentTypes[0].value)
+    setCreateValidation({ valid: true })
   }
 
   function closeDeleteDialog() {
@@ -199,6 +214,10 @@ export function ElementsPage() {
     const startedEnv = env
     const nextKey = createKey.trim()
     if (!startedAppId || !startedEnv || !nextKey || !createRaw.trim()) return
+
+    const validation = validateContent(createContentType, createRaw)
+    setCreateValidation(validation)
+    if (!validation.valid) return
 
     setSubmitting(true)
     setError('')
@@ -215,6 +234,7 @@ export function ElementsPage() {
       setCreateKey('')
       setCreateRaw('')
       setCreateContentType(contentTypes[0].value)
+      setCreateValidation({ valid: true })
       setLoading(true)
       setHasMore(false)
       setNextSeek('')
@@ -349,7 +369,7 @@ export function ElementsPage() {
                 <Typography variant="caption" color="text.secondary">
                   Raw *
                 </Typography>
-                <ContentEditor value={createRaw} contentType={createContentType} ariaLabel="Raw" disabled={submitting} minRows={10} showContentType={false} onChange={setCreateRaw} />
+                <ContentEditor value={createRaw} contentType={createContentType} ariaLabel="Raw" codeTheme={settings.codeTheme} disabled={submitting} lineWrapping={settings.editorLineWrapping} minRows={10} showContentType={false} validation={createValidation} onChange={setCreateRaw} />
                 <Typography variant="caption" color="text.secondary">
                   Paste the full configuration payload for this element.
                 </Typography>
@@ -358,7 +378,7 @@ export function ElementsPage() {
           </DialogContent>
           <DialogActions>
             <Button onClick={closeCreateDialog} disabled={submitting}>Cancel</Button>
-            <Button type="submit" variant="contained" disabled={submitting || !createKey.trim() || !createRaw.trim()}>Create</Button>
+            <Button type="submit" variant="contained" disabled={submitting || !createKey.trim() || !createRaw.trim() || !createValidation.valid}>Create</Button>
           </DialogActions>
         </Box>
       </Dialog>

@@ -40,6 +40,22 @@ Object.defineProperty(globalThis, 'localStorage', {
   value: storage,
 })
 
+if (typeof Range !== 'undefined') {
+  if (!Range.prototype.getClientRects) {
+    Object.defineProperty(Range.prototype, 'getClientRects', {
+      configurable: true,
+      value: () => [],
+    })
+  }
+
+  if (!Range.prototype.getBoundingClientRect) {
+    Object.defineProperty(Range.prototype, 'getBoundingClientRect', {
+      configurable: true,
+      value: () => new DOMRect(0, 0, 0, 0),
+    })
+  }
+}
+
 beforeEach(() => {
   localStorage.clear()
 })

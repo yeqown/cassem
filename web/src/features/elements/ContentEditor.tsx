@@ -1,6 +1,9 @@
 import CodeMirror from '@uiw/react-codemirror'
-import { Chip, Stack } from '@mui/material'
+import { Chip, FormHelperText, Stack } from '@mui/material'
+import { lintGutter } from '@codemirror/lint'
 import { getContentExtensions, getContentTypeLabel } from './contentRegistry'
+import { createContentDiagnostics } from './contentDiagnostics'
+import { formatValidationMessage, type ContentValidationResult } from './contentValidation'
 import type { CodeTheme } from '../../lib/settings'
 
 type ContentEditorProps = {
@@ -13,12 +16,16 @@ type ContentEditorProps = {
   minRows?: number
   maxRows?: number
   showContentType?: boolean
+  validation?: ContentValidationResult
   onChange: (value: string) => void
 }
 
-export function ContentEditor({ value, contentType, ariaLabel = 'Raw content', codeTheme = 'github-light-plus', disabled = false, lineWrapping = true, minRows = 12, maxRows = 24, showContentType = true, onChange }: ContentEditorProps) {
+export function ContentEditor({ value, contentType, ariaLabel = 'Raw content', codeTheme = 'github-light-plus', disabled = false, lineWrapping = true, minRows = 12, maxRows = 24, showContentType = true, validation, onChange }: ContentEditorProps) {
   const minHeight = `${minRows * 24}px`
   const maxHeight = `${maxRows * 24}px`
+  const validationMessage = validation && !validation.valid ? formatValidationMessage(validation) : ''
+  const hasValidationError = Boolean(validationMessage)
+  const extensions = [...getContentExtensions(contentType, codeTheme, lineWrapping), lintGutter(), ...createContentDiagnostics(contentType)]
 
   return (
     <Stack spacing={1.5}>
@@ -27,7 +34,7 @@ export function ContentEditor({ value, contentType, ariaLabel = 'Raw content', c
           <Chip size="small" label={getContentTypeLabel(contentType)} />
         </Stack>
       )}
-      <Stack data-testid="content-editor" data-code-theme={codeTheme} sx={{ border: 1, borderColor: 'divider', borderRadius: 2, overflow: 'hidden' }}>
+      <Stack data-testid="content-editor" data-code-theme={codeTheme} data-validation-state={hasValidationError ? 'invalid' : 'valid'} sx={{ border: 1, borderColor: hasValidationError ? 'error.main' : 'divider', borderRadius: 2, overflow: 'hidden' }}>
         <CodeMirror
           aria-label={ariaLabel}
           value={value}
@@ -38,10 +45,15 @@ export function ContentEditor({ value, contentType, ariaLabel = 'Raw content', c
           theme="none"
           editable={!disabled}
           readOnly={disabled}
-          extensions={getContentExtensions(contentType, codeTheme, lineWrapping)}
+          extensions={extensions}
           onChange={onChange}
         />
       </Stack>
+      {hasValidationError && (
+        <FormHelperText error data-testid="content-editor-error">
+          {validationMessage}
+        </FormHelperText>
+      )}
     </Stack>
   )
 }

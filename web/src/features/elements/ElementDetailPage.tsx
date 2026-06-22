@@ -39,8 +39,10 @@ import {
 import { alpha } from '@mui/material/styles'
 import { Link as RouterLink, useParams } from 'react-router-dom'
 import { AppBreadcrumbs } from '../../components/AppBreadcrumbs'
+import { DangerConfirmDialog } from '../../components/DangerConfirmDialog'
 import { DiffViewer } from '../../components/DiffViewer'
 import { EmptyState, ErrorState, LoadingState } from '../../components/StateView'
+import { useToast } from '../../components/ToastProvider'
 import { useErrorState } from '../../components/useErrorState'
 import { formatVersionLabel, type Element, type ElementOperation, type ElementOperationsResponse, type ElementsResponse, type RetentionPolicy } from '../../domain/types'
 import { ApiError, apiRequest, buildQuery, jsonBody } from '../../lib/api'
@@ -48,6 +50,7 @@ import { decodeRaw } from '../../lib/raw'
 import { readSettings } from '../../lib/settings'
 import { ContentEditor } from './ContentEditor'
 import { ContentViewer } from './ContentViewer'
+import { validateContent, type ContentValidationResult } from './contentValidation'
 import { getContentTypeLabel } from './contentView'
 
 function getErrorMessage(error: unknown, fallback: string) {
@@ -105,6 +108,7 @@ async function requestRetentionPolicy() {
 
 export function ElementDetailPage() {
   const { appId = '', env = '', key = '' } = useParams()
+  const { showToast } = useToast()
   const [element, setElement] = useState<Element | null>(null)
   const [versions, setVersions] = useState<Element[]>([])
   const [operations, setOperations] = useState<ElementOperation[]>([])
@@ -117,7 +121,9 @@ export function ElementDetailPage() {
   const [settings] = useState(readSettings)
   const [raw, setRaw] = useState('')
   const [editRaw, setEditRaw] = useState('')
+  const [editValidation, setEditValidation] = useState<ContentValidationResult>({ valid: true })
   const [newVersionOpen, setNewVersionOpen] = useState(false)
+  const [publishDirectConfirmOpen, setPublishDirectConfirmOpen] = useState(false)
   const [previewVersion, setPreviewVersion] = useState<Element | null>(null)
   const [diffBase, setDiffBase] = useState('')
   const [diffCompare, setDiffCompare] = useState('')
@@ -151,7 +157,9 @@ export function ElementDetailPage() {
         setRetentionPolicy(null)
         setRaw('')
         setEditRaw('')
+        setEditValidation({ valid: true })
         setNewVersionOpen(false)
+        setPublishDirectConfirmOpen(false)
         setPreviewVersion(null)
         setError('missing app, environment, or key')
         setLoading(false)
@@ -179,6 +187,7 @@ export function ElementDetailPage() {
       setRetentionPolicy(null)
       setRaw(decodeRaw(elementData.raw))
       setEditRaw(decodeRaw(elementData.raw))
+      setEditValidation({ valid: true })
       setNewVersionOpen(false)
       setPreviewVersion(null)
       setDiffBase(versionOptions[0] ? String(versionOptions[0]) : '')
@@ -227,6 +236,16 @@ export function ElementDetailPage() {
     }
   }, [appId, env, key, loadPage])
 
+  useEffect(() => {
+    if (!newVersionOpen) return
+
+    const timer = window.setTimeout(() => {
+      setEditValidation(validateContent(element?.metadata?.contentType, editRaw))
+    }, 250)
+
+    return () => window.clearTimeout(timer)
+  }, [newVersionOpen, element?.metadata?.contentType, editRaw])
+
   function handleOpenNewVersion() {
     const draftVersion = metadata?.unpublishedVersion
     if (draftVersion) {
@@ -235,8 +254,15 @@ export function ElementDetailPage() {
     }
 
     setEditRaw(raw)
+    setEditValidation(validateContent(element?.metadata?.contentType, raw))
     setError('')
     setNewVersionOpen(true)
+  }
+
+  function closeNewVersionDialog() {
+    if (saving) return
+    setNewVersionOpen(false)
+    setEditValidation({ valid: true })
   }
 
   async function handleSubmitNewVersion() {
@@ -244,6 +270,10 @@ export function ElementDetailPage() {
     const startedEnv = env
     const startedKey = key
     if (!startedAppId || !startedEnv || !startedKey) return
+
+    const validation = validateContent(element?.metadata?.contentType, editRaw)
+    setEditValidation(validation)
+    if (!validation.valid) return
 
     setSaving(true)
     setError('')
@@ -257,11 +287,63 @@ export function ElementDetailPage() {
       if (!canApplyMutationResult(startedAppId, startedEnv, startedKey)) return
 
       setNewVersionOpen(false)
+      setEditValidation({ valid: true })
       setLoading(true)
       await loadPage()
     } catch (err) {
       if (canApplyMutationResult(startedAppId, startedEnv, startedKey)) {
         setError(getErrorMessage(err, 'failed to create new version'))
+      }
+    } finally {
+      if (mountedRef.current) setSaving(false)
+    }
+  }
+
+  async function handlePublishDirectly() {
+    const startedAppId = appId
+    const startedEnv = env
+    const startedKey = key
+    if (!startedAppId || !startedEnv || !startedKey) return
+
+    const validation = validateContent(element?.metadata?.contentType, editRaw)
+    setEditValidation(validation)
+    if (!validation.valid) return
+
+    setSaving(true)
+    setError('')
+
+    try {
+      await apiRequest<void>(
+        `/api/apps/${encodeURIComponent(startedAppId)}/envs/${encodeURIComponent(startedEnv)}/elements/${encodeURIComponent(startedKey)}`,
+        { ...jsonBody({ raw: editRaw }), method: 'PUT' },
+      )
+
+      if (!canApplyMutationResult(startedAppId, startedEnv, startedKey)) return
+
+      const updatedElement = await requestElement(startedAppId, startedEnv, startedKey)
+      if (!canApplyMutationResult(startedAppId, startedEnv, startedKey)) return
+
+      const previousLatestVersion = metadata?.latestVersion || 0
+      const latestVersion = updatedElement.metadata?.latestVersion || 0
+      const version = updatedElement.metadata?.unpublishedVersion || (latestVersion > previousLatestVersion ? latestVersion : 0)
+      if (!version) throw new Error('new version was created without a publishable draft')
+
+      await apiRequest<void>(
+        `/api/apps/${encodeURIComponent(startedAppId)}/envs/${encodeURIComponent(startedEnv)}/elements/${encodeURIComponent(startedKey)}/publish`,
+        jsonBody({ version, publishMode: 2 }),
+      )
+
+      if (!canApplyMutationResult(startedAppId, startedEnv, startedKey)) return
+
+      setPublishDirectConfirmOpen(false)
+      setNewVersionOpen(false)
+      setEditValidation({ valid: true })
+      showToast(`Version ${version} was queued for full publish.`, 'success')
+      setLoading(true)
+      await loadPage()
+    } catch (err) {
+      if (canApplyMutationResult(startedAppId, startedEnv, startedKey)) {
+        setError(getErrorMessage(err, 'failed to publish directly'))
       }
     } finally {
       if (mountedRef.current) setSaving(false)
@@ -527,16 +609,27 @@ export function ElementDetailPage() {
         </Stack>
       )}
 
-      <Dialog open={newVersionOpen} onClose={() => setNewVersionOpen(false)} fullWidth maxWidth="md" aria-labelledby="new-version-title">
+      <Dialog open={newVersionOpen} onClose={closeNewVersionDialog} fullWidth maxWidth="md" aria-labelledby="new-version-title">
         <DialogTitle id="new-version-title">New Version</DialogTitle>
         <DialogContent>
-          <ContentEditor value={editRaw} contentType={metadata?.contentType} ariaLabel="New version content" codeTheme={settings.codeTheme} disabled={saving} lineWrapping={settings.editorLineWrapping} onChange={setEditRaw} />
+          <ContentEditor value={editRaw} contentType={metadata?.contentType} ariaLabel="New version content" codeTheme={settings.codeTheme} disabled={saving} lineWrapping={settings.editorLineWrapping} validation={editValidation} onChange={setEditRaw} />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setNewVersionOpen(false)} disabled={saving}>Cancel</Button>
-          <Button variant="contained" startIcon={<SaveIcon />} onClick={() => void handleSubmitNewVersion()} disabled={saving}>Submit</Button>
+          <Button onClick={closeNewVersionDialog} disabled={saving}>Cancel</Button>
+          <Button variant="outlined" startIcon={<PublishIcon />} onClick={() => setPublishDirectConfirmOpen(true)} disabled={saving || !editValidation.valid}>Publish directly</Button>
+          <Button variant="contained" startIcon={<SaveIcon />} onClick={() => void handleSubmitNewVersion()} disabled={saving || !editValidation.valid}>Submit</Button>
         </DialogActions>
       </Dialog>
+
+      <DangerConfirmDialog
+        open={publishDirectConfirmOpen}
+        title="Publish directly"
+        description={<>This will create a new version and full publish it to all clients.</>}
+        confirmLabel="Publish directly"
+        loading={saving}
+        onClose={() => setPublishDirectConfirmOpen(false)}
+        onConfirm={() => void handlePublishDirectly()}
+      />
 
       <Dialog open={Boolean(previewVersion)} onClose={() => setPreviewVersion(null)} fullWidth maxWidth="md" aria-labelledby="version-preview-title">
         <DialogTitle id="version-preview-title">Version {previewVersionLabel} Preview</DialogTitle>

@@ -25,7 +25,8 @@
     "react": "^19.2.0",
     "react-diff-viewer-continued": "^4.2.2",
     "react-dom": "^19.2.0",
-    "react-router-dom": "^7.9.4"
+    "react-router-dom": "^7.9.4",
+    "smol-toml": "^1.7.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.38.0",
