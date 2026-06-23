@@ -2,13 +2,31 @@ package adm
 
 import (
 	"fmt"
-	"io/fs"
-	"net/http"
-	"strings"
-
 	"github.com/gin-contrib/gzip"
 	"github.com/gin-gonic/gin"
+	"io/fs"
+	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
 )
+
+var distCandidates = []string{
+	filepath.Join("internal", "app", "adm", "dist"),
+	"dist",
+}
+
+// Dist returns UI assets rooted at dist.
+func Dist() (fs.FS, error) {
+	for _, candidate := range distCandidates {
+		info, err := os.Stat(candidate)
+		if err == nil && info.IsDir() {
+			return os.DirFS(candidate), nil
+		}
+	}
+
+	return nil, fmt.Errorf("load UI dist: no dist directory found in %v", distCandidates)
+}
 
 func mountUI(engi *gin.Engine) error {
 	assets, err := Dist()

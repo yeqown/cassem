@@ -1,4 +1,4 @@
-package etcdio
+package raftimpl
 
 import (
 	"context"
@@ -15,7 +15,6 @@ import (
 	"go.etcd.io/etcd/server/v3/etcdserver/api/snap"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/yeqown/cassem/internal/app/kv/raftimpl"
 	"github.com/yeqown/cassem/internal/app/kv/storage"
 	"github.com/yeqown/cassem/pkg/conf"
 	"github.com/yeqown/cassem/pkg/errorx"
@@ -24,10 +23,10 @@ import (
 )
 
 var (
-	_ raftimpl.RaftNode = &raftNodeImpl{}
+	_ RaftNode = &raftNodeImpl{}
 )
 
-// raftNodeImpl implement raftimpl.RaftNode constraints.
+// raftNodeImpl implement RaftNode constraints.
 type raftNodeImpl struct {
 	// kvstore is backend store component.
 	kvstore storage.KV

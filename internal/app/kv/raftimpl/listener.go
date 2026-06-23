@@ -1,4 +1,4 @@
-package etcdio
+package raftimpl
 
 import (
 	"errors"

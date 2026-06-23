@@ -2,13 +2,150 @@ package adm
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/yeqown/log"
-
 	"github.com/yeqown/cassem/api/concept"
 	"github.com/yeqown/cassem/pkg/errorx"
 	"github.com/yeqown/cassem/pkg/httpx"
 	"github.com/yeqown/cassem/pkg/runtime"
+	"github.com/yeqown/log"
+	"time"
 )
+
+func (d app) GetApps(c *gin.Context) {
+	req := new(pagingAppsReq)
+	if err := c.ShouldBind(req); err != nil {
+		httpx.ResponseError(c, err)
+		return
+	}
+
+	out, err := d.aggregate.GetApps(c.Request.Context(), req.Seek, req.Limit, req.Query)
+	if err != nil {
+		httpx.ResponseError(c, err)
+		return
+	}
+
+	httpx.ResponseJSON(c, out)
+}
+
+func (d app) GetApp(c *gin.Context) {
+	req := new(getAppReq)
+	if err := c.ShouldBindUri(req); err != nil {
+		httpx.ResponseError(c, err)
+		return
+	}
+	if err := c.ShouldBind(req); err != nil {
+		httpx.ResponseError(c, err)
+		return
+	}
+
+	out, err := d.aggregate.GetApp(c.Request.Context(), req.App)
+	if err != nil {
+		httpx.ResponseError(c, err)
+		return
+	}
+
+	httpx.ResponseJSON(c, out)
+}
+
+func (d app) CreateApp(c *gin.Context) {
+	uriReq := new(createAppUriReq)
+	if err := c.ShouldBindUri(uriReq); err != nil {
+		httpx.ResponseError(c, err)
+		return
+	}
+	req := new(createAppReq)
+	if err := c.ShouldBind(req); err != nil {
+		httpx.ResponseError(c, err)
+		return
+	}
+
+	operator := concept.OperatorFromContext(c.Request.Context())
+	md := &concept.AppMetadata{
+		Id:          uriReq.App,
+		Description: req.Description,
+		CreatedAt:   time.Now().Unix(),
+		Creator:     operator,
+		Owner:       operator,
+	}
+	err := d.aggregate.CreateApp(c.Request.Context(), md)
+	if err != nil {
+		httpx.ResponseError(c, err)
+		return
+	}
+
+	httpx.ResponseJSON(c, nil)
+}
+
+func (d app) DeleteApp(c *gin.Context) {
+	req := new(deleteAppReq)
+	if err := c.ShouldBindUri(req); err != nil {
+		httpx.ResponseError(c, err)
+		return
+	}
+	if err := c.ShouldBind(req); err != nil {
+		httpx.ResponseError(c, err)
+		return
+	}
+
+	err := d.aggregate.DeleteApp(c.Request.Context(), req.App)
+	if err != nil {
+		httpx.ResponseError(c, err)
+		return
+	}
+
+	httpx.ResponseJSON(c, nil)
+}
+
+func (d app) GetAppEnvironments(c *gin.Context) {
+	req := new(getAppEnvsReq)
+	if err := c.ShouldBindUri(req); err != nil {
+		httpx.ResponseError(c, err)
+		return
+	}
+	if err := c.ShouldBind(req); err != nil {
+		httpx.ResponseError(c, err)
+		return
+	}
+
+	out, err := d.aggregate.GetEnvironments(c.Request.Context(), req.App, req.Seek, req.Limit)
+	if err != nil {
+		httpx.ResponseError(c, err)
+		return
+	}
+
+	httpx.ResponseJSON(c, out)
+}
+
+func (d app) CreateAppEnvironment(c *gin.Context) {
+	req := new(createAppEnvReq)
+	if err := c.ShouldBindUri(req); err != nil {
+		httpx.ResponseError(c, err)
+		return
+	}
+
+	err := d.aggregate.CreateEnvironment(c.Request.Context(), req.AppId, req.Env)
+	if err != nil {
+		httpx.ResponseError(c, err)
+		return
+	}
+
+	httpx.ResponseJSON(c, nil)
+}
+
+func (d app) DeleteAppEnvironment(c *gin.Context) {
+	req := new(deleteAppEnvReq)
+	if err := c.ShouldBindUri(req); err != nil {
+		httpx.ResponseError(c, err)
+		return
+	}
+
+	err := d.aggregate.DeleteEnvironment(c.Request.Context(), req.AppId, req.Env)
+	if err != nil {
+		httpx.ResponseError(c, err)
+		return
+	}
+
+	httpx.ResponseJSON(c, nil)
+}
 
 func (d app) GetAppEnvElements(c *gin.Context) {
 	req := new(getAppEnvElementsReq)

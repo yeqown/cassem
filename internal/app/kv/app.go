@@ -13,8 +13,6 @@ import (
 
 	apikv "github.com/yeqown/cassem/api/kv"
 	"github.com/yeqown/cassem/internal/app/kv/raftimpl"
-	"github.com/yeqown/cassem/internal/app/kv/raftimpl/etcdio"
-	"github.com/yeqown/cassem/internal/app/kv/raftleadergrpc"
 	"github.com/yeqown/cassem/pkg/conf"
 	"github.com/yeqown/cassem/pkg/httpx"
 	"github.com/yeqown/cassem/pkg/runtime"
@@ -67,7 +65,7 @@ func New(cfg *conf.CassemdbConfig) (*app, error) {
 
 func (d *app) bootstrap() (err error) {
 	d.watcher = watcher.NewChannelWatcher(100)
-	d.raft = etcdio.NewRaftNode(d.config.Bolt, d.config.Raft)
+	d.raft = raftimpl.NewRaftNode(d.config.Bolt, d.config.Raft)
 
 	d.startRoutines()
 	runtime.GoFunc("cassemdb.registerCurrentMember", func() error {
@@ -166,7 +164,7 @@ func (d *app) servingAPI() error {
 
 	leadershipC := make(chan bool, 4)
 	d.raft.LeaderChangeCh(leadershipC)
-	raftleadergrpc.Setup(d.raft.IsLeader(), leadershipC, s)
+	setupLeaderAwareHealthServer(d.raft.IsLeader(), leadershipC, s)
 
 	if isDebug() {
 		g := httpx.NewGateway(d.config.ListenAddr, debugHTTP(d), s)

@@ -201,7 +201,7 @@ DeleteApp          => cassem/operations/{app}
 - `PublishElementVersion` 更新 metadata：`internal/coord/coordinator_kv_w.go:220`
 - `PublishElementVersion` 更新 version flag：`internal/coord/coordinator_kv_w.go:226`
 - `DeleteApp` 分两次删除：`internal/coord/coordinator_kv_w.go:246`、`internal/coord/coordinator_kv_w.go:253`
-- 单次 `SetKV` 是单条 Raft command：`internal/app/kv/raftimpl/etcdio/raft_impl.go:296`
+- 单次 `SetKV` 是单条 Raft command：`internal/app/kv/raftimpl/raft_impl.go:296`
 - bbolt 单次 `SetKV` 只写一个 key 或目录：`internal/app/kv/storage/bbolt_impl.go:180`
 
 ### 决策
@@ -249,11 +249,11 @@ TTL 存在 entity 中。过期判断发生在读取或 range 时；物理删除�
 ### 证据
 
 - TTL 计算与过期判断：`api/kv/cassemdb.raft.pb.supplement.go:64`
-- `GetKV` 发现过期后删除：`internal/app/kv/raftimpl/etcdio/raft_impl.go:414`
-- `probeRemoveExpired` 调用 `UnsetKV`：`internal/app/kv/raftimpl/etcdio/raft_impl.go:421`
+- `GetKV` 发现过期后删除：`internal/app/kv/raftimpl/raft_impl.go:414`
+- `probeRemoveExpired` 调用 `UnsetKV`：`internal/app/kv/raftimpl/raft_impl.go:421`
 - `Range` 收集 expired keys：`internal/app/kv/storage/bbolt_impl.go:265`
-- `Range` 异步删除 expired keys：`internal/app/kv/raftimpl/etcdio/raft_impl.go:458`
-- 异步删除忽略错误：`internal/app/kv/raftimpl/etcdio/raft_impl.go:467`
+- `Range` 异步删除 expired keys：`internal/app/kv/raftimpl/raft_impl.go:458`
+- 异步删除忽略错误：`internal/app/kv/raftimpl/raft_impl.go:467`
 - instance normalized TTL 120：`internal/coord/coordinator_ins_hybrid.go:200`
 - instance reversed TTL 120：`internal/coord/coordinator_ins_hybrid.go:215`
 - agent TTL 由调用方传入：`internal/coord/coordinator_agent_hybrid.go:93`

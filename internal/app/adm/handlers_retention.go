@@ -2,9 +2,7 @@ package adm
 
 import (
 	"fmt"
-
 	"github.com/gin-gonic/gin"
-
 	"github.com/yeqown/cassem/pkg/conf"
 	"github.com/yeqown/cassem/pkg/httpx"
 )
