@@ -5,8 +5,7 @@ go 1.26
 require (
 	github.com/envoyproxy/protoc-gen-validate v1.3.3
 	github.com/stretchr/testify v1.11.1
-	github.com/yeqown/cassem v0.2.1
-	github.com/yeqown/log v1.3.0
+	github.com/yeqown/log v1.3.1
 	google.golang.org/grpc v1.81.1
 	google.golang.org/protobuf v1.36.11
 )
@@ -17,7 +16,6 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/rogpeppe/go-internal v1.14.1 // indirect
-	golang.org/x/crypto v0.52.0 // indirect
 	golang.org/x/net v0.55.0 // indirect
 	golang.org/x/sys v0.45.0 // indirect
 	golang.org/x/text v0.37.0 // indirect

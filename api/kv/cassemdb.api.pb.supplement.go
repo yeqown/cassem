@@ -1,11 +1,11 @@
 package kv
 
-import "github.com/yeqown/cassem/pkg/watcher"
+import "github.com/yeqown/cassem/api/concept"
 
-var _ watcher.IChange = &Change{}
+var _ concept.Change = &Change{}
 
 func (m *Change) Topic() string          { return m.GetKey() }
-func (*Change) Type() watcher.ChangeType { return watcher.ChangeType_KV }
+func (*Change) Type() concept.ChangeType { return concept.ChangeType_KV }
 
 func (m *ParentDirectoryChange) Topic() string          { return m.GetSpecificTopic() }
-func (*ParentDirectoryChange) Type() watcher.ChangeType { return watcher.ChangeType_DIR }
+func (*ParentDirectoryChange) Type() concept.ChangeType { return concept.ChangeType_DIR }

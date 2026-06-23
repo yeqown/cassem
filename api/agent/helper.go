@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"google.golang.org/grpc"
 
-	"github.com/yeqown/cassem/pkg/grpcx"
+	apiinternal "github.com/yeqown/cassem/api/internal"
 )
 
 func DialDelivery(addr string) (DeliveryClient, error) {
@@ -16,7 +16,7 @@ func DialDelivery(addr string) (DeliveryClient, error) {
 	cc, err := grpc.DialContext(timeout, addr,
 		grpc.WithInsecure(),
 		grpc.WithBlock(),
-		grpc.WithChainUnaryInterceptor(grpcx.ClientRecovery(), grpcx.ClientErrorx(), grpcx.ClientValidation()),
+		grpc.WithChainUnaryInterceptor(apiinternal.ClientRecovery(), apiinternal.ClientErrorx(), apiinternal.ClientValidation()),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("cassemagent.api.Dial: %w", err)

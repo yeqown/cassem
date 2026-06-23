@@ -82,6 +82,55 @@ func (ContentType) EnumDescriptor() ([]byte, []int) {
 	return file_types_proto_rawDescGZIP(), []int{0}
 }
 
+type ChangeType int32
+
+const (
+	ChangeType_CHANGE_TYPE_UNKNOWN ChangeType = 0
+	ChangeType_KV                  ChangeType = 1
+	ChangeType_DIR                 ChangeType = 2
+)
+
+// Enum value maps for ChangeType.
+var (
+	ChangeType_name = map[int32]string{
+		0: "CHANGE_TYPE_UNKNOWN",
+		1: "KV",
+		2: "DIR",
+	}
+	ChangeType_value = map[string]int32{
+		"CHANGE_TYPE_UNKNOWN": 0,
+		"KV":                  1,
+		"DIR":                 2,
+	}
+)
+
+func (x ChangeType) Enum() *ChangeType {
+	p := new(ChangeType)
+	*p = x
+	return p
+}
+
+func (x ChangeType) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (ChangeType) Descriptor() protoreflect.EnumDescriptor {
+	return file_types_proto_enumTypes[1].Descriptor()
+}
+
+func (ChangeType) Type() protoreflect.EnumType {
+	return &file_types_proto_enumTypes[1]
+}
+
+func (x ChangeType) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use ChangeType.Descriptor instead.
+func (ChangeType) EnumDescriptor() ([]byte, []int) {
+	return file_types_proto_rawDescGZIP(), []int{1}
+}
+
 type ChangeOp int32
 
 const (
@@ -118,11 +167,11 @@ func (x ChangeOp) String() string {
 }
 
 func (ChangeOp) Descriptor() protoreflect.EnumDescriptor {
-	return file_types_proto_enumTypes[1].Descriptor()
+	return file_types_proto_enumTypes[2].Descriptor()
 }
 
 func (ChangeOp) Type() protoreflect.EnumType {
-	return &file_types_proto_enumTypes[1]
+	return &file_types_proto_enumTypes[2]
 }
 
 func (x ChangeOp) Number() protoreflect.EnumNumber {
@@ -131,7 +180,7 @@ func (x ChangeOp) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use ChangeOp.Descriptor instead.
 func (ChangeOp) EnumDescriptor() ([]byte, []int) {
-	return file_types_proto_rawDescGZIP(), []int{1}
+	return file_types_proto_rawDescGZIP(), []int{2}
 }
 
 type AppMetadata_Status int32
@@ -165,11 +214,11 @@ func (x AppMetadata_Status) String() string {
 }
 
 func (AppMetadata_Status) Descriptor() protoreflect.EnumDescriptor {
-	return file_types_proto_enumTypes[2].Descriptor()
+	return file_types_proto_enumTypes[3].Descriptor()
 }
 
 func (AppMetadata_Status) Type() protoreflect.EnumType {
-	return &file_types_proto_enumTypes[2]
+	return &file_types_proto_enumTypes[3]
 }
 
 func (x AppMetadata_Status) Number() protoreflect.EnumNumber {
@@ -217,11 +266,11 @@ func (x ElementOperation_Op) String() string {
 }
 
 func (ElementOperation_Op) Descriptor() protoreflect.EnumDescriptor {
-	return file_types_proto_enumTypes[3].Descriptor()
+	return file_types_proto_enumTypes[4].Descriptor()
 }
 
 func (ElementOperation_Op) Type() protoreflect.EnumType {
-	return &file_types_proto_enumTypes[3]
+	return &file_types_proto_enumTypes[4]
 }
 
 func (x ElementOperation_Op) Number() protoreflect.EnumNumber {
@@ -1021,14 +1070,18 @@ var file_types_proto_rawDesc = []byte{
 	0x79, 0x70, 0x65, 0x12, 0x0b, 0x0a, 0x07, 0x55, 0x4e, 0x4b, 0x4e, 0x4f, 0x57, 0x4e, 0x10, 0x00,
 	0x12, 0x08, 0x0a, 0x04, 0x4a, 0x53, 0x4f, 0x4e, 0x10, 0x01, 0x12, 0x08, 0x0a, 0x04, 0x54, 0x4f,
 	0x4d, 0x4c, 0x10, 0x02, 0x12, 0x07, 0x0a, 0x03, 0x49, 0x4e, 0x49, 0x10, 0x03, 0x12, 0x0d, 0x0a,
-	0x09, 0x50, 0x4c, 0x41, 0x49, 0x4e, 0x54, 0x45, 0x58, 0x54, 0x10, 0x04, 0x2a, 0x3a, 0x0a, 0x08,
-	0x43, 0x68, 0x61, 0x6e, 0x67, 0x65, 0x4f, 0x70, 0x12, 0x0d, 0x0a, 0x09, 0x55, 0x4e, 0x44, 0x45,
-	0x46, 0x49, 0x4e, 0x45, 0x44, 0x10, 0x00, 0x12, 0x07, 0x0a, 0x03, 0x4e, 0x45, 0x57, 0x10, 0x01,
-	0x12, 0x0a, 0x0a, 0x06, 0x55, 0x50, 0x44, 0x41, 0x54, 0x45, 0x10, 0x02, 0x12, 0x0a, 0x0a, 0x06,
-	0x44, 0x45, 0x4c, 0x45, 0x54, 0x45, 0x10, 0x03, 0x42, 0x2e, 0x5a, 0x2c, 0x67, 0x69, 0x74, 0x68,
-	0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x79, 0x65, 0x71, 0x6f, 0x77, 0x6e, 0x2f, 0x63, 0x61,
-	0x73, 0x73, 0x65, 0x6d, 0x2f, 0x61, 0x70, 0x69, 0x2f, 0x63, 0x6f, 0x6e, 0x63, 0x65, 0x70, 0x74,
-	0x3b, 0x63, 0x6f, 0x6e, 0x63, 0x65, 0x70, 0x74, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x09, 0x50, 0x4c, 0x41, 0x49, 0x4e, 0x54, 0x45, 0x58, 0x54, 0x10, 0x04, 0x2a, 0x36, 0x0a, 0x0a,
+	0x43, 0x68, 0x61, 0x6e, 0x67, 0x65, 0x54, 0x79, 0x70, 0x65, 0x12, 0x17, 0x0a, 0x13, 0x43, 0x48,
+	0x41, 0x4e, 0x47, 0x45, 0x5f, 0x54, 0x59, 0x50, 0x45, 0x5f, 0x55, 0x4e, 0x4b, 0x4e, 0x4f, 0x57,
+	0x4e, 0x10, 0x00, 0x12, 0x06, 0x0a, 0x02, 0x4b, 0x56, 0x10, 0x01, 0x12, 0x07, 0x0a, 0x03, 0x44,
+	0x49, 0x52, 0x10, 0x02, 0x2a, 0x3a, 0x0a, 0x08, 0x43, 0x68, 0x61, 0x6e, 0x67, 0x65, 0x4f, 0x70,
+	0x12, 0x0d, 0x0a, 0x09, 0x55, 0x4e, 0x44, 0x45, 0x46, 0x49, 0x4e, 0x45, 0x44, 0x10, 0x00, 0x12,
+	0x07, 0x0a, 0x03, 0x4e, 0x45, 0x57, 0x10, 0x01, 0x12, 0x0a, 0x0a, 0x06, 0x55, 0x50, 0x44, 0x41,
+	0x54, 0x45, 0x10, 0x02, 0x12, 0x0a, 0x0a, 0x06, 0x44, 0x45, 0x4c, 0x45, 0x54, 0x45, 0x10, 0x03,
+	0x42, 0x2e, 0x5a, 0x2c, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x79,
+	0x65, 0x71, 0x6f, 0x77, 0x6e, 0x2f, 0x63, 0x61, 0x73, 0x73, 0x65, 0x6d, 0x2f, 0x61, 0x70, 0x69,
+	0x2f, 0x63, 0x6f, 0x6e, 0x63, 0x65, 0x70, 0x74, 0x3b, 0x63, 0x6f, 0x6e, 0x63, 0x65, 0x70, 0x74,
+	0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
@@ -1043,34 +1096,35 @@ func file_types_proto_rawDescGZIP() []byte {
 	return file_types_proto_rawDescData
 }
 
-var file_types_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
+var file_types_proto_enumTypes = make([]protoimpl.EnumInfo, 5)
 var file_types_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
 var file_types_proto_goTypes = []interface{}{
 	(ContentType)(0),            // 0: cassem.concept.ContentType
-	(ChangeOp)(0),               // 1: cassem.concept.ChangeOp
-	(AppMetadata_Status)(0),     // 2: cassem.concept.AppMetadata.Status
-	(ElementOperation_Op)(0),    // 3: cassem.concept.ElementOperation.Op
-	(*Element)(nil),             // 4: cassem.concept.Element
-	(*ElementMetadata)(nil),     // 5: cassem.concept.ElementMetadata
-	(*AppMetadata)(nil),         // 6: cassem.concept.AppMetadata
-	(*ElementOperation)(nil),    // 7: cassem.concept.ElementOperation
-	(*Instance)(nil),            // 8: cassem.concept.Instance
-	(*AgentInstance)(nil),       // 9: cassem.concept.AgentInstance
-	(*AgentInstanceChange)(nil), // 10: cassem.concept.AgentInstanceChange
-	nil,                         // 11: cassem.concept.AppMetadata.SecretsEntry
-	(*Instance_Watching)(nil),   // 12: cassem.concept.Instance.Watching
-	nil,                         // 13: cassem.concept.AgentInstance.AnnotationsEntry
+	(ChangeType)(0),             // 1: cassem.concept.ChangeType
+	(ChangeOp)(0),               // 2: cassem.concept.ChangeOp
+	(AppMetadata_Status)(0),     // 3: cassem.concept.AppMetadata.Status
+	(ElementOperation_Op)(0),    // 4: cassem.concept.ElementOperation.Op
+	(*Element)(nil),             // 5: cassem.concept.Element
+	(*ElementMetadata)(nil),     // 6: cassem.concept.ElementMetadata
+	(*AppMetadata)(nil),         // 7: cassem.concept.AppMetadata
+	(*ElementOperation)(nil),    // 8: cassem.concept.ElementOperation
+	(*Instance)(nil),            // 9: cassem.concept.Instance
+	(*AgentInstance)(nil),       // 10: cassem.concept.AgentInstance
+	(*AgentInstanceChange)(nil), // 11: cassem.concept.AgentInstanceChange
+	nil,                         // 12: cassem.concept.AppMetadata.SecretsEntry
+	(*Instance_Watching)(nil),   // 13: cassem.concept.Instance.Watching
+	nil,                         // 14: cassem.concept.AgentInstance.AnnotationsEntry
 }
 var file_types_proto_depIdxs = []int32{
-	5,  // 0: cassem.concept.Element.metadata:type_name -> cassem.concept.ElementMetadata
+	6,  // 0: cassem.concept.Element.metadata:type_name -> cassem.concept.ElementMetadata
 	0,  // 1: cassem.concept.ElementMetadata.contentType:type_name -> cassem.concept.ContentType
-	2,  // 2: cassem.concept.AppMetadata.status:type_name -> cassem.concept.AppMetadata.Status
-	11, // 3: cassem.concept.AppMetadata.secrets:type_name -> cassem.concept.AppMetadata.SecretsEntry
-	3,  // 4: cassem.concept.ElementOperation.op:type_name -> cassem.concept.ElementOperation.Op
-	12, // 5: cassem.concept.Instance.watching:type_name -> cassem.concept.Instance.Watching
-	13, // 6: cassem.concept.AgentInstance.annotations:type_name -> cassem.concept.AgentInstance.AnnotationsEntry
-	9,  // 7: cassem.concept.AgentInstanceChange.ins:type_name -> cassem.concept.AgentInstance
-	1,  // 8: cassem.concept.AgentInstanceChange.op:type_name -> cassem.concept.ChangeOp
+	3,  // 2: cassem.concept.AppMetadata.status:type_name -> cassem.concept.AppMetadata.Status
+	12, // 3: cassem.concept.AppMetadata.secrets:type_name -> cassem.concept.AppMetadata.SecretsEntry
+	4,  // 4: cassem.concept.ElementOperation.op:type_name -> cassem.concept.ElementOperation.Op
+	13, // 5: cassem.concept.Instance.watching:type_name -> cassem.concept.Instance.Watching
+	14, // 6: cassem.concept.AgentInstance.annotations:type_name -> cassem.concept.AgentInstance.AnnotationsEntry
+	10, // 7: cassem.concept.AgentInstanceChange.ins:type_name -> cassem.concept.AgentInstance
+	2,  // 8: cassem.concept.AgentInstanceChange.op:type_name -> cassem.concept.ChangeOp
 	9,  // [9:9] is the sub-list for method output_type
 	9,  // [9:9] is the sub-list for method input_type
 	9,  // [9:9] is the sub-list for extension type_name
@@ -1186,7 +1240,7 @@ func file_types_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_types_proto_rawDesc,
-			NumEnums:      4,
+			NumEnums:      5,
 			NumMessages:   10,
 			NumExtensions: 0,
 			NumServices:   0,

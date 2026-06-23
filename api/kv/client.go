@@ -11,7 +11,7 @@ import (
 	_ "google.golang.org/grpc/health"
 	"google.golang.org/grpc/resolver"
 
-	"github.com/yeqown/cassem/pkg/grpcx"
+	apiinternal "github.com/yeqown/cassem/api/internal"
 )
 
 // Mode indicates the way that gRPC client communicate with cassemdb cluster.
@@ -79,7 +79,7 @@ func DialWithModeContext(ctx context.Context, endpoints []string, mode Mode) (*g
 		grpc.WithInsecure(),
 		grpc.WithBlock(),
 		grpc.WithDefaultServiceConfig(scPlain),
-		grpc.WithChainUnaryInterceptor(grpcx.ClientRecovery(), grpcx.ClientErrorx(), grpcx.ClientValidation()),
+		grpc.WithChainUnaryInterceptor(apiinternal.ClientRecovery(), apiinternal.ClientErrorx(), apiinternal.ClientValidation()),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("DialWithModeContext failed: %w", err)

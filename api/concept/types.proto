@@ -119,6 +119,12 @@ message AgentInstance {
   map<string, string> annotations = 3;
 }
 
+enum ChangeType {
+  CHANGE_TYPE_UNKNOWN = 0;
+  KV                  = 1;
+  DIR                 = 2;
+}
+
 enum ChangeOp {
   UNDEFINED = 0;
   NEW       = 1;

@@ -17,6 +17,12 @@ type AgentAggregate interface {
 	AgentHybrid
 }
 
+// Change describes the minimal event contract shared by API messages and watchers.
+type Change interface {
+	Topic() string
+	Type() ChangeType
+}
+
 type KVReadOnly interface {
 	GetElementWithVersion(ctx context.Context, app, env, key string, version int) (*Element, error)
 	GetElementVersions(ctx context.Context, app, env, key string,

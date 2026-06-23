@@ -1,6 +1,10 @@
 package concept
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/stretchr/testify/require"
+)
 
 func Test_trimVersion(t *testing.T) {
 	type args struct {
@@ -54,6 +58,20 @@ func TestGenInstanceReversedKeyWithInsIdUsesNonCollidingSeparator(t *testing.T) 
 	want := "cassem/instances/reversed/a-b@@@c@@@d/ins-1"
 	if got != want {
 		t.Fatalf("GenInstanceReversedKeyWithInsId() = %q, want %q", got, want)
+	}
+}
+
+func TestInstanceWatchingIdentifierValidation(t *testing.T) {
+	valid := &Instance_Watching{App: "demo_app", Env: "prod-1", WatchKeys: []string{"db_url", "feature_flag"}}
+	require.NoError(t, valid.Validate())
+
+	for _, watching := range []*Instance_Watching{
+		{App: "demo.app", Env: "prod", WatchKeys: []string{"db_url"}},
+		{App: "demo", Env: "prod env", WatchKeys: []string{"db_url"}},
+		{App: "demo", Env: "prod", WatchKeys: []string{"db.url"}},
+		{App: "demo", Env: "prod", WatchKeys: []string{"feature,flag"}},
+	} {
+		require.Error(t, watching.Validate())
 	}
 }
 

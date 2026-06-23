@@ -11,8 +11,7 @@ import (
 	"google.golang.org/grpc"
 
 	"github.com/yeqown/cassem/api/concept"
-	"github.com/yeqown/cassem/pkg/grpcx"
-	"github.com/yeqown/cassem/pkg/runtime"
+	apiinternal "github.com/yeqown/cassem/api/internal"
 )
 
 var (
@@ -86,7 +85,7 @@ func dial(addr string) (*grpc.ClientConn, error) {
 	cc, err := grpc.DialContext(timeout, addr,
 		grpc.WithInsecure(),
 		grpc.WithBlock(),
-		grpc.WithChainUnaryInterceptor(grpcx.ClientRecovery(), grpcx.ClientErrorx(), grpcx.ClientValidation()),
+		grpc.WithChainUnaryInterceptor(apiinternal.ClientRecovery(), apiinternal.ClientErrorx(), apiinternal.ClientValidation()),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("cassemagent.api.Dial: %w", err)
@@ -126,7 +125,7 @@ func newClient(cc *grpc.ClientConn, opt *options) *agentInstanceClient {
 	}
 
 	// start a renew self goroutine.
-	runtime.GoFunc("renewSelf", func() error {
+	apiinternal.GoFunc("renewSelf", func() error {
 		// random ticker for renew client itself, random tick interval avoids
 		// too many renew requests are sent to cassemdb at the same time.
 		t := time.NewTicker(time.Duration(_CLIENT_RENEW_BASE+rand.Intn(_CLIENT_RENEW_RAND)) * time.Second)
@@ -180,7 +179,7 @@ func (c *agentInstanceClient) Watch(
 	c.watching[app+env] = w
 
 	// start a routine to watch
-	runtime.GoFunc("watching", func() error {
+	apiinternal.GoFunc("watching", func() error {
 		r := new(WatchResp)
 		watchingKey := app + env
 		for {
