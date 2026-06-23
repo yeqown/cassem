@@ -40,6 +40,7 @@ cassemadm
 # AI agentic
 docs/superpowers/
 .claude/worktrees/
+.codegraph/
 web/node_modules/
 web/coverage/
 web/.vite/
