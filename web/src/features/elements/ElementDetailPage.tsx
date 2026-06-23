@@ -553,6 +553,7 @@ export function ElementDetailPage() {
                     newValue={decodeRaw(diffPair.compare.raw)}
                     baseLabel={`Base v${diffBase}`}
                     compareLabel={`Compare v${diffCompare}`}
+                    contentType={diffPair.compare.metadata?.contentType}
                   />
                 ) : (
                   <Typography color="text.secondary">Select two versions to compare.</Typography>

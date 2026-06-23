@@ -463,6 +463,7 @@ function PublishWizardFlow({ appId, env, elementKey }: PublishWizardFlowProps) {
                       newValue={decodeRaw(diffPair.compare.raw)}
                       baseLabel={`Current v${currentVersion ?? '-'}`}
                       compareLabel={selectedVersion?.label || 'Publish version'}
+                      contentType={diffPair.compare.metadata?.contentType}
                     />
                   ) : diffLoading ? (
                     <Typography color="text.secondary">Loading diff…</Typography>

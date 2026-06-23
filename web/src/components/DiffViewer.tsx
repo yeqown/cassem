@@ -1,3 +1,4 @@
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Box, Stack, Typography } from '@mui/material'
 import ReactDiffViewer, { DiffMethod } from 'react-diff-viewer-continued'
 
@@ -9,6 +10,85 @@ type DiffViewerProps = {
   baseLabel?: string
   compareLabel?: string
   ariaLabel?: string
+  contentType?: number | string
+}
+
+type HighlightJsApi = {
+  highlight: (source: string, options: { language: string; ignoreIllegals: boolean }) => { value: string }
+  getLanguage?: (language: string) => unknown
+}
+
+const highlightJsVersion = '11.11.1'
+const highlightCoreUrl = `https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@${highlightJsVersion}/build/highlight.min.js`
+const highlightLanguageUrls: Record<string, string> = {
+  json: `https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@${highlightJsVersion}/build/languages/json.min.js`,
+  ini: `https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@${highlightJsVersion}/build/languages/ini.min.js`,
+}
+const loadingScripts = new Map<string, Promise<void>>()
+
+function getHighlightLanguage(contentType?: number | string) {
+  const numeric = Number(contentType)
+  if (numeric === 1) return 'json'
+  if (numeric === 2 || numeric === 3) return 'ini'
+  if (typeof contentType !== 'string') return undefined
+
+  const normalized = contentType.toUpperCase()
+  if (normalized === 'JSON') return 'json'
+  if (normalized === 'TOML' || normalized === 'INI') return 'ini'
+  return undefined
+}
+
+function loadScript(src: string) {
+  const existing = loadingScripts.get(src)
+  if (existing) return existing
+
+  const promise = new Promise<void>((resolve, reject) => {
+    if (typeof document === 'undefined') {
+      resolve()
+      return
+    }
+
+    const loaded = document.querySelector(`script[src="${src}"][data-loaded="true"]`)
+    if (loaded) {
+      resolve()
+      return
+    }
+
+    const script = document.createElement('script')
+    script.src = src
+    script.async = true
+    script.dataset.highlightJsLoader = 'true'
+    script.onload = () => {
+      script.dataset.loaded = 'true'
+      resolve()
+    }
+    script.onerror = () => reject(new Error(`Failed to load ${src}`))
+    document.head.appendChild(script)
+  })
+
+  loadingScripts.set(src, promise)
+  return promise
+}
+
+function ensureHighlight(language: string) {
+  const win = window as Window & { hljs?: HighlightJsApi }
+  const core = win.hljs ? Promise.resolve() : loadScript(highlightCoreUrl)
+  const languageUrl = highlightLanguageUrls[language]
+
+  return core.then(() => {
+    const hljs = getHighlightJs()
+    if (!languageUrl || hljs?.getLanguage?.(language)) return undefined
+    return loadScript(languageUrl)
+  })
+}
+
+function getHighlightJs() {
+  return (window as Window & { hljs?: HighlightJsApi }).hljs
+}
+
+function hasHighlightLanguage(language: string) {
+  const hljs = getHighlightJs()
+  return Boolean(hljs && (!hljs.getLanguage || hljs.getLanguage(language)))
 }
 
 const diffStyles = {
@@ -63,8 +143,45 @@ const diffStyles = {
   },
 } as const
 
-export function DiffViewer({ oldValue, newValue, baseLabel = 'Base', compareLabel = 'Compare', ariaLabel = 'Diff' }: DiffViewerProps) {
+export function DiffViewer({ oldValue, newValue, baseLabel = 'Base', compareLabel = 'Compare', ariaLabel = 'Diff', contentType }: DiffViewerProps) {
   const hasDiff = oldValue !== newValue
+  const highlightLanguage = useMemo(() => getHighlightLanguage(contentType), [contentType])
+  const [loadedHighlightLanguage, setLoadedHighlightLanguage] = useState(() => (highlightLanguage && hasHighlightLanguage(highlightLanguage) ? highlightLanguage : undefined))
+  const highlightReady = Boolean(highlightLanguage && (loadedHighlightLanguage === highlightLanguage || hasHighlightLanguage(highlightLanguage)))
+
+  useEffect(() => {
+    let mounted = true
+    if (!highlightLanguage) {
+      return () => {
+        mounted = false
+      }
+    }
+
+    ensureHighlight(highlightLanguage)
+      .then(() => {
+        if (mounted && hasHighlightLanguage(highlightLanguage)) setLoadedHighlightLanguage(highlightLanguage)
+      })
+      .catch(() => undefined)
+
+    return () => {
+      mounted = false
+    }
+  }, [highlightLanguage])
+
+  const renderContent = useCallback(
+    (source: string) => {
+      if (!highlightLanguage || !highlightReady) return <span>{source}</span>
+
+      try {
+        const highlighted = getHighlightJs()?.highlight(source, { language: highlightLanguage, ignoreIllegals: true }).value
+        if (!highlighted) return <span>{source}</span>
+        return <span className="diff-syntax" dangerouslySetInnerHTML={{ __html: highlighted }} />
+      } catch {
+        return <span>{source}</span>
+      }
+    },
+    [highlightLanguage, highlightReady],
+  )
 
   return (
     <Box
@@ -78,11 +195,14 @@ export function DiffViewer({ oldValue, newValue, baseLabel = 'Base', compareLabe
         bgcolor: '#ffffff',
       }}
     >
-      <Box sx={{ minWidth: 900 }}>
+      <Box data-testid="diff-scroll-content" sx={{ minWidth: '1000px' }}>
         <Box
+          data-testid="diff-header"
           sx={{
             display: 'grid',
             gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)',
+            width: '100%',
+            minWidth: '1000px',
             borderBottom: '1px solid #d0d7de',
             bgcolor: '#f6f8fa',
             color: '#24292f',
@@ -101,7 +221,22 @@ export function DiffViewer({ oldValue, newValue, baseLabel = 'Base', compareLabe
             {emptyDiffMessage}
           </Typography>
         ) : (
-          <Stack sx={{ '& table': { borderCollapse: 'collapse !important' }, '& td': { borderTop: '0 !important' } }}>
+          <Stack
+            sx={{
+              '& table': {
+                borderCollapse: 'collapse !important',
+                width: '100% !important',
+                minWidth: '1000px',
+              },
+              '& td': { borderTop: '0 !important' },
+              '& .hljs-attr, & .hljs-attribute': { color: '#c2410c' },
+              '& .hljs-string': { color: '#0550ae' },
+              '& .hljs-number, & .hljs-literal': { color: '#4f46e5' },
+              '& .hljs-comment': { color: '#57606a' },
+              '& .hljs-keyword': { color: '#b42318' },
+              '& .hljs-section': { color: '#7c3aed' },
+            }}
+          >
             <ReactDiffViewer
               oldValue={oldValue}
               newValue={newValue}
@@ -111,6 +246,7 @@ export function DiffViewer({ oldValue, newValue, baseLabel = 'Base', compareLabe
               useDarkTheme={false}
               hideLineNumbers={false}
               styles={diffStyles}
+              renderContent={renderContent}
             />
           </Stack>
         )}
