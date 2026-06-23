@@ -33,12 +33,13 @@ Single-binary local builds can still be run directly with `go build ./cmd/<binar
 
 ## Protobuf Generation
 
-Three separate proto modules, each with its own Makefile:
+The `api/Makefile` centralizes proto generation for all API modules:
 
 ```bash
-make -C api/kv                       # cassemdb.api.proto, cassemdb.raft.proto
-make -C api/concept                  # types.proto, acl.proto
-make -C api/agent                    # cassemagent.api.proto
+make -C api                          # Generate all API protobuf files
+make -C api kv.gen-proto             # cassemdb.api.proto, cassemdb.raft.proto
+make -C api concept.gen-proto        # types.proto, acl.proto
+make -C api agent.gen-proto          # cassemagent.api.proto
 ```
 
 The top-level Makefile intentionally does not expose proto generation targets.
