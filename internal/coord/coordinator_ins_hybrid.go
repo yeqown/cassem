@@ -10,7 +10,7 @@ import (
 	"github.com/yeqown/log"
 
 	"github.com/yeqown/cassem/api/concept"
-	"github.com/yeqown/cassem/pkg/errorx"
+	errorx "github.com/yeqown/cassem/api/concept"
 	"github.com/yeqown/cassem/pkg/runtime"
 )
 

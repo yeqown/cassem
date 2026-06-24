@@ -3,18 +3,17 @@ package coord
 import (
 	"context"
 	"errors"
-
-	"buf.build/go/protovalidate"
-	apikv "github.com/yeqown/cassem/api/kv"
 	"slices"
 	"strings"
 	"testing"
 
+	"buf.build/go/protovalidate"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 
 	"github.com/yeqown/cassem/api/concept"
-	"github.com/yeqown/cassem/pkg/errorx"
+	errorx "github.com/yeqown/cassem/api/concept"
+	apikv "github.com/yeqown/cassem/api/kv"
 )
 
 type kvReadOnlyTestKV struct {

@@ -1,64 +1,29 @@
 package adm
 
 import (
+	"context"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/gin-gonic/gin"
-	"github.com/yeqown/cassem/api/concept"
-	"github.com/yeqown/cassem/pkg/errorx"
-	"github.com/yeqown/cassem/pkg/httpx"
-	"github.com/yeqown/log"
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/go-chi/chi/v5"
+
+	"github.com/yeqown/cassem/api/concept"
+	errorx "github.com/yeqown/cassem/api/concept"
+	"github.com/yeqown/cassem/pkg/httpx"
 )
 
-func Authentication(rbac concept.RBAC) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		sess, ok := GetSessionFromContext(c)
-		if !ok {
-			log.Debug("Authentication session not found")
-			httpx.ResponseErrorAndAbort(c, fmt.Errorf("session not found: %w", errorx.Err_PERMISSION_DENIED))
-			return
-		}
-
-		fp := c.FullPath()
-		def, ok := defMapping[c.Request.Method+fp]
-		if !ok {
-			log.
-				WithFields(log.Fields{
-					"fullPath": fp,
-					"method":   c.Request.Method,
-				}).
-				Debug("Authentication objectDef not found")
-			c.Next()
-			return
-		}
-
-		// App/environment roles must not collapse into cluster-wide permissions.
-		domain := requestDomain(c)
-		allow, err := rbac.Enforce(sess.Account, domain, def.object, def.act)
-		if err != nil {
-			httpx.ResponseErrorAndAbort(c, err)
-			return
-		}
-
-		if !allow {
-			httpx.ResponseErrorAndAbort(c, fmt.Errorf("not allowed: %w", errorx.Err_PERMISSION_DENIED))
-			return
-		}
-
-		c.Next()
-	}
+func requestDomainHTTP(r *http.Request) string {
+	return domainFromParams(chi.URLParam(r, "appId"), chi.URLParam(r, "env"))
 }
 
-func requestDomain(c *gin.Context) string {
-	appID := c.Param("appId")
-	env := c.Param("env")
+func domainFromParams(appID, env string) string {
 	if appID != "" && env != "" {
 		return appID + "/" + env
 	}
@@ -74,7 +39,6 @@ type objectDef struct {
 }
 
 var defMapping = map[string]objectDef{
-	// app and it's sub-objects
 	"GET/api/apps":           {object: concept.Object_APP, act: concept.Action_READ},
 	"GET/api/apps/:appId":    {object: concept.Object_APP, act: concept.Action_READ},
 	"POST/api/apps/:appId":   {object: concept.Object_APP, act: concept.Action_WRITE},
@@ -94,7 +58,6 @@ var defMapping = map[string]objectDef{
 	"POST/api/apps/:appId/envs/:env/elements/:key/rollback":  {object: concept.Object_ELEMENT, act: concept.Action_PUBLISH},
 	"POST/api/apps/:appId/envs/:env/elements/:key/publish":   {object: concept.Object_ELEMENT, act: concept.Action_PUBLISH},
 
-	// acl
 	"GET/api/account/users":              {object: concept.Object_USER, act: concept.Action_READ},
 	"GET/api/account/users/:account/acl": {object: concept.Object_ACL, act: concept.Action_READ},
 	"POST/api/account/add":               {object: concept.Object_USER, act: concept.Action_WRITE},
@@ -105,10 +68,8 @@ var defMapping = map[string]objectDef{
 	"GET/api/account/acl/assign":         {object: concept.Object_ACL, act: concept.Action_WRITE},
 	"GET/api/account/acl/revoke":         {object: concept.Object_ACL, act: concept.Action_WRITE},
 
-	// admin
 	"GET/api/admin/retention": {object: concept.Object_CLUSTER, act: concept.Action_READ},
 
-	// cluster
 	"GET/api/cluster/agents":                  {object: concept.Object_CLUSTER, act: concept.Action_READ},
 	"GET/api/cluster/instances":               {object: concept.Object_CLUSTER, act: concept.Action_READ},
 	"GET/api/cluster/instances/filter":        {object: concept.Object_CLUSTER, act: concept.Action_READ},
@@ -121,64 +82,80 @@ type Session struct {
 	ExpiredAt int64
 }
 
-func Authorization(rbac concept.RBAC, sessionSecret string) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		s := c.GetHeader("x-cassem-session")
-		log.
-			WithFields(log.Fields{"sess": s}).
-			Debug("Authorization called")
-		if s == "" {
-			httpx.ResponseErrorStatusAndAbort(c, http.StatusUnauthorized, errorx.Err_UNAUTHENTICATED)
-			return
-		}
+type sessionContextKey struct{}
 
-		sess, err := parseSession(s, sessionSecret)
-		if err != nil {
-			httpx.ResponseErrorStatusAndAbort(c, http.StatusUnauthorized, errorx.Err_UNAUTHENTICATED)
-			return
-		}
-
-		user, err := rbac.GetUser(sess.Account)
-		if err != nil {
-			log.Warnf("Authentication get user failed: %v", err)
-			httpx.ResponseErrorAndAbort(c, fmt.Errorf("authentication get user: %w", errors.Join(err, errorx.Err_INTERNAL)))
-			return
-		}
-
-		if err = validSession(sess, user); err != nil {
-			httpx.ResponseErrorAndAbort(c, fmt.Errorf("valid session: %w", errors.Join(err, errorx.Err_UNAUTHENTICATED)))
-			return
-		}
-
-		c.Set("sess", sess)
-		c.Request = c.Request.WithContext(concept.WithOperator(c.Request.Context(), sess.Account))
-		c.Next()
-	}
+func withSession(ctx context.Context, sess *Session) context.Context {
+	return context.WithValue(ctx, sessionContextKey{}, sess)
 }
 
-func GetSessionFromContext(c *gin.Context) (*Session, bool) {
-	v, ok := c.Get("sess")
-	if !ok {
-		return nil, false
-	}
-
+func GetSessionFromRequest(r *http.Request) (*Session, bool) {
+	v := r.Context().Value(sessionContextKey{})
 	sess, ok := v.(*Session)
 	return sess, ok
 }
 
+func withRouteAuth(rbac concept.RBAC, sessionSecret, method, authPattern string, next http.Handler) http.Handler {
+	def, ok := defMapping[method+authPattern]
+	if !ok {
+		return next
+	}
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		sess, err := authorizeRequest(r, rbac, sessionSecret)
+		if err != nil {
+			httpx.WriteErrorStatus(w, http.StatusUnauthorized, errorx.Err_UNAUTHENTICATED)
+			return
+		}
+
+		allow, err := rbac.Enforce(sess.Account, requestDomainHTTP(r), def.object, def.act)
+		if err != nil {
+			httpx.WriteError(w, err)
+			return
+		}
+		if !allow {
+			httpx.WriteError(w, fmt.Errorf("not allowed: %w", errorx.Err_PERMISSION_DENIED))
+			return
+		}
+
+		ctx := withSession(r.Context(), sess)
+		ctx = concept.WithOperator(ctx, sess.Account)
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
+func authorizeRequest(r *http.Request, rbac concept.RBAC, sessionSecret string) (*Session, error) {
+	s := r.Header.Get("x-cassem-session")
+	if s == "" {
+		return nil, errorx.Err_UNAUTHENTICATED
+	}
+
+	sess, err := parseSession(s, sessionSecret)
+	if err != nil {
+		return nil, errorx.Err_UNAUTHENTICATED
+	}
+
+	user, err := rbac.GetUser(sess.Account)
+	if err != nil {
+		return nil, fmt.Errorf("authentication get user: %w", errors.Join(err, errorx.Err_INTERNAL))
+	}
+
+	if err = validSession(sess, user); err != nil {
+		return nil, fmt.Errorf("valid session: %w", errors.Join(err, errorx.Err_UNAUTHENTICATED))
+	}
+
+	return sess, nil
+}
+
 func validSession(sess *Session, user *concept.User) error {
-	// valid session status
 	if user.GetStatus() != concept.User_NORMAL {
 		return fmt.Errorf("status disabled: %w", errorx.Err_UNAUTHENTICATED)
 	}
 	if user.GetSalt() != sess.Salt {
 		return fmt.Errorf("invalid session header: %w", errorx.Err_UNAUTHENTICATED)
 	}
-
 	if sub := time.Now().Unix() - sess.ExpiredAt; sub >= 0 {
 		return fmt.Errorf("session expired: %w", errorx.Err_UNAUTHENTICATED)
 	}
-
 	return nil
 }
 
@@ -208,7 +185,6 @@ func parseSession(s string, sessionSecret string) (*Session, error) {
 	if err = json.Unmarshal(payload, sess); err != nil {
 		return nil, fmt.Errorf("parse session: %w", errors.Join(err, errorx.Err_INVALID_ARGUMENT))
 	}
-
 	return sess, nil
 }
 

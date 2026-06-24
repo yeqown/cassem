@@ -4,17 +4,17 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
+	"strings"
+	"testing"
 
 	"buf.build/go/protovalidate"
 	"github.com/stretchr/testify/require"
 	"github.com/yeqown/cassem/api/concept"
+	errorx "github.com/yeqown/cassem/api/concept"
 	apikv "github.com/yeqown/cassem/api/kv"
-	"github.com/yeqown/cassem/pkg/errorx"
 	"github.com/yeqown/cassem/pkg/hash"
 	"google.golang.org/grpc"
-	"slices"
-	"strings"
-	"testing"
 )
 
 type aclTestKV struct {

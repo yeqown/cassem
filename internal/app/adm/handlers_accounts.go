@@ -1,13 +1,14 @@
 package adm
 
 import (
-	"github.com/gin-gonic/gin"
-	"github.com/yeqown/cassem/api/concept"
-	"github.com/yeqown/cassem/pkg/errorx"
-	"github.com/yeqown/cassem/pkg/hash"
-	"github.com/yeqown/cassem/pkg/httpx"
+	"net/http"
 	"slices"
 	"time"
+
+	"github.com/yeqown/cassem/api/concept"
+	errorx "github.com/yeqown/cassem/api/concept"
+	"github.com/yeqown/cassem/pkg/hash"
+	"github.com/yeqown/cassem/pkg/httpx"
 )
 
 func normalizeAccountRole(role string) string {
@@ -17,50 +18,46 @@ func normalizeAccountRole(role string) string {
 	return role
 }
 
-func (d app) UserLogin(c *gin.Context) {
+func (d app) UserLoginHTTP(w http.ResponseWriter, r *http.Request) {
 	req := new(userLoginReq)
-	if err := c.ShouldBind(req); err != nil {
-		httpx.ResponseError(c, err)
+	if err := bindRequest(r, req); err != nil {
+		httpx.WriteError(w, err)
 		return
 	}
 
 	u, err := d.aggregate.GetUser(req.Account)
 	if err != nil {
 		if ex, ok := errorx.FromError(err); ok && ex.Code == errorx.Code_NOT_FOUND {
-			httpx.ResponseError(c, errorx.New(errorx.Code_NOT_FOUND, "login failed"))
+			httpx.WriteError(w, errorx.New(errorx.Code_NOT_FOUND, "login failed"))
 			return
 		}
-		httpx.ResponseError(c, err)
+		httpx.WriteError(w, err)
 		return
 	}
-
 	if u.GetStatus() != concept.User_NORMAL {
-		httpx.ResponseError(c, errorx.Err_PERMISSION_DENIED)
+		httpx.WriteError(w, errorx.Err_PERMISSION_DENIED)
 		return
 	}
-
 	if hash.WithSalt(req.Password, u.Salt) != u.GetHashedPassword() {
-		httpx.ResponseError(c, errorx.New(errorx.Code_NOT_FOUND, "login failed"))
+		httpx.WriteError(w, errorx.New(errorx.Code_NOT_FOUND, "login failed"))
 		return
 	}
-
 	roles, err := d.aggregate.GetUserRoles(req.Account)
 	if err != nil {
-		httpx.ResponseError(c, err)
+		httpx.WriteError(w, err)
 		return
 	}
-
 	sess, err := EncodeSession(&Session{
 		Account:   u.GetAccount(),
 		Salt:      u.GetSalt(),
 		ExpiredAt: time.Now().AddDate(0, 0, 1).Unix(),
 	}, d.conf.Auth.SessionSecret)
 	if err != nil {
-		httpx.ResponseError(c, err)
+		httpx.WriteError(w, err)
 		return
 	}
 
-	httpx.ResponseJSON(c, userLoginResp{User: userLoginUser{
+	httpx.WriteJSON(w, userLoginResp{User: userLoginUser{
 		Account:  u.GetAccount(),
 		Nickname: u.GetNickname(),
 		Status:   int32(u.GetStatus()),
@@ -68,24 +65,22 @@ func (d app) UserLogin(c *gin.Context) {
 	}, Session: sess})
 }
 
-func (d app) GetUsers(c *gin.Context) {
+func (d app) GetUsersHTTP(w http.ResponseWriter, r *http.Request) {
 	req := new(getUsersReq)
-	if err := c.ShouldBind(req); err != nil {
-		httpx.ResponseError(c, err)
+	if err := bindRequest(r, req); err != nil {
+		httpx.WriteError(w, err)
 		return
 	}
-
 	out, err := d.aggregate.GetUsers(req.Seek, req.Limit)
 	if err != nil {
-		httpx.ResponseError(c, err)
+		httpx.WriteError(w, err)
 		return
 	}
-
 	users := make([]accountUserView, 0, len(out.Users))
 	for _, item := range out.Users {
 		bindings, err := d.aggregate.GetUserRoleBindings(item.GetAccount())
 		if err != nil {
-			httpx.ResponseError(c, err)
+			httpx.WriteError(w, err)
 			return
 		}
 		roles := make([]string, 0, len(bindings))
@@ -105,131 +100,104 @@ func (d app) GetUsers(c *gin.Context) {
 			AccessSummary: summary,
 		})
 	}
-
-	httpx.ResponseJSON(c, getUsersResp{Users: users})
+	httpx.WriteJSON(w, getUsersResp{Users: users})
 }
 
-func (d app) GetUserACL(c *gin.Context) {
+func (d app) GetUserACLHTTP(w http.ResponseWriter, r *http.Request) {
 	req := new(getUserAclReq)
-	_ = c.ShouldBindUri(req)
-	if err := c.ShouldBind(req); err != nil {
-		httpx.ResponseError(c, err)
+	if err := bindRequest(r, req); err != nil {
+		httpx.WriteError(w, err)
 		return
 	}
-
 	bindings, err := d.aggregate.GetUserRoleBindings(req.Account)
 	if err != nil {
-		httpx.ResponseError(c, err)
+		httpx.WriteError(w, err)
 		return
 	}
-
 	out := make([]accountUserBinding, 0, len(bindings))
 	for _, binding := range bindings {
 		out = append(out, accountUserBinding{Role: binding.Role, Domain: binding.Domain})
 	}
-
-	httpx.ResponseJSON(c, getUserAclResp{Bindings: out})
+	httpx.WriteJSON(w, getUserAclResp{Bindings: out})
 }
 
-func (d app) GetACLDomainOptions(c *gin.Context) {
+func (d app) GetACLDomainOptionsHTTP(w http.ResponseWriter, r *http.Request) {
 	domains, err := d.aggregate.ListDomainOptions()
 	if err != nil {
-		httpx.ResponseError(c, err)
+		httpx.WriteError(w, err)
 		return
 	}
-
-	httpx.ResponseJSON(c, getAclDomainsResp{Domains: domains})
+	httpx.WriteJSON(w, getAclDomainsResp{Domains: domains})
 }
 
-func (d app) AddUser(c *gin.Context) {
+func (d app) AddUserHTTP(w http.ResponseWriter, r *http.Request) {
 	req := new(addUserReq)
-	if err := c.ShouldBind(req); err != nil {
-		httpx.ResponseError(c, err)
+	if err := bindRequest(r, req); err != nil {
+		httpx.WriteError(w, err)
 		return
 	}
-
-	u := &concept.User{
-		Account:        req.Account,
-		Nickname:       req.Nickname,
-		HashedPassword: req.Password,
-		Status:         concept.User_NORMAL,
-	}
-	err := d.aggregate.AddUser(u)
-	if err != nil {
-		httpx.ResponseError(c, err)
+	u := &concept.User{Account: req.Account, Nickname: req.Nickname, HashedPassword: req.Password, Status: concept.User_NORMAL}
+	if err := d.aggregate.AddUser(u); err != nil {
+		httpx.WriteError(w, err)
 		return
 	}
-
-	httpx.ResponseJSON(c, nil)
+	httpx.WriteJSON(w, nil)
 }
 
-func (d app) DisableUser(c *gin.Context) {
+func (d app) DisableUserHTTP(w http.ResponseWriter, r *http.Request) {
 	req := new(disableUserReq)
-	if err := c.ShouldBind(req); err != nil {
-		httpx.ResponseError(c, err)
+	if err := bindRequest(r, req); err != nil {
+		httpx.WriteError(w, err)
 		return
 	}
-
-	err := d.aggregate.DisableUser(req.Account)
-	if err != nil {
-		httpx.ResponseError(c, err)
+	if err := d.aggregate.DisableUser(req.Account); err != nil {
+		httpx.WriteError(w, err)
 		return
 	}
-
-	httpx.ResponseJSON(c, nil)
+	httpx.WriteJSON(w, nil)
 }
 
-func (d app) ResetUser(c *gin.Context) {
+func (d app) ResetUserHTTP(w http.ResponseWriter, r *http.Request) {
 	req := new(resetUserReq)
-	if err := c.ShouldBind(req); err != nil {
-		httpx.ResponseError(c, err)
+	if err := bindRequest(r, req); err != nil {
+		httpx.WriteError(w, err)
 		return
 	}
-
 	if err := d.aggregate.ResetUser(req.Account, req.Password); err != nil {
-		httpx.ResponseError(c, err)
+		httpx.WriteError(w, err)
 		return
 	}
-
-	httpx.ResponseJSON(c, nil)
+	httpx.WriteJSON(w, nil)
 }
 
-func (d app) AssignRole(c *gin.Context) {
+func (d app) AssignRoleHTTP(w http.ResponseWriter, r *http.Request) {
 	req := new(assignOrRevokeRoleReq)
-	if err := c.ShouldBind(req); err != nil {
-		httpx.ResponseError(c, err)
+	if err := bindRequest(r, req); err != nil {
+		httpx.WriteError(w, err)
 		return
 	}
-
 	if len(req.Domains) == 0 {
 		req.Domains = []string{concept.Domain_CLUSTER}
 	}
-
-	err := d.aggregate.AssignRole(req.Account, normalizeAccountRole(req.Role), req.Domains...)
-	if err != nil {
-		httpx.ResponseError(c, err)
+	if err := d.aggregate.AssignRole(req.Account, normalizeAccountRole(req.Role), req.Domains...); err != nil {
+		httpx.WriteError(w, err)
 		return
 	}
-
-	httpx.ResponseJSON(c, nil)
+	httpx.WriteJSON(w, nil)
 }
 
-func (d app) RevokeRole(c *gin.Context) {
+func (d app) RevokeRoleHTTP(w http.ResponseWriter, r *http.Request) {
 	req := new(assignOrRevokeRoleReq)
-	if err := c.ShouldBind(req); err != nil {
-		httpx.ResponseError(c, err)
+	if err := bindRequest(r, req); err != nil {
+		httpx.WriteError(w, err)
 		return
 	}
-
 	if len(req.Domains) == 0 {
 		req.Domains = []string{concept.Domain_CLUSTER}
 	}
-
-	err := d.aggregate.RevokeRole(req.Account, normalizeAccountRole(req.Role), req.Domains...)
-	if err != nil {
-		httpx.ResponseError(c, err)
+	if err := d.aggregate.RevokeRole(req.Account, normalizeAccountRole(req.Role), req.Domains...); err != nil {
+		httpx.WriteError(w, err)
 		return
 	}
-
-	httpx.ResponseJSON(c, nil)
+	httpx.WriteJSON(w, nil)
 }

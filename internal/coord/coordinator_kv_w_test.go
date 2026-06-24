@@ -10,7 +10,7 @@ import (
 	"google.golang.org/grpc"
 
 	"github.com/yeqown/cassem/api/concept"
-	"github.com/yeqown/cassem/pkg/errorx"
+	errorx "github.com/yeqown/cassem/api/concept"
 )
 
 type kvWriteOnlyTestKV struct {

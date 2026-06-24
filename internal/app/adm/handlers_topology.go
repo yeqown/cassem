@@ -2,34 +2,19 @@ package adm
 
 import (
 	"context"
-	"github.com/gin-gonic/gin"
-	"github.com/yeqown/cassem/api/concept"
-	"github.com/yeqown/cassem/pkg/httpx"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/health/grpc_health_v1"
 	"net"
+	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
 	"time"
+
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/health/grpc_health_v1"
+
+	"github.com/yeqown/cassem/api/concept"
+	"github.com/yeqown/cassem/pkg/httpx"
 )
-
-func (d app) GetAgents(c *gin.Context) {
-	req := new(pagingAgentInstanceReq)
-	if err := c.ShouldBind(req); err != nil {
-		httpx.ResponseError(c, err)
-		return
-	}
-
-	out := d.ap.all()
-	//out, err := d.aggregate.GetAgents(c.Request.Context(), req.Seek, req.Limit)
-	//if err != nil {
-	//	httpx.ResponseError(c, err)
-	//	return
-	//}
-
-	httpx.ResponseJSON(c, out)
-}
 
 type instanceTargetView struct {
 	App string `json:"app"`
@@ -101,54 +86,6 @@ func instanceTargets(watchings []*concept.Instance_Watching) []instanceTargetVie
 	return targets
 }
 
-func (d app) GetInstance(c *gin.Context) {
-	req := new(getInstanceReq)
-	if err := c.ShouldBindUri(req); err != nil {
-		httpx.ResponseError(c, err)
-		return
-	}
-
-	out, err := d.aggregate.GetInstance(c.Request.Context(), req.InsId)
-	if err != nil {
-		httpx.ResponseError(c, err)
-		return
-	}
-
-	httpx.ResponseJSON(c, out)
-}
-
-func (d app) GetInstances(c *gin.Context) {
-	req := new(getInstancesReq)
-	if err := c.ShouldBind(req); err != nil {
-		httpx.ResponseError(c, err)
-		return
-	}
-
-	out, err := d.aggregate.GetInstances(c.Request.Context(), req.Seek, req.Limit)
-	if err != nil {
-		httpx.ResponseError(c, err)
-		return
-	}
-
-	httpx.ResponseJSON(c, newInstancesResp(out))
-}
-
-func (d app) GetInstancesByElement(c *gin.Context) {
-	req := new(getInstancesByElementReq)
-	if err := c.ShouldBind(req); err != nil {
-		httpx.ResponseError(c, err)
-		return
-	}
-
-	out, err := d.aggregate.GetInstancesByElement(c.Request.Context(), req.AppId, req.Env, req.ElementKey)
-	if err != nil {
-		httpx.ResponseError(c, err)
-		return
-	}
-
-	httpx.ResponseJSON(c, newInstancesResp(out))
-}
-
 type topologyHealth string
 
 const (
@@ -191,14 +128,63 @@ type clusterTopologyResp struct {
 	Instances []topologyInstanceNode `json:"instances"`
 }
 
-func (d app) GetClusterTopology(c *gin.Context) {
-	out, err := d.clusterTopology(c.Request.Context(), time.Now())
-	if err != nil {
-		httpx.ResponseError(c, err)
+func (d app) GetAgentsHTTP(w http.ResponseWriter, r *http.Request) {
+	out := []*concept.AgentInstance(nil)
+	if d.ap != nil {
+		out = d.ap.all()
+	}
+	httpx.WriteJSON(w, out)
+}
+
+func (d app) GetInstanceHTTP(w http.ResponseWriter, r *http.Request) {
+	req := new(getInstanceReq)
+	if err := bindRequest(r, req); err != nil {
+		httpx.WriteError(w, err)
 		return
 	}
+	out, err := d.aggregate.GetInstance(r.Context(), req.InsId)
+	if err != nil {
+		httpx.WriteError(w, err)
+		return
+	}
+	httpx.WriteJSON(w, out)
+}
 
-	httpx.ResponseJSON(c, out)
+func (d app) GetInstancesHTTP(w http.ResponseWriter, r *http.Request) {
+	req := new(getInstancesReq)
+	if err := bindRequest(r, req); err != nil {
+		httpx.WriteError(w, err)
+		return
+	}
+	out, err := d.aggregate.GetInstances(r.Context(), req.Seek, req.Limit)
+	if err != nil {
+		httpx.WriteError(w, err)
+		return
+	}
+	httpx.WriteJSON(w, newInstancesResp(out))
+}
+
+func (d app) GetInstancesByElementHTTP(w http.ResponseWriter, r *http.Request) {
+	req := new(getInstancesByElementReq)
+	if err := bindRequest(r, req); err != nil {
+		httpx.WriteError(w, err)
+		return
+	}
+	out, err := d.aggregate.GetInstancesByElement(r.Context(), req.AppId, req.Env, req.ElementKey)
+	if err != nil {
+		httpx.WriteError(w, err)
+		return
+	}
+	httpx.WriteJSON(w, newInstancesResp(out))
+}
+
+func (d app) GetClusterTopologyHTTP(w http.ResponseWriter, r *http.Request) {
+	out, err := d.clusterTopology(r.Context(), time.Now())
+	if err != nil {
+		httpx.WriteError(w, err)
+		return
+	}
+	httpx.WriteJSON(w, out)
 }
 
 func (d app) clusterTopology(ctx context.Context, now time.Time) (*clusterTopologyResp, error) {

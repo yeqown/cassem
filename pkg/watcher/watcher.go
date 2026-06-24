@@ -1,16 +1,15 @@
 package watcher
 
-type ChangeType uint8
+import "github.com/yeqown/cassem/api/concept"
+
+type ChangeType = concept.ChangeType
 
 const (
-	ChangeType_KV ChangeType = iota + 1
-	ChangeType_DIR
+	ChangeType_KV  = concept.ChangeType_KV
+	ChangeType_DIR = concept.ChangeType_DIR
 )
 
-type IChange interface {
-	Topic() string
-	Type() ChangeType
-}
+type IChange = concept.Change
 
 // IWatcher provides Subscribe(obs ...IObserver) and Unsubscribe(obs IObserver) for observers,
 // and ChangeNotify(notify IChange) for producer.

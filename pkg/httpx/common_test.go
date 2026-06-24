@@ -6,17 +6,12 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/yeqown/cassem/pkg/errorx"
+	errorx "github.com/yeqown/cassem/api/concept"
 )
 
-func init() {
-	gin.SetMode(gin.TestMode)
-}
-
-func TestResponseJSON(t *testing.T) {
+func TestWriteJSON(t *testing.T) {
 	tests := []struct {
 		name     string
 		data     any
@@ -42,11 +37,11 @@ func TestResponseJSON(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			w := httptest.NewRecorder()
-			c, _ := gin.CreateTestContext(w)
 
-			ResponseJSON(c, tt.data)
+			WriteJSON(w, tt.data)
 
 			assert.Equal(t, http.StatusOK, w.Code)
+			assert.Equal(t, "application/json; charset=utf-8", w.Header().Get("Content-Type"))
 			var response CommonResponse
 			err := json.Unmarshal(w.Body.Bytes(), &response)
 			assert.NoError(t, err)
@@ -59,41 +54,25 @@ func TestResponseJSON(t *testing.T) {
 	}
 }
 
-func TestResponseError(t *testing.T) {
+func TestWriteError(t *testing.T) {
 	tests := []struct {
-		name        string
-		err         error
-		expectAbort bool
-		expectCode  ErrorCode
+		name       string
+		err        error
+		expectCode ErrorCode
 	}{
-		{
-			name:        "simple error",
-			err:         assert.AnError,
-			expectAbort: false,
-			expectCode:  FAILED,
-		},
-		{
-			name:        "errorx error - already exists",
-			err:         errorx.Err_ALREADY_EXISTS,
-			expectAbort: false,
-			expectCode:  ErrorCode(errorx.Code_ALREADY_EXISTS),
-		},
-		{
-			name:        "errorx error - not found",
-			err:         errorx.Err_NOT_FOUND,
-			expectAbort: false,
-			expectCode:  ErrorCode(errorx.Code_NOT_FOUND),
-		},
+		{name: "simple error", err: assert.AnError, expectCode: FAILED},
+		{name: "errorx error - already exists", err: errorx.Err_ALREADY_EXISTS, expectCode: ErrorCode(errorx.Code_ALREADY_EXISTS)},
+		{name: "errorx error - not found", err: errorx.Err_NOT_FOUND, expectCode: ErrorCode(errorx.Code_NOT_FOUND)},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			w := httptest.NewRecorder()
-			c, _ := gin.CreateTestContext(w)
 
-			ResponseError(c, tt.err)
+			WriteError(w, tt.err)
 
 			assert.Equal(t, http.StatusBadRequest, w.Code)
+			assert.Equal(t, "application/json; charset=utf-8", w.Header().Get("Content-Type"))
 			var response CommonResponse
 			err := json.Unmarshal(w.Body.Bytes(), &response)
 			assert.NoError(t, err)
@@ -103,79 +82,46 @@ func TestResponseError(t *testing.T) {
 	}
 }
 
-func TestResponseErrorAndAbort(t *testing.T) {
+func TestWriteErrorStatus(t *testing.T) {
 	tests := []struct {
-		name        string
-		err         error
-		expectAbort bool
+		name       string
+		status     int
+		err        error
+		expectCode ErrorCode
 	}{
-		{
-			name:        "error and abort",
-			err:         assert.AnError,
-			expectAbort: true,
-		},
+		{name: "internal server error", status: http.StatusInternalServerError, err: assert.AnError, expectCode: FAILED},
+		{name: "not found", status: http.StatusNotFound, err: errorx.Err_NOT_FOUND, expectCode: ErrorCode(errorx.Code_NOT_FOUND)},
+		{name: "zero status defaults to bad request", status: 0, err: assert.AnError, expectCode: FAILED},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			w := httptest.NewRecorder()
-			c, _ := gin.CreateTestContext(w)
 
-			ResponseErrorAndAbort(c, tt.err)
+			WriteErrorStatus(w, tt.status, tt.err)
 
-			assert.Equal(t, http.StatusBadRequest, w.Code)
-			assert.True(t, c.IsAborted(), "Context should be aborted")
+			expectedStatus := tt.status
+			if expectedStatus == 0 {
+				expectedStatus = http.StatusBadRequest
+			}
+			assert.Equal(t, expectedStatus, w.Code)
+			assert.Equal(t, "application/json; charset=utf-8", w.Header().Get("Content-Type"))
+			var response CommonResponse
+			err := json.Unmarshal(w.Body.Bytes(), &response)
+			assert.NoError(t, err)
+			assert.Equal(t, tt.expectCode, response.ErrCode)
+			assert.NotEmpty(t, response.ErrMessage)
 		})
 	}
 }
 
-func TestResponseErrorStatusAndAbort(t *testing.T) {
-	tests := []struct {
-		name        string
-		status      int
-		err         error
-		expectAbort bool
-	}{
-		{
-			name:        "internal server error",
-			status:      http.StatusInternalServerError,
-			err:         assert.AnError,
-			expectAbort: true,
-		},
-		{
-			name:        "not found",
-			status:      http.StatusNotFound,
-			err:         errorx.Err_NOT_FOUND,
-			expectAbort: true,
-		},
-		{
-			name:        "unauthorized",
-			status:      http.StatusUnauthorized,
-			err:         assert.AnError,
-			expectAbort: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			w := httptest.NewRecorder()
-			c, _ := gin.CreateTestContext(w)
-
-			ResponseErrorStatusAndAbort(c, tt.status, tt.err)
-
-			assert.Equal(t, tt.status, w.Code)
-			assert.True(t, c.IsAborted(), "Context should be aborted")
-		})
-	}
-}
-
-func TestResponseWithStatusAndError_NilError(t *testing.T) {
+func TestWriteErrorStatus_NilError(t *testing.T) {
 	w := httptest.NewRecorder()
-	c, _ := gin.CreateTestContext(w)
 
-	responseWithStatusAndError(c, http.StatusBadRequest, nil, true)
+	WriteErrorStatus(w, http.StatusBadRequest, nil)
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
+	assert.Equal(t, "application/json; charset=utf-8", w.Header().Get("Content-Type"))
 	var response CommonResponse
 	err := json.Unmarshal(w.Body.Bytes(), &response)
 	assert.NoError(t, err)

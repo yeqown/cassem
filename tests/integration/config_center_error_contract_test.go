@@ -15,7 +15,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"github.com/yeqown/cassem/pkg/errorx"
+	errorx "github.com/yeqown/cassem/api/concept"
 	"github.com/yeqown/cassem/pkg/httpx"
 	"github.com/yeqown/cassem/tests/testutil"
 	"google.golang.org/grpc"

@@ -4,12 +4,13 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"net/http"
 	"os"
 	"time"
 
-	"github.com/gin-contrib/cors"
-	"github.com/gin-contrib/pprof"
-	"github.com/gin-gonic/gin"
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
+	"github.com/go-chi/cors"
 
 	"github.com/yeqown/cassem/api/concept"
 	"github.com/yeqown/cassem/internal/coord"
@@ -70,9 +71,8 @@ func New(c *conf.CassemAdminConfig) (*app, error) {
 }
 
 func (d app) Run() {
-	engi := gin.New()
-
-	d.initialHTTP(engi)
+	r := chi.NewRouter()
+	d.initialHTTP(r)
 	listener, err := net.Listen("tcp", d.conf.HTTP.Addr)
 	if err != nil {
 		log.Fatal(err)
@@ -81,108 +81,29 @@ func (d app) Run() {
 		d.retention.run()
 	}
 
-	if err = engi.RunListener(listener); err != nil {
+	if err = http.Serve(listener, r); err != nil {
 		log.Fatal(err)
 	}
 }
 
-func (d app) initialHTTP(engi *gin.Engine) {
-	gin.EnableJsonDecoderUseNumber()
-	if !isDebug() {
-		gin.SetMode(gin.ReleaseMode)
-	}
-
-	engi.Use(httpx.Recovery())
-	engi.Use(httpx.Logger())
-	corsConfig := cors.Config{
-		AllowAllOrigins:  true,
-		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"},
-		AllowHeaders:     []string{"Origin", "Content-Length", "Content-Type", "X-CASSEM-SESSION"},
+func (d app) initialHTTP(r chi.Router) {
+	r.Use(httpx.RecoveryHTTP)
+	r.Use(httpx.LoggerHTTP)
+	r.Use(cors.Handler(cors.Options{
+		AllowedOrigins:   []string{"*"},
+		AllowedMethods:   []string{"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"},
+		AllowedHeaders:   []string{"Origin", "Content-Length", "Content-Type", "X-CASSEM-SESSION"},
 		AllowCredentials: false,
-		MaxAge:           12 * time.Hour,
-	}
-	engi.Use(cors.New(corsConfig))
+		MaxAge:           int((12 * time.Hour).Seconds()),
+	}))
 
 	if isDebug() {
-		pprof.Register(engi, "/debug/pprof")
+		r.Mount("/debug/pprof", middleware.Profiler())
 	}
 
-	if err := mountUI(engi); err != nil {
+	if err := mountUI(r); err != nil {
 		log.Fatalf("mount UI: %v", err)
 	}
 
-	// mount APIs
-	// DONE(@yeqown) authorize middleware is needed.
-	public := engi.Group("/api")
-	auth := engi.Group("/api", Authorization(d.aggregate, d.conf.Auth.SessionSecret), Authentication(d.aggregate))
-	accountp := public.Group("/account")
-	{
-		accountp.POST("/login", d.UserLogin)
-	}
-
-	accounta := auth.Group("/account")
-	{
-		accounta.GET("/users", d.GetUsers)
-		accounta.GET("/users/:account/acl", d.GetUserACL)
-		accounta.POST("/add", d.AddUser)
-		accounta.GET("/disable", d.DisableUser)
-		accounta.GET("/reset", d.ResetUser)
-		accounta.POST("/reset", d.ResetUser)
-		accounta.GET("/acl/domains", d.GetACLDomainOptions)
-		accounta.GET("/acl/assign", d.AssignRole)
-		accounta.GET("/acl/revoke", d.RevokeRole)
-	}
-
-	admin := auth.Group("/admin")
-	{
-		admin.GET("/retention", d.GetRetentionPolicy)
-	}
-
-	apps := auth.Group("/apps")
-	{
-		apps.GET("", d.GetApps)
-		apps.GET("/:appId", d.GetApp)
-		apps.POST("/:appId", d.CreateApp)
-		apps.DELETE("/:appId", d.DeleteApp)
-
-		envs := apps.Group("/:appId/envs")
-		{
-			envs.GET("", d.GetAppEnvironments)
-			{
-				envs.POST("/:env", d.CreateAppEnvironment)
-				envs.DELETE("/:env", d.DeleteAppEnvironment)
-			}
-
-			elt := envs.Group("/:env/elements")
-			{
-				elt.GET("", d.GetAppEnvElements)
-				elt.GET("/:key", d.GetAppEnvElement)
-				elt.POST("/:key", d.CreateAppEnvElement)
-				elt.PUT("/:key", d.UpdateAppEnvElement)
-				elt.DELETE("/:key", d.DeleteAppEnvElement)
-
-				elt.GET("/:key/versions", d.GetAppEnvElementAllVersions)
-				elt.POST("/:key/rollback", d.RollbackAppEnvElement)
-				elt.POST("/:key/publish", d.PublishAppEnvElement)
-				elt.GET("/:key/operations", d.GetAppEnvElementOperations)
-			}
-		}
-	}
-
-	cluster := auth.Group("/cluster")
-	{
-		cluster.GET("/topology", d.GetClusterTopology)
-
-		agentIns := cluster.Group("/agents")
-		{
-			agentIns.GET("", d.GetAgents)
-		}
-
-		instances := cluster.Group("/instances")
-		{
-			instances.GET("", d.GetInstances)
-			instances.GET("/detail/:insId", d.GetInstance)
-			instances.GET("/filter", d.GetInstancesByElement)
-		}
-	}
+	d.mountAdminRoutes(r)
 }

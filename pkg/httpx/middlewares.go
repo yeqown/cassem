@@ -10,70 +10,73 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	"github.com/yeqown/log"
 
 	"github.com/yeqown/cassem/pkg/runtime"
 )
 
-func Recovery() gin.HandlerFunc {
-	return func(c *gin.Context) {
+type statusRecorder struct {
+	http.ResponseWriter
+	status int
+}
+
+func (w *statusRecorder) WriteHeader(status int) {
+	w.status = status
+	w.ResponseWriter.WriteHeader(status)
+}
+
+func (w *statusRecorder) Status() int {
+	if w.status == 0 {
+		return http.StatusOK
+	}
+	return w.status
+}
+
+func RecoveryHTTP(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		panicked := true
 		defer func() {
 			if v := recover(); v != nil || panicked {
-				dumpReq, _ := httputil.DumpRequest(c.Request, true)
+				dumpReq, _ := httputil.DumpRequest(r, true)
 				formatted := fmt.Sprintf("server panic: %v\n%s %s", v, dumpReq, runtime.Stack())
 				_, _ = fmt.Fprint(os.Stderr, formatted)
 				err := runtime.RecoverFrom(v)
 				log.Errorf("server panic: %v", err)
-				c.AbortWithStatusJSON(http.StatusInternalServerError, CommonResponse{
-					ErrCode:    FAILED,
-					ErrMessage: err.Error(),
-				})
+				WriteErrorStatus(w, http.StatusInternalServerError, err)
 			}
 		}()
 
-		c.Next()
+		next.ServeHTTP(w, r)
 		panicked = false
-	}
+	})
 }
 
-//type respBodyWriter struct {
-//	gin.ResponseWriter
-//	body *bytes.Buffer
-//}
-//
-//func (w respBodyWriter) Write(b []byte) (int, error) {
-//	w.body.Write(b)
-//	return w.ResponseWriter.Write(b)
-//}
-
-func Logger() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		//rbw := &respBodyWriter{
-		//	body:           bytes.NewBufferString(""),
-		//	ResponseWriter: c.Writer,
-		//}
-		//c.Writer = rbw
-		body, err := c.GetRawData()
-		if err == nil && len(body) != 0 {
-			c.Request.Body = io.NopCloser(bytes.NewBuffer(body))
+func LoggerHTTP(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body []byte
+		if r.Body != nil {
+			var err error
+			body, err = io.ReadAll(r.Body)
+			if err == nil && len(body) != 0 {
+				r.Body = io.NopCloser(bytes.NewBuffer(body))
+			}
 		}
 
 		start := time.Now()
-
-		c.Next()
+		recorder := &statusRecorder{ResponseWriter: w}
+		next.ServeHTTP(recorder, r)
 
 		latency := time.Since(start)
-		fields := log.Fields{
-			"clientIP": c.ClientIP(),
+		fields := log.Fields{}
+		if host, _, found := strings.Cut(r.RemoteAddr, ":"); found && host != "" {
+			fields["clientIP"] = host
 		}
 
 		log.
 			WithFields(fields).
-			Infof("[%3d] [%v] %s '%s' [Body]: %s", c.Writer.Status(), latency,
-				c.Request.Method, c.Request.URL, body)
-	}
+			Infof("[%3d] [%v] %s '%s' [Body]: %s", recorder.Status(), latency,
+				r.Method, r.URL, body)
+	})
 }
 
 func formatHeader(header http.Header) string {
@@ -81,6 +84,5 @@ func formatHeader(header http.Header) string {
 	for k, v := range header {
 		buf.WriteString(k + ":" + strings.Join(v, ";") + " ")
 	}
-
 	return buf.String()
 }

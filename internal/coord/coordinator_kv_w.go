@@ -12,7 +12,7 @@ import (
 	proto "google.golang.org/protobuf/proto"
 
 	"github.com/yeqown/cassem/api/concept"
-	"github.com/yeqown/cassem/pkg/errorx"
+	errorx "github.com/yeqown/cassem/api/concept"
 )
 
 var _ concept.KVWriteOnly = kvWriteOnly{}

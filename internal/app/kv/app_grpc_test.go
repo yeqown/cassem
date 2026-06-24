@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	apikv "github.com/yeqown/cassem/api/kv"
-	"github.com/yeqown/cassem/pkg/errorx"
+	errorx "github.com/yeqown/cassem/api/concept"
 	"github.com/yeqown/cassem/pkg/watcher"
 )
 

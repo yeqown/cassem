@@ -11,7 +11,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	apikv "github.com/yeqown/cassem/api/kv"
-	"github.com/yeqown/cassem/pkg/errorx"
+	errorx "github.com/yeqown/cassem/api/concept"
 	"github.com/yeqown/cassem/pkg/grpcx"
 	"github.com/yeqown/cassem/pkg/watcher"
 )

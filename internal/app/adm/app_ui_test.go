@@ -12,7 +12,7 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/gin-gonic/gin"
+	"github.com/go-chi/chi/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -27,8 +27,6 @@ func uiTestAssetsFS(t *testing.T) fs.FS {
 }
 
 func TestMountUIRoutes(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-
 	tests := []struct {
 		name       string
 		path       string
@@ -44,8 +42,8 @@ func TestMountUIRoutes(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			r := gin.New()
-			mountUIRoutes(r, uiTestAssetsFS(t))
+			r := chi.NewRouter()
+			mountUIRoutesHTTP(r, uiTestAssetsFS(t))
 
 			w := httptest.NewRecorder()
 			req := httptest.NewRequest(http.MethodGet, tt.path, nil)
@@ -75,10 +73,8 @@ func decodeGzipBody(t *testing.T, body []byte) string {
 }
 
 func TestMountUIRoutesGzipUIResponses(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-
-	r := gin.New()
-	mountUIRoutes(r, uiTestAssetsFS(t))
+	r := chi.NewRouter()
+	mountUIRoutesHTTP(r, uiTestAssetsFS(t))
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/ui/", nil)
@@ -110,12 +106,11 @@ func TestMountUIRoutesGzipUIResponses(t *testing.T) {
 }
 
 func TestMountUIRoutesDoesNotCaptureAPI(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-
-	r := gin.New()
-	mountUIRoutes(r, uiTestAssetsFS(t))
-	r.POST("/api/account/login", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"api": true})
+	r := chi.NewRouter()
+	mountUIRoutesHTTP(r, uiTestAssetsFS(t))
+	r.Post("/api/account/login", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"api":true}`))
 	})
 
 	w := httptest.NewRecorder()
@@ -127,8 +122,6 @@ func TestMountUIRoutesDoesNotCaptureAPI(t *testing.T) {
 }
 
 func TestUIFileHandlerPreservesRequestPathAfterNext(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-
 	tests := []struct {
 		name string
 		path string
@@ -142,13 +135,15 @@ func TestUIFileHandlerPreservesRequestPathAfterNext(t *testing.T) {
 			var recordedPath string
 			var recordedRawPath string
 
-			r := gin.New()
-			r.Use(func(c *gin.Context) {
-				c.Next()
-				recordedPath = c.Request.URL.Path
-				recordedRawPath = c.Request.URL.RawPath
+			r := chi.NewRouter()
+			r.Use(func(next http.Handler) http.Handler {
+				return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					next.ServeHTTP(w, r)
+					recordedPath = r.URL.Path
+					recordedRawPath = r.URL.RawPath
+				})
 			})
-			mountUIRoutes(r, uiTestAssetsFS(t))
+			mountUIRoutesHTTP(r, uiTestAssetsFS(t))
 
 			w := httptest.NewRecorder()
 			req := httptest.NewRequest(http.MethodGet, tt.path, nil)

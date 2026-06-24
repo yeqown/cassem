@@ -2,13 +2,14 @@ package adm
 
 import (
 	"fmt"
-	"github.com/gin-contrib/gzip"
-	"github.com/gin-gonic/gin"
 	"io/fs"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 )
 
 var distCandidates = []string{
@@ -28,39 +29,38 @@ func Dist() (fs.FS, error) {
 	return nil, fmt.Errorf("load UI dist: no dist directory found in %v", distCandidates)
 }
 
-func mountUI(engi *gin.Engine) error {
+func mountUI(r chi.Router) error {
 	assets, err := Dist()
 	if err != nil {
 		return fmt.Errorf("load UI assets: %w", err)
 	}
 
-	mountUIRoutes(engi, assets)
+	mountUIRoutesHTTP(r, assets)
 	return nil
 }
 
-func mountUIRoutes(engi *gin.Engine, assets fs.FS) {
-	engi.GET("/ui", func(c *gin.Context) {
-		c.Redirect(http.StatusMovedPermanently, "/ui/")
+func mountUIRoutesHTTP(r chi.Router, assets fs.FS) {
+	r.Get("/ui", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/ui/", http.StatusMovedPermanently)
 	})
 
-	ui := engi.Group("/ui", gzip.Gzip(gzip.DefaultCompression))
-	ui.GET("/*filepath", uiFileHandler(assets))
+	r.With(middleware.Compress(5)).Get("/ui/*", uiFileHandlerHTTP(assets))
 }
 
-func uiFileHandler(assets fs.FS) gin.HandlerFunc {
+func uiFileHandlerHTTP(assets fs.FS) http.HandlerFunc {
 	fileServer := http.FileServer(http.FS(assets))
 
-	return func(c *gin.Context) {
-		path := strings.TrimPrefix(c.Param("filepath"), "/")
+	return func(w http.ResponseWriter, r *http.Request) {
+		path := strings.TrimPrefix(r.URL.Path, "/ui/")
 		requestPath := "/" + path
 		if path == "" || !uiFileExists(assets, path) {
 			requestPath = "/"
 		}
 
-		req := c.Request.Clone(c.Request.Context())
+		req := r.Clone(r.Context())
 		req.URL.Path = requestPath
 		req.URL.RawPath = ""
-		fileServer.ServeHTTP(c.Writer, req)
+		fileServer.ServeHTTP(w, req)
 	}
 }
 

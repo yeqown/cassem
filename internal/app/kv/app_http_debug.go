@@ -1,11 +1,14 @@
 package kv
 
 import (
+	"encoding/json"
+	"errors"
 	"net/http"
+	"strconv"
 	"time"
 
-	"github.com/gin-contrib/pprof"
-	"github.com/gin-gonic/gin"
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 	"github.com/yeqown/log"
 
 	"github.com/yeqown/cassem/pkg/httpx"
@@ -14,102 +17,62 @@ import (
 
 // httpServer provides both RESTFul API for client, ONLY FOR debug.
 type httpServer struct {
-	engi  *gin.Engine
-	coord ICoordinator
+	handler http.Handler
+	coord   ICoordinator
 }
 
 func debugHTTP(coord ICoordinator) *httpServer {
-	srv := &httpServer{
-		coord: coord,
-		engi:  gin.New(),
-	}
-
+	srv := &httpServer{coord: coord}
 	srv.initialize()
-
 	return srv
 }
 
-func (srv *httpServer) initialize() {
-	gin.EnableJsonDecoderUseNumber()
-	if !isDebug() {
-		gin.SetMode(gin.ReleaseMode)
-	}
-
-	// mount middlewares
-	// DONE(@yeqown): replace Recovery middleware so that we response error messages.
-	srv.engi.Use(httpx.Recovery())
-	srv.engi.Use(gin.Logger())
-
+func newDebugHTTPRouter(coord ICoordinator) chi.Router {
+	srv := &httpServer{coord: coord}
+	r := chi.NewRouter()
+	r.Use(httpx.RecoveryHTTP)
+	r.Use(httpx.LoggerHTTP)
 	if isDebug() {
-		pprof.Register(srv.engi, "/debug/pprof")
+		r.Mount("/debug/pprof", middleware.Profiler())
 	}
-
-	// mount API
-	srv.mountAPI()
+	srv.mountAPI(r)
+	return r
 }
 
-func (srv *httpServer) mountAPI() {
-	// DONE(@yeqown) authorize middleware is needed.
-	g := srv.engi.Group("/api")
+func (srv *httpServer) initialize() {
+	srv.handler = newDebugHTTPRouter(srv.coord)
+}
 
-	kv := g.Group("/kv")
-	{
-		kv.GET("", srv.GetKV)
-		kv.POST("", srv.SetKV)
-		kv.DELETE("", srv.DeleteKV)
-		kv.GET("/watch", srv.Watch)
-		kv.GET("/range", srv.Range)
-	}
+func (srv *httpServer) mountAPI(r chi.Router) {
+	r.Get("/api/kv", srv.GetKV)
+	r.Post("/api/kv", srv.SetKV)
+	r.Delete("/api/kv", srv.DeleteKV)
+	r.Get("/api/kv/watch", srv.Watch)
+	r.Get("/api/kv/range", srv.Range)
 }
 
 func (srv *httpServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	srv.engi.ServeHTTP(w, req)
+	srv.handler.ServeHTTP(w, req)
 }
 
 type getKVReq struct {
 	Key string `form:"key" binding:"required"`
 }
 
-//type storeVO struct {
-//	Fingerprint string `json:"fingerprint"`
-//	Key         string `json:"key"`
-//	Val         string `json:"val"`
-//	Size        int64  `json:"size"`
-//	CreatedAt   int64  `json:"createdAt"`
-//	UpdatedAt   int64  `json:"updatedAt"`
-//	TTL         int32  `json:"ttl"`
-//}
-//
-//func newStoreVO(v *storage.StoreValue) *storeVO {
-//	if v == nil {
-//		return nil
-//	}
-//
-//	return &storeVO{
-//		Fingerprint: v.Fingerprint,
-//		Key:         v.Key.String(),
-//		Val:         runtime.ToString(v.Val),
-//		Size:        v.Size,
-//		CreatedAt:   v.CreatedAt,
-//		UpdatedAt:   v.UpdatedAt,
-//		TTL:         v.TTL,
-//	}
-//}
-
-func (srv *httpServer) GetKV(c *gin.Context) {
-	req := new(getKVReq)
-	if err := c.ShouldBind(req); err != nil {
-		httpx.ResponseError(c, err)
+func (srv *httpServer) GetKV(w http.ResponseWriter, r *http.Request) {
+	req := &getKVReq{Key: r.URL.Query().Get("key")}
+	if req.Key == "" {
+		httpx.WriteError(w, errors.New("Key is required"))
 		return
 	}
 
 	out, err := srv.coord.getKV(req.Key)
 	if err != nil {
-		httpx.ResponseError(c, err)
+		httpx.WriteError(w, err)
 		return
 	}
 
-	httpx.ResponseJSON(c, out)
+	httpx.WriteJSON(w, out)
 }
 
 type setKVReq struct {
@@ -120,14 +83,18 @@ type setKVReq struct {
 	TTL       int32  `json:"ttl"`
 }
 
-func (srv *httpServer) SetKV(c *gin.Context) {
+func (srv *httpServer) SetKV(w http.ResponseWriter, r *http.Request) {
 	req := new(setKVReq)
-	if err := c.ShouldBind(req); err != nil {
-		httpx.ResponseError(c, err)
+	if err := json.NewDecoder(r.Body).Decode(req); err != nil {
+		httpx.WriteError(w, err)
+		return
+	}
+	if req.Key == "" || len(req.Value) == 0 {
+		httpx.WriteError(w, errors.New("Key and Value are required"))
 		return
 	}
 
-	err := srv.coord.setKV(c.Request.Context(), &setKVParam{
+	err := srv.coord.setKV(r.Context(), &setKVParam{
 		key:       req.Key,
 		val:       req.Value,
 		isDir:     req.IsDir,
@@ -135,11 +102,11 @@ func (srv *httpServer) SetKV(c *gin.Context) {
 		ttl:       req.TTL,
 	})
 	if err != nil {
-		httpx.ResponseError(c, err)
+		httpx.WriteError(w, err)
 		return
 	}
 
-	httpx.ResponseJSON(c, nil)
+	httpx.WriteJSON(w, nil)
 }
 
 type deleteKVReq struct {
@@ -147,34 +114,35 @@ type deleteKVReq struct {
 	IsDir bool   `form:"isDir"`
 }
 
-func (srv *httpServer) DeleteKV(c *gin.Context) {
-	req := new(deleteKVReq)
-	if err := c.ShouldBind(req); err != nil {
-		httpx.ResponseError(c, err)
+func (srv *httpServer) DeleteKV(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
+	req := &deleteKVReq{Key: q.Get("key"), IsDir: parseBool(q.Get("isDir"))}
+	if req.Key == "" {
+		httpx.WriteError(w, errors.New("Key is required"))
 		return
 	}
 
-	err := srv.coord.unsetKV(c.Request.Context(), &unsetKVParam{
+	err := srv.coord.unsetKV(r.Context(), &unsetKVParam{
 		key:   req.Key,
 		isDir: req.IsDir,
 	})
 	if err != nil {
-		httpx.ResponseError(c, err)
+		httpx.WriteError(w, err)
 		return
 	}
 
-	httpx.ResponseJSON(c, nil)
+	httpx.WriteJSON(w, nil)
 }
 
 type watchKVReq struct {
 	Keys []string `form:"key" binding:"required"`
 }
 
-// Watch
-func (srv *httpServer) Watch(c *gin.Context) {
-	req := new(watchKVReq)
-	if err := c.ShouldBind(req); err != nil {
-		httpx.ResponseError(c, err)
+// Watch waits for one change or returns nil after timeout.
+func (srv *httpServer) Watch(w http.ResponseWriter, r *http.Request) {
+	req := &watchKVReq{Keys: r.URL.Query()["key"]}
+	if len(req.Keys) == 0 {
+		httpx.WriteError(w, errors.New("Key is required"))
 		return
 	}
 
@@ -182,6 +150,8 @@ func (srv *httpServer) Watch(c *gin.Context) {
 	defer cancel()
 
 	var change watcher.IChange
+	timer := time.NewTimer(30 * time.Second)
+	defer timer.Stop()
 	select {
 	case change = <-ob.Outbound():
 		log.
@@ -190,11 +160,11 @@ func (srv *httpServer) Watch(c *gin.Context) {
 				"change": change,
 			}).
 			Info("httpServer.Watch got a change")
-	case <-time.NewTimer(30 * time.Second).C:
+	case <-timer.C:
 		log.Debugf("httpServer.Watch timeout")
 	}
 
-	httpx.ResponseJSON(c, change)
+	httpx.WriteJSON(w, change)
 }
 
 type rangeReq struct {
@@ -203,10 +173,20 @@ type rangeReq struct {
 	Limit int    `form:"limit,default=10" binding:"gte=1"`
 }
 
-func (srv *httpServer) Range(c *gin.Context) {
-	req := new(rangeReq)
-	if err := c.ShouldBind(req); err != nil {
-		httpx.ResponseError(c, err)
+func (srv *httpServer) Range(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
+	limit := 10
+	if raw := q.Get("limit"); raw != "" {
+		parsed, err := strconv.Atoi(raw)
+		if err != nil || parsed < 1 {
+			httpx.WriteError(w, errors.New("Limit must be greater than or equal to 1"))
+			return
+		}
+		limit = parsed
+	}
+	req := &rangeReq{Key: q.Get("key"), Seek: q.Get("seek"), Limit: limit}
+	if req.Key == "" {
+		httpx.WriteError(w, errors.New("Key is required"))
 		return
 	}
 
@@ -216,9 +196,14 @@ func (srv *httpServer) Range(c *gin.Context) {
 		limit: req.Limit,
 	})
 	if err != nil {
-		httpx.ResponseError(c, err)
+		httpx.WriteError(w, err)
 		return
 	}
 
-	httpx.ResponseJSON(c, result)
+	httpx.WriteJSON(w, result)
+}
+
+func parseBool(raw string) bool {
+	parsed, _ := strconv.ParseBool(raw)
+	return parsed
 }

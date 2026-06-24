@@ -17,7 +17,7 @@ import (
 
 	"github.com/yeqown/cassem/internal/app/kv/storage"
 	"github.com/yeqown/cassem/pkg/conf"
-	"github.com/yeqown/cassem/pkg/errorx"
+	errorx "github.com/yeqown/cassem/api/concept"
 	"github.com/yeqown/cassem/pkg/runtime"
 	"github.com/yeqown/cassem/pkg/watcher"
 )

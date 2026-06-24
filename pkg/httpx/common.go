@@ -1,11 +1,10 @@
 package httpx
 
 import (
+	"encoding/json"
 	"net/http"
 
-	"github.com/gin-gonic/gin"
-
-	"github.com/yeqown/cassem/pkg/errorx"
+	errorx "github.com/yeqown/cassem/api/concept"
 )
 
 type ErrorCode int
@@ -17,56 +16,52 @@ const (
 )
 
 type CommonResponse struct {
-	ErrCode    ErrorCode   `json:"errcode"`
-	ErrMessage string      `json:"errmsg,omitempty"`
-	Data       any `json:"data,omitempty"`
+	ErrCode    ErrorCode `json:"errcode"`
+	ErrMessage string    `json:"errmsg,omitempty"`
+	Data       any       `json:"data,omitempty"`
 }
 
-func responseWithStatusAndError(c *gin.Context, status int, err error, abort bool) {
+func writeCommonJSON(w http.ResponseWriter, status int, response CommonResponse) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.WriteHeader(status)
+	_ = json.NewEncoder(w).Encode(response)
+}
+
+func responseCodeFromError(err error) ErrorCode {
 	if err == nil {
-		c.JSON(http.StatusInternalServerError, CommonResponse{
-			ErrCode:    FAILED,
-			ErrMessage: "NIL ERROR, CHECK CODE PLZ",
-		})
-
-		return
+		return FAILED
 	}
-
-	var code = FAILED
 	if e, ok := errorx.FromError(err); ok {
-		code = ErrorCode(e.Code)
+		return ErrorCode(e.Code)
 	}
-
-	if status == 0 {
-		status = http.StatusBadRequest
-	}
-
-	c.JSON(status, CommonResponse{
-		ErrCode:    code,
-		ErrMessage: err.Error(),
-	})
-
-	if abort {
-		c.Abort()
-	}
+	return FAILED
 }
 
-func ResponseErrorAndAbort(c *gin.Context, err error) {
-	responseWithStatusAndError(c, http.StatusBadRequest, err, true)
-}
-
-func ResponseError(c *gin.Context, err error) {
-	responseWithStatusAndError(c, http.StatusBadRequest, err, false)
-}
-
-func ResponseErrorStatusAndAbort(c *gin.Context, status int, err error) {
-	responseWithStatusAndError(c, status, err, true)
-}
-
-func ResponseJSON(c *gin.Context, data any) {
-	c.JSON(http.StatusOK, CommonResponse{
+func WriteJSON(w http.ResponseWriter, data any) {
+	writeCommonJSON(w, http.StatusOK, CommonResponse{
 		ErrCode:    OK,
 		ErrMessage: "success",
 		Data:       data,
+	})
+}
+
+func WriteError(w http.ResponseWriter, err error) {
+	WriteErrorStatus(w, http.StatusBadRequest, err)
+}
+
+func WriteErrorStatus(w http.ResponseWriter, status int, err error) {
+	if err == nil {
+		writeCommonJSON(w, http.StatusInternalServerError, CommonResponse{
+			ErrCode:    FAILED,
+			ErrMessage: "NIL ERROR, CHECK CODE PLZ",
+		})
+		return
+	}
+	if status == 0 {
+		status = http.StatusBadRequest
+	}
+	writeCommonJSON(w, status, CommonResponse{
+		ErrCode:    responseCodeFromError(err),
+		ErrMessage: err.Error(),
 	})
 }

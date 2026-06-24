@@ -13,7 +13,7 @@ import (
 	bolt "go.etcd.io/bbolt"
 
 	"github.com/yeqown/cassem/pkg/conf"
-	"github.com/yeqown/cassem/pkg/errorx"
+	errorx "github.com/yeqown/cassem/api/concept"
 	"github.com/yeqown/cassem/pkg/runtime"
 )
 

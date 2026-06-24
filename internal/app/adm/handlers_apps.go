@@ -1,365 +1,262 @@
 package adm
 
 import (
-	"github.com/gin-gonic/gin"
+	"net/http"
+	"time"
+
 	"github.com/yeqown/cassem/api/concept"
-	"github.com/yeqown/cassem/pkg/errorx"
+	errorx "github.com/yeqown/cassem/api/concept"
 	"github.com/yeqown/cassem/pkg/httpx"
 	"github.com/yeqown/cassem/pkg/runtime"
-	"github.com/yeqown/log"
-	"time"
 )
 
-func (d app) GetApps(c *gin.Context) {
+func (d app) GetAppsHTTP(w http.ResponseWriter, r *http.Request) {
 	req := new(pagingAppsReq)
-	if err := c.ShouldBind(req); err != nil {
-		httpx.ResponseError(c, err)
+	if err := bindRequest(r, req); err != nil {
+		httpx.WriteError(w, err)
 		return
 	}
-
-	out, err := d.aggregate.GetApps(c.Request.Context(), req.Seek, req.Limit, req.Query)
+	out, err := d.aggregate.GetApps(r.Context(), req.Seek, req.Limit, req.Query)
 	if err != nil {
-		httpx.ResponseError(c, err)
+		httpx.WriteError(w, err)
 		return
 	}
-
-	httpx.ResponseJSON(c, out)
+	httpx.WriteJSON(w, out)
 }
 
-func (d app) GetApp(c *gin.Context) {
+func (d app) GetAppHTTP(w http.ResponseWriter, r *http.Request) {
 	req := new(getAppReq)
-	if err := c.ShouldBindUri(req); err != nil {
-		httpx.ResponseError(c, err)
+	if err := bindRequest(r, req); err != nil {
+		httpx.WriteError(w, err)
 		return
 	}
-	if err := c.ShouldBind(req); err != nil {
-		httpx.ResponseError(c, err)
-		return
-	}
-
-	out, err := d.aggregate.GetApp(c.Request.Context(), req.App)
+	out, err := d.aggregate.GetApp(r.Context(), req.App)
 	if err != nil {
-		httpx.ResponseError(c, err)
+		httpx.WriteError(w, err)
 		return
 	}
-
-	httpx.ResponseJSON(c, out)
+	httpx.WriteJSON(w, out)
 }
 
-func (d app) CreateApp(c *gin.Context) {
-	uriReq := new(createAppUriReq)
-	if err := c.ShouldBindUri(uriReq); err != nil {
-		httpx.ResponseError(c, err)
-		return
-	}
-	req := new(createAppReq)
-	if err := c.ShouldBind(req); err != nil {
-		httpx.ResponseError(c, err)
+func (d app) CreateAppHTTP(w http.ResponseWriter, r *http.Request) {
+	req := struct {
+		createAppUriReq
+		createAppReq
+	}{}
+	if err := bindRequest(r, &req); err != nil {
+		httpx.WriteError(w, err)
 		return
 	}
 
-	operator := concept.OperatorFromContext(c.Request.Context())
+	operator := concept.OperatorFromContext(r.Context())
 	md := &concept.AppMetadata{
-		Id:          uriReq.App,
+		Id:          req.App,
 		Description: req.Description,
 		CreatedAt:   time.Now().Unix(),
 		Creator:     operator,
 		Owner:       operator,
 	}
-	err := d.aggregate.CreateApp(c.Request.Context(), md)
-	if err != nil {
-		httpx.ResponseError(c, err)
+	if err := d.aggregate.CreateApp(r.Context(), md); err != nil {
+		httpx.WriteError(w, err)
 		return
 	}
 
-	httpx.ResponseJSON(c, nil)
+	httpx.WriteJSON(w, nil)
 }
 
-func (d app) DeleteApp(c *gin.Context) {
+func (d app) DeleteAppHTTP(w http.ResponseWriter, r *http.Request) {
 	req := new(deleteAppReq)
-	if err := c.ShouldBindUri(req); err != nil {
-		httpx.ResponseError(c, err)
+	if err := bindRequest(r, req); err != nil {
+		httpx.WriteError(w, err)
 		return
 	}
-	if err := c.ShouldBind(req); err != nil {
-		httpx.ResponseError(c, err)
+	if err := d.aggregate.DeleteApp(r.Context(), req.App); err != nil {
+		httpx.WriteError(w, err)
 		return
 	}
-
-	err := d.aggregate.DeleteApp(c.Request.Context(), req.App)
-	if err != nil {
-		httpx.ResponseError(c, err)
-		return
-	}
-
-	httpx.ResponseJSON(c, nil)
+	httpx.WriteJSON(w, nil)
 }
 
-func (d app) GetAppEnvironments(c *gin.Context) {
+func (d app) GetAppEnvironmentsHTTP(w http.ResponseWriter, r *http.Request) {
 	req := new(getAppEnvsReq)
-	if err := c.ShouldBindUri(req); err != nil {
-		httpx.ResponseError(c, err)
+	if err := bindRequest(r, req); err != nil {
+		httpx.WriteError(w, err)
 		return
 	}
-	if err := c.ShouldBind(req); err != nil {
-		httpx.ResponseError(c, err)
-		return
-	}
-
-	out, err := d.aggregate.GetEnvironments(c.Request.Context(), req.App, req.Seek, req.Limit)
+	out, err := d.aggregate.GetEnvironments(r.Context(), req.App, req.Seek, req.Limit)
 	if err != nil {
-		httpx.ResponseError(c, err)
+		httpx.WriteError(w, err)
 		return
 	}
-
-	httpx.ResponseJSON(c, out)
+	httpx.WriteJSON(w, out)
 }
 
-func (d app) CreateAppEnvironment(c *gin.Context) {
+func (d app) CreateAppEnvironmentHTTP(w http.ResponseWriter, r *http.Request) {
 	req := new(createAppEnvReq)
-	if err := c.ShouldBindUri(req); err != nil {
-		httpx.ResponseError(c, err)
+	if err := bindRequest(r, req); err != nil {
+		httpx.WriteError(w, err)
 		return
 	}
-
-	err := d.aggregate.CreateEnvironment(c.Request.Context(), req.AppId, req.Env)
-	if err != nil {
-		httpx.ResponseError(c, err)
+	if err := d.aggregate.CreateEnvironment(r.Context(), req.AppId, req.Env); err != nil {
+		httpx.WriteError(w, err)
 		return
 	}
-
-	httpx.ResponseJSON(c, nil)
+	httpx.WriteJSON(w, nil)
 }
 
-func (d app) DeleteAppEnvironment(c *gin.Context) {
+func (d app) DeleteAppEnvironmentHTTP(w http.ResponseWriter, r *http.Request) {
 	req := new(deleteAppEnvReq)
-	if err := c.ShouldBindUri(req); err != nil {
-		httpx.ResponseError(c, err)
+	if err := bindRequest(r, req); err != nil {
+		httpx.WriteError(w, err)
 		return
 	}
-
-	err := d.aggregate.DeleteEnvironment(c.Request.Context(), req.AppId, req.Env)
-	if err != nil {
-		httpx.ResponseError(c, err)
+	if err := d.aggregate.DeleteEnvironment(r.Context(), req.AppId, req.Env); err != nil {
+		httpx.WriteError(w, err)
 		return
 	}
-
-	httpx.ResponseJSON(c, nil)
+	httpx.WriteJSON(w, nil)
 }
 
-func (d app) GetAppEnvElements(c *gin.Context) {
+func (d app) GetAppEnvElementsHTTP(w http.ResponseWriter, r *http.Request) {
 	req := new(getAppEnvElementsReq)
-	if err := bindURIParams(c, req); err != nil {
-		httpx.ResponseError(c, err)
+	if err := bindRequest(r, req); err != nil {
+		httpx.WriteError(w, err)
 		return
 	}
-	if err := c.ShouldBind(req); err != nil {
-		httpx.ResponseError(c, err)
-		return
-	}
-
-	var (
-		elements any
-		err      error
-	)
-
+	var out any
+	var err error
 	if len(req.ElementKeys) != 0 {
-		elements, err = d.aggregate.GetElementsByKeys(c.Request.Context(), req.AppId, req.Env, req.ElementKeys)
+		out, err = d.aggregate.GetElementsByKeys(r.Context(), req.AppId, req.Env, req.ElementKeys)
 	} else {
-		elements, err = d.aggregate.GetElements(c.Request.Context(), req.AppId, req.Env, req.Seek, req.Limit, req.Query)
+		out, err = d.aggregate.GetElements(r.Context(), req.AppId, req.Env, req.Seek, req.Limit, req.Query)
 	}
-
 	if err != nil {
-		httpx.ResponseError(c, err)
+		httpx.WriteError(w, err)
 		return
 	}
-
-	httpx.ResponseJSON(c, elements)
+	httpx.WriteJSON(w, out)
 }
 
-func (d app) GetAppEnvElement(c *gin.Context) {
+func (d app) GetAppEnvElementHTTP(w http.ResponseWriter, r *http.Request) {
 	req := new(getAppEnvElementReq)
-
-	if err := bindURIParams(c, req); err != nil {
-		httpx.ResponseError(c, err)
+	if err := bindRequest(r, req); err != nil {
+		httpx.WriteError(w, err)
 		return
 	}
-	if err := c.ShouldBind(req); err != nil {
-		httpx.ResponseError(c, err)
-		return
-	}
-
-	element, err := d.aggregate.GetElementWithVersion(
-		c.Request.Context(), req.AppId, req.Env, req.ElementKey, int(req.Version))
+	out, err := d.aggregate.GetElementWithVersion(r.Context(), req.AppId, req.Env, req.ElementKey, int(req.Version))
 	if err != nil {
-		httpx.ResponseError(c, err)
+		httpx.WriteError(w, err)
 		return
 	}
-
-	httpx.ResponseJSON(c, element)
+	httpx.WriteJSON(w, out)
 }
 
-func (d app) CreateAppEnvElement(c *gin.Context) {
+func (d app) CreateAppEnvElementHTTP(w http.ResponseWriter, r *http.Request) {
 	req := new(createAppEnvElementReq)
-	if err := bindURIParams(c, req); err != nil {
-		httpx.ResponseError(c, err)
-		return
-	}
-	if err := c.ShouldBind(req); err != nil {
-		httpx.ResponseError(c, err)
+	if err := bindRequest(r, req); err != nil {
+		httpx.WriteError(w, err)
 		return
 	}
 
-	err := d.aggregate.CreateElement(c.Request.Context(),
-		req.AppId, req.Env, req.ElementKey, runtime.ToBytes(req.Raw), req.ContentType.concept())
-	if err != nil {
-		httpx.ResponseError(c, err)
+	if err := d.aggregate.CreateElement(r.Context(),
+		req.AppId, req.Env, req.ElementKey, runtime.ToBytes(req.Raw), req.ContentType.concept()); err != nil {
+		httpx.WriteError(w, err)
 		return
 	}
 
-	httpx.ResponseJSON(c, nil)
+	httpx.WriteJSON(w, nil)
 }
 
-func (d app) UpdateAppEnvElement(c *gin.Context) {
+func (d app) UpdateAppEnvElementHTTP(w http.ResponseWriter, r *http.Request) {
 	req := new(updateAppEnvElementReq)
-	if err := bindURIParams(c, req); err != nil {
-		httpx.ResponseError(c, err)
-		return
-	}
-	if err := c.ShouldBind(req); err != nil {
-		httpx.ResponseError(c, err)
+	if err := bindRequest(r, req); err != nil {
+		httpx.WriteError(w, err)
 		return
 	}
 
-	err := d.aggregate.UpdateElement(c.Request.Context(),
-		req.AppId, req.Env, req.ElementKey, runtime.ToBytes(req.Raw))
-	if err != nil {
-		httpx.ResponseError(c, err)
+	if err := d.aggregate.UpdateElement(r.Context(), req.AppId, req.Env, req.ElementKey, runtime.ToBytes(req.Raw)); err != nil {
+		httpx.WriteError(w, err)
 		return
 	}
 
-	httpx.ResponseJSON(c, nil)
+	httpx.WriteJSON(w, nil)
 }
 
-func (d app) DeleteAppEnvElement(c *gin.Context) {
+func (d app) DeleteAppEnvElementHTTP(w http.ResponseWriter, r *http.Request) {
 	req := new(deleteAppEnvElementsReq)
-	if err := bindURIParams(c, req); err != nil {
-		httpx.ResponseError(c, err)
+	if err := bindRequest(r, req); err != nil {
+		httpx.WriteError(w, err)
 		return
 	}
-	if err := c.ShouldBind(req); err != nil {
-		httpx.ResponseError(c, err)
+	if err := d.aggregate.DeleteElement(r.Context(), req.AppId, req.Env, req.ElementKey); err != nil {
+		httpx.WriteError(w, err)
 		return
 	}
-
-	err := d.aggregate.DeleteElement(c.Request.Context(), req.AppId, req.Env, req.ElementKey)
-	if err != nil {
-		httpx.ResponseError(c, err)
-		return
-	}
-
-	httpx.ResponseJSON(c, nil)
+	httpx.WriteJSON(w, nil)
 }
 
-func (d app) GetAppEnvElementAllVersions(c *gin.Context) {
+func (d app) GetAppEnvElementAllVersionsHTTP(w http.ResponseWriter, r *http.Request) {
 	req := new(getAppEnvElementVersionsReq)
-
-	if err := bindURIParams(c, req); err != nil {
-		httpx.ResponseError(c, err)
+	if err := bindRequest(r, req); err != nil {
+		httpx.WriteError(w, err)
 		return
 	}
-	if err := c.ShouldBind(req); err != nil {
-		httpx.ResponseError(c, err)
-		return
-	}
-
-	// TODO(@yeqown): get specified versions of element, if there's not version specified
-	// get all version.
-	element, err := d.aggregate.GetElementVersions(
-		c.Request.Context(), req.AppId, req.Env, req.ElementKey, req.Seek, req.Limit)
+	out, err := d.aggregate.GetElementVersions(r.Context(), req.AppId, req.Env, req.ElementKey, req.Seek, req.Limit)
 	if err != nil {
-		httpx.ResponseError(c, err)
+		httpx.WriteError(w, err)
 		return
 	}
-
-	httpx.ResponseJSON(c, element)
+	httpx.WriteJSON(w, out)
 }
 
-func (d app) GetAppEnvElementOperations(c *gin.Context) {
+func (d app) GetAppEnvElementOperationsHTTP(w http.ResponseWriter, r *http.Request) {
 	req := new(getAppEnvElementOperationsReq)
-	if err := bindURIParams(c, req); err != nil {
-		httpx.ResponseError(c, err)
+	if err := bindRequest(r, req); err != nil {
+		httpx.WriteError(w, err)
 		return
 	}
-	if err := c.ShouldBind(req); err != nil {
-		httpx.ResponseError(c, err)
-		return
-	}
-
-	operations, err := d.aggregate.GetElementOperations(
-		c.Request.Context(), req.AppId, req.Env, req.ElementKey, req.Seek, req.Limit)
+	out, err := d.aggregate.GetElementOperations(r.Context(), req.AppId, req.Env, req.ElementKey, req.Seek, req.Limit)
 	if err != nil {
-		httpx.ResponseError(c, err)
+		httpx.WriteError(w, err)
 		return
 	}
-
-	httpx.ResponseJSON(c, operations)
+	httpx.WriteJSON(w, out)
 }
 
-func (d app) RollbackAppEnvElement(c *gin.Context) {
+func (d app) RollbackAppEnvElementHTTP(w http.ResponseWriter, r *http.Request) {
 	req := new(rollbackAppEnvElementReq)
-	if err := bindURIParams(c, req); err != nil {
-		httpx.ResponseError(c, err)
+	if err := bindRequest(r, req); err != nil {
+		httpx.WriteError(w, err)
 		return
 	}
-	if err := c.ShouldBind(req); err != nil {
-		httpx.ResponseError(c, err)
+	if err := d.aggregate.RollbackElementVersion(r.Context(), req.AppId, req.Env, req.ElementKey, req.RollbackTo); err != nil {
+		httpx.WriteError(w, err)
 		return
 	}
-
-	err := d.aggregate.
-		RollbackElementVersion(c.Request.Context(), req.AppId, req.Env, req.ElementKey, req.RollbackTo)
-	if err != nil {
-		httpx.ResponseError(c, err)
-		return
-	}
-
-	httpx.ResponseJSON(c, nil)
+	httpx.WriteJSON(w, nil)
 }
 
-func (d app) PublishAppEnvElement(c *gin.Context) {
+func (d app) PublishAppEnvElementHTTP(w http.ResponseWriter, r *http.Request) {
 	req := new(publishAppEnvElementReq)
-	if err := bindURIParams(c, req); err != nil {
-		httpx.ResponseError(c, err)
+	if err := bindRequest(r, req); err != nil {
+		httpx.WriteError(w, err)
 		return
 	}
-	if err := c.ShouldBind(req); err != nil {
-		httpx.ResponseError(c, err)
-		return
-	}
-
-	// DONE(@yeqown): trigger dispatch to agents.
-	elem, err := d.aggregate.
-		PublishElementVersion(
-			c.Request.Context(), req.AppId, req.Env, req.ElementKey, req.Publish)
+	elem, err := d.aggregate.PublishElementVersion(r.Context(), req.AppId, req.Env, req.ElementKey, req.Publish)
 	if err != nil {
-		httpx.ResponseError(c, err)
+		httpx.WriteError(w, err)
 		return
 	}
-
 	if elem == nil {
-		// if no element needs to notify, just return.
-		httpx.ResponseJSON(c, nil)
+		httpx.WriteJSON(w, nil)
 		return
 	}
-
-	// call d.agents (agentPool) to notify agents by PublishMode and instancesIds.
 	switch req.PublishMode {
 	case concept.PublishMode_FULL:
 		err = d.ap.notifyAll(elem)
 	case concept.PublishMode_GRAY:
 		if len(req.AgentIds) == 0 && len(req.InstanceIds) == 0 {
-			httpx.ResponseError(c, errorx.Err_INVALID_ARGUMENT)
+			httpx.WriteError(w, errorx.Err_INVALID_ARGUMENT)
 			return
 		}
 		if len(req.AgentIds) == 0 {
@@ -369,15 +266,8 @@ func (d app) PublishAppEnvElement(c *gin.Context) {
 		}
 	}
 	if err != nil {
-		log.
-			WithFields(log.Fields{
-				"req":   req,
-				"error": err,
-			}).
-			Error("cassemadm.app.PublishElementVersion failed to dispatch to ap")
-		httpx.ResponseError(c, err)
+		httpx.WriteError(w, err)
 		return
 	}
-
-	httpx.ResponseJSON(c, nil)
+	httpx.WriteJSON(w, nil)
 }

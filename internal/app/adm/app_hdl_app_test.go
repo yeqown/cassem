@@ -7,7 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/gin-gonic/gin"
+	"github.com/go-chi/chi/v5"
 	"github.com/stretchr/testify/require"
 
 	"github.com/yeqown/cassem/api/concept"
@@ -25,30 +25,29 @@ func (f *appHandlerAggregate) CreateApp(_ context.Context, md *concept.AppMetada
 }
 
 func TestCreateAppReqBindsURIAndJSONSeparately(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	c, _ := gin.CreateTestContext(httptest.NewRecorder())
-	c.Params = gin.Params{{Key: "appId", Value: "payment-service"}}
-	c.Request = httptest.NewRequest("POST", "/api/apps/payment-service", bytes.NewBufferString(`{"name":"Payment Service","description":"release gate app"}`))
-	c.Request.Header.Set("Content-Type", "application/json")
+	req := httptest.NewRequest(http.MethodPost, "/api/apps/payment-service", bytes.NewBufferString(`{"name":"Payment Service","description":"release gate app"}`))
+	req.Header.Set("Content-Type", "application/json")
+	rctx := chi.NewRouteContext()
+	rctx.URLParams.Add("appId", "payment-service")
+	req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
 
-	uriReq := new(createAppUriReq)
-	require.NoError(t, c.ShouldBindUri(uriReq))
-	req := new(createAppReq)
-	require.NoError(t, c.ShouldBind(req))
-	require.Equal(t, "payment-service", uriReq.App)
-	require.Equal(t, "Payment Service", req.Name)
-	require.Equal(t, "release gate app", req.Description)
+	out := struct {
+		createAppUriReq
+		createAppReq
+	}{}
+	require.NoError(t, bindRequest(req, &out))
+	require.Equal(t, "payment-service", out.App)
+	require.Equal(t, "Payment Service", out.Name)
+	require.Equal(t, "release gate app", out.Description)
 }
 
-func TestCreateAppUsesOperatorAsCreatorAndOwner(t *testing.T) {
-	gin.SetMode(gin.TestMode)
+func TestCreateAppHTTPUsesOperatorAsCreatorAndOwner(t *testing.T) {
 	agg := &appHandlerAggregate{}
-	router := gin.New()
+	router := chi.NewRouter()
 	d := app{aggregate: agg}
-	router.POST("/api/apps/:appId", func(c *gin.Context) {
-		ctx := concept.WithOperator(c.Request.Context(), "alice@example.com")
-		c.Request = c.Request.WithContext(ctx)
-		d.CreateApp(c)
+	router.Post("/api/apps/{appId}", func(w http.ResponseWriter, r *http.Request) {
+		ctx := concept.WithOperator(r.Context(), "alice@example.com")
+		d.CreateAppHTTP(w, r.WithContext(ctx))
 	})
 	req := httptest.NewRequest(http.MethodPost, "/api/apps/payment-service", bytes.NewBufferString(`{"name":"Payment Service","description":"release gate app"}`))
 	req.Header.Set("Content-Type", "application/json")

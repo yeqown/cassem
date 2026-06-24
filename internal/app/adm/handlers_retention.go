@@ -2,7 +2,8 @@ package adm
 
 import (
 	"fmt"
-	"github.com/gin-gonic/gin"
+	"net/http"
+
 	"github.com/yeqown/cassem/pkg/conf"
 	"github.com/yeqown/cassem/pkg/httpx"
 )
@@ -38,6 +39,6 @@ func retentionPolicyResponseFromConfig(c *conf.RetentionConfig) retentionPolicyR
 	}
 }
 
-func (d app) GetRetentionPolicy(c *gin.Context) {
-	httpx.ResponseJSON(c, retentionPolicyResponseFromConfig(d.conf.Retention))
+func (d app) GetRetentionPolicyHTTP(w http.ResponseWriter, r *http.Request) {
+	httpx.WriteJSON(w, retentionPolicyResponseFromConfig(d.conf.Retention))
 }

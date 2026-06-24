@@ -7,7 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/gin-gonic/gin"
+	"github.com/go-chi/chi/v5"
 	"github.com/stretchr/testify/require"
 
 	"github.com/yeqown/cassem/api/concept"
@@ -46,32 +46,28 @@ func (f *elementHandlerAggregate) UpdateElement(_ context.Context, app, env, key
 }
 
 func TestCreateElementReqBindsURIAndJSONSeparately(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	c, _ := gin.CreateTestContext(httptest.NewRecorder())
-	c.Params = gin.Params{
-		{Key: "appId", Value: "payment-service"},
-		{Key: "env", Value: "production"},
-		{Key: "key", Value: "checkout-feature-dynamic-risk-control"},
-	}
-	c.Request = httptest.NewRequest("POST", "/api/apps/payment-service/envs/production/elements/checkout-feature-dynamic-risk-control", bytes.NewBufferString(`{"raw":"{\"enabled\":true}","contentType":1}`))
-	c.Request.Header.Set("Content-Type", "application/json")
+	req := httptest.NewRequest(http.MethodPost, "/api/apps/payment-service/envs/production/elements/checkout-feature-dynamic-risk-control", bytes.NewBufferString(`{"raw":"{\"enabled\":true}","contentType":1}`))
+	req.Header.Set("Content-Type", "application/json")
+	rctx := chi.NewRouteContext()
+	rctx.URLParams.Add("appId", "payment-service")
+	rctx.URLParams.Add("env", "production")
+	rctx.URLParams.Add("key", "checkout-feature-dynamic-risk-control")
+	req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
 
-	req := new(createAppEnvElementReq)
-	require.NoError(t, bindURIParams(c, req))
-	require.NoError(t, c.ShouldBind(req))
-	require.Equal(t, "payment-service", req.AppId)
-	require.Equal(t, "production", req.Env)
-	require.Equal(t, "checkout-feature-dynamic-risk-control", req.ElementKey)
-	require.Equal(t, `{"enabled":true}`, req.Raw)
-	require.Equal(t, concept.ContentType_JSON, req.ContentType.concept())
+	out := new(createAppEnvElementReq)
+	require.NoError(t, bindRequest(req, out))
+	require.Equal(t, "payment-service", out.AppId)
+	require.Equal(t, "production", out.Env)
+	require.Equal(t, "checkout-feature-dynamic-risk-control", out.ElementKey)
+	require.Equal(t, `{"enabled":true}`, out.Raw)
+	require.Equal(t, concept.ContentType_JSON, out.ContentType.concept())
 }
 
-func TestCreateAppEnvElementBindsJSONBodyAfterURI(t *testing.T) {
-	gin.SetMode(gin.TestMode)
+func TestCreateAppEnvElementHTTPBindsJSONBodyAfterURI(t *testing.T) {
 	agg := &elementHandlerAggregate{}
-	router := gin.New()
+	router := chi.NewRouter()
 	d := app{aggregate: agg}
-	router.POST("/api/apps/:appId/envs/:env/elements/:key", d.CreateAppEnvElement)
+	router.Post("/api/apps/{appId}/envs/{env}/elements/{key}", d.CreateAppEnvElementHTTP)
 	req := httptest.NewRequest(http.MethodPost, "/api/apps/app1/envs/prod/elements/db_url", bytes.NewBufferString(`{"raw":"copy-value","contentType":"PLAINTEXT"}`))
 	req.Header.Set("Content-Type", "application/json")
 	resp := httptest.NewRecorder()
@@ -86,12 +82,11 @@ func TestCreateAppEnvElementBindsJSONBodyAfterURI(t *testing.T) {
 	require.Equal(t, concept.ContentType_PLAINTEXT, agg.created.contentType)
 }
 
-func TestUpdateAppEnvElementBindsJSONBodyAfterURI(t *testing.T) {
-	gin.SetMode(gin.TestMode)
+func TestUpdateAppEnvElementHTTPBindsJSONBodyAfterURI(t *testing.T) {
 	agg := &elementHandlerAggregate{}
-	router := gin.New()
+	router := chi.NewRouter()
 	d := app{aggregate: agg}
-	router.PUT("/api/apps/:appId/envs/:env/elements/:key", d.UpdateAppEnvElement)
+	router.Put("/api/apps/{appId}/envs/{env}/elements/{key}", d.UpdateAppEnvElementHTTP)
 	req := httptest.NewRequest(http.MethodPut, "/api/apps/app1/envs/prod/elements/db_url", bytes.NewBufferString(`{"raw":"next-value"}`))
 	req.Header.Set("Content-Type", "application/json")
 	resp := httptest.NewRecorder()
