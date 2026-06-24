@@ -1,15 +1,15 @@
 syntax = "proto3";
 
 import "concept/types.proto";
-import "envoyproxy-validate/validate.proto";
+import "buf/validate/validate.proto";
 
 package cassem.agent;
 option go_package = "github.com/yeqown/cassem/api/agent;agent";
 
 message getElementReq {
-  string          app = 1 [(validate.rules).string = {min_len: 3, max_len: 30, pattern: "^[A-Za-z0-9][A-Za-z0-9_-]*$"}];
-  string          env = 2 [(validate.rules).string = {min_len: 3, max_len: 30, pattern: "^[A-Za-z0-9][A-Za-z0-9_-]*$"}];
-  repeated string keys = 3 [(validate.rules).repeated = {unique: true, min_items: 1, max_items: 100, items: {string: {pattern: "^[A-Za-z0-9][A-Za-z0-9_-]*$"}}}];
+  string          app = 1 [(buf.validate.field).string = {min_len: 3, max_len: 30, pattern: "^[A-Za-z0-9][A-Za-z0-9_-]*$"}];
+  string          env = 2 [(buf.validate.field).string = {min_len: 3, max_len: 30, pattern: "^[A-Za-z0-9][A-Za-z0-9_-]*$"}];
+  repeated string keys = 3 [(buf.validate.field).repeated = {unique: true, min_items: 1, max_items: 100, items: {string: {pattern: "^[A-Za-z0-9][A-Za-z0-9_-]*$"}}}];
 }
 
 message getElementResp {
@@ -17,30 +17,22 @@ message getElementResp {
 }
 
 message unregisterReq {
-  string clientId = 1 [(validate.rules).string = {min_len: 5, max_len: 64}];
-  string clientIp = 2 [(validate.rules).string = {ip: true}];
-//  string app = 3 [(validate.rules).string = {min_len: 3, max_len: 30}];
-//  string env = 4 [(validate.rules).string = {min_len: 3, max_len: 30}];
+  string clientId = 1 [(buf.validate.field).string = {min_len: 5, max_len: 64}];
+  string clientIp = 2 [(buf.validate.field).string.ip = true];
 }
 
 message registerReq {
-  string clientId = 1 [(validate.rules).string = {min_len: 5, max_len: 64}];
-  string clientIp = 2 [(validate.rules).string = {ip: true}];
-  repeated concept.Instance.Watching watching = 3 [(validate.rules).repeated = {ignore_empty: true}];
-//  string app = 3 [(validate.rules).string = {min_len: 3, max_len: 30}];
-//  string env = 4 [(validate.rules).string = {min_len: 3, max_len: 30}];
-//  repeated string watchingKeys = 5 [(validate.rules).repeated = {unique: true, min_items: 1, max_items: 100}];
+  string clientId = 1 [(buf.validate.field).string = {min_len: 5, max_len: 64}];
+  string clientIp = 2 [(buf.validate.field).string.ip = true];
+  repeated concept.Instance.Watching watching = 3 [(buf.validate.field).ignore = IGNORE_IF_ZERO_VALUE];
 }
 
 message emptyResp {}
 
 message watchReq {
-  repeated concept.Instance.Watching watching = 1 [(validate.rules).repeated = {ignore_empty: true}];
-//  string app = 1 [(validate.rules).string = {min_len: 3, max_len: 30}];
-//  string env = 2 [(validate.rules).string = {min_len: 3, max_len: 30}];
-//  repeated string watchingKeys = 3 [(validate.rules).repeated = {unique: true, min_items: 1, max_items: 100}];
-  string clientId = 4 [(validate.rules).string = {min_len: 5, max_len: 64}];
-  string clientIp = 5 [(validate.rules).string = {ip: true}];
+  repeated concept.Instance.Watching watching = 1 [(buf.validate.field).ignore = IGNORE_IF_ZERO_VALUE];
+  string clientId = 4 [(buf.validate.field).string = {min_len: 5, max_len: 64}];
+  string clientIp = 5 [(buf.validate.field).string.ip = true];
 }
 message watchResp {
   cassem.concept.Element elem = 1;

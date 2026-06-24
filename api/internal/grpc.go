@@ -5,15 +5,38 @@ import (
 	"fmt"
 	"runtime"
 
+	"buf.build/go/protovalidate"
 	"github.com/yeqown/log"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/proto"
 
 	errorx "github.com/yeqown/cassem/api/concept"
 )
 
-type validator interface {
-	Validate() error
-	ValidateAll() error
+func validateRequest(req any) error {
+	msg, ok := req.(proto.Message)
+	if !ok {
+		return nil
+	}
+
+	if err := protovalidate.Validate(msg); err != nil {
+		return errorx.New(errorx.Code_INVALID_ARGUMENT, formatValidationError(err))
+	}
+	return nil
+}
+
+func formatValidationError(err error) string {
+	verr, ok := err.(*protovalidate.ValidationError)
+	if !ok || len(verr.Violations) == 0 {
+		return err.Error()
+	}
+
+	violation := verr.Violations[0]
+	if violation == nil || !violation.FieldValue.IsValid() {
+		return err.Error()
+	}
+
+	return fmt.Sprintf("%s (value=%v)", err.Error(), violation.FieldValue.Interface())
 }
 
 // ClientRecovery converts client-side panics into errors.
@@ -52,10 +75,8 @@ func ClientErrorx() grpc.UnaryClientInterceptor {
 func ClientValidation() grpc.UnaryClientInterceptor {
 	return func(ctx context.Context, method string, req, reply any,
 		cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
-		if v, ok := req.(validator); ok {
-			if err := v.Validate(); err != nil {
-				return errorx.New(errorx.Code_INVALID_ARGUMENT, err.Error())
-			}
+		if err := validateRequest(req); err != nil {
+			return err
 		}
 		return invoker(ctx, method, req, reply, cc, opts...)
 	}

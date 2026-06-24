@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+
+	"buf.build/go/protovalidate"
 	"github.com/stretchr/testify/require"
 	"github.com/yeqown/cassem/api/concept"
 	apikv "github.com/yeqown/cassem/api/kv"
@@ -61,7 +63,7 @@ func (f *aclTestKV) Expire(context.Context, *apikv.ExpireReq, ...grpc.CallOption
 }
 
 func (f *aclTestKV) Range(_ context.Context, req *apikv.RangeReq, _ ...grpc.CallOption) (*apikv.RangeResp, error) {
-	if err := req.Validate(); err != nil {
+	if err := protovalidate.Validate(req); err != nil {
 		return nil, err
 	}
 

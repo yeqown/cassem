@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-import "envoyproxy-validate/validate.proto";
+import "buf/validate/validate.proto";
 
 package cassem.concept;
 option go_package = "github.com/yeqown/cassem/api/concept;concept";
@@ -35,9 +35,9 @@ enum ContentType {
 // specific key, app, env attributes, and other fields to display
 // the element's version status.
 message ElementMetadata {
-  string      key                = 1 [(validate.rules).string = {pattern: "^[A-Za-z0-9][A-Za-z0-9_-]*$"}];
-  string      app                = 2 [(validate.rules).string = {pattern: "^[A-Za-z0-9][A-Za-z0-9_-]*$"}];
-  string      env                = 3 [(validate.rules).string = {pattern: "^[A-Za-z0-9][A-Za-z0-9_-]*$"}];
+  string      key                = 1 [(buf.validate.field).string = {pattern: "^[A-Za-z0-9][A-Za-z0-9_-]*$"}];
+  string      app                = 2 [(buf.validate.field).string = {pattern: "^[A-Za-z0-9][A-Za-z0-9_-]*$"}];
+  string      env                = 3 [(buf.validate.field).string = {pattern: "^[A-Za-z0-9][A-Za-z0-9_-]*$"}];
   // the latest version in all versions of the element.
   int32       latestVersion      = 4;
   // if there is any unpublished version, if there's any unpublished
@@ -61,7 +61,7 @@ message AppMetadata {
     DEPRECATED = 1;
   }
 
-  string id          = 1 [(validate.rules).string = {pattern: "^[A-Za-z0-9][A-Za-z0-9_-]*$"}];
+  string id          = 1 [(buf.validate.field).string = {pattern: "^[A-Za-z0-9][A-Za-z0-9_-]*$"}];
   string description = 2;
   int64  createdAt   = 3;
   // creator of the app indicates the user who created the app.
@@ -98,9 +98,9 @@ message ElementOperation {
 // Instance describes client instance.
 message Instance {
   message Watching {
-    string          app       = 1 [(validate.rules).string = {pattern: "^[A-Za-z0-9][A-Za-z0-9_-]*$"}];
-    string          env       = 2 [(validate.rules).string = {pattern: "^[A-Za-z0-9][A-Za-z0-9_-]*$"}];
-    repeated string watchKeys = 3 [(validate.rules).repeated = {items: {string: {pattern: "^[A-Za-z0-9][A-Za-z0-9_-]*$"}}}];
+    string          app       = 1 [(buf.validate.field).string = {pattern: "^[A-Za-z0-9][A-Za-z0-9_-]*$"}];
+    string          env       = 2 [(buf.validate.field).string = {pattern: "^[A-Za-z0-9][A-Za-z0-9_-]*$"}];
+    repeated string watchKeys = 3 [(buf.validate.field).repeated = {items: {string: {pattern: "^[A-Za-z0-9][A-Za-z0-9_-]*$"}}}];
   }
 
   string            clientId           = 1;

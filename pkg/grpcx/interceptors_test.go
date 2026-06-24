@@ -10,20 +10,26 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"github.com/yeqown/cassem/pkg/errorx"
+	"github.com/yeqown/cassem/api/agent"
+	errorx "github.com/yeqown/cassem/api/concept"
 )
 
-// mockValidator implements the validator interface for testing
-type mockValidator struct {
-	validateError error
-}
+func assertInvalidArgumentContract(t *testing.T, err error) {
+	t.Helper()
 
-func (m *mockValidator) Validate() error {
-	return m.validateError
-}
+	if !assert.Error(t, err) {
+		return
+	}
 
-func (m *mockValidator) ValidateAll() error {
-	return m.validateError
+	if xerr, ok := errorx.FromError(err); ok {
+		assert.Equal(t, errorx.Code_INVALID_ARGUMENT, xerr.Code)
+		return
+	}
+
+	st, ok := status.FromError(err)
+	if assert.True(t, ok, "expected errorx or gRPC status error") {
+		assert.Equal(t, codes.InvalidArgument, st.Code())
+	}
 }
 
 func TestChainUnaryServer(t *testing.T) {
@@ -222,6 +228,11 @@ func TestServerErrorx(t *testing.T) {
 }
 
 func TestServerValidation(t *testing.T) {
+	invalidReq := &agent.GetElementReq{
+		App:  "demo.app",
+		Env:  "prod-1",
+		Keys: []string{"db_url"},
+	}
 	tests := []struct {
 		name        string
 		req         any
@@ -229,24 +240,24 @@ func TestServerValidation(t *testing.T) {
 		errMsg      string
 	}{
 		{
-			name:        "non-validator request",
+			name:        "non-protobuf request",
 			req:         "regular string",
 			expectError: false,
 		},
 		{
-			name: "valid validator request",
-			req: &mockValidator{
-				validateError: nil,
+			name: "valid protobuf request",
+			req: &agent.GetElementReq{
+				App:  "demo_app",
+				Env:  "prod-1",
+				Keys: []string{"db_url"},
 			},
 			expectError: false,
 		},
 		{
-			name: "invalid validator request",
-			req: &mockValidator{
-				validateError: errors.New("validation failed"),
-			},
+			name:        "invalid protobuf request",
+			req:         invalidReq,
 			expectError: true,
-			errMsg:      "validation failed",
+			errMsg:      "demo.app",
 		},
 	}
 
@@ -262,16 +273,17 @@ func TestServerValidation(t *testing.T) {
 			resp, err := interceptor(context.Background(), tt.req, &grpc.UnaryServerInfo{}, handler)
 
 			if tt.expectError {
-				assert.Error(t, err)
-				assert.False(t, handlerCalled)
-				if tt.errMsg != "" {
+				assertInvalidArgumentContract(t, err)
+				if tt.errMsg != "" && err != nil {
 					assert.Contains(t, err.Error(), tt.errMsg)
 				}
-			} else {
-				assert.NoError(t, err)
-				assert.Equal(t, "ok", resp)
-				assert.True(t, handlerCalled)
+				assert.False(t, handlerCalled)
+				return
 			}
+
+			assert.NoError(t, err)
+			assert.Equal(t, "ok", resp)
+			assert.True(t, handlerCalled)
 		})
 	}
 }
@@ -381,35 +393,40 @@ func TestClientErrorx(t *testing.T) {
 }
 
 func TestClientValidation(t *testing.T) {
+	invalidReq := &agent.GetElementReq{
+		App:  "demo.app",
+		Env:  "prod-1",
+		Keys: []string{"db_url"},
+	}
 	tests := []struct {
-		name        string
-		req         any
+		name          string
+		req           any
 		invokerCalled bool
-		expectError bool
-		errMsg      string
+		expectError   bool
+		errMsg        string
 	}{
 		{
-			name:          "non-validator request",
+			name:          "non-protobuf request",
 			req:           "regular string",
 			invokerCalled: true,
 			expectError:   false,
 		},
 		{
-			name: "valid validator request",
-			req: &mockValidator{
-				validateError: nil,
+			name: "valid protobuf request",
+			req: &agent.GetElementReq{
+				App:  "demo_app",
+				Env:  "prod-1",
+				Keys: []string{"db_url"},
 			},
 			invokerCalled: true,
 			expectError:   false,
 		},
 		{
-			name: "invalid validator request",
-			req: &mockValidator{
-				validateError: errors.New("validation failed"),
-			},
+			name:          "invalid protobuf request",
+			req:           invalidReq,
 			invokerCalled: false,
 			expectError:   true,
-			errMsg:        "validation failed",
+			errMsg:        "demo.app",
 		},
 	}
 
@@ -427,13 +444,14 @@ func TestClientValidation(t *testing.T) {
 			assert.Equal(t, tt.invokerCalled, invokerCalled, "Invoker called status")
 
 			if tt.expectError {
-				assert.Error(t, err)
-				if tt.errMsg != "" {
+				assertInvalidArgumentContract(t, err)
+				if tt.errMsg != "" && err != nil {
 					assert.Contains(t, err.Error(), tt.errMsg)
 				}
-			} else {
-				assert.NoError(t, err)
+				return
 			}
+
+			assert.NoError(t, err)
 		})
 	}
 }

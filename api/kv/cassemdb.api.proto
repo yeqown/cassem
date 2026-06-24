@@ -3,7 +3,7 @@ syntax = "proto3";
 package cassem.db;
 option go_package = "github.com/yeqown/cassem/api/kv;kv";
 
-import "envoyproxy-validate/validate.proto";
+import "buf/validate/validate.proto";
 
 enum EntityType {
   UNKNOWN = 0;
@@ -29,8 +29,8 @@ message Change {
     Unset   = 2;
   }
 
-  Op       op      = 1 [(validate.rules).enum   = {defined_only: true}];
-  string   key     = 2 [(validate.rules).string = {min_len: 2, contains: "/"}];
+  Op       op      = 1 [(buf.validate.field).enum = {defined_only: true}];
+  string   key     = 2 [(buf.validate.field).string = {min_len: 2, contains: "/"}];
   Entity   last    = 3;
   Entity   current = 4;
 };
@@ -43,7 +43,7 @@ message ParentDirectoryChange {
 message empty {};
 
 message getKVReq {
-  string key = 1 [(validate.rules).string = {min_len: 2, contains: "/"}];
+  string key = 1 [(buf.validate.field).string = {min_len: 2, contains: "/"}];
 };
 
 message getKVResp {
@@ -51,7 +51,7 @@ message getKVResp {
 };
 
 message getKVsReq {
-  repeated string keys = 1 [(validate.rules).repeated = {unique: true, min_items: 1, max_items: 100}];
+  repeated string keys = 1 [(buf.validate.field).repeated = {unique: true, min_items: 1, max_items: 100}];
 };
 
 message keyError {
@@ -67,25 +67,24 @@ message getKVsResp {
 
 
 message setKVReq {
-  string key      = 1 [(validate.rules).string = {min_len: 2, contains: "/"}];
+  string key      = 1 [(buf.validate.field).string = {min_len: 2, contains: "/"}];
   bool   isDir    = 2;
-  int32  ttl      = 3; // ttl is Time to Live (n seconds)
-  // val's size in [1, 256K] Byte
-  bytes  val       = 4 [(validate.rules).bytes = {min_len: 0, max_len: 262144}];
+  int32  ttl      = 3;
+  bytes  val      = 4 [(buf.validate.field).bytes = {min_len: 0, max_len: 262144}];
   bool   overwrite = 5;
 };
 
 message unsetKVReq {
-  string key   = 1 [(validate.rules).string = {min_len: 2}];
+  string key   = 1 [(buf.validate.field).string = {min_len: 2}];
   bool   isDir = 2;
 };
 
 message watchReq {
-  repeated string keys = 2 [(validate.rules).repeated = {unique: true, min_items: 1, max_items: 20}];
+  repeated string keys = 2 [(buf.validate.field).repeated = {unique: true, min_items: 1, max_items: 20}];
 };
 
 message ttlReq {
-  string key = 1 [(validate.rules).string = {min_len: 2, contains: "/"}];
+  string key = 1 [(buf.validate.field).string = {min_len: 2, contains: "/"}];
 };
 
 message ttlResp {
@@ -93,13 +92,13 @@ message ttlResp {
 }
 
 message expireReq {
-  string key = 1 [(validate.rules).string = {min_len: 2, contains: "/"}];
+  string key = 1 [(buf.validate.field).string = {min_len: 2, contains: "/"}];
 };
 
 message rangeReq {
-  string key   = 1 [(validate.rules).string = {min_len: 2}];
-  string seek  = 2 [(validate.rules).string = {min_len: 1, ignore_empty: true}];
-  int32  limit = 3 [(validate.rules).int32  = {gte: 1, lte: 100}];
+  string key   = 1 [(buf.validate.field).string = {min_len: 2}];
+  string seek  = 2 [(buf.validate.field).ignore = IGNORE_IF_ZERO_VALUE, (buf.validate.field).string = {min_len: 1}];
+  int32  limit = 3 [(buf.validate.field).int32 = {gte: 1, lte: 100}];
 };
 
 message rangeResp {
@@ -109,11 +108,11 @@ message rangeResp {
 }
 
 message compactElementHistoryReq {
-  string elementKey           = 1 [(validate.rules).string = {min_len: 2, prefix: "cassem/elements/"}];
-  int32  keepVersionCount     = 2 [(validate.rules).int32  = {gte: 1, lte: 10000}];
-  int64  keepVersionSeconds   = 3 [(validate.rules).int64  = {gte: 0}];
-  int64  keepOperationSeconds = 4 [(validate.rules).int64  = {gte: 0}];
-  int32  pageSize             = 5 [(validate.rules).int32  = {gte: 1, lte: 100}];
+  string elementKey           = 1 [(buf.validate.field).string = {min_len: 2, prefix: "cassem/elements/"}];
+  int32  keepVersionCount     = 2 [(buf.validate.field).int32 = {gte: 1, lte: 10000}];
+  int64  keepVersionSeconds   = 3 [(buf.validate.field).int64 = {gte: 0}];
+  int64  keepOperationSeconds = 4 [(buf.validate.field).int64 = {gte: 0}];
+  int32  pageSize             = 5 [(buf.validate.field).int32 = {gte: 1, lte: 100}];
 };
 
 message compactElementHistoryResp {

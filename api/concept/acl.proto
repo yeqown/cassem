@@ -3,7 +3,7 @@ syntax = "proto3";
 package cassem.concept;
 option go_package = "github.com/yeqown/cassem/api/concept;concept";
 
-import "envoyproxy-validate/validate.proto";
+import "buf/validate/validate.proto";
 
 message User {
     enum Status {
@@ -12,12 +12,12 @@ message User {
         FORBIDDEN = 1;
     }
 
-    // account 
-    string account        = 1 [(validate.rules).string.email = true];
-    string nickname       = 2 [(validate.rules).string = {min_len: 1, max_len: 64}];
-    string hashedPassword = 3 [(validate.rules).string = {min_len: 6, max_len: 12}];
-    string salt           = 4 [(validate.rules).string = {len: 8}];
-    Status status         = 5 [(validate.rules).enum   = {defined_only: true}];
+    // account
+    string account        = 1 [(buf.validate.field).string.email = true];
+    string nickname       = 2 [(buf.validate.field).string = {min_len: 1, max_len: 64}];
+    string hashedPassword = 3 [(buf.validate.field).string = {min_len: 6, max_len: 12}];
+    string salt           = 4 [(buf.validate.field).string = {len: 8}];
+    Status status         = 5 [(buf.validate.field).enum = {defined_only: true}];
 }
 
 

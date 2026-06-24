@@ -3,6 +3,8 @@ package coord
 import (
 	"context"
 	"errors"
+
+	"buf.build/go/protovalidate"
 	apikv "github.com/yeqown/cassem/api/kv"
 	"slices"
 	"strings"
@@ -29,7 +31,7 @@ func (f *kvReadOnlyTestKV) GetKV(_ context.Context, req *apikv.GetKVReq, _ ...gr
 }
 
 func (f *kvReadOnlyTestKV) GetKVs(_ context.Context, req *apikv.GetKVsReq, _ ...grpc.CallOption) (*apikv.GetKVsResp, error) {
-	if err := req.Validate(); err != nil {
+	if err := protovalidate.Validate(req); err != nil {
 		return nil, err
 	}
 	entities := make([]*apikv.Entity, 0, len(req.GetKeys()))

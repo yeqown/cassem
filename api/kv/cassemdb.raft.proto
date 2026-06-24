@@ -5,7 +5,7 @@ option go_package = "github.com/yeqown/cassem/api/kv;kv";
 
 //import "cassemdb/api/cassemdb.api.proto";
 import "cassemdb.api.proto";
-import "envoyproxy-validate/validate.proto";
+import "buf/validate/validate.proto";
 
 message LogEntry  {
   enum Action {
@@ -32,8 +32,8 @@ message ChangeCommand {
 }
 
 message addNodeRequest {
-  string raft_addr     = 1 [(validate.rules).string = {prefix: "http"}];
-  string grpc_endpoint = 2 [(validate.rules).string = {min_len: 1}];
+  string raft_addr     = 1 [(buf.validate.field).string = {prefix: "http"}];
+  string grpc_endpoint = 2 [(buf.validate.field).string = {min_len: 1}];
 }
 message addNodeResponse {
   uint64 node_id = 1;
@@ -41,7 +41,7 @@ message addNodeResponse {
 }
 
 message removeNodeRequest {
-  uint64 node_id = 1 [(validate.rules).uint64 = {gt: 0}];
+  uint64 node_id = 1 [(buf.validate.field).uint64 = {gt: 0}];
 }
 message removeNodeResponse {}
 

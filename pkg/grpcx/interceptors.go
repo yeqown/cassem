@@ -5,11 +5,13 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/yeqown/cassem/pkg/errorx"
+	"buf.build/go/protovalidate"
+	errorx "github.com/yeqown/cassem/api/concept"
 	"github.com/yeqown/cassem/pkg/runtime"
 
 	"github.com/yeqown/log"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/proto"
 )
 
 // isDebug checks if debug mode is enabled via DEBUG environment variable.
@@ -108,26 +110,39 @@ func SevrerErrorx() grpc.UnaryServerInterceptor {
 	}
 }
 
-type validator interface {
-	// Validate which returns the first error encountered during validation.
-	Validate() error
+func validateRequest(req any) error {
+	msg, ok := req.(proto.Message)
+	if !ok {
+		return nil
+	}
 
-	// ValidateAll which returns all errors encountered during validation.
-	// https://github.com/envoyproxy/protoc-gen-validate/issues/508
-	ValidateAll() error
+	if err := protovalidate.Validate(msg); err != nil {
+		return errorx.New(errorx.Code_INVALID_ARGUMENT, formatValidationError(err))
+	}
+	return nil
 }
 
-// ServerValidation check all requests from clients. In order to save the server's compute resources,
-// validation process will be aborted if any invalidation is encountered.
+func formatValidationError(err error) string {
+	verr, ok := err.(*protovalidate.ValidationError)
+	if !ok || len(verr.Violations) == 0 {
+		return err.Error()
+	}
+
+	violation := verr.Violations[0]
+	if violation == nil || !violation.FieldValue.IsValid() {
+		return err.Error()
+	}
+
+	return fmt.Sprintf("%s (value=%v)", err.Error(), violation.FieldValue.Interface())
+}
+
+// ServerValidation checks protobuf requests from clients and aborts invalid requests before handlers run.
 func ServerValidation() grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req any, info *grpc.UnaryServerInfo,
 		handler grpc.UnaryHandler) (resp any, err error) {
 
-		if v, ok := req.(validator); ok {
-			if err = v.Validate(); err != nil {
-				err = errorx.New(errorx.Code_INVALID_ARGUMENT, err.Error())
-				return nil, err
-			}
+		if err = validateRequest(req); err != nil {
+			return nil, err
 		}
 
 		return handler(ctx, req)
@@ -143,7 +158,7 @@ func ClientRecovery() grpc.UnaryClientInterceptor {
 			if v := recover(); v != nil || panicked {
 				formatted := fmt.Sprintf("client panic: %v %v", req, v)
 				log.Error(formatted)
-				fmt.Println(runtime.Stack())
+				fmt.Println(string(runtime.Stack()))
 				err = runtime.RecoverFrom(v)
 			}
 		}()
@@ -170,20 +185,12 @@ func ClientErrorx() grpc.UnaryClientInterceptor {
 	}
 }
 
-// ClientValidation validate the client's requests before requests are sending to server, which may
-// avoid wasting network bandwidth. Of course server would check again. The difference between client
-// and server is that client check all fields in the request, but server aborts the validation immediately,
-// since any invalid field is encountered.
+// ClientValidation validates protobuf requests before sending them.
 func ClientValidation() grpc.UnaryClientInterceptor {
 	return func(ctx context.Context, method string, req, reply any,
 		cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
-		v, ok := req.(validator)
-		if ok {
-			if err := v.Validate(); err != nil {
-				// if err := v.ValidateAll(); err != nil {
-				err = errorx.New(errorx.Code_INVALID_ARGUMENT, err.Error())
-				return err
-			}
+		if err := validateRequest(req); err != nil {
+			return err
 		}
 
 		return invoker(ctx, method, req, reply, cc, opts...)

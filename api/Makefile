@@ -9,15 +9,13 @@ concept.gen-proto:
 		-I . \
 		-I ../../thirdparty \
 		--go_out=paths=source_relative,plugins=grpc:. \
-		--validate_out=paths=source_relative,lang=go:. \
 		types.proto acl.proto
 
 kv.gen-proto:
-	cd kv && DEBUG_PGV=1 protoc \
+	cd kv && protoc \
 		-I . \
 		-I ../../thirdparty \
 		--go_out=paths=source_relative,plugins=grpc:. \
-		--validate_out=paths=source_relative,lang=go:. \
 		cassemdb.api.proto cassemdb.raft.proto
 
 agent.gen-proto:
@@ -28,5 +26,4 @@ agent.gen-proto:
 		--go_opt=Mconcept/types.proto=github.com/yeqown/cassem/api/concept \
 		--go_out=paths=source_relative:. \
 		--go-grpc_out=paths=source_relative:. \
-		--validate_out=paths=source_relative,lang=go:. \
 		cassemagent.api.proto
