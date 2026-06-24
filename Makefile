@@ -17,7 +17,7 @@ define CLUSTER_ENDPOINTS
 	@echo "  cassemagent: 127.0.0.1:20219"
 endef
 
-.PHONY: help build-cli build-image ui.install ui.build ui.test ui.lint ui.typecheck cluster.up cluster.start cluster.stop cluster.restart cluster.status cluster.logs cluster.clean test test.integration.cluster lint vet
+.PHONY: help build-cli build-image ui.install ui.build ui.test ui.lint ui.typecheck cluster.up cluster.start cluster.stop cluster.restart cluster.status cluster.logs cluster.clean test test.integration.cluster lint lint.go lint.api vet
 
 help:
 	@echo "Usage: make <target>"
@@ -104,8 +104,13 @@ test.integration.cluster: cluster.clean cluster.up
 test: ui.typecheck ui.test
 	go test ./...
 
-lint: ui.typecheck ui.lint
-	golangci-lint run
+lint: ui.typecheck ui.lint lint.go lint.api
+
+lint.go:
+	go tool golangci-lint run
+
+lint.api:
+	go -C api tool golangci-lint run --config=../.golangci.yml
 
 vet:
 	go vet ./...
