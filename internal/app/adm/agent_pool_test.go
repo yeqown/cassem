@@ -148,8 +148,8 @@ func TestAgentNodeSnapshotCopiesAnnotations(t *testing.T) {
 
 	assert.Equal(t, "agent-1", snapshot.AgentId)
 	assert.Equal(t, "127.0.0.1:9000", snapshot.Addr)
-	assert.Equal(t, "cn", node.AgentInstance.Annotations["zone"])
-	assert.NotContains(t, node.AgentInstance.Annotations, "new")
+	assert.Equal(t, "cn", node.Annotations["zone"])
+	assert.NotContains(t, node.Annotations, "new")
 }
 
 func TestNewAgentNodeRejectsInvalidInstance(t *testing.T) {
@@ -173,10 +173,10 @@ func TestAgentNodeUpdateInstance(t *testing.T) {
 
 	node.updateInstance(&concept.AgentInstance{AgentId: "agent-1", Addr: "127.0.0.1:9001"})
 	assert.Nil(t, node.c)
-	assert.Equal(t, "127.0.0.1:9001", node.AgentInstance.Addr)
+	assert.Equal(t, "127.0.0.1:9001", node.Addr)
 
 	node.updateInstance(nil)
-	assert.Equal(t, "127.0.0.1:9001", node.AgentInstance.Addr)
+	assert.Equal(t, "127.0.0.1:9001", node.Addr)
 }
 
 func Test_AgentPool(t *testing.T) {

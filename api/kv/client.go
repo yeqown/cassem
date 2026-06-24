@@ -8,7 +8,8 @@ import (
 
 	"github.com/yeqown/log"
 	"google.golang.org/grpc"
-	_ "google.golang.org/grpc/health"
+	"google.golang.org/grpc/connectivity"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/resolver"
 
 	apiinternal "github.com/yeqown/cassem/api/internal"
@@ -75,15 +76,31 @@ func DialWithModeContext(ctx context.Context, endpoints []string, mode Mode) (*g
 		}).
 		Debug("DialWithModeContext calling")
 
-	cc, err := grpc.DialContext(ctx, target,
-		grpc.WithInsecure(),
-		grpc.WithBlock(),
+	cc, err := grpc.NewClient(target,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithDefaultServiceConfig(scPlain),
 		grpc.WithChainUnaryInterceptor(apiinternal.ClientRecovery(), apiinternal.ClientErrorx(), apiinternal.ClientValidation()),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("DialWithModeContext failed: %w", err)
 	}
+	if err = waitForConnReady(ctx, cc); err != nil {
+		_ = cc.Close()
+		return nil, fmt.Errorf("DialWithModeContext failed: %w", err)
+	}
 
 	return cc, nil
+}
+
+func waitForConnReady(ctx context.Context, cc *grpc.ClientConn) error {
+	cc.Connect()
+	for {
+		state := cc.GetState()
+		if state == connectivity.Ready {
+			return nil
+		}
+		if !cc.WaitForStateChange(ctx, state) {
+			return ctx.Err()
+		}
+	}
 }

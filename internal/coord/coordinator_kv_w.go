@@ -12,7 +12,6 @@ import (
 	proto "google.golang.org/protobuf/proto"
 
 	"github.com/yeqown/cassem/api/concept"
-	errorx "github.com/yeqown/cassem/api/concept"
 )
 
 var _ concept.KVWriteOnly = kvWriteOnly{}
@@ -51,7 +50,7 @@ func (_h kvWriteOnly) CreateElement(ctx context.Context,
 		App:                app,
 		Env:                env,
 	}
-	if err := _h.saveRaw(ctx, mdKey, md, 0, false); err != nil {
+	if err := _h.saveRaw(ctx, mdKey, md, false); err != nil {
 		return err
 	}
 
@@ -61,7 +60,7 @@ func (_h kvWriteOnly) CreateElement(ctx context.Context,
 		Raw:       raw,
 		Published: false,
 	}
-	if err := _h.saveRaw(ctx, concept.WithVersion(k, int(version)), ele, 0, false); err != nil {
+	if err := _h.saveRaw(ctx, concept.WithVersion(k, int(version)), ele, false); err != nil {
 		return err
 	}
 
@@ -80,7 +79,7 @@ func (_h kvWriteOnly) UpdateElement(ctx context.Context, app, env, key string, r
 	}
 	// if there is an unpublished version, update is not allowed.
 	if unpublished := md.GetUnpublishedVersion(); unpublished != 0 {
-		return fmt.Errorf("unpublished version: %d: %w", int(unpublished), errorx.Err_ALREADY_EXISTS)
+		return fmt.Errorf("unpublished version: %d: %w", int(unpublished), concept.Err_ALREADY_EXISTS)
 	}
 
 	// marking version and update
@@ -95,12 +94,12 @@ func (_h kvWriteOnly) UpdateElement(ctx context.Context, app, env, key string, r
 		Raw:       raw,
 		Published: false,
 	}
-	if err = _h.saveRaw(ctx, concept.WithVersion(k, int(version)), ele, 0, false); err != nil {
+	if err = _h.saveRaw(ctx, concept.WithVersion(k, int(version)), ele, false); err != nil {
 		return err
 	}
 
 	// save metadata of element.
-	if err = _h.saveRaw(ctx, concept.WithMetadataSuffix(k), md, 0, true); err != nil {
+	if err = _h.saveRaw(ctx, concept.WithMetadataSuffix(k), md, true); err != nil {
 		return err
 	}
 
@@ -168,7 +167,7 @@ func (_h kvWriteOnly) RollbackElementVersion(ctx context.Context, app string, en
 
 	// could not roll back to bigger version than now using version.
 	if md.GetUsingVersion() <= int32(rollbackVersion) {
-		return fmt.Errorf("rollback version lte using version: %w", errorx.Err_INVALID_ARGUMENT)
+		return fmt.Errorf("rollback version lte using version: %w", concept.Err_INVALID_ARGUMENT)
 	}
 
 	lastUsingVersion := md.GetUsingVersion()
@@ -176,7 +175,7 @@ func (_h kvWriteOnly) RollbackElementVersion(ctx context.Context, app string, en
 	h := md5.New()
 	h.Write(rollback.GetRaw())
 	md.UsingFingerprint = hex.EncodeToString(h.Sum(nil))
-	if err = _h.saveRaw(ctx, concept.WithMetadataSuffix(k), md, 0, true); err != nil {
+	if err = _h.saveRaw(ctx, concept.WithMetadataSuffix(k), md, true); err != nil {
 		return err
 	}
 
@@ -216,13 +215,13 @@ func (_h kvWriteOnly) PublishElementVersion(ctx context.Context, app string, env
 	h.Write(publish.GetRaw())
 	md.UsingFingerprint = hex.EncodeToString(h.Sum(nil))
 	md.UnpublishedVersion = 0
-	if err = _h.saveRaw(ctx, concept.WithMetadataSuffix(k), md, 0, true); err != nil {
+	if err = _h.saveRaw(ctx, concept.WithMetadataSuffix(k), md, true); err != nil {
 		return nil, err
 	}
 
 	// Update  version's published be TRUE.
 	publish.Published = true
-	if err = _h.saveRaw(ctx, concept.WithVersion(k, int(publishVersion)), publish, 0, true); err != nil {
+	if err = _h.saveRaw(ctx, concept.WithVersion(k, int(publishVersion)), publish, true); err != nil {
 		return nil, err
 	}
 	publish.Metadata = md
@@ -235,7 +234,7 @@ func (_h kvWriteOnly) PublishElementVersion(ctx context.Context, app string, env
 
 func (_h kvWriteOnly) CreateApp(ctx context.Context, md *concept.AppMetadata) error {
 	k := concept.GenAppKey(md.Id)
-	return _h.saveRaw(ctx, k, md, 0, false)
+	return _h.saveRaw(ctx, k, md, false)
 }
 
 func (_h kvWriteOnly) DeleteApp(ctx context.Context, appId string) error {
@@ -263,7 +262,7 @@ func (_h kvWriteOnly) DeleteApp(ctx context.Context, appId string) error {
 // getElementMetadata returns element by specified version without metadata.
 func (_h kvWriteOnly) getElementWithoutMetadata(ctx context.Context, key string, version uint32) (*concept.Element, error) {
 	if version == 0 {
-		return nil, fmt.Errorf("version could not be 0: %w", errorx.Err_INVALID_ARGUMENT)
+		return nil, fmt.Errorf("version could not be 0: %w", concept.Err_INVALID_ARGUMENT)
 	}
 
 	r, err := _h.cassemdb.GetKV(ctx, &apikv.GetKVReq{Key: concept.WithVersion(key, int(version))})
@@ -318,20 +317,19 @@ func (_h kvWriteOnly) saveElementOperation(ctx context.Context, app, env, key st
 		Remark:         remark,
 	}
 
-	return _h.saveRaw(ctx, opKey, operation, 0, false)
+	return _h.saveRaw(ctx, opKey, operation, false)
 }
 
 // saveRaw calls cassemdb.SetKV to save val.
 // Notice that this method could not create directory which means SetKVReq{IsDir: false}.
-func (_h kvWriteOnly) saveRaw(ctx context.Context, key string, val proto.Message, ttl int32, overwrite bool) error {
+func (_h kvWriteOnly) saveRaw(ctx context.Context, key string, val proto.Message, overwrite bool) error {
 	bytes, err := concept.MarshalProto(val)
 	if err != nil {
-		return fmt.Errorf("kvWrite.saveRaw.marshal: %w", errors.Join(err, errorx.Err_INTERNAL))
+		return fmt.Errorf("kvWrite.saveRaw.marshal: %w", errors.Join(err, concept.Err_INTERNAL))
 	}
 
 	if _, err = _h.cassemdb.SetKV(ctx, &apikv.SetKVReq{
 		Key:       key,
-		Ttl:       ttl,
 		Val:       bytes,
 		Overwrite: overwrite,
 		// IsDir:     false,

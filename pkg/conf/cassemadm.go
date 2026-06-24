@@ -129,7 +129,17 @@ func (r *RetentionConfig) Fix() error {
 		return errors.New("retention config is nil")
 	}
 
-	defaults := DefaultRetentionConfig()
+	r.applyDefaults(DefaultRetentionConfig())
+	if err := r.validateDurations(); err != nil {
+		return err
+	}
+	if err := r.validateRanges(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (r *RetentionConfig) applyDefaults(defaults *RetentionConfig) {
 	if r.Enabled == nil {
 		r.Enabled = new(defaults.EnabledValue())
 	}
@@ -154,39 +164,55 @@ func (r *RetentionConfig) Fix() error {
 	if strings.TrimSpace(r.FailureResultTTL) == "" {
 		r.FailureResultTTL = defaults.FailureResultTTL
 	}
+}
 
-	if interval, err := r.IntervalDuration(); err != nil {
+func (r *RetentionConfig) validateDurations() error {
+	interval, err := r.IntervalDuration()
+	if err != nil {
 		return fmt.Errorf("invalid retention interval: %w", err)
-	} else if interval <= 0 {
+	}
+	if interval <= 0 {
 		return errors.New("retention interval must be positive")
 	}
-	if failureResultTTL, err := r.FailureResultTTLDuration(); err != nil {
+
+	failureResultTTL, err := r.FailureResultTTLDuration()
+	if err != nil {
 		return fmt.Errorf("invalid retention failureResultTTL: %w", err)
-	} else if failureResultTTL <= 0 {
+	}
+	if failureResultTTL <= 0 {
 		return errors.New("retention failureResultTTL must be positive")
-	} else if failureResultTTL > maxRetentionFailureResultTTL {
+	}
+	if failureResultTTL > maxRetentionFailureResultTTL {
 		return fmt.Errorf("retention failureResultTTL must be less than or equal to %s", maxRetentionFailureResultTTL)
 	}
+	return nil
+}
+
+func (r *RetentionConfig) validateRanges() error {
 	if r.MaxElementsPerRunValue() <= 0 {
 		return errors.New("retention maxElementsPerRun must be positive")
 	}
 	if pageSize := r.ElementPageSizeValue(); pageSize < 1 || pageSize > 100 {
 		return errors.New("retention elementPageSize must be in [1, 100]")
 	}
-	if keepVersionCount := r.KeepVersionCountValue(); keepVersionCount <= 0 {
-		return errors.New("retention keepVersionCount must be positive")
-	} else if keepVersionCount > maxRetentionKeepVersionCount {
-		return fmt.Errorf("retention keepVersionCount must be in [1, %d]", maxRetentionKeepVersionCount)
+	if err := validateRetentionUpperBound("keepVersionCount", r.KeepVersionCountValue(), maxRetentionKeepVersionCount); err != nil {
+		return err
 	}
-	if keepVersionDays := r.KeepVersionDaysValue(); keepVersionDays <= 0 {
-		return errors.New("retention keepVersionDays must be positive")
-	} else if keepVersionDays > maxRetentionKeepVersionDays {
-		return fmt.Errorf("retention keepVersionDays must be in [1, %d]", maxRetentionKeepVersionDays)
+	if err := validateRetentionUpperBound("keepVersionDays", r.KeepVersionDaysValue(), maxRetentionKeepVersionDays); err != nil {
+		return err
 	}
-	if keepOperationDays := r.KeepOperationDaysValue(); keepOperationDays <= 0 {
-		return errors.New("retention keepOperationDays must be positive")
-	} else if keepOperationDays > maxRetentionKeepOperationDays {
-		return fmt.Errorf("retention keepOperationDays must be in [1, %d]", maxRetentionKeepOperationDays)
+	if err := validateRetentionUpperBound("keepOperationDays", r.KeepOperationDaysValue(), maxRetentionKeepOperationDays); err != nil {
+		return err
+	}
+	return nil
+}
+
+func validateRetentionUpperBound(name string, value int, max int) error {
+	if value <= 0 {
+		return fmt.Errorf("retention %s must be positive", name)
+	}
+	if value > max {
+		return fmt.Errorf("retention %s must be in [1, %d]", name, max)
 	}
 	return nil
 }
@@ -210,7 +236,7 @@ func (c *CassemAdminConfig) Valid() error {
 		return errors.New("config is nil")
 	}
 
-	if len(c.CassemDBEndpoints) <= 0 {
+	if len(c.CassemDBEndpoints) == 0 {
 		return errors.New("empty endpoints")
 	}
 	if c.Auth == nil || strings.TrimSpace(c.Auth.SessionSecret) == "" {

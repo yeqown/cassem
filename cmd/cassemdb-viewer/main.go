@@ -524,7 +524,7 @@ func buildCommands() []*cli.Command {
 func withKVClient(c *cli.Context, mode apikv.Mode, useTimeout bool, fn func(context.Context, apikv.KVClient) error) error {
 	operationCtx := c.Context
 	dialCtx := operationCtx
-	cancel := func() {}
+	var cancel context.CancelFunc
 	if useTimeout {
 		operationCtx, cancel = context.WithTimeout(operationCtx, c.Duration("timeout"))
 		dialCtx = operationCtx

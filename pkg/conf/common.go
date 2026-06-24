@@ -69,7 +69,7 @@ func Load(path string, c any) (err error) {
 	if err != nil {
 		return fmt.Errorf("could not open `%s`: %w", path, err)
 	}
-	defer r.Close()
+	defer func() { _ = r.Close() }()
 	if err = toml.NewDecoder(r).Decode(c); err != nil {
 		return fmt.Errorf("decode TOML file failed: %w", err)
 	}

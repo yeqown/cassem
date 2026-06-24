@@ -390,7 +390,7 @@ func (rc *raftNode) publishSnapshot(snapshotToSave raftpb.Snapshot) {
 	defer log.Infof("finished publishing snapshot at index %d", rc.snapshotIndex)
 
 	if snapshotToSave.Metadata.Index <= rc.appliedIndex {
-		log.Fatalf("snapshot index [%d] should > progress.appliedIndex [%d]", snapshotToSave.Metadata.Index, rc.appliedIndex)
+		panic(fmt.Sprintf("snapshot index [%d] should > progress.appliedIndex [%d]", snapshotToSave.Metadata.Index, rc.appliedIndex))
 	}
 	rc.commitC <- nil // trigger store to load snapshot
 
@@ -451,7 +451,7 @@ func (rc *raftNode) serveChannels() {
 	rc.snapshotIndex = snapshot.Metadata.Index
 	rc.appliedIndex = snapshot.Metadata.Index
 
-	defer rc.wal.Close()
+	defer func() { _ = rc.wal.Close() }()
 
 	ticker := time.NewTicker(100 * time.Millisecond)
 	defer ticker.Stop()
@@ -460,18 +460,16 @@ func (rc *raftNode) serveChannels() {
 		// send proposals over raft
 		runtime.GoFunc("sendProposals", func() error {
 			for rc.proposeC != nil {
-				select {
-				case prop, ok := <-rc.proposeC:
-					log.
-						WithFields(log.Fields{"ok": ok, "propose": prop}).
-						Debug("raftNode.serveChannels proposeC called")
-					if !ok {
-						rc.proposeC = nil
-					} else {
-						// blocks until accepted by raft state machine
-						// DONE(@yeqown): return error to request (synchronized?)
-						prop.ErrC <- rc.node.Propose(prop.Ctx, apikv.Must(apikv.Marshal(prop.Entry)))
-					}
+				prop, ok := <-rc.proposeC
+				log.
+					WithFields(log.Fields{"ok": ok, "propose": prop}).
+					Debug("raftNode.serveChannels proposeC called")
+				if !ok {
+					rc.proposeC = nil
+				} else {
+					// blocks until accepted by raft state machine
+					// DONE(@yeqown): return error to request (synchronized?)
+					prop.ErrC <- rc.node.Propose(prop.Ctx, apikv.Must(apikv.Marshal(prop.Entry)))
 				}
 			}
 			// client closed channel; shutdown raft if not already

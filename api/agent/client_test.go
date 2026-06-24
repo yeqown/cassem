@@ -19,7 +19,7 @@ func TestWatchStreamFailureKeepsWatchingForRenew(t *testing.T) {
 
 	streamDone := make(chan struct{})
 	fake := &failingWatchAgentClient{streamDone: streamDone}
-	c := newTestAgentInstanceClient(fake, clientCtx, cancel)
+	c := newTestAgentInstanceClient(clientCtx, cancel, fake)
 
 	err := c.Watch(context.Background(), "test", "default", func(*concept.Element) {}, "ele1", "config")
 	require.NoError(t, err)
@@ -39,7 +39,7 @@ func TestWatchContextCancellationRemovesWatchingForRenew(t *testing.T) {
 	defer cancelClient()
 
 	fake := &cancelWatchAgentClient{failingWatchAgentClient: &failingWatchAgentClient{}}
-	c := newTestAgentInstanceClient(fake, clientCtx, cancelClient)
+	c := newTestAgentInstanceClient(clientCtx, cancelClient, fake)
 	watchCtx, cancelWatch := context.WithCancel(context.Background())
 
 	err := c.Watch(watchCtx, "test", "default", func(*concept.Element) {}, "ele1", "config")
@@ -52,7 +52,7 @@ func TestWatchContextCancellationRemovesWatchingForRenew(t *testing.T) {
 	}, time.Second, 10*time.Millisecond)
 }
 
-func newTestAgentInstanceClient(fake AgentClient, ctx context.Context, cancel context.CancelFunc) *agentInstanceClient {
+func newTestAgentInstanceClient(ctx context.Context, cancel context.CancelFunc, fake AgentClient) *agentInstanceClient {
 	return &agentInstanceClient{
 		agentClient: fake,
 		opt:         &options{clientId: "client-01", clientIp: "127.0.0.1"},

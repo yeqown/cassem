@@ -14,8 +14,6 @@ import (
 	"time"
 
 	"github.com/yeqown/log"
-	"golang.org/x/net/http2"
-	"golang.org/x/net/http2/h2c"
 	"google.golang.org/grpc"
 )
 
@@ -53,20 +51,19 @@ func (g gateway) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-// ServeHTTP implements http.Handler
-func (g gateway) http2Wrapper() http.Handler {
-	return h2c.NewHandler(g, &http2.Server{})
-}
-
 func (g gateway) Addr() string {
 	return g.addr
 }
 
 func (g gateway) server() *http.Server {
+	protocols := new(http.Protocols)
+	protocols.SetHTTP1(true)
+	protocols.SetUnencryptedHTTP2(true)
 	return &http.Server{
 		Addr:        g.Addr(),
-		Handler:     g.http2Wrapper(),
+		Handler:     g,
 		ReadTimeout: 10 * time.Second,
+		Protocols:   protocols,
 	}
 }
 

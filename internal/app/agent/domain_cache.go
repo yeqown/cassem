@@ -134,7 +134,11 @@ func (p *appPool) get(app string, createIfNotExists bool) (b *envPool, ok bool) 
 		return
 	}
 
-	b = v.(*envPool)
+	envPoolValue, ok := v.(*envPool)
+	if !ok {
+		return nil, false
+	}
+	b = envPoolValue
 
 	return
 }
@@ -160,7 +164,11 @@ func (b *envPool) get(env string, createIfNotExists bool) (e *elemPool, ok bool)
 		return
 	}
 
-	e = v.(*elemPool)
+	elemPoolValue, ok := v.(*elemPool)
+	if !ok {
+		return nil, false
+	}
+	e = elemPoolValue
 	return
 }
 
@@ -202,7 +210,7 @@ func (e *elemPool) query(key string) (elem *concept.Element, ok bool) {
 	// ignore cache if now - dirtyTime > 10s
 	elem = i.val
 	ok = true
-	if time.Now().Sub(i.dirtyTime) > 10*time.Second {
+	if time.Since(i.dirtyTime) > 10*time.Second {
 		ok = false
 		elem = nil
 	}

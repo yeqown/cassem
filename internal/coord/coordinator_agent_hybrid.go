@@ -47,6 +47,7 @@ loop:
 		select {
 		case <-ctx2.Done():
 			err = ctx2.Err()
+			break loop
 		default:
 			if err = stream.RecvMsg(change); err != nil {
 				log.

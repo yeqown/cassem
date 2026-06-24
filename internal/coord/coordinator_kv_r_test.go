@@ -12,7 +12,6 @@ import (
 	"google.golang.org/grpc"
 
 	"github.com/yeqown/cassem/api/concept"
-	errorx "github.com/yeqown/cassem/api/concept"
 	apikv "github.com/yeqown/cassem/api/kv"
 )
 
@@ -24,7 +23,7 @@ type kvReadOnlyTestKV struct {
 func (f *kvReadOnlyTestKV) GetKV(_ context.Context, req *apikv.GetKVReq, _ ...grpc.CallOption) (*apikv.GetKVResp, error) {
 	entity, ok := f.entities[req.GetKey()]
 	if !ok {
-		return nil, errorx.Err_NOT_FOUND
+		return nil, concept.Err_NOT_FOUND
 	}
 	return &apikv.GetKVResp{Entity: entity}, nil
 }
@@ -231,7 +230,7 @@ func TestKVReadOnlyGetElementsByKeysReturnsVersionNotFoundErrors(t *testing.T) {
 	}}
 
 	_, err = (kvReadOnly{cassemdb: kv}).GetElementsByKeys(context.Background(), "app", "env", []string{"key"})
-	require.ErrorIs(t, err, errorx.Err_NOT_FOUND)
+	require.ErrorIs(t, err, concept.Err_NOT_FOUND)
 	require.Contains(t, err.Error(), concept.WithVersion(baseKey, 1))
 	require.Contains(t, err.Error(), "NotFound")
 }
@@ -246,7 +245,7 @@ func TestKVReadOnlyGetElementsByKeysReturnsNonNotFoundMetadataErrors(t *testing.
 	}
 
 	_, err := (kvReadOnly{cassemdb: kv}).GetElementsByKeys(context.Background(), "app", "env", []string{"key"})
-	require.ErrorIs(t, err, errorx.Err_INTERNAL)
+	require.ErrorIs(t, err, concept.Err_INTERNAL)
 	require.Contains(t, err.Error(), "Internal")
 	require.Contains(t, err.Error(), "boom")
 }
@@ -289,5 +288,5 @@ func TestGetElementWithVersionReturnsVersionLookupError(t *testing.T) {
 	}}
 
 	_, err = (kvReadOnly{cassemdb: kv}).GetElementWithVersion(context.Background(), "app", "env", "key", 99)
-	require.ErrorIs(t, err, errorx.Err_NOT_FOUND)
+	require.ErrorIs(t, err, concept.Err_NOT_FOUND)
 }

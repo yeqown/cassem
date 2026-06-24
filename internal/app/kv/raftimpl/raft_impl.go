@@ -15,9 +15,9 @@ import (
 	"go.etcd.io/etcd/server/v3/etcdserver/api/snap"
 	"google.golang.org/protobuf/proto"
 
+	errorx "github.com/yeqown/cassem/api/concept"
 	"github.com/yeqown/cassem/internal/app/kv/storage"
 	"github.com/yeqown/cassem/pkg/conf"
-	errorx "github.com/yeqown/cassem/api/concept"
 	"github.com/yeqown/cassem/pkg/runtime"
 	"github.com/yeqown/cassem/pkg/watcher"
 )
@@ -90,20 +90,18 @@ func NewRaftNode(bolt *conf.Bolt, raftc *conf.Raft) (rc *raftNodeImpl) {
 
 	// fan-out leader change signal.
 	runtime.GoFunc("raftNodeImpl.leaderChangeFanOut", func() error {
-		for {
-			select {
-			case state := <-raftStateChangeC:
-				rc.raftState = state
-				beLeader := state == raft.StateLeader
-				log.Debugf("raftNodeImpl.leaderChangeFanOut: %v", beLeader)
-				for _, ch := range rc.leadershipFanOutC {
-					select {
-					case ch <- beLeader:
-					default:
-					}
+		for state := range raftStateChangeC {
+			rc.raftState = state
+			beLeader := state == raft.StateLeader
+			log.Debugf("raftNodeImpl.leaderChangeFanOut: %v", beLeader)
+			for _, ch := range rc.leadershipFanOutC {
+				select {
+				case ch <- beLeader:
+				default:
 				}
 			}
 		}
+		return nil
 	})
 
 	return
@@ -131,93 +129,118 @@ func (r *raftNodeImpl) setup() {
 
 func (r *raftNodeImpl) applyCommits(commitCh <-chan *commit, errorCh <-chan error) error {
 	for c := range commitCh {
-		if c == nil {
-			// signaled to load snapshot
-			snapshot, err := r.loadSnapshot()
-			if err != nil {
-				log.Fatal(err)
-			}
-			if snapshot != nil {
-				log.Infof("loading snapshot at term %d and index %d", snapshot.Metadata.Term, snapshot.Metadata.Index)
-				if err = r.recoverFromSnapshot(snapshot.Data); err != nil {
-					log.Fatal(err)
-				}
-			}
-			continue
+		if err := r.applyCommit(c); err != nil {
+			return err
 		}
-
-		for _, data := range c.data {
-			entry := new(apikv.LogEntry)
-			if err := apikv.Unmarshal(runtime.ToBytes(data), entry); err != nil {
-				close(c.applyDoneC)
-				return fmt.Errorf("raftNodeImpl.applyCommits.decode log entry: %w", err)
-			}
-
-			log.Debug("raftNodeImpl.applyCommits recv one logEntry")
-
-			switch entry.Action {
-			case apikv.LogEntry_Set:
-				cmd := new(apikv.SetCommand)
-				if err := apikv.Unmarshal(entry.Command, cmd); err != nil {
-					close(c.applyDoneC)
-					return fmt.Errorf("raftNodeImpl.applyCommits.decode set command: %w", err)
-				}
-				if cmd.SetKey != "" {
-					if err := r.kvstore.SetKV(cmd.GetSetKey(), cmd.GetValue(), cmd.GetIsDir()); err != nil {
-						log.
-							WithFields(log.Fields{"cmd": cmd, "error": err}).
-							Error("raftNodeImpl.applyCommits failed to SetKV")
-					}
-				}
-				if cmd.DeleteKey != "" {
-					if err := r.kvstore.UnsetKV(cmd.GetDeleteKey(), cmd.GetIsDir()); err != nil {
-						log.
-							WithFields(log.Fields{"cmd": cmd, "error": err}).
-							Error("raftNodeImpl.applyCommits failed to SetKV")
-					}
-				}
-
-			case apikv.LogEntry_ChangeSpread:
-				if entry.Expired() {
-					// skip change log entry.
-					continue
-				}
-				cmd := new(apikv.ChangeCommand)
-				if err := apikv.Unmarshal(entry.Command, cmd); err != nil {
-					close(c.applyDoneC)
-					return fmt.Errorf("raftNodeImpl.applyCommits.decode change command: %w", err)
-				}
-				change := cmd.GetChange()
-				select {
-				case r.changeC <- change:
-					paths, _ := storage.KeySplitter(change.GetKey())
-					if len(paths) == 0 {
-						break
-					}
-					parentDirectoryChange := &apikv.ParentDirectoryChange{
-						Change:        change,
-						SpecificTopic: strings.Join(paths, "/"),
-					}
-					select {
-					case r.changeC <- parentDirectoryChange:
-					default:
-					}
-				default:
-				}
-			}
-		}
-		close(c.applyDoneC)
 	}
 
-	var (
-		err error
-		ok  bool
-	)
-	if err, ok = <-errorCh; ok {
+	if err, ok := <-errorCh; ok {
 		return err
 	}
-
 	return nil
+}
+
+func (r *raftNodeImpl) applyCommit(c *commit) error {
+	if c == nil {
+		r.applySnapshotFromCommit()
+		return nil
+	}
+	defer close(c.applyDoneC)
+
+	for _, data := range c.data {
+		if err := r.applyCommitData(data); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (r *raftNodeImpl) applySnapshotFromCommit() {
+	snapshot, err := r.loadSnapshot()
+	if err != nil {
+		log.Fatal(err)
+	}
+	if snapshot != nil {
+		log.Infof("loading snapshot at term %d and index %d", snapshot.Metadata.Term, snapshot.Metadata.Index)
+		if err = r.recoverFromSnapshot(snapshot.Data); err != nil {
+			log.Fatal(err)
+		}
+	}
+}
+
+func (r *raftNodeImpl) applyCommitData(data string) error {
+	entry := new(apikv.LogEntry)
+	if err := apikv.Unmarshal(runtime.ToBytes(data), entry); err != nil {
+		return fmt.Errorf("raftNodeImpl.applyCommits.decode log entry: %w", err)
+	}
+
+	log.Debug("raftNodeImpl.applyCommits recv one logEntry")
+
+	switch entry.Action {
+	case apikv.LogEntry_Set:
+		return r.applySetLogEntry(entry)
+	case apikv.LogEntry_ChangeSpread:
+		return r.applyChangeLogEntry(entry)
+	default:
+		return nil
+	}
+}
+
+func (r *raftNodeImpl) applySetLogEntry(entry *apikv.LogEntry) error {
+	cmd := new(apikv.SetCommand)
+	if err := apikv.Unmarshal(entry.Command, cmd); err != nil {
+		return fmt.Errorf("raftNodeImpl.applyCommits.decode set command: %w", err)
+	}
+	if cmd.SetKey != "" {
+		if err := r.kvstore.SetKV(cmd.GetSetKey(), cmd.GetValue(), cmd.GetIsDir()); err != nil {
+			log.
+				WithFields(log.Fields{"cmd": cmd, "error": err}).
+				Error("raftNodeImpl.applyCommits failed to SetKV")
+		}
+	}
+	if cmd.DeleteKey != "" {
+		if err := r.kvstore.UnsetKV(cmd.GetDeleteKey(), cmd.GetIsDir()); err != nil {
+			log.
+				WithFields(log.Fields{"cmd": cmd, "error": err}).
+				Error("raftNodeImpl.applyCommits failed to SetKV")
+		}
+	}
+	return nil
+}
+
+func (r *raftNodeImpl) applyChangeLogEntry(entry *apikv.LogEntry) error {
+	if entry.Expired() {
+		return nil
+	}
+
+	cmd := new(apikv.ChangeCommand)
+	if err := apikv.Unmarshal(entry.Command, cmd); err != nil {
+		return fmt.Errorf("raftNodeImpl.applyCommits.decode change command: %w", err)
+	}
+
+	change := cmd.GetChange()
+	select {
+	case r.changeC <- change:
+		r.notifyParentDirectoryChange(change)
+	default:
+	}
+	return nil
+}
+
+func (r *raftNodeImpl) notifyParentDirectoryChange(change *apikv.Change) {
+	paths, _ := storage.KeySplitter(change.GetKey())
+	if len(paths) == 0 {
+		return
+	}
+
+	parentDirectoryChange := &apikv.ParentDirectoryChange{
+		Change:        change,
+		SpecificTopic: strings.Join(paths, "/"),
+	}
+	select {
+	case r.changeC <- parentDirectoryChange:
+	default:
+	}
 }
 
 func (r *raftNodeImpl) getSnapshot() ([]byte, error) {
@@ -456,7 +479,7 @@ func (r *raftNodeImpl) probeRemoveExpired(val *apikv.Entity) (removed bool) {
 
 var (
 	emptyRangeResp = &apikv.RangeResp{
-		Entities:    make([]*apikv.Entity, 0, 0),
+		Entities:    make([]*apikv.Entity, 0),
 		HasMore:     false,
 		NextSeekKey: "",
 	}
@@ -493,10 +516,7 @@ func (r *raftNodeImpl) Range(req *apikv.RangeReq) (*apikv.RangeResp, error) {
 		HasMore:     result.HasMore,
 		NextSeekKey: result.NextSeekKey,
 	}
-
-	for _, v := range result.Items {
-		resp.Entities = append(resp.Entities, v)
-	}
+	resp.Entities = append(resp.Entities, result.Items...)
 
 	return resp, err
 }
@@ -511,8 +531,7 @@ func (r *raftNodeImpl) Expire(req *apikv.ExpireReq) error {
 		return fmt.Errorf("cassemdb.raftNodeImpl.Expire: %w", err)
 	}
 
-	switch v.GetTtl() {
-	case apikv.NEVER_EXPIRED:
+	if v.GetTtl() == apikv.NEVER_EXPIRED {
 		return nil
 	}
 

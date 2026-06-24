@@ -126,7 +126,12 @@ func FreePort(t TB) int {
 	if err != nil {
 		t.Fatalf("allocate free port: %v", err)
 	}
-	defer ln.Close()
+	defer func() { _ = ln.Close() }()
 
-	return ln.Addr().(*net.TCPAddr).Port
+	tcpAddr, ok := ln.Addr().(*net.TCPAddr)
+	if !ok {
+		t.Fatalf("listener addr is not tcp: %T", ln.Addr())
+	}
+
+	return tcpAddr.Port
 }

@@ -56,14 +56,12 @@ func New(cfg *conf.CassemdbConfig) (*app, error) {
 		return nil, fmt.Errorf("advertiseAddr is required")
 	}
 
-	if err := d.bootstrap(); err != nil {
-		return nil, err
-	}
+	d.bootstrap()
 
 	return d, nil
 }
 
-func (d *app) bootstrap() (err error) {
+func (d *app) bootstrap() {
 	d.watcher = watcher.NewChannelWatcher(100)
 	d.raft = raftimpl.NewRaftNode(d.config.Bolt, d.config.Raft)
 
@@ -80,7 +78,6 @@ func (d *app) bootstrap() (err error) {
 	})
 
 	log.Info("app: raft component loaded")
-	return nil
 }
 
 // Run start a ticker to print log and check healthy of each component in core.app.

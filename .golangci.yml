@@ -41,14 +41,12 @@ linters:
         - name: exported
           disabled: true
         - name: increment-decrement
-        - name: var-naming
         - name: var-declaration
         - name: package-comments
           disabled: true
         - name: range
         - name: receiver-naming
         - name: time-naming
-        - name: unexported-return
         - name: indent-error-flow
         - name: errorf
         - name: empty-block
@@ -56,7 +54,6 @@ linters:
         - name: unused-parameter
           disabled: true
         - name: unreachable-code
-        - name: redefines-builtin-id
   exclusions:
     generated: strict
     paths:

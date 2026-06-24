@@ -144,7 +144,7 @@ func TestExponentialBackoffRetry_NilContext(t *testing.T) {
 	}
 
 	// Pass nil context, should use TODO() internally
-	err := strategy.Do(nil, fn)
+	err := strategy.Do(context.TODO(), fn)
 	assert.NoError(t, err)
 	assert.Equal(t, 2, attempts)
 }

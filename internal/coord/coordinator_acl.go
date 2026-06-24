@@ -15,7 +15,6 @@ import (
 	"github.com/yeqown/log"
 
 	"github.com/yeqown/cassem/api/concept"
-	errorx "github.com/yeqown/cassem/api/concept"
 	"github.com/yeqown/cassem/pkg/hash"
 )
 
@@ -358,7 +357,7 @@ func (a aclImpl) rejectSuperadminTarget(account, action string) error {
 		return fmt.Errorf("aclImpl.%sSuperadmin: %w", action, err)
 	}
 	if ok {
-		return fmt.Errorf("could not %s superadmin: %w", action, errorx.Err_PERMISSION_DENIED)
+		return fmt.Errorf("could not %s superadmin: %w", action, concept.Err_PERMISSION_DENIED)
 	}
 	return nil
 }
@@ -369,7 +368,7 @@ func (a aclImpl) AssignRole(account, role string, domain ...string) error {
 
 func (a aclImpl) assignRole(account, role string, allowSuperadmin bool, domain ...string) error {
 	if normalizeRole(role) == concept.Role_SUPERADMIN && !allowSuperadmin {
-		return fmt.Errorf("could not assign superadmin: %w", errorx.Err_PERMISSION_DENIED)
+		return fmt.Errorf("could not assign superadmin: %w", concept.Err_PERMISSION_DENIED)
 	}
 
 	assigned, err := a.e.AddRoleForUser(account, rbacRole(role), domain...)
@@ -470,7 +469,7 @@ func (a aclImpl) AutoMigrate() error {
 func (a aclImpl) BootstrapAdmin(account, nickname, password string) error {
 	if _, err := a.GetUser(account); err == nil {
 		return a.assignRole(account, concept.Role_SUPERADMIN, true, concept.Domain_ALL)
-	} else if !errors.Is(err, errorx.Err_NOT_FOUND) {
+	} else if !errors.Is(err, concept.Err_NOT_FOUND) {
 		return fmt.Errorf("aclImpl.BootstrapAdmin: %w", err)
 	}
 
@@ -496,7 +495,7 @@ func (c cassemAdapter) LoadPolicy(model model.Model) error {
 		&apikv.GetKVReq{Key: concept.GenAclPolicyKey()},
 	)
 	if err != nil {
-		if errors.Is(err, errorx.Err_NOT_FOUND) {
+		if errors.Is(err, concept.Err_NOT_FOUND) {
 			return nil
 		}
 

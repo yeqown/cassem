@@ -15,7 +15,6 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/yeqown/cassem/api/concept"
-	errorx "github.com/yeqown/cassem/api/concept"
 	"github.com/yeqown/cassem/pkg/httpx"
 )
 
@@ -103,7 +102,7 @@ func withRouteAuth(rbac concept.RBAC, sessionSecret, method, authPattern string,
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		sess, err := authorizeRequest(r, rbac, sessionSecret)
 		if err != nil {
-			httpx.WriteErrorStatus(w, http.StatusUnauthorized, errorx.Err_UNAUTHENTICATED)
+			httpx.WriteErrorStatus(w, http.StatusUnauthorized, concept.Err_UNAUTHENTICATED)
 			return
 		}
 
@@ -113,7 +112,7 @@ func withRouteAuth(rbac concept.RBAC, sessionSecret, method, authPattern string,
 			return
 		}
 		if !allow {
-			httpx.WriteError(w, fmt.Errorf("not allowed: %w", errorx.Err_PERMISSION_DENIED))
+			httpx.WriteError(w, fmt.Errorf("not allowed: %w", concept.Err_PERMISSION_DENIED))
 			return
 		}
 
@@ -126,21 +125,21 @@ func withRouteAuth(rbac concept.RBAC, sessionSecret, method, authPattern string,
 func authorizeRequest(r *http.Request, rbac concept.RBAC, sessionSecret string) (*Session, error) {
 	s := r.Header.Get("x-cassem-session")
 	if s == "" {
-		return nil, errorx.Err_UNAUTHENTICATED
+		return nil, concept.Err_UNAUTHENTICATED
 	}
 
 	sess, err := parseSession(s, sessionSecret)
 	if err != nil {
-		return nil, errorx.Err_UNAUTHENTICATED
+		return nil, concept.Err_UNAUTHENTICATED
 	}
 
 	user, err := rbac.GetUser(sess.Account)
 	if err != nil {
-		return nil, fmt.Errorf("authentication get user: %w", errors.Join(err, errorx.Err_INTERNAL))
+		return nil, fmt.Errorf("authentication get user: %w", errors.Join(err, concept.Err_INTERNAL))
 	}
 
 	if err = validSession(sess, user); err != nil {
-		return nil, fmt.Errorf("valid session: %w", errors.Join(err, errorx.Err_UNAUTHENTICATED))
+		return nil, fmt.Errorf("valid session: %w", errors.Join(err, concept.Err_UNAUTHENTICATED))
 	}
 
 	return sess, nil
@@ -148,49 +147,49 @@ func authorizeRequest(r *http.Request, rbac concept.RBAC, sessionSecret string) 
 
 func validSession(sess *Session, user *concept.User) error {
 	if user.GetStatus() != concept.User_NORMAL {
-		return fmt.Errorf("status disabled: %w", errorx.Err_UNAUTHENTICATED)
+		return fmt.Errorf("status disabled: %w", concept.Err_UNAUTHENTICATED)
 	}
 	if user.GetSalt() != sess.Salt {
-		return fmt.Errorf("invalid session header: %w", errorx.Err_UNAUTHENTICATED)
+		return fmt.Errorf("invalid session header: %w", concept.Err_UNAUTHENTICATED)
 	}
 	if sub := time.Now().Unix() - sess.ExpiredAt; sub >= 0 {
-		return fmt.Errorf("session expired: %w", errorx.Err_UNAUTHENTICATED)
+		return fmt.Errorf("session expired: %w", concept.Err_UNAUTHENTICATED)
 	}
 	return nil
 }
 
 func parseSession(s string, sessionSecret string) (*Session, error) {
 	if s == "" || sessionSecret == "" {
-		return nil, errorx.Err_INVALID_ARGUMENT
+		return nil, concept.Err_INVALID_ARGUMENT
 	}
 
 	parts := strings.Split(s, ".")
 	if len(parts) != 2 {
-		return nil, fmt.Errorf("invalid session token: %w", errorx.Err_INVALID_ARGUMENT)
+		return nil, fmt.Errorf("invalid session token: %w", concept.Err_INVALID_ARGUMENT)
 	}
 
 	payload, err := base64.RawURLEncoding.DecodeString(parts[0])
 	if err != nil {
-		return nil, fmt.Errorf("parse session: %w", errors.Join(err, errorx.Err_INVALID_ARGUMENT))
+		return nil, fmt.Errorf("parse session: %w", errors.Join(err, concept.Err_INVALID_ARGUMENT))
 	}
 	signature, err := base64.RawURLEncoding.DecodeString(parts[1])
 	if err != nil {
-		return nil, fmt.Errorf("parse session: %w", errors.Join(err, errorx.Err_INVALID_ARGUMENT))
+		return nil, fmt.Errorf("parse session: %w", errors.Join(err, concept.Err_INVALID_ARGUMENT))
 	}
 	if !hmac.Equal(signature, sessionSignature(payload, sessionSecret)) {
-		return nil, fmt.Errorf("invalid session signature: %w", errorx.Err_INVALID_ARGUMENT)
+		return nil, fmt.Errorf("invalid session signature: %w", concept.Err_INVALID_ARGUMENT)
 	}
 
 	sess := new(Session)
 	if err = json.Unmarshal(payload, sess); err != nil {
-		return nil, fmt.Errorf("parse session: %w", errors.Join(err, errorx.Err_INVALID_ARGUMENT))
+		return nil, fmt.Errorf("parse session: %w", errors.Join(err, concept.Err_INVALID_ARGUMENT))
 	}
 	return sess, nil
 }
 
 func EncodeSession(sess *Session, sessionSecret string) (string, error) {
 	if sessionSecret == "" {
-		return "", errorx.Err_INVALID_ARGUMENT
+		return "", concept.Err_INVALID_ARGUMENT
 	}
 	val, err := json.Marshal(sess)
 	if err != nil {

@@ -147,9 +147,6 @@ func (c *channelWatcher) Subscribe(obs ...IObserver) {
 		c._mu.Lock()
 		// register observer into topic.
 		for _, topic := range observer.Topics() {
-			//log.
-			//	WithField("topic", topic).
-			//	Debug("channelWatcher.Subscribe add one observer")
 			if _, ok := c.buckets[topic]; !ok {
 				c.buckets[topic] = newTopicBucket()
 			}

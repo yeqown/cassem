@@ -51,7 +51,12 @@ func (c *LRU[K, V]) Put(key K, value V) (set, evicted bool) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 	if item, ok := c.cacheItems[key]; ok {
-		item.Value.(*entry[K, V]).Value = value
+		ent, ok := item.Value.(*entry[K, V])
+		if !ok {
+			return false, false
+		}
+		ent.Value = value
+		item.Value = ent
 		c.cache.MoveToFront(item)
 		set = true
 		return
@@ -62,7 +67,10 @@ func (c *LRU[K, V]) Put(key K, value V) (set, evicted bool) {
 	defer c.hMutex.Unlock()
 	item, ok := c.historyItems[key]
 	if ok {
-		hEnt = item.Value.(*historyEntry[K, V])
+		hEnt, ok = item.Value.(*historyEntry[K, V])
+		if !ok {
+			return false, false
+		}
 		hEnt.Visited++
 		item.Value = hEnt
 		if hEnt.Visited >= c.K {
@@ -76,7 +84,7 @@ func (c *LRU[K, V]) Put(key K, value V) (set, evicted bool) {
 		hEnt.Key = key
 		hEnt.Value = value
 		hEnt.Visited = 1
-		item = c.addHistoryElement(hEnt)
+		c.addHistoryElement(hEnt)
 	}
 
 	return false, false
@@ -88,7 +96,12 @@ func (c *LRU[K, V]) Get(key K) (value V, ok bool) {
 	if item, ok := c.cacheItems[key]; ok {
 		c.cache.MoveToFront(item)
 		c.mutex.Unlock()
-		return item.Value.(*entry[K, V]).Value, true
+		ent, ok := item.Value.(*entry[K, V])
+		if !ok {
+			var zero V
+			return zero, false
+		}
+		return ent.Value, true
 	}
 	c.mutex.Unlock()
 	var zero V
@@ -112,7 +125,12 @@ func (c *LRU[K, V]) Peek(key K) (value V, ok bool) {
 	defer c.mutex.RUnlock()
 	var item *list.Element
 	if item, ok = c.cacheItems[key]; ok {
-		return item.Value.(*entry[K, V]).Value, true
+		ent, ok := item.Value.(*entry[K, V])
+		if !ok {
+			var zero V
+			return zero, false
+		}
+		return ent.Value, true
 	}
 	var zero V
 	return zero, ok
@@ -129,7 +147,12 @@ func (c *LRU[K, V]) Oldest() (key K, value V, ok bool) {
 	}
 
 	item := c.cache.Back()
-	ent := item.Value.(*entry[K, V])
+	ent, ok := item.Value.(*entry[K, V])
+	if !ok {
+		var zeroK K
+		var zeroV V
+		return zeroK, zeroV, false
+	}
 	return ent.Key, ent.Value, true
 }
 
@@ -137,11 +160,13 @@ func (c *LRU[K, V]) Oldest() (key K, value V, ok bool) {
 func (c *LRU[K, V]) Keys() []K {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
-	keys := make([]K, len(c.cacheItems))
-	i := 0
+	keys := make([]K, 0, len(c.cacheItems))
 	for item := c.cache.Back(); item != nil; item = item.Prev() {
-		keys[i] = item.Value.(*entry[K, V]).Key
-		i++
+		ent, ok := item.Value.(*entry[K, V])
+		if !ok {
+			continue
+		}
+		keys = append(keys, ent.Key)
 	}
 	return keys
 }
@@ -161,7 +186,10 @@ func (c *LRU[K, V]) Purge() {
 	c.mutex.Lock()
 	for k, v := range c.cacheItems {
 		if c.onEvict != nil {
-			c.onEvict(k, v.Value.(*entry[K, V]).Value)
+			ent, ok := v.Value.(*entry[K, V])
+			if ok {
+				c.onEvict(k, ent.Value)
+			}
 		}
 		delete(c.cacheItems, k)
 	}
@@ -178,7 +206,10 @@ func (c *LRU[K, V]) Purge() {
 
 func (c *LRU[K, V]) removeHistoryElement(item *list.Element) {
 	c.hSize++
-	ent := item.Value.(*historyEntry[K, V])
+	ent, ok := item.Value.(*historyEntry[K, V])
+	if !ok {
+		return
+	}
 	c.history.Remove(item)
 	delete(c.historyItems, ent.Key)
 }
@@ -194,7 +225,10 @@ func (c *LRU[K, V]) addHistoryElement(hEnt *historyEntry[K, V]) *list.Element {
 
 func (c *LRU[K, V]) removeElement(item *list.Element) {
 	c.size++
-	ent := item.Value.(*entry[K, V])
+	ent, ok := item.Value.(*entry[K, V])
+	if !ok {
+		return
+	}
 	c.cache.Remove(item)
 	delete(c.cacheItems, ent.Key)
 	if c.onEvict != nil {

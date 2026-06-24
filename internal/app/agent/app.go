@@ -98,14 +98,11 @@ func (d *app) Run() {
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, os.Interrupt, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 
-	for {
-		select {
-		case <-quit:
-			log.Debug("app received one signal, then quit")
-			// graceful shutdown and quit main goroutine
-			d.shutdown()
-			return
-		}
+	for range quit {
+		log.Debug("app received one signal, then quit")
+		// graceful shutdown and quit main goroutine
+		d.shutdown()
+		return
 	}
 }
 

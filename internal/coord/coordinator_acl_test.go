@@ -11,7 +11,6 @@ import (
 	"buf.build/go/protovalidate"
 	"github.com/stretchr/testify/require"
 	"github.com/yeqown/cassem/api/concept"
-	errorx "github.com/yeqown/cassem/api/concept"
 	apikv "github.com/yeqown/cassem/api/kv"
 	"github.com/yeqown/cassem/pkg/hash"
 	"google.golang.org/grpc"
@@ -29,7 +28,7 @@ func newACLTestKV() *aclTestKV {
 func (f *aclTestKV) GetKV(_ context.Context, req *apikv.GetKVReq, _ ...grpc.CallOption) (*apikv.GetKVResp, error) {
 	entity, ok := f.data[req.GetKey()]
 	if !ok {
-		return nil, errorx.Err_NOT_FOUND
+		return nil, concept.Err_NOT_FOUND
 	}
 	return &apikv.GetKVResp{Entity: entity}, nil
 }
@@ -97,10 +96,10 @@ func TestACLRejectsHardcodedSuperadminUser(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = acl.GetUser("superadmin")
-	require.ErrorIs(t, err, errorx.Err_NOT_FOUND)
+	require.ErrorIs(t, err, concept.Err_NOT_FOUND)
 
 	_, err = acl.GetUser("superadmin-anything")
-	require.ErrorIs(t, err, errorx.Err_NOT_FOUND)
+	require.ErrorIs(t, err, concept.Err_NOT_FOUND)
 }
 
 func TestACLDoesNotBypassBySuperadminSubject(t *testing.T) {
@@ -206,7 +205,7 @@ func TestAssignRoleRejectsSuperadmin(t *testing.T) {
 	require.NoError(t, acl.AddUser(&concept.User{Account: "alice@example.com", Nickname: "Alice", HashedPassword: "secret", Status: concept.User_NORMAL}))
 
 	err = acl.AssignRole("alice@example.com", concept.Role_SUPERADMIN, concept.Domain_ALL)
-	require.ErrorIs(t, err, errorx.Err_PERMISSION_DENIED)
+	require.ErrorIs(t, err, concept.Err_PERMISSION_DENIED)
 }
 
 func TestAssignAndRevokeRoleReturnSavePolicyErrors(t *testing.T) {
@@ -214,18 +213,18 @@ func TestAssignAndRevokeRoleReturnSavePolicyErrors(t *testing.T) {
 	rbac, err := newRBAC(store)
 	require.NoError(t, err)
 	acl := rbac.(aclImpl)
-	store.setErr = errorx.Err_INTERNAL
+	store.setErr = concept.Err_INTERNAL
 
 	err = acl.AssignRole("alice@example.com", concept.Role_ADMIN, concept.Domain_ALL)
-	require.ErrorIs(t, err, errorx.Err_INTERNAL)
+	require.ErrorIs(t, err, concept.Err_INTERNAL)
 	require.Contains(t, err.Error(), "aclImpl.AssignRole")
 
 	store.setErr = nil
 	require.NoError(t, acl.AssignRole("bob@example.com", concept.Role_ADMIN, concept.Domain_ALL))
-	store.setErr = errorx.Err_INTERNAL
+	store.setErr = concept.Err_INTERNAL
 
 	err = acl.RevokeRole("bob@example.com", concept.Role_ADMIN, concept.Domain_ALL)
-	require.ErrorIs(t, err, errorx.Err_INTERNAL)
+	require.ErrorIs(t, err, concept.Err_INTERNAL)
 	require.Contains(t, err.Error(), "aclImpl.RevokeRole")
 }
 
@@ -282,7 +281,7 @@ func TestResetUserRejectsBootstrapSuperadmin(t *testing.T) {
 	require.NoError(t, acl.BootstrapAdmin("root@example.com", "Root", "secret"))
 
 	err = acl.ResetUser("root@example.com", "new-password")
-	require.ErrorIs(t, err, errorx.Err_PERMISSION_DENIED)
+	require.ErrorIs(t, err, concept.Err_PERMISSION_DENIED)
 }
 
 func TestDisableUserRejectsBootstrapSuperadmin(t *testing.T) {
@@ -294,7 +293,7 @@ func TestDisableUserRejectsBootstrapSuperadmin(t *testing.T) {
 	require.NoError(t, acl.BootstrapAdmin("root@example.com", "Root", "secret"))
 
 	err = acl.DisableUser("root@example.com")
-	require.ErrorIs(t, err, errorx.Err_PERMISSION_DENIED)
+	require.ErrorIs(t, err, concept.Err_PERMISSION_DENIED)
 }
 
 func TestRevokeRoleRejectsBootstrapSuperadmin(t *testing.T) {
@@ -306,7 +305,7 @@ func TestRevokeRoleRejectsBootstrapSuperadmin(t *testing.T) {
 	require.NoError(t, acl.BootstrapAdmin("root@example.com", "Root", "secret"))
 
 	err = acl.RevokeRole("root@example.com", concept.Role_SUPERADMIN, concept.Domain_ALL)
-	require.ErrorIs(t, err, errorx.Err_PERMISSION_DENIED)
+	require.ErrorIs(t, err, concept.Err_PERMISSION_DENIED)
 }
 
 func TestACLListDomainOptionsPagesAppsAndEnvironments(t *testing.T) {

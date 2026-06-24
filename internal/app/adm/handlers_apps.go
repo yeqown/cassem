@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/yeqown/cassem/api/concept"
-	errorx "github.com/yeqown/cassem/api/concept"
 	"github.com/yeqown/cassem/pkg/httpx"
 	"github.com/yeqown/cassem/pkg/runtime"
 )
@@ -256,7 +255,7 @@ func (d app) PublishAppEnvElementHTTP(w http.ResponseWriter, r *http.Request) {
 		err = d.ap.notifyAll(elem)
 	case concept.PublishMode_GRAY:
 		if len(req.AgentIds) == 0 && len(req.InstanceIds) == 0 {
-			httpx.WriteError(w, errorx.Err_INVALID_ARGUMENT)
+			httpx.WriteError(w, concept.Err_INVALID_ARGUMENT)
 			return
 		}
 		if len(req.AgentIds) == 0 {

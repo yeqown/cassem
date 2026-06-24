@@ -73,7 +73,7 @@ func uiFileExists(assets fs.FS, name string) bool {
 	if err != nil {
 		return false
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	stat, err := file.Stat()
 	return err == nil && !stat.IsDir()

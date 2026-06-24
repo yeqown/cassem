@@ -93,24 +93,21 @@ func Test_Watcher(t *testing.T) {
 	w.Subscribe(ob5)
 
 	ticker := time.NewTicker(1 * time.Second)
-	for {
-		select {
-		case <-ticker.C:
-			if counter <= 0 {
-				goto FINISH
-			}
-			// generate mock data
-			key := randChooseTopic()
-			w.ChangeNotify(testChange{
-				Namespace: "ns",
-				Key:       key,
-				Format:    "json",
-				CheckSum:  hash.RandKey(10),
-				D:         nil,
-			})
-			sent[key] += 1
-			counter -= 1
+	for range ticker.C {
+		if counter <= 0 {
+			goto FINISH
 		}
+		// generate mock data
+		key := randChooseTopic()
+		w.ChangeNotify(testChange{
+			Namespace: "ns",
+			Key:       key,
+			Format:    "json",
+			CheckSum:  hash.RandKey(10),
+			D:         nil,
+		})
+		sent[key]++
+		counter--
 	}
 
 FINISH:

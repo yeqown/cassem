@@ -44,7 +44,7 @@ func (c *CassemAgentConfig) Valid() error {
 		return errors.New("renewInterval should be lte than TTL")
 	}
 
-	if len(c.CassemDBEndpoints) <= 0 {
+	if len(c.CassemDBEndpoints) == 0 {
 		return errors.New("empty endpoints")
 	}
 

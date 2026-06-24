@@ -127,10 +127,6 @@ type publishAppEnvElementReq struct {
 	PublishMode concept.PublishingMode `json:"publishMode" form:"publishMode,default=2" binding:"required,oneof=1 2"`
 }
 
-type pagingAgentInstanceReq struct {
-	commonPagingRequest
-}
-
 type addUserReq struct {
 	Account  string `json:"account" binding:"email,required"`
 	Password string `json:"password" binding:"required"`

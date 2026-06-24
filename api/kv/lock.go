@@ -33,7 +33,7 @@ func (l distributedLock) Acquire(kv KVClient) (err error) {
 	if _, err = kv.SetKV(ctx, &SetKVReq{
 		Key:       l.key,
 		IsDir:     false,
-		Ttl:       0,
+		Ttl:       int32(l.ttl),
 		Val:       nil,
 		Overwrite: false,
 	}); err != nil {

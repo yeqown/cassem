@@ -137,7 +137,7 @@ func (s *testRepositoryBBoltSuite) Test_Set_Get_Unset_KV() {
 	err = s.repo.UnsetKV("kv/b", false)
 	s.NoError(err)
 
-	val, err = s.repo.GetKV("kv/b", false)
+	_, err = s.repo.GetKV("kv/b", false)
 	s.Error(err)
 	s.Equal(ErrNotFound, err)
 }
@@ -216,7 +216,7 @@ func (s *testRepositoryBBoltSuite) Test_Range() {
 
 	// write dir under range/dir
 	for i := 0; i < 2; i++ {
-		k := string("range/dir/d" + strconv.Itoa(i))
+		k := "range/dir/d" + strconv.Itoa(i)
 		err := s.repo.SetKV(k, nil, true)
 		s.NoError(err)
 	}

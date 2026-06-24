@@ -332,13 +332,13 @@ func (n *agentNode) snapshot() *concept.AgentInstance {
 	if n.AgentInstance == nil {
 		return nil
 	}
-	annotations := make(map[string]string, len(n.AgentInstance.GetAnnotations()))
-	for k, v := range n.AgentInstance.GetAnnotations() {
+	annotations := make(map[string]string, len(n.GetAnnotations()))
+	for k, v := range n.GetAnnotations() {
 		annotations[k] = v
 	}
 	return &concept.AgentInstance{
-		AgentId:     n.AgentInstance.GetAgentId(),
-		Addr:        n.AgentInstance.GetAddr(),
+		AgentId:     n.GetAgentId(),
+		Addr:        n.GetAddr(),
 		Annotations: annotations,
 	}
 }
@@ -349,7 +349,7 @@ func (n *agentNode) agentId() string {
 	if n.AgentInstance == nil {
 		return ""
 	}
-	return n.AgentInstance.GetAgentId()
+	return n.GetAgentId()
 }
 
 // run starts a new goroutine to consume agent node's channel. delivery goroutine
@@ -492,7 +492,7 @@ func (n *agentNode) getClient() agent.DeliveryClient {
 
 	addr := ""
 	if n.AgentInstance != nil {
-		addr = n.AgentInstance.GetAddr()
+		addr = n.GetAddr()
 	}
 	var (
 		err      error
@@ -525,7 +525,7 @@ func (n *agentNode) updateInstance(ins *concept.AgentInstance) {
 
 	n.mu.Lock()
 	defer n.mu.Unlock()
-	if n.AgentInstance != nil && ins.GetAddr() != n.AgentInstance.GetAddr() {
+	if n.AgentInstance != nil && ins.GetAddr() != n.GetAddr() {
 		n.c = nil
 	}
 	n.AgentInstance = ins
@@ -534,13 +534,13 @@ func (n *agentNode) updateInstance(ins *concept.AgentInstance) {
 func (n *agentNode) updateAddr(addr string) {
 	n.mu.Lock()
 	defer n.mu.Unlock()
-	if n.AgentInstance != nil && addr == n.AgentInstance.GetAddr() {
+	if n.AgentInstance != nil && addr == n.GetAddr() {
 		return
 	}
 
 	if n.AgentInstance == nil {
 		n.AgentInstance = &concept.AgentInstance{}
 	}
-	n.AgentInstance.Addr = addr
+	n.Addr = addr
 	n.c = nil
 }

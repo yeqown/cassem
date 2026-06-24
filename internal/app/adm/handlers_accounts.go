@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/yeqown/cassem/api/concept"
-	errorx "github.com/yeqown/cassem/api/concept"
 	"github.com/yeqown/cassem/pkg/hash"
 	"github.com/yeqown/cassem/pkg/httpx"
 )
@@ -27,19 +26,19 @@ func (d app) UserLoginHTTP(w http.ResponseWriter, r *http.Request) {
 
 	u, err := d.aggregate.GetUser(req.Account)
 	if err != nil {
-		if ex, ok := errorx.FromError(err); ok && ex.Code == errorx.Code_NOT_FOUND {
-			httpx.WriteError(w, errorx.New(errorx.Code_NOT_FOUND, "login failed"))
+		if ex, ok := concept.FromError(err); ok && ex.Code == concept.Code_NOT_FOUND {
+			httpx.WriteError(w, concept.New(concept.Code_NOT_FOUND, "login failed"))
 			return
 		}
 		httpx.WriteError(w, err)
 		return
 	}
 	if u.GetStatus() != concept.User_NORMAL {
-		httpx.WriteError(w, errorx.Err_PERMISSION_DENIED)
+		httpx.WriteError(w, concept.Err_PERMISSION_DENIED)
 		return
 	}
 	if hash.WithSalt(req.Password, u.Salt) != u.GetHashedPassword() {
-		httpx.WriteError(w, errorx.New(errorx.Code_NOT_FOUND, "login failed"))
+		httpx.WriteError(w, concept.New(concept.Code_NOT_FOUND, "login failed"))
 		return
 	}
 	roles, err := d.aggregate.GetUserRoles(req.Account)

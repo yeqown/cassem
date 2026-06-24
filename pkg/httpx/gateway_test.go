@@ -19,7 +19,7 @@ func TestNewGateway(t *testing.T) {
 
 	require.NotNil(t, g)
 	assert.Equal(t, ":8080", g.Addr())
-	assert.NotNil(t, g.http2Wrapper())
+	assert.NotNil(t, g.server())
 }
 
 func TestGatewayServeHTTPRoutesHTTPRequests(t *testing.T) {

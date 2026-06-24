@@ -19,11 +19,11 @@ func CheckCassemAgent(endpoint string, timeout, interval time.Duration) error {
 		if remaining <= 0 {
 			break
 		}
-		if err := checkCassemAgentOnce(endpoint, deadline); err == nil {
+		err := checkCassemAgentOnce(endpoint, deadline)
+		if err == nil {
 			return nil
-		} else {
-			lastErr = err
 		}
+		lastErr = err
 		sleepUntilNextProbe(interval, deadline)
 	}
 	return fmt.Errorf("cassemagent %s did not become ready: %w", endpoint, lastErr)
@@ -34,7 +34,7 @@ func checkCassemAgentOnce(endpoint string, deadline time.Time) error {
 	if err != nil {
 		return fmt.Errorf("create agent client: %w", err)
 	}
-	defer cc.Close()
+	defer func() { _ = cc.Close() }()
 
 	client := agent.NewAgentClient(cc)
 	clientID := fmt.Sprintf("ready-%d", time.Now().UnixNano())

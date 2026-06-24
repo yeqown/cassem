@@ -10,7 +10,6 @@ import (
 	"github.com/yeqown/log"
 
 	"github.com/yeqown/cassem/api/concept"
-	errorx "github.com/yeqown/cassem/api/concept"
 	"github.com/yeqown/cassem/pkg/runtime"
 )
 
@@ -168,11 +167,11 @@ func (i instanceHybrid) RegisterInstance(ctx context.Context, ins *concept.Insta
 	r, err := i.cassemdb.GetKV(ctx, &apikv.GetKVReq{
 		Key: k,
 	})
-	if err != nil && !errors.Is(err, errorx.Err_NOT_FOUND) {
+	if err != nil && !errors.Is(err, concept.Err_NOT_FOUND) {
 		return err
 	}
 	if r.GetEntity() != nil {
-		return errorx.New(errorx.Code_ALREADY_EXISTS, "instance has already been registered")
+		return concept.New(concept.Code_ALREADY_EXISTS, "instance has already been registered")
 	}
 
 	if t := time.Unix(ins.LastRenewTimestamp, 0); t.IsZero() {
@@ -273,7 +272,7 @@ func (i instanceHybrid) UnregisterInstance(ctx context.Context, insId string) er
 		Key: k,
 	})
 	if err != nil {
-		if errors.Is(err, errorx.Err_NOT_FOUND) {
+		if errors.Is(err, concept.Err_NOT_FOUND) {
 			return nil
 		}
 

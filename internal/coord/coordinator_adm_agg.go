@@ -30,12 +30,16 @@ func NewAdmAggregate(endpoints []string) (concept.AdmAggregate, error) {
 	if err = acl.AutoMigrate(); err != nil {
 		return nil, fmt.Errorf("NewAdmAggregate.AutoMigrate: %w", err)
 	}
+	aclAgg, ok := acl.(aclImpl)
+	if !ok {
+		return nil, fmt.Errorf("NewAdmAggregate: unexpected ACL implementation %T", acl)
+	}
 
 	return admAggregate{
 		kvReadOnly:     kvReadOnly{cassemdb: c},
 		kvWriteOnly:    kvWriteOnly{cassemdb: c},
 		instanceHybrid: instanceHybrid{cassemdb: c},
 		agentInsHybrid: agentInsHybrid{cassemdb: c},
-		aclImpl:        acl.(aclImpl),
+		aclImpl:        aclAgg,
 	}, nil
 }

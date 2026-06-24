@@ -11,6 +11,7 @@ import (
 
 	"github.com/yeqown/log"
 	bolt "go.etcd.io/bbolt"
+	bolterrors "go.etcd.io/bbolt/errors"
 
 	"github.com/yeqown/cassem/pkg/conf"
 	errorx "github.com/yeqown/cassem/api/concept"
@@ -211,7 +212,7 @@ func (b *boltRepoImpl) UnsetKV(key string, dir bool) (err error) {
 		return bucket.Delete(runtime.ToBytes(leaf))
 	})
 
-	if errors.Is(err, bolt.ErrBucketNotFound) || errors.Is(err, ErrNoSuchBucket) {
+	if errors.Is(err, bolterrors.ErrBucketNotFound) || errors.Is(err, ErrNoSuchBucket) {
 		return nil
 	}
 

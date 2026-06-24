@@ -10,7 +10,6 @@ import (
 	"google.golang.org/grpc"
 
 	"github.com/yeqown/cassem/api/concept"
-	errorx "github.com/yeqown/cassem/api/concept"
 )
 
 type kvWriteOnlyTestKV struct {
@@ -59,10 +58,9 @@ func TestKVWriteOnlySaveRawPreservesMarshalFailure(t *testing.T) {
 		context.Background(),
 		"bad",
 		&concept.AppMetadata{Id: string([]byte{0xff})},
-		0,
 		false,
 	)
-	require.ErrorIs(t, err, errorx.Err_INTERNAL)
+	require.ErrorIs(t, err, concept.Err_INTERNAL)
 	require.Contains(t, err.Error(), "invalid UTF-8")
 }
 

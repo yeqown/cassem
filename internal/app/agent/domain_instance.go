@@ -133,8 +133,6 @@ func (p *instancePool) push(insId string, elem *concept.Element) {
 	case i.ch <- elem:
 	default:
 	}
-
-	return
 }
 
 func (p *instancePool) register(insId string, keys []string) <-chan *concept.Element {

@@ -54,7 +54,7 @@ func (c *HTTPClient) DoJSON(t testing.TB, method string, path string, body any, 
 	if err != nil {
 		t.Fatalf("do %s %s: %v", method, path, err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	raw, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -111,7 +111,7 @@ func (c *HTTPClient) DoExpectError(t testing.TB, method string, path string, bod
 	if err != nil {
 		t.Fatalf("do %s %s: %v", method, path, err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	raw, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -151,11 +151,11 @@ func CheckCassemAdm(baseURL string, account, password string, timeout, interval 
 		if remaining <= 0 {
 			break
 		}
-		if err := checkCassemAdmOnce(baseURL, account, password, remaining); err == nil {
+		err := checkCassemAdmOnce(baseURL, account, password, remaining)
+		if err == nil {
 			return nil
-		} else {
-			lastErr = err
 		}
+		lastErr = err
 		sleepUntilNextProbe(interval, deadline)
 	}
 	return fmt.Errorf("cassemadm %s did not become ready: %w", baseURL, lastErr)
@@ -184,7 +184,7 @@ func checkCassemAdmOnce(baseURL, account, password string, timeout time.Duration
 	if err != nil {
 		return fmt.Errorf("login request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	raw, err := io.ReadAll(resp.Body)
 	if err != nil {

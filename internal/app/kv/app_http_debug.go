@@ -62,7 +62,7 @@ type getKVReq struct {
 func (srv *httpServer) GetKV(w http.ResponseWriter, r *http.Request) {
 	req := &getKVReq{Key: r.URL.Query().Get("key")}
 	if req.Key == "" {
-		httpx.WriteError(w, errors.New("Key is required"))
+		httpx.WriteError(w, errors.New("key is required"))
 		return
 	}
 
@@ -90,7 +90,7 @@ func (srv *httpServer) SetKV(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if req.Key == "" || len(req.Value) == 0 {
-		httpx.WriteError(w, errors.New("Key and Value are required"))
+		httpx.WriteError(w, errors.New("key and value are required"))
 		return
 	}
 
@@ -118,7 +118,7 @@ func (srv *httpServer) DeleteKV(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	req := &deleteKVReq{Key: q.Get("key"), IsDir: parseBool(q.Get("isDir"))}
 	if req.Key == "" {
-		httpx.WriteError(w, errors.New("Key is required"))
+		httpx.WriteError(w, errors.New("key is required"))
 		return
 	}
 
@@ -142,7 +142,7 @@ type watchKVReq struct {
 func (srv *httpServer) Watch(w http.ResponseWriter, r *http.Request) {
 	req := &watchKVReq{Keys: r.URL.Query()["key"]}
 	if len(req.Keys) == 0 {
-		httpx.WriteError(w, errors.New("Key is required"))
+		httpx.WriteError(w, errors.New("key is required"))
 		return
 	}
 
@@ -179,14 +179,14 @@ func (srv *httpServer) Range(w http.ResponseWriter, r *http.Request) {
 	if raw := q.Get("limit"); raw != "" {
 		parsed, err := strconv.Atoi(raw)
 		if err != nil || parsed < 1 {
-			httpx.WriteError(w, errors.New("Limit must be greater than or equal to 1"))
+			httpx.WriteError(w, errors.New("limit must be greater than or equal to 1"))
 			return
 		}
 		limit = parsed
 	}
 	req := &rangeReq{Key: q.Get("key"), Seek: q.Get("seek"), Limit: limit}
 	if req.Key == "" {
-		httpx.WriteError(w, errors.New("Key is required"))
+		httpx.WriteError(w, errors.New("key is required"))
 		return
 	}
 

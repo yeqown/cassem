@@ -249,15 +249,6 @@ func (g *retentionGC) hasElementAtOrAfterCursor(ctx context.Context, cursor rete
 	return false, reachedEnd
 }
 
-func (g *retentionGC) rangeLeavesPage(ctx context.Context, root string, seek string) ([]string, bool, string) {
-	leaves, hasMore, nextSeek, err := g.rangeLeavesPageWithError(ctx, root, seek)
-	if err != nil {
-		log.WithFields(log.Fields{"root": root, "seek": seek, "error": err}).Warn("retention gc range failed")
-		return nil, false, ""
-	}
-	return leaves, hasMore, nextSeek
-}
-
 func (g *retentionGC) rangeLeavesPageWithError(ctx context.Context, root string, seek string) ([]string, bool, string, error) {
 	resp, err := g.client.Range(ctx, &apikv.RangeReq{
 		Key:   root,

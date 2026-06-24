@@ -11,7 +11,6 @@ import (
 	"google.golang.org/grpc/codes"
 
 	"github.com/yeqown/cassem/api/concept"
-	errorx "github.com/yeqown/cassem/api/concept"
 )
 
 const (
@@ -156,7 +155,7 @@ func (_r kvReadOnly) GetElements(
 			keys = append(keys, concept.ExtractPureKey(v.GetKey()))
 		}
 
-		result.Elements, err = _r.getElementsByKeys(ctx, app, env, keys, false)
+		result.Elements, err = _r.getElementsByKeys(ctx, app, env, keys)
 		return result, err
 	}
 
@@ -187,7 +186,7 @@ func (_r kvReadOnly) GetElements(
 			break
 		}
 		if !r.GetHasMore() {
-			elements, err := _r.getElementsByKeys(ctx, app, env, matched, false)
+			elements, err := _r.getElementsByKeys(ctx, app, env, matched)
 			if err != nil {
 				return nil, err
 			}
@@ -196,7 +195,7 @@ func (_r kvReadOnly) GetElements(
 		nextSeek = r.GetNextSeekKey()
 	}
 
-	elements, err := _r.getElementsByKeys(ctx, app, env, matched[:limit], false)
+	elements, err := _r.getElementsByKeys(ctx, app, env, matched[:limit])
 	if err != nil {
 		return nil, err
 	}
@@ -215,7 +214,7 @@ func (_r kvReadOnly) GetElementsByKeys(
 		CommonPager: concept.CommonPager{},
 		Elements:    nil,
 	}
-	result.Elements, err = _r.getElementsByKeys(ctx, app, env, keys, false)
+	result.Elements, err = _r.getElementsByKeys(ctx, app, env, keys)
 	return
 }
 
@@ -236,49 +235,49 @@ func getKVsErrors(resp *apikv.GetKVsResp, ignoreNotFound bool) error {
 
 func keyErrorToError(item *apikv.KeyError) error {
 	msg := fmt.Errorf("key %s: %s: %s", item.GetKey(), item.GetCode(), item.GetMessage())
-	sentinel, ok := keyErrorCodeSentinel(item.GetCode())
+	ok, sentinel := keyErrorCodeSentinel(item.GetCode())
 	if !ok {
 		return msg
 	}
 	return errors.Join(msg, sentinel)
 }
 
-func keyErrorCodeSentinel(code string) (error, bool) {
+func keyErrorCodeSentinel(code string) (bool, error) {
 	switch code {
 	case codes.Canceled.String():
-		return errorx.Err_CANCELLED, true
+		return true, concept.Err_CANCELLED
 	case codes.Unknown.String():
-		return errorx.Err_UNKNOWN, true
+		return true, concept.Err_UNKNOWN
 	case codes.InvalidArgument.String():
-		return errorx.Err_INVALID_ARGUMENT, true
+		return true, concept.Err_INVALID_ARGUMENT
 	case codes.DeadlineExceeded.String():
-		return errorx.Err_DEADLINE_EXCEEDED, true
+		return true, concept.Err_DEADLINE_EXCEEDED
 	case codes.NotFound.String():
-		return errorx.Err_NOT_FOUND, true
+		return true, concept.Err_NOT_FOUND
 	case codes.AlreadyExists.String():
-		return errorx.Err_ALREADY_EXISTS, true
+		return true, concept.Err_ALREADY_EXISTS
 	case codes.PermissionDenied.String():
-		return errorx.Err_PERMISSION_DENIED, true
+		return true, concept.Err_PERMISSION_DENIED
 	case codes.ResourceExhausted.String():
-		return errorx.Err_RESOURCE_EXHAUSTED, true
+		return true, concept.Err_RESOURCE_EXHAUSTED
 	case codes.FailedPrecondition.String():
-		return errorx.Err_FAILED_PRECONDITION, true
+		return true, concept.Err_FAILED_PRECONDITION
 	case codes.Aborted.String():
-		return errorx.Err_ABORTED, true
+		return true, concept.Err_ABORTED
 	case codes.OutOfRange.String():
-		return errorx.Err_OUT_OF_RANGE, true
+		return true, concept.Err_OUT_OF_RANGE
 	case codes.Unimplemented.String():
-		return errorx.Err_UNIMPLEMENTED, true
+		return true, concept.Err_UNIMPLEMENTED
 	case codes.Internal.String():
-		return errorx.Err_INTERNAL, true
+		return true, concept.Err_INTERNAL
 	case codes.Unavailable.String():
-		return errorx.Err_UNAVAILABLE, true
+		return true, concept.Err_UNAVAILABLE
 	case codes.DataLoss.String():
-		return errorx.Err_DATA_LOSS, true
+		return true, concept.Err_DATA_LOSS
 	case codes.Unauthenticated.String():
-		return errorx.Err_UNAUTHENTICATED, true
+		return true, concept.Err_UNAUTHENTICATED
 	default:
-		return nil, false
+		return false, nil
 	}
 }
 
@@ -294,7 +293,6 @@ func getKVsAnyErrors(resp *apikv.GetKVsResp) error {
 // keys contain all key to element.
 func (_r kvReadOnly) getElementsByKeys(
 	ctx context.Context, app, env string, keys []string,
-	wipeUnpublish bool,
 ) ([]*concept.Element, error) {
 	if len(keys) == 0 {
 		return []*concept.Element{}, nil
@@ -315,7 +313,7 @@ func (_r kvReadOnly) getElementsByKeys(
 	}
 
 	// DONE(@yeqown): replace this part of code with convertFromEntitiesToMetadata
-	eleVersionKeys, _, metadataMapping := ConvertFromEntitiesToMetadata(r.GetEntities(), wipeUnpublish)
+	eleVersionKeys, _, metadataMapping := ConvertFromEntitiesToMetadata(r.GetEntities(), false)
 	if len(eleVersionKeys) == 0 {
 		return []*concept.Element{}, nil
 	}

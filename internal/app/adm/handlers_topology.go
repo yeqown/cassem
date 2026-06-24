@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/health/grpc_health_v1"
 
 	"github.com/yeqown/cassem/api/concept"
@@ -312,13 +313,18 @@ func checkDBHealth(ctx context.Context, addr string) topologyHealth {
 	checkCtx, cancel := context.WithTimeout(ctx, 800*time.Millisecond)
 	defer cancel()
 
-	cc, err := grpc.DialContext(checkCtx, addr, grpc.WithInsecure(), grpc.WithBlock())
+	cc, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return topologyHealthOffline
 	}
-	defer cc.Close()
+	defer func() { _ = cc.Close() }()
 
-	resp, err := grpc_health_v1.NewHealthClient(cc).Check(checkCtx, &grpc_health_v1.HealthCheckRequest{Service: "cassemdb.RaftLeader"})
+	cc.Connect()
+	resp, err := grpc_health_v1.NewHealthClient(cc).Check(
+		checkCtx,
+		&grpc_health_v1.HealthCheckRequest{Service: "cassemdb.RaftLeader"},
+		grpc.WaitForReady(true),
+	)
 	if err != nil {
 		return topologyHealthUnhealthy
 	}

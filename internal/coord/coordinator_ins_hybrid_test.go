@@ -11,7 +11,6 @@ import (
 	"google.golang.org/grpc"
 
 	"github.com/yeqown/cassem/api/concept"
-	errorx "github.com/yeqown/cassem/api/concept"
 )
 
 type instanceHybridTestKV struct {
@@ -33,7 +32,7 @@ func newInstanceHybridTestKV() *instanceHybridTestKV {
 func (f *instanceHybridTestKV) GetKV(_ context.Context, req *apikv.GetKVReq, _ ...grpc.CallOption) (*apikv.GetKVResp, error) {
 	entity, ok := f.entities[req.GetKey()]
 	if !ok {
-		return nil, errorx.Err_NOT_FOUND
+		return nil, concept.Err_NOT_FOUND
 	}
 	return &apikv.GetKVResp{Entity: entity}, nil
 }

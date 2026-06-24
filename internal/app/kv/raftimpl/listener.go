@@ -18,7 +18,12 @@ func newStoppableListener(addr string, stopc <-chan struct{}) (*stoppableListene
 	if err != nil {
 		return nil, err
 	}
-	return &stoppableListener{ln.(*net.TCPListener), stopc}, nil
+	tcpListener, ok := ln.(*net.TCPListener)
+	if !ok {
+		_ = ln.Close()
+		return nil, errors.New("listener is not tcp")
+	}
+	return &stoppableListener{tcpListener, stopc}, nil
 }
 
 func (ln stoppableListener) Accept() (c net.Conn, err error) {

@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"github.com/yeqown/log"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/connectivity"
+	"google.golang.org/grpc/credentials/insecure"
 
 	"github.com/yeqown/cassem/api/concept"
 	apiinternal "github.com/yeqown/cassem/api/internal"
@@ -58,8 +60,7 @@ func New(agentAddress string, opts ...clientOption) (*agentInstanceClient, error
 	}
 
 	if dst.clientId == "" || dst.clientIp == "" {
-		return nil, errors.New("clientId and clientIp could not be empty," +
-			" use WithClientId/WithClientIp to set!")
+		return nil, errors.New("clientId and clientIp must not be empty; use WithClientId and WithClientIp")
 	}
 
 	cc, err := dial(agentAddress)
@@ -82,16 +83,32 @@ func dial(addr string) (*grpc.ClientConn, error) {
 	timeout, cancel := context.WithTimeout(context.Background(), _CLIENT_INIT_TIMEOUT)
 	defer cancel()
 
-	cc, err := grpc.DialContext(timeout, addr,
-		grpc.WithInsecure(),
-		grpc.WithBlock(),
+	cc, err := grpc.NewClient(addr,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithChainUnaryInterceptor(apiinternal.ClientRecovery(), apiinternal.ClientErrorx(), apiinternal.ClientValidation()),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("cassemagent.api.Dial: %w", err)
 	}
+	if err = waitForConnReady(timeout, cc); err != nil {
+		_ = cc.Close()
+		return nil, fmt.Errorf("cassemagent.api.Dial: %w", err)
+	}
 
 	return cc, nil
+}
+
+func waitForConnReady(ctx context.Context, cc *grpc.ClientConn) error {
+	cc.Connect()
+	for {
+		state := cc.GetState()
+		if state == connectivity.Ready {
+			return nil
+		}
+		if !cc.WaitForStateChange(ctx, state) {
+			return ctx.Err()
+		}
+	}
 }
 
 func newClient(cc *grpc.ClientConn, opt *options) *agentInstanceClient {

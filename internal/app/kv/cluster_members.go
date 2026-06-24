@@ -92,14 +92,6 @@ func (d *app) deleteClusterMember(ctx context.Context, nodeID uint64) error {
 	return d.raft.UnsetKV(ctx, &apikv.UnsetKVReq{Key: clusterMemberKey(nodeID)})
 }
 
-func (d *app) getClusterMember(nodeID uint64) (clusterMemberRecord, error) {
-	entity, err := d.raft.GetKV(&apikv.GetKVReq{Key: clusterMemberKey(nodeID)})
-	if err != nil {
-		return clusterMemberRecord{}, fmt.Errorf("get cluster member %d: %w", nodeID, err)
-	}
-	return decodeClusterMemberRecord(entity.GetVal())
-}
-
 func (d *app) listMembers() ([]*apikv.ClusterMember, error) {
 	resp, err := d.raft.Range(&apikv.RangeReq{Key: clusterMemberKeyPrefix, Limit: 100})
 	if err != nil {

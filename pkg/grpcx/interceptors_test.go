@@ -14,6 +14,13 @@ import (
 	errorx "github.com/yeqown/cassem/api/concept"
 )
 
+type testContextKey string
+
+const (
+	testContextKeyInterceptor1 testContextKey = "interceptor1"
+	testContextKeyInterceptor2 testContextKey = "interceptor2"
+)
+
 func assertInvalidArgumentContract(t *testing.T, err error) {
 	t.Helper()
 
@@ -59,11 +66,11 @@ func TestChainUnaryServer(t *testing.T) {
 			name: "multiple interceptors executed in order",
 			interceptors: []grpc.UnaryServerInterceptor{
 				func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
-					ctx = context.WithValue(ctx, "interceptor1", "called")
+					ctx = context.WithValue(ctx, testContextKeyInterceptor1, "called")
 					return handler(ctx, req)
 				},
 				func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
-					ctx = context.WithValue(ctx, "interceptor2", "called")
+					ctx = context.WithValue(ctx, testContextKeyInterceptor2, "called")
 					return handler(ctx, req)
 				},
 			},
@@ -133,12 +140,13 @@ func TestServerRecovery(t *testing.T) {
 			interceptor := ServerRecovery()
 			resp, err := interceptor(context.Background(), "request", &grpc.UnaryServerInfo{}, tt.handler)
 
-			if tt.expectPanic {
+			switch {
+			case tt.expectPanic:
 				assert.Error(t, err)
 				assert.Contains(t, err.Error(), "panic")
-			} else if tt.expectError {
+			case tt.expectError:
 				assert.Error(t, err)
-			} else {
+			default:
 				assert.NoError(t, err)
 				assert.Equal(t, "ok", resp)
 			}
@@ -326,12 +334,13 @@ func TestClientRecovery(t *testing.T) {
 			interceptor := ClientRecovery()
 			err := interceptor(context.Background(), "/TestMethod", "request", "reply", nil, tt.invoker)
 
-			if tt.expectPanic {
+			switch {
+			case tt.expectPanic:
 				assert.Error(t, err)
 				assert.Contains(t, err.Error(), "panic")
-			} else if tt.expectError {
+			case tt.expectError:
 				assert.Error(t, err)
-			} else {
+			default:
 				assert.NoError(t, err)
 			}
 		})
