@@ -14,8 +14,8 @@ func setupLeaderAwareHealthServer(isLeader bool, leadershipChangeCh <-chan bool,
 	h := health.NewServer()
 
 	services := []string{
-		"cassem.db.KV",
-		"cassem.db.Cluster",
+		"cassem.api.kv.KV",
+		"cassem.api.kv.Cluster",
 	}
 
 	watchLeaderHealthAsync(isLeader, leadershipChangeCh, h, services)

@@ -3,7 +3,7 @@ syntax = "proto3";
 import "concept/types.proto";
 import "buf/validate/validate.proto";
 
-package cassem.agent;
+package cassem.api.agent;
 option go_package = "github.com/yeqown/cassem/api/agent;agent";
 
 message getElementReq {
@@ -13,7 +13,7 @@ message getElementReq {
 }
 
 message getElementResp {
-  repeated cassem.concept.Element elems = 1;
+  repeated cassem.api.concept.Element elems = 1;
 }
 
 message unregisterReq {
@@ -24,18 +24,18 @@ message unregisterReq {
 message registerReq {
   string clientId = 1 [(buf.validate.field).string = {min_len: 5, max_len: 64}];
   string clientIp = 2 [(buf.validate.field).string.ip = true];
-  repeated concept.Instance.Watching watching = 3 [(buf.validate.field).ignore = IGNORE_IF_ZERO_VALUE];
+  repeated cassem.api.concept.Instance.Watching watching = 3 [(buf.validate.field).ignore = IGNORE_IF_ZERO_VALUE];
 }
 
 message emptyResp {}
 
 message watchReq {
-  repeated concept.Instance.Watching watching = 1 [(buf.validate.field).ignore = IGNORE_IF_ZERO_VALUE];
+  repeated cassem.api.concept.Instance.Watching watching = 1 [(buf.validate.field).ignore = IGNORE_IF_ZERO_VALUE];
   string clientId = 4 [(buf.validate.field).string = {min_len: 5, max_len: 64}];
   string clientIp = 5 [(buf.validate.field).string.ip = true];
 }
 message watchResp {
-  cassem.concept.Element elem = 1;
+  cassem.api.concept.Element elem = 1;
 }
 
 // agent service provide API for client.
@@ -48,7 +48,7 @@ service agent {
 }
 
 message dispatchReq {
-  repeated cassem.concept.Element elems = 1;
+  repeated cassem.api.concept.Element elems = 1;
   repeated string instanceIds = 2;
 }
 

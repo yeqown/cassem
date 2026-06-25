@@ -19,11 +19,11 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	Agent_GetElement_FullMethodName = "/cassem.agent.agent/GetElement"
-	Agent_Unregister_FullMethodName = "/cassem.agent.agent/Unregister"
-	Agent_Register_FullMethodName   = "/cassem.agent.agent/Register"
-	Agent_Renew_FullMethodName      = "/cassem.agent.agent/Renew"
-	Agent_Watch_FullMethodName      = "/cassem.agent.agent/Watch"
+	Agent_GetElement_FullMethodName = "/cassem.api.agent.agent/GetElement"
+	Agent_Unregister_FullMethodName = "/cassem.api.agent.agent/Unregister"
+	Agent_Register_FullMethodName   = "/cassem.api.agent.agent/Register"
+	Agent_Renew_FullMethodName      = "/cassem.api.agent.agent/Renew"
+	Agent_Watch_FullMethodName      = "/cassem.api.agent.agent/Watch"
 )
 
 // AgentClient is the client API for Agent service.
@@ -254,7 +254,7 @@ func (x *agentWatchServer) Send(m *WatchResp) error {
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var Agent_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "cassem.agent.agent",
+	ServiceName: "cassem.api.agent.agent",
 	HandlerType: (*AgentServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
@@ -285,7 +285,7 @@ var Agent_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
-	Delivery_Dispatch_FullMethodName = "/cassem.agent.delivery/Dispatch"
+	Delivery_Dispatch_FullMethodName = "/cassem.api.agent.delivery/Dispatch"
 )
 
 // DeliveryClient is the client API for Delivery service.
@@ -362,7 +362,7 @@ func _Delivery_Dispatch_Handler(srv interface{}, ctx context.Context, dec func(i
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var Delivery_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "cassem.agent.delivery",
+	ServiceName: "cassem.api.agent.delivery",
 	HandlerType: (*DeliveryServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{

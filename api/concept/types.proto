@@ -2,7 +2,7 @@ syntax = "proto3";
 
 import "buf/validate/validate.proto";
 
-package cassem.concept;
+package cassem.api.concept;
 option go_package = "github.com/yeqown/cassem/api/concept;concept";
 
 // Element represent a config element with specific version.

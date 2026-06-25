@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package cassem.db;
+package cassem.api.kv;
 option go_package = "github.com/yeqown/cassem/api/kv;kv";
 
 import "buf/validate/validate.proto";

@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package cassem.concept;
+package cassem.api.concept;
 option go_package = "github.com/yeqown/cassem/api/concept;concept";
 
 import "buf/validate/validate.proto";
