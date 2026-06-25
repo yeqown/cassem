@@ -9,6 +9,8 @@ import (
 	"github.com/yeqown/cassem/pkg/runtime"
 )
 
+const slowObserverTimeout = 200 * time.Millisecond
+
 // topicBucket used to manage one topic, and it's observers. The main purpose to design
 // this is to reduce lock conflicts.
 type topicBucket struct {
@@ -38,14 +40,19 @@ func (t *topicBucket) remove(observer IObserver) {
 	delete(t.observers, observer.Identity())
 }
 
-// distribute will not block sending to c: the caller must ensure that c has sufficient buffer space to
-// keep up with the expected signal rate. For a channel used for notification of just one signal value,
-// a buffer of size 1 is sufficient.
-func (t *topicBucket) distribute(notify IChange) {
+func (t *topicBucket) snapshotObservers() []IObserver {
 	t.RLock()
-	observers := t.observers
-	t.RUnlock()
+	defer t.RUnlock()
 
+	observers := make([]IObserver, 0, len(t.observers))
+	for _, observer := range t.observers {
+		observers = append(observers, observer)
+	}
+	return observers
+}
+
+func (t *topicBucket) distribute(notify IChange) {
+	observers := t.snapshotObservers()
 	if len(observers) == 0 {
 		log.
 			WithField("count", len(observers)).
@@ -57,10 +64,11 @@ func (t *topicBucket) distribute(notify IChange) {
 		log.
 			WithField("observer", observer.Identity()).
 			Debug("watcher.topicBucket.distribute send to observer")
-		// NOTICE: send but do not block for it
 		select {
 		case observer.Inbound() <- notify:
-		default:
+		case <-time.After(slowObserverTimeout):
+			log.WithField("observer", observer.Identity()).Warn("watcher.topicBucket.distribute remove slow observer")
+			t.remove(observer)
 		}
 	}
 }
@@ -98,36 +106,30 @@ func NewChannelWatcher(bufferSize int) IWatcher {
 }
 
 func (c *channelWatcher) loop() (err error) {
-	for {
-		select {
-		case notify := <-c.ch:
+	for notify := range c.ch {
+		log.
+			WithFields(log.Fields{
+				"topic":  notify.Topic(),
+				"change": notify,
+			}).
+			Debug("channelWatcher loop gets one signal")
+
+		c._mu.RLock()
+		bucket, ok := c.buckets[notify.Topic()]
+		c._mu.RUnlock()
+		if !ok {
 			log.
 				WithFields(log.Fields{
-					"topic":  notify.Topic(),
-					"change": notify,
+					"topic": notify.Topic(),
 				}).
-				Debug("channelWatcher loop gets one signal")
+				Warn("topic has not observer")
 
-			c._mu.RLock()
-			bucket, ok := c.buckets[notify.Topic()]
-			c._mu.RUnlock()
-			if !ok {
-				log.
-					WithFields(log.Fields{
-						"topic": notify.Topic(),
-					}).
-					Warn("topic has not observer")
-
-				continue
-			}
-
-			// DONE(@yeqown): use channel instead of method calling
-			go bucket.distribute(notify)
-
-		default:
-			time.Sleep(100 * time.Millisecond)
+			continue
 		}
+
+		bucket.distribute(notify)
 	}
+	return nil
 }
 
 func (c *channelWatcher) Subscribe(obs ...IObserver) {
@@ -145,7 +147,6 @@ func (c *channelWatcher) Subscribe(obs ...IObserver) {
 		}
 
 		c._mu.Lock()
-		// register observer into topic.
 		for _, topic := range observer.Topics() {
 			if _, ok := c.buckets[topic]; !ok {
 				c.buckets[topic] = newTopicBucket()
@@ -175,11 +176,5 @@ func (c *channelWatcher) Unsubscribe(observer IObserver) {
 }
 
 func (c *channelWatcher) ChangeNotify(notify IChange) {
-	select {
-	case c.ch <- notify:
-	default:
-		log.
-			WithFields(log.Fields{"notify": notify}).
-			Warn("channelWatcher.skip notify: channel is full or unavailable")
-	}
+	c.ch <- notify
 }

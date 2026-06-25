@@ -74,9 +74,9 @@ Concrete implementations (`internal/coord/coordinator_adm_agg.go`, `internal/coo
 
 ### Data Flow
 
-1. **Write path**: cassemadm → gRPC → cassemdb leader (Raft consensus) → BoltDB
+1. **Write path**: cassemadm → gRPC → cassemdb leader → one `MutateCommand` Raft proposal → commit/apply → BoltDB + request ack + committed change event
 2. **Read path**: client → cassemagent (LRU-2 cache, 10s stale window) → cassemdb (reads can hit any node)
-3. **Change push**: cassemadm → agent `Dispatch` (batched: up to 100 elements or 1s window) → agent → client `Watch` stream
+3. **Change push**: committed apply event → agent `Dispatch` (batched: up to 100 elements or 1s window) → agent → client `Watch` stream
 
 ### Leader-Aware gRPC Routing
 
@@ -92,7 +92,7 @@ Both cassemagent and cassemdb use `httpx.Gateway` to serve HTTP and gRPC on the 
 
 ### Change Notification in Raft
 
-Writes produce two Raft log entries: a `SetCommand` (data mutation) followed by a `ChangeCommand` (notification). `ChangeCommand` has a 10-second TTL to prevent stale notifications after recovery. The watcher system (`pkg/watcher/`) is a channel-based pub/sub with topic-scoped distribution.
+Writes now produce one `MutateCommand` Raft log entry. FSM apply is semantic center: it mutates BoltDB, resolves pending request acknowledgment, and emits committed change events from same apply step. The watcher system (`pkg/watcher/`) is still topic-scoped pub/sub, but core path no longer silently drops events; slow observers are explicitly unsubscribed after a bounded delay. Watch delivery is online-only and does not replay missed history after disconnect.
 
 ### Agent Cache
 

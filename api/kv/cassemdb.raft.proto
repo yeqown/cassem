@@ -9,9 +9,8 @@ import "buf/validate/validate.proto";
 
 message LogEntry  {
   enum Action {
-    UNKNOWN      = 0;
-    Set          = 1;
-    ChangeSpread = 2;
+    UNKNOWN = 0;
+    Mutate  = 1;
   }
 
   // action indicates what's the format of data dose the log entry contains.
@@ -20,15 +19,18 @@ message LogEntry  {
   int64  createdAt = 3;
 }
 
-message SetCommand {
-  string deleteKey = 1;
-  bool   isDir     = 2;
-  string setKey    = 3;
-  Entity value     = 4;
-}
+message MutateCommand {
+  enum Op {
+    OP_UNKNOWN = 0;
+    SET        = 1;
+    UNSET      = 2;
+  }
 
-message ChangeCommand {
-  cassem.db.Change change = 1;
+  uint64 request_id = 1;
+  Op     op         = 2;
+  string key        = 3;
+  bool   is_dir     = 4;
+  Entity value      = 5;
 }
 
 message addNodeRequest {

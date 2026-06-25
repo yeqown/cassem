@@ -32,8 +32,7 @@ func MustUnmarshal(data []byte, m proto.Message) {
 	}
 }
 
-func (*SetCommand) Action() LogEntry_Action    { return LogEntry_Set }
-func (*ChangeCommand) Action() LogEntry_Action { return LogEntry_ChangeSpread }
+func (*MutateCommand) Action() LogEntry_Action { return LogEntry_Mutate }
 
 func NewEntityWithCreated(key string, val []byte, ttl int32, created int64) *Entity {
 	h := md5.New()
