@@ -14,15 +14,9 @@ import (
 	apikv "github.com/yeqown/cassem/api/kv"
 	"github.com/yeqown/cassem/internal/app/kv/raftimpl"
 	"github.com/yeqown/cassem/pkg/conf"
-	"github.com/yeqown/cassem/pkg/httpx"
 	"github.com/yeqown/cassem/pkg/runtime"
 	"github.com/yeqown/cassem/pkg/watcher"
 )
-
-func isDebug() bool {
-	v := os.Getenv("DEBUG")
-	return v == "1" || v == "TRUE" || v == "true"
-}
 
 // app is the storage server that would guard api server running and alas controls other components.
 // Especially, raft protocol which supports the architecture of cassemdb (master-slave).
@@ -162,11 +156,6 @@ func (d *app) servingAPI() error {
 	leadershipC := make(chan bool, 4)
 	d.raft.LeaderChangeCh(leadershipC)
 	setupLeaderAwareHealthServer(d.raft.IsLeader(), leadershipC, s)
-
-	if isDebug() {
-		g := httpx.NewGateway(d.config.ListenAddr, debugHTTP(d), s)
-		return g.ListenAndServe()
-	}
 
 	return serve(s, d.config.ListenAddr)
 }

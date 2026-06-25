@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Cassem is a distributed configuration management system written in Go 1.26. It uses etcd's Raft consensus for the storage layer and exposes both gRPC and HTTP APIs. The system has three core binaries:
+Cassem is a distributed configuration management system written in Go 1.26. It uses etcd's Raft consensus for the storage layer. The system has three core binaries:
 
 - **cassemdb** — Raft-based distributed KV storage engine (data plane), serves gRPC
 - **cassemadm** — Admin/management HTTP server (control plane), serves REST API with Gin
@@ -86,9 +86,9 @@ The cassemdb client (`api/kv/client.go`) uses a custom gRPC resolver (`cassemdb:
 
 Elements enforce a **publish-before-update** workflow: create v1 → review → publish → update creates v2 (fails if v1 is still unpublished). This is enforced in `kvWriteOnly` (`internal/coord/coordinator_kv_w.go`), not in the storage layer.
 
-### Single-Port HTTP+gRPC
+### Network Serving
 
-Both cassemagent and cassemdb use `httpx.Gateway` to serve HTTP and gRPC on the same TCP port via h2c (cleartext HTTP/2). Routing is by `Content-Type: application/grpc` and protocol version.
+`cassemdb` serves gRPC only on its listen address. `cassemagent` still uses `httpx.Gateway` to serve HTTP and gRPC on the same TCP port via h2c (cleartext HTTP/2). Routing is by `Content-Type: application/grpc` and protocol version.
 
 ### Change Notification in Raft
 
@@ -119,4 +119,4 @@ Tests use `testify/assert`. Unit tests exist in `pkg/`, `api/concept/`, `interna
 
 ## Configuration
 
-Config files are TOML, loaded via `pkg/conf.Load()`. cassemdb cluster endpoints and Raft bind/cluster addresses are passed as CLI flags (not TOML). Set `DEBUG=1` to enable debug mode (extra logging, cassemdb debug HTTP endpoints).
+Config files are TOML, loaded via `pkg/conf.Load()`. cassemdb cluster endpoints and Raft bind/cluster addresses are passed as CLI flags (not TOML). Set `DEBUG=1` to enable debug logging.
