@@ -15,7 +15,7 @@ import (
 func TestConfigCenterReleaseGate_DatabaseTTLExpiresTemporaryLeaseKey(t *testing.T) {
 	cluster := testutil.RequireDBCluster(t)
 	scope := testutil.NewRunScope(t, "database ttl expires temporary lease key")
-	cc := testutil.DialCassemDB(t, cluster.DBEndpoints, apikv.Mode_X)
+	cc := testutil.DialCassemKV(t, cluster.DBEndpoints, apikv.Mode_X)
 	t.Cleanup(func() { _ = cc.Close() })
 	client := apikv.NewKVClient(cc)
 	key := scope.TTLKey("leases", "payment-service", "release-lock")

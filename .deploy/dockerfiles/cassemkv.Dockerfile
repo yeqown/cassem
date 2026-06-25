@@ -6,20 +6,20 @@
 # # RUN git rev-parse  --show-toplevel
 # ENV GOPROXY https://goproxy.cn,direct
 # RUN go mod download && \
-#     go build -o cassemdb \
+#     go build -o cassemkv \
 #             -ldflags "-s \
 #                       -X main.Version=`git tag --list | tail -n 1` \
 #                       -X main.BuildTime=`TZ=UTC date -u '+%Y-%m-%dT%H:%M:%SZ'` \
 #                       -X main.GitHash=`git rev-parse HEAD`" \
-#             ./cmd/cassemdb
+#             ./cmd/cassemkv
 #
 # # package image stage
 # FROM alpine as stage.pack
 
 FROM alpine
 
-WORKDIR /app/cassemdb
-ENV APP_PATH /app/cassemdb
-COPY ./bin/cassemdb $APP_PATH
+WORKDIR /app/cassemkv
+ENV APP_PATH /app/cassemkv
+COPY ./bin/cassemkv $APP_PATH
 
-CMD ["./cassemdb", "-conf", "./configs/cassemdb.toml"]
+CMD ["./cassemkv", "-conf", "./configs/cassemkv.toml"]

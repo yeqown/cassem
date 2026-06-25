@@ -49,5 +49,5 @@ func watchLeaderHealthAsync(isLeader bool, leadershipChangeCh <-chan bool, h *he
 }
 
 const (
-	_gRPCHealthService = "cassemdb.RaftLeader"
+	_gRPCHealthService = "cassemkv.RaftLeader"
 )

@@ -55,14 +55,14 @@ func TestEntityPositiveTTLExpires(t *testing.T) {
 func TestClusterDiscoveryMessagesCompile(t *testing.T) {
 	member := &ClusterMember{
 		NodeId:       1,
-		RaftAddr:     "http://cassemdb1:3021",
-		GrpcEndpoint: "cassemdb1:2021",
+		RaftAddr:     "http://cassemkv1:3021",
+		GrpcEndpoint: "cassemkv1:2021",
 		Leader:       true,
 	}
 	resp := &ListMembersResponse{Members: []*ClusterMember{member}}
 
 	assert.Equal(t, uint64(1), resp.GetMembers()[0].GetNodeId())
-	assert.Equal(t, "http://cassemdb1:3021", resp.GetMembers()[0].GetRaftAddr())
-	assert.Equal(t, "cassemdb1:2021", resp.GetMembers()[0].GetGrpcEndpoint())
+	assert.Equal(t, "http://cassemkv1:3021", resp.GetMembers()[0].GetRaftAddr())
+	assert.Equal(t, "cassemkv1:2021", resp.GetMembers()[0].GetGrpcEndpoint())
 	assert.True(t, resp.GetMembers()[0].GetLeader())
 }

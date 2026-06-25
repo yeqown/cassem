@@ -29,7 +29,7 @@ func TestCassemAdminConfig_Valid(t *testing.T) {
 		{
 			name: "missing auth",
 			config: &CassemAdminConfig{
-				CassemDBEndpoints: []string{"127.0.0.1:2021"},
+				CassemKVEndpoints: []string{"127.0.0.1:2021"},
 				HTTP:              &Server{Addr: ":8080"},
 			},
 			expectError: true,
@@ -38,7 +38,7 @@ func TestCassemAdminConfig_Valid(t *testing.T) {
 		{
 			name: "partial bootstrap admin",
 			config: &CassemAdminConfig{
-				CassemDBEndpoints: []string{"127.0.0.1:2021"},
+				CassemKVEndpoints: []string{"127.0.0.1:2021"},
 				HTTP:              &Server{Addr: ":8080"},
 				Auth: &AdminAuth{
 					SessionSecret:    "test-session-secret",
@@ -51,7 +51,7 @@ func TestCassemAdminConfig_Valid(t *testing.T) {
 		{
 			name: "valid config with one endpoint applies retention defaults",
 			config: &CassemAdminConfig{
-				CassemDBEndpoints: []string{"127.0.0.1:2021"},
+				CassemKVEndpoints: []string{"127.0.0.1:2021"},
 				HTTP:              &Server{Addr: ":8080"},
 				Auth:              &AdminAuth{SessionSecret: "test-session-secret"},
 			},
@@ -72,7 +72,7 @@ func TestCassemAdminConfig_Valid(t *testing.T) {
 		{
 			name: "valid config with bootstrap admin",
 			config: &CassemAdminConfig{
-				CassemDBEndpoints: []string{
+				CassemKVEndpoints: []string{
 					"127.0.0.1:2021",
 					"127.0.0.1:2022",
 					"127.0.0.1:2023",

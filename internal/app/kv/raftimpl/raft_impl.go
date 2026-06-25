@@ -525,7 +525,7 @@ func (r *raftNodeImpl) Expire(req *apikv.ExpireReq) error {
 			return nil
 		}
 
-		return fmt.Errorf("cassemdb.raftNodeImpl.Expire: %w", err)
+		return fmt.Errorf("cassemkv.raftNodeImpl.Expire: %w", err)
 	}
 
 	if v.GetTtl() == apikv.NEVER_EXPIRED {

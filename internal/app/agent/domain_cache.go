@@ -184,7 +184,7 @@ func (b *envPool) query(env, key string) (elem *concept.Element, ok bool) {
 type item struct {
 	val *concept.Element
 	// dirtyTime is last time val has been refreshed. it helps to judge should
-	// request to cassemdb or not.
+	// request to cassemkv or not.
 	dirtyTime time.Time
 }
 

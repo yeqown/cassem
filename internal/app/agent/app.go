@@ -22,7 +22,6 @@ import (
 	"github.com/yeqown/cassem/pkg/conf"
 	"github.com/yeqown/cassem/pkg/grpcx"
 	"github.com/yeqown/cassem/pkg/hash"
-	"github.com/yeqown/cassem/pkg/httpx"
 	"github.com/yeqown/cassem/pkg/runtime"
 )
 
@@ -70,7 +69,7 @@ func New(c *conf.CassemAgentConfig) (*app, error) {
 		return nil, fmt.Errorf("cassemagent.New failed: %w", err)
 	}
 
-	agg, err := coord.NewAgentAggregate(c.CassemDBEndpoints)
+	agg, err := coord.NewAgentAggregate(c.CassemKVEndpoints)
 	if err != nil {
 		return nil, fmt.Errorf("cassemagent.New: %w", err)
 	}
@@ -143,12 +142,12 @@ func (d *app) serve() error {
 	apiagent.RegisterDeliveryServer(s, d)
 	reflection.Register(s)
 
-	gate := httpx.NewGateway(d.conf.Server.Addr, nil, s)
-	if err := gate.ListenAndServe(); err != nil {
+	lis, err := net.Listen("tcp", d.conf.Server.Addr)
+	if err != nil {
 		return err
 	}
 
-	return nil
+	return s.Serve(lis)
 }
 
 // renew

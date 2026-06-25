@@ -59,7 +59,7 @@ func TestConfigCenterReleaseGate_APIErrorMappingSmoke(t *testing.T) {
 	require.Equal(t, codes.NotFound, rawStatus.Code())
 	require.Equal(t, "NOT_FOUND", rawStatus.Message())
 
-	cc := testutil.DialCassemDB(t, cluster.DBEndpoints, apikv.Mode_X)
+	cc := testutil.DialCassemKV(t, cluster.DBEndpoints, apikv.Mode_X)
 	t.Cleanup(func() { _ = cc.Close() })
 	client := apikv.NewKVClient(cc)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)

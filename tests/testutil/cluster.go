@@ -53,7 +53,7 @@ func TestFullCluster() *Cluster {
 // UseDBCluster returns a ready DB cluster or skips when the cluster is only available locally.
 func UseDBCluster(t testing.TB) *Cluster {
 	t.Helper()
-	return useCluster(t, "cassemdb cluster", "cassemdb cluster", readyDBCluster)
+	return useCluster(t, "cassemkv cluster", "cassemkv cluster", readyDBCluster)
 }
 
 // UseAdmCluster returns a ready admin cluster or skips when the cluster is only available locally.
@@ -71,7 +71,7 @@ func UseFullCluster(t testing.TB) *Cluster {
 // RequireDBCluster returns a ready DB cluster and fails immediately on errors.
 func RequireDBCluster(t testing.TB) *Cluster {
 	t.Helper()
-	return requireCluster(t, "cassemdb cluster", readyDBCluster)
+	return requireCluster(t, "cassemkv cluster", readyDBCluster)
 }
 
 // RequireAdmCluster returns a ready admin cluster and fails immediately on errors.
@@ -133,7 +133,7 @@ func requireCluster(t testing.TB, name string, ready func(IntegrationEnv) (*Clus
 
 func readyDBCluster(env IntegrationEnv) (*Cluster, error) {
 	cluster := &Cluster{DBEndpoints: append([]string(nil), env.DBGRPCAddrs...)}
-	if err := CheckCassemDB(cluster.DBEndpoints, env.WaitTimeout); err != nil {
+	if err := CheckCassemKV(cluster.DBEndpoints, env.WaitTimeout); err != nil {
 		return nil, err
 	}
 	return cluster, nil
@@ -141,7 +141,7 @@ func readyDBCluster(env IntegrationEnv) (*Cluster, error) {
 
 func readyAdmCluster(env IntegrationEnv) (*Cluster, error) {
 	cluster := &Cluster{DBEndpoints: append([]string(nil), env.DBGRPCAddrs...), AdmBaseURL: env.AdmHTTPAddr}
-	if err := CheckCassemDB(cluster.DBEndpoints, env.WaitTimeout); err != nil {
+	if err := CheckCassemKV(cluster.DBEndpoints, env.WaitTimeout); err != nil {
 		return nil, fmt.Errorf("db readiness before adm: %w", err)
 	}
 	if err := CheckCassemAdm(cluster.AdmBaseURL, env.AdminEmail, env.AdminPassword, env.WaitTimeout, env.PollInterval); err != nil {
@@ -152,7 +152,7 @@ func readyAdmCluster(env IntegrationEnv) (*Cluster, error) {
 
 func readyFullCluster(env IntegrationEnv) (*Cluster, error) {
 	cluster := &Cluster{DBEndpoints: append([]string(nil), env.DBGRPCAddrs...), AdmBaseURL: env.AdmHTTPAddr, AgentEndpoint: env.AgentGRPCAddr}
-	if err := CheckCassemDB(cluster.DBEndpoints, env.WaitTimeout); err != nil {
+	if err := CheckCassemKV(cluster.DBEndpoints, env.WaitTimeout); err != nil {
 		return nil, fmt.Errorf("db readiness before full cluster: %w", err)
 	}
 	if err := CheckCassemAdm(cluster.AdmBaseURL, env.AdminEmail, env.AdminPassword, env.WaitTimeout, env.PollInterval); err != nil {

@@ -1,9 +1,9 @@
 kind: Service
 apiVersion: v1
 metadata:
-  name: cassemdb
+  name: cassemkv
   labels:
-    app: cassemdb
+    app: cassemkv
 spec:
   ports:
     - port: 2021
@@ -14,22 +14,22 @@ spec:
       protocol: TCP
   clusterIP: None
   selector:
-    app: cassemdb
+    app: cassemkv
 ---
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   namespace: cassem
-  name: cassemdb
+  name: cassemkv
   labels:
-      app: cassemdb
+      app: cassemkv
   annotations:
-      app: cassemdb
+      app: cassemkv
 spec:
   selector:
     matchLabels:
-      app: cassemdb
-  serviceName: "cassemdb" # cassemdb-0.cassemdb.cassem.svc.cluster.local
+      app: cassemkv
+  serviceName: "cassemkv" # cassemkv-0.cassemkv.cassem.svc.cluster.local
   replicas: 3
   updateStrategy:
     type: RollingUpdate
@@ -38,15 +38,15 @@ spec:
   template:
     metadata:
       namespace: cassem
-      name: cassemdb
+      name: cassemkv
       labels:
-        app: cassemdb
+        app: cassemkv
       annotations:
-        app: cassemdb
+        app: cassemkv
     spec:
 #      initContainers:
 #        - name: prepare
-#          image: docker.io/yeqown/cassemdb:v0.1
+#          image: docker.io/yeqown/cassemkv:v0.1
 #          command:
 #            - "/bin/sh"
 #            - "-c"
@@ -54,15 +54,15 @@ spec:
 #              echo "hostname is: `hostname`"
 #              export NODE_ID=${HOSTNAME##*-}
 #              echo "nodeId=$NODE_ID"
-#              cp "/etc/cassemdb/cassemdb.toml" /app/cassemdb/cassemdb.toml
+#              cp "/etc/cassemkv/cassemkv.toml" /app/cassemkv/cassemkv.toml
 #          volumeMounts:
 #            - name: storage
-#              mountPath: /app/cassemdb/storage
+#              mountPath: /app/cassemkv/storage
 #            - name: config
-#              mountPath: /etc/cassemdb
+#              mountPath: /etc/cassemkv
       containers:
         - name: db
-          image: docker.io/yeqown/cassemdb:v0.4.3
+          image: docker.io/yeqown/cassemkv:v0.4.3
           imagePullPolicy: IfNotPresent
           command:
             - sh
@@ -71,12 +71,12 @@ spec:
               hostname
               echo ${HOSTNAME}
               mkdir -p ./storage/${HOSTNAME##*-}
-              ./cassemdb \
-                -c /etc/cassemdb/cassemdb.toml \
+              ./cassemkv \
+                -c /etc/cassemkv/cassemkv.toml \
                 --listen-addr=0.0.0.0:2021 \
-                --advertise-addr=${HOSTNAME}.cassemdb.cassem:2021 \
-                --raft.cluster=http://cassemdb-0.cassemdb.cassem:2022,http://cassemdb-1.cassemdb.cassem:2022,http://cassemdb-2.cassemdb.cassem:2022 \
-                --raft.bind=http://${HOSTNAME}.cassemdb.cassem:2022 \
+                --advertise-addr=${HOSTNAME}.cassemkv.cassem:2021 \
+                --raft.cluster=http://cassemkv-0.cassemkv.cassem:2022,http://cassemkv-1.cassemkv.cassem:2022,http://cassemkv-2.cassemkv.cassem:2022 \
+                --raft.bind=http://${HOSTNAME}.cassemkv.cassem:2022 \
                 --storage="./storage/${HOSTNAME##*-}"
           ports:
             - containerPort: 2021
@@ -85,9 +85,9 @@ spec:
               name: raft
           volumeMounts:
             - name: storage
-              mountPath: /app/cassemdb/storage
+              mountPath: /app/cassemkv/storage
             - name: config
-              mountPath: /etc/cassemdb
+              mountPath: /etc/cassemkv
           readinessProbe:
             tcpSocket:
               port: 2021
@@ -104,5 +104,5 @@ spec:
             name: db-config
         - name: storage
           hostPath:
-            path: /etc/cassemdb
+            path: /etc/cassemkv
             type: Directory

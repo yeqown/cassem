@@ -22,8 +22,8 @@ func TestClusterMemberKey(t *testing.T) {
 func TestClusterMemberRecordRoundTrip(t *testing.T) {
 	want := clusterMemberRecord{
 		NodeID:       1,
-		RaftAddr:     "http://cassemdb1:3021",
-		GRPCEndpoint: "cassemdb1:2021",
+		RaftAddr:     "http://cassemkv1:3021",
+		GRPCEndpoint: "cassemkv1:2021",
 	}
 
 	data, err := encodeClusterMemberRecord(want)
@@ -35,13 +35,13 @@ func TestClusterMemberRecordRoundTrip(t *testing.T) {
 }
 
 func TestDecodeClusterMemberRecordRejectsMissingEndpoint(t *testing.T) {
-	_, err := decodeClusterMemberRecord([]byte(`{"node_id":1,"raft_addr":"http://cassemdb1:3021"}`))
+	_, err := decodeClusterMemberRecord([]byte(`{"node_id":1,"raft_addr":"http://cassemkv1:3021"}`))
 	assert.ErrorContains(t, err, "grpc endpoint is required")
 }
 
 func TestAdvertiseAddrRequiresExplicitConfig(t *testing.T) {
-	assert.Equal(t, "cassemdb1:2021", advertiseAddr(&conf.CassemdbConfig{ListenAddr: "0.0.0.0:2021", AdvertiseAddr: "cassemdb1:2021"}))
-	assert.Empty(t, advertiseAddr(&conf.CassemdbConfig{ListenAddr: "0.0.0.0:2021"}))
+	assert.Equal(t, "cassemkv1:2021", advertiseAddr(&conf.CassemKVConfig{ListenAddr: "0.0.0.0:2021", AdvertiseAddr: "cassemkv1:2021"}))
+	assert.Empty(t, advertiseAddr(&conf.CassemKVConfig{ListenAddr: "0.0.0.0:2021"}))
 }
 
 type fakeDiscoveryRaft struct {
@@ -52,7 +52,7 @@ type fakeDiscoveryRaft struct {
 }
 
 func newFakeDiscoveryRaft() *fakeDiscoveryRaft {
-	return &fakeDiscoveryRaft{nodeID: 1, raftAddr: "http://cassemdb1:3021", leaderID: 1, store: map[string][]byte{}}
+	return &fakeDiscoveryRaft{nodeID: 1, raftAddr: "http://cassemkv1:3021", leaderID: 1, store: map[string][]byte{}}
 }
 
 func (f *fakeDiscoveryRaft) NodeID() uint64                         { return f.nodeID }
@@ -95,32 +95,32 @@ func (f *fakeDiscoveryRaft) Expire(*apikv.ExpireReq) error { return nil }
 
 func TestRegisterCurrentMember(t *testing.T) {
 	raft := newFakeDiscoveryRaft()
-	d := &app{config: &conf.CassemdbConfig{ListenAddr: "0.0.0.0:2021", AdvertiseAddr: "cassemdb1:2021"}, raft: raft}
+	d := &app{config: &conf.CassemKVConfig{ListenAddr: "0.0.0.0:2021", AdvertiseAddr: "cassemkv1:2021"}, raft: raft}
 
 	require.NoError(t, d.registerCurrentMember())
 
 	got, err := decodeClusterMemberRecord(raft.store[clusterMemberKey(1)])
 	require.NoError(t, err)
-	assert.Equal(t, clusterMemberRecord{NodeID: 1, RaftAddr: "http://cassemdb1:3021", GRPCEndpoint: "cassemdb1:2021"}, got)
+	assert.Equal(t, clusterMemberRecord{NodeID: 1, RaftAddr: "http://cassemkv1:3021", GRPCEndpoint: "cassemkv1:2021"}, got)
 }
 
 func TestListMembers(t *testing.T) {
 	raft := newFakeDiscoveryRaft()
-	d := &app{config: &conf.CassemdbConfig{ListenAddr: "0.0.0.0:2021", AdvertiseAddr: "cassemdb1:2021"}, raft: raft}
+	d := &app{config: &conf.CassemKVConfig{ListenAddr: "0.0.0.0:2021", AdvertiseAddr: "cassemkv1:2021"}, raft: raft}
 	require.NoError(t, d.registerCurrentMember())
 
 	members, err := d.listMembers()
 	require.NoError(t, err)
 	require.Len(t, members, 1)
 	assert.Equal(t, uint64(1), members[0].GetNodeId())
-	assert.Equal(t, "http://cassemdb1:3021", members[0].GetRaftAddr())
-	assert.Equal(t, "cassemdb1:2021", members[0].GetGrpcEndpoint())
+	assert.Equal(t, "http://cassemkv1:3021", members[0].GetRaftAddr())
+	assert.Equal(t, "cassemkv1:2021", members[0].GetGrpcEndpoint())
 	assert.True(t, members[0].GetLeader())
 }
 
 func TestListMembersSkipsStaleRaftPeers(t *testing.T) {
 	raft := newFakeDiscoveryRaft()
-	d := &app{config: &conf.CassemdbConfig{ListenAddr: "0.0.0.0:2021", AdvertiseAddr: "cassemdb1:2021"}, raft: raft}
+	d := &app{config: &conf.CassemKVConfig{ListenAddr: "0.0.0.0:2021", AdvertiseAddr: "cassemkv1:2021"}, raft: raft}
 	require.NoError(t, d.registerCurrentMember())
 	stale, err := encodeClusterMemberRecord(clusterMemberRecord{NodeID: 2, RaftAddr: "http://removed:3022", GRPCEndpoint: "removed:2021"})
 	require.NoError(t, err)
@@ -134,11 +134,11 @@ func TestListMembersSkipsStaleRaftPeers(t *testing.T) {
 
 func TestListMembersRPC(t *testing.T) {
 	raft := newFakeDiscoveryRaft()
-	d := &app{config: &conf.CassemdbConfig{ListenAddr: "0.0.0.0:2021", AdvertiseAddr: "cassemdb1:2021"}, raft: raft}
+	d := &app{config: &conf.CassemKVConfig{ListenAddr: "0.0.0.0:2021", AdvertiseAddr: "cassemkv1:2021"}, raft: raft}
 	require.NoError(t, d.registerCurrentMember())
 
 	resp, err := (grpcServer{coord: d}).ListMembers(context.Background(), &apikv.ListMembersRequest{})
 	require.NoError(t, err)
 	require.Len(t, resp.GetMembers(), 1)
-	assert.Equal(t, "cassemdb1:2021", resp.GetMembers()[0].GetGrpcEndpoint())
+	assert.Equal(t, "cassemkv1:2021", resp.GetMembers()[0].GetGrpcEndpoint())
 }

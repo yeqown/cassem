@@ -210,7 +210,7 @@ func translateChange(change errorx.Change) *apikv.Change {
 	if !ok || c == nil {
 		log.
 			WithField("change", change).
-			Warn("cassemdb.translateChange skip the change")
+			Warn("cassemkv.translateChange skip the change")
 		return nil
 	}
 	return c

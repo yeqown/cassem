@@ -24,7 +24,7 @@ func UnmarshalProto(data []byte, v proto.Message) error {
 	return proto.Unmarshal(data, v)
 }
 
-// ConvertFromEntitiesToElements converts cassemdb entities to concept Elements.
+// ConvertFromEntitiesToElements converts cassemkv entities to concept Elements.
 func ConvertFromEntitiesToElements(in []*apikv.Entity, mdMapping map[string]*concept.ElementMetadata) (out []*concept.Element) {
 	out = make([]*concept.Element, 0, len(in))
 	for _, entity := range in {
@@ -44,7 +44,7 @@ func ConvertFromEntitiesToElements(in []*apikv.Entity, mdMapping map[string]*con
 	return out
 }
 
-// ConvertFromEntitiesToMetadata converts cassemdb entities to concept ElementMetadata.
+// ConvertFromEntitiesToMetadata converts cassemkv entities to concept ElementMetadata.
 // Returns:
 // - keys: ElementMetadata keys with version: app/env/ele/v1
 // - arr: ElementMetadata in slice structure
@@ -80,7 +80,7 @@ func ConvertFromEntitiesToMetadata(
 	return keys, arr, mdMapping
 }
 
-// ConvertChangeToChange converts kv.Change (cassemdb.api) to concept.AgentInstanceChange.
+// ConvertChangeToChange converts kv.Change (cassemkv.api) to concept.AgentInstanceChange.
 // Make sure of that c1 is agentInstance format rather than any other.
 func ConvertChangeToChange(c1 *apikv.Change) (c2 *concept.AgentInstanceChange, ok bool) {
 	if c1 == nil {

@@ -18,12 +18,12 @@ const (
 	_APP_PREFIX     = "cassem/apps"
 )
 
-// kvReadOnly manages all read operation from cassemdb, it is allowed to read only.
+// kvReadOnly manages all read operation from cassemkv, it is allowed to read only.
 type kvReadOnly struct {
-	cassemdb apikv.KVClient
+	cassemkv apikv.KVClient
 }
 
-// NewKVReader with endpoints these endpoints of cassemdb.
+// NewKVReader with endpoints these endpoints of cassemkv.
 func NewKVReader(endpoints []string) (concept.KVReadOnly, error) {
 	cc, err := apikv.DialWithMode(endpoints, apikv.Mode_R)
 	if err != nil {
@@ -31,7 +31,7 @@ func NewKVReader(endpoints []string) (concept.KVReadOnly, error) {
 	}
 
 	return kvReadOnly{
-		cassemdb: apikv.NewKVClient(cc),
+		cassemkv: apikv.NewKVClient(cc),
 	}, nil
 }
 
@@ -39,7 +39,7 @@ func (_r kvReadOnly) GetElementWithVersion(
 	ctx context.Context, app, env, key string, version int) (*concept.Element, error) {
 	// get metadata
 	k := concept.GenElementKey(app, env, key)
-	r1, err := _r.cassemdb.GetKV(ctx, &apikv.GetKVReq{Key: concept.WithMetadataSuffix(k)})
+	r1, err := _r.cassemkv.GetKV(ctx, &apikv.GetKVReq{Key: concept.WithMetadataSuffix(k)})
 	if err != nil {
 		return nil, err
 	}
@@ -56,7 +56,7 @@ func (_r kvReadOnly) GetElementWithVersion(
 	}
 
 	// get element with specified version
-	r2, err2 := _r.cassemdb.GetKV(ctx, &apikv.GetKVReq{Key: concept.WithVersion(k, version)})
+	r2, err2 := _r.cassemkv.GetKV(ctx, &apikv.GetKVReq{Key: concept.WithVersion(k, version)})
 	if err2 != nil {
 		return nil, err2
 	}
@@ -82,7 +82,7 @@ func (_r kvReadOnly) GetElementVersions(
 		}).
 		Debug("kvReadOnly.GetElementVersions enter")
 
-	r, err := _r.cassemdb.GetKVs(ctx, &apikv.GetKVsReq{
+	r, err := _r.cassemkv.GetKVs(ctx, &apikv.GetKVsReq{
 		Keys: []string{concept.WithMetadataSuffix(k)},
 	})
 	if err != nil {
@@ -97,7 +97,7 @@ func (_r kvReadOnly) GetElementVersions(
 		seek = _VERSION_PREFIX
 	}
 
-	r2, err := _r.cassemdb.Range(ctx, &apikv.RangeReq{
+	r2, err := _r.cassemkv.Range(ctx, &apikv.RangeReq{
 		Key:   k,
 		Seek:  seek,
 		Limit: int32(limit),
@@ -134,7 +134,7 @@ func (_r kvReadOnly) GetElements(
 		}).
 		Debug("kvReadOnly.GetElements enter")
 	if strings.TrimSpace(query) == "" {
-		r, err := _r.cassemdb.Range(ctx, &apikv.RangeReq{
+		r, err := _r.cassemkv.Range(ctx, &apikv.RangeReq{
 			Key:   k,
 			Seek:  seek,
 			Limit: int32(limit),
@@ -163,7 +163,7 @@ func (_r kvReadOnly) GetElements(
 	matched := make([]string, 0, limit+1)
 	nextSeek := seek
 	for len(matched) <= limit {
-		r, err := _r.cassemdb.Range(ctx, &apikv.RangeReq{
+		r, err := _r.cassemkv.Range(ctx, &apikv.RangeReq{
 			Key:   k,
 			Seek:  nextSeek,
 			Limit: int32(limit),
@@ -302,7 +302,7 @@ func (_r kvReadOnly) getElementsByKeys(
 		k := concept.GenElementKey(app, env, key)
 		mdKeys = append(mdKeys, concept.WithMetadataSuffix(k))
 	}
-	r, err := _r.cassemdb.GetKVs(ctx, &apikv.GetKVsReq{
+	r, err := _r.cassemkv.GetKVs(ctx, &apikv.GetKVsReq{
 		Keys: mdKeys,
 	})
 	if err != nil {
@@ -317,7 +317,7 @@ func (_r kvReadOnly) getElementsByKeys(
 	if len(eleVersionKeys) == 0 {
 		return []*concept.Element{}, nil
 	}
-	r2, err2 := _r.cassemdb.GetKVs(ctx, &apikv.GetKVsReq{
+	r2, err2 := _r.cassemkv.GetKVs(ctx, &apikv.GetKVsReq{
 		Keys: eleVersionKeys,
 	})
 	if err2 != nil {
@@ -334,7 +334,7 @@ func (_r kvReadOnly) getElementsByKeys(
 
 func (_r kvReadOnly) GetElementOperations(
 	ctx context.Context, app, env, eltKey string, seek string, limit int) (*concept.GetElementOperationsResult, error) {
-	r, err := _r.cassemdb.Range(ctx, &apikv.RangeReq{
+	r, err := _r.cassemkv.Range(ctx, &apikv.RangeReq{
 		Key:   concept.GenElementOperationDirKey(app, env, eltKey),
 		Seek:  seek,
 		Limit: int32(limit),
@@ -363,7 +363,7 @@ func (_r kvReadOnly) GetElementOperations(
 
 func (_r kvReadOnly) GetApp(ctx context.Context, app string) (*concept.AppMetadata, error) {
 	k := concept.GenAppKey(app)
-	r, err := _r.cassemdb.GetKV(ctx, &apikv.GetKVReq{
+	r, err := _r.cassemkv.GetKV(ctx, &apikv.GetKVReq{
 		Key: k,
 	})
 	if err != nil {
@@ -377,7 +377,7 @@ func (_r kvReadOnly) GetApp(ctx context.Context, app string) (*concept.AppMetada
 
 func (_r kvReadOnly) GetApps(ctx context.Context, seek string, limit int, query string) (*concept.GetAppsResult, error) {
 	if strings.TrimSpace(query) == "" {
-		r, err := _r.cassemdb.Range(ctx, &apikv.RangeReq{
+		r, err := _r.cassemkv.Range(ctx, &apikv.RangeReq{
 			Key:   _APP_PREFIX,
 			Seek:  seek,
 			Limit: int32(limit),
@@ -407,7 +407,7 @@ func (_r kvReadOnly) GetApps(ctx context.Context, seek string, limit int, query 
 	matched := make([]*concept.AppMetadata, 0, limit+1)
 	nextSeek := seek
 	for len(matched) <= limit {
-		r, err := _r.cassemdb.Range(ctx, &apikv.RangeReq{
+		r, err := _r.cassemkv.Range(ctx, &apikv.RangeReq{
 			Key:   _APP_PREFIX,
 			Seek:  nextSeek,
 			Limit: int32(limit),
@@ -447,7 +447,7 @@ func (_r kvReadOnly) GetApps(ctx context.Context, seek string, limit int, query 
 
 func (_r kvReadOnly) GetEnvironments(ctx context.Context, app, seek string, limit int) (*concept.GetAppEnvsResult, error) {
 	k := concept.GenAppElementKey(app)
-	r, err := _r.cassemdb.Range(ctx, &apikv.RangeReq{
+	r, err := _r.cassemkv.Range(ctx, &apikv.RangeReq{
 		Key:   k,
 		Seek:  seek,
 		Limit: int32(limit),

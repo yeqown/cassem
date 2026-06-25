@@ -1,4 +1,4 @@
-## cassemdb 
+## cassemkv 
 
 cassemd storage component which is distributed like ETCD.
 
@@ -14,11 +14,11 @@ WATCH key
 ### Get Started
 
 ```shell
-cassemdb \
+cassemkv \
 	--listen=8080 \
 	--raft-listen=8081 \
 	--id=1 \ 
-	--dir=./cassemdb-data1 \ 
+	--dir=./cassemkv-data1 \ 
 	--join=""
 	
 	

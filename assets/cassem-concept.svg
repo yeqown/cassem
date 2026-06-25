@@ -15,7 +15,7 @@
                 <tspan x="34" y="44">cassem-adm</tspan>
             </text>
         </g>
-        <g id="cassemdb" transform="translate(151.000000, 68.000000)">
+        <g id="cassemkv" transform="translate(151.000000, 68.000000)">
             <rect id="矩形" stroke="#01579B" fill="#1A237E" x="0.5" y="0.5" width="428" height="70"></rect>
             <text id="cassem-db" font-family="AndaleMono, Andale Mono" font-size="24" font-weight="normal" fill="#FFFFFF">
                 <tspan x="147" y="44">cassem-db</tspan>

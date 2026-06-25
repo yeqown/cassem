@@ -166,7 +166,7 @@ func TestGrayPublishToInstance(t *testing.T) {
 
 func TestKVTTLExpireThroughDB(t *testing.T) {
 	cluster := testutil.UseDBCluster(t)
-	cc := testutil.DialCassemDB(t, cluster.DBEndpoints, apikv.Mode_X)
+	cc := testutil.DialCassemKV(t, cluster.DBEndpoints, apikv.Mode_X)
 	t.Cleanup(func() { _ = cc.Close() })
 	client := apikv.NewKVClient(cc)
 

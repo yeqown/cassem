@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Cassem is a distributed configuration management system written in Go 1.26. It uses etcd's Raft consensus for the storage layer. The system has three core binaries:
 
-- **cassemdb** — Raft-based distributed KV storage engine (data plane), serves gRPC
+- **cassemkv** — Raft-based distributed KV storage engine (data plane), serves gRPC
 - **cassemadm** — Admin/management HTTP server (control plane), serves REST API with Gin
 - **cassemagent** — Stateless caching agent layer (edge proxy), serves gRPC to clients and receives dispatched changes from adm
 
@@ -37,7 +37,7 @@ The `api/Makefile` centralizes proto generation for all API modules:
 
 ```bash
 make -C api                          # Generate all API protobuf files
-make -C api kv.gen-proto             # cassemdb.api.proto, cassemdb.raft.proto
+make -C api kv.gen-proto             # cassemkv.api.proto, cassemkv.raft.proto
 make -C api concept.gen-proto        # types.proto, acl.proto
 make -C api agent.gen-proto          # cassemagent.api.proto
 ```
@@ -70,17 +70,17 @@ The system uses **composition-over-inheritance** to define access profiles:
 - `AdmAggregate` = `KVReadOnly` + `KVWriteOnly` + `InstanceHybrid` + `AgentHybrid` + `RBAC`
 - `AgentAggregate` = `KVReadOnly` + `InstanceHybrid` + `AgentHybrid` (no write or ACL)
 
-Concrete implementations (`internal/coord/coordinator_adm_agg.go`, `internal/coord/coordinator_agent_agg.go`) compose shared interface implementations over a common gRPC connection to cassemdb.
+Concrete implementations (`internal/coord/coordinator_adm_agg.go`, `internal/coord/coordinator_agent_agg.go`) compose shared interface implementations over a common gRPC connection to cassemkv.
 
 ### Data Flow
 
-1. **Write path**: cassemadm → gRPC → cassemdb leader → one `MutateCommand` Raft proposal → commit/apply → BoltDB + request ack + committed change event
-2. **Read path**: client → cassemagent (LRU-2 cache, 10s stale window) → cassemdb (reads can hit any node)
+1. **Write path**: cassemadm → gRPC → cassemkv leader → one `MutateCommand` Raft proposal → commit/apply → BoltDB + request ack + committed change event
+2. **Read path**: client → cassemagent (LRU-2 cache, 10s stale window) → cassemkv (reads can hit any node)
 3. **Change push**: committed apply event → agent `Dispatch` (batched: up to 100 elements or 1s window) → agent → client `Watch` stream
 
 ### Leader-Aware gRPC Routing
 
-The cassemdb client (`api/kv/client.go`) uses a custom gRPC resolver (`cassemdb://` scheme). Only the Raft leader marks its gRPC health services as `SERVING`. Write-mode clients (`Mode_X`) use health-checking LB to route to leader; read-mode clients (`Mode_R`) use round-robin to any node.
+The cassemkv client (`api/kv/client.go`) uses a custom gRPC resolver (`cassemkv://` scheme). Only the Raft leader marks its gRPC health services as `SERVING`. Write-mode clients (`Mode_X`) use health-checking LB to route to leader; read-mode clients (`Mode_R`) use round-robin to any node.
 
 ### Element Versioning
 
@@ -88,7 +88,7 @@ Elements enforce a **publish-before-update** workflow: create v1 → review → 
 
 ### Network Serving
 
-`cassemdb` serves gRPC only on its listen address. `cassemagent` still uses `httpx.Gateway` to serve HTTP and gRPC on the same TCP port via h2c (cleartext HTTP/2). Routing is by `Content-Type: application/grpc` and protocol version.
+`cassemkv` serves gRPC only on its listen address. `cassemagent` still uses `httpx.Gateway` to serve HTTP and gRPC on the same TCP port via h2c (cleartext HTTP/2). Routing is by `Content-Type: application/grpc` and protocol version.
 
 ### Change Notification in Raft
 
@@ -119,4 +119,4 @@ Tests use `testify/assert`. Unit tests exist in `pkg/`, `api/concept/`, `interna
 
 ## Configuration
 
-Config files are TOML, loaded via `pkg/conf.Load()`. cassemdb cluster endpoints and Raft bind/cluster addresses are passed as CLI flags (not TOML). Set `DEBUG=1` to enable debug logging.
+Config files are TOML, loaded via `pkg/conf.Load()`. cassemkv cluster endpoints and Raft bind/cluster addresses are passed as CLI flags (not TOML). Set `DEBUG=1` to enable debug logging.

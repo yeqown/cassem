@@ -26,11 +26,13 @@ bin/
 
 # Binaries
 cassemdb
+cassemkv
+cassemkv-viewer
 cassemagent
 cassemadm
 
 # Excludes
-!cassemdb/
+!cassemkv/
 !cassemagent/
 !cassemadm/
 !debugdata/cassemdb1.toml

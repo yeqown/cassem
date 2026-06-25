@@ -144,7 +144,7 @@ func newClient(cc *grpc.ClientConn, opt *options) *agentInstanceClient {
 	// start a renew self goroutine.
 	apiinternal.GoFunc("renewSelf", func() error {
 		// random ticker for renew client itself, random tick interval avoids
-		// too many renew requests are sent to cassemdb at the same time.
+		// too many renew requests are sent to cassemkv at the same time.
 		t := time.NewTicker(time.Duration(_CLIENT_RENEW_BASE+rand.Intn(_CLIENT_RENEW_RAND)) * time.Second)
 		for {
 			select {

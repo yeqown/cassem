@@ -1,7 +1,7 @@
 package conf
 
-// CassemdbConfig contains all config to cassemdb.
-type CassemdbConfig struct {
+// CassemKVConfig contains all config to cassemkv.
+type CassemKVConfig struct {
 	Bolt          *Bolt  `toml:"bolt"`
 	ListenAddr    string `toml:"listenAddr"`
 	AdvertiseAddr string `toml:"advertiseAddr"`

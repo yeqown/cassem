@@ -27,7 +27,7 @@ type IntegrationEnv struct {
 	AdmHTTPAddr string
 	// AgentGRPCAddr is the agent gRPC endpoint in host:port form.
 	AgentGRPCAddr string
-	// DBGRPCAddrs contains one or more cassemdb gRPC endpoints.
+	// DBGRPCAddrs contains one or more cassemkv gRPC endpoints.
 	DBGRPCAddrs []string
 	// AdminEmail is the bootstrap admin account used by integration tests.
 	AdminEmail string

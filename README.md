@@ -25,7 +25,7 @@ same time, it's deployed by `Go` which gives it platform-cross ability and fast-
     - [ ] [Web UI](https://github.com/yeqown/cassem-ui) is developing.
     - [ ] [CTL](#) tool to debug and manage config from terminal. 
   - [ ] OpenTelemetry metrics support
-- [x] Distributed storage component `cassemdb`, based on raft consensus algorithm.
+- [x] Distributed storage component `cassemkv`, based on raft consensus algorithm.
   - [x] Master can read and write.
   - [x] Slave node can only respond to read request.
   - [x] Use `gRPC` protocol to communicate.
@@ -50,19 +50,19 @@ same time, it's deployed by `Go` which gives it platform-cross ability and fast-
 <img src="./assets/cassem-concept.svg" width="100%"/>
 
 Explanation: 
-- **_cassemdb_** provide KV storage capacity. 
+- **_cassemkv_** provide KV storage capacity. 
 - **_cassemadm_** is the manager to whole cassem application. 
 - **_cassemagent_**‘s major duty is helping clients to access config easier,
-   makes cassemdb work transparently to clients.  Importantly, cassemagent
+   makes cassemkv work transparently to clients.  Importantly, cassemagent
    is stateless so that it could easily scale up and load balance.
 
 <img src="./assets/cassem-architecture.svg" width="100%" align="center"/>
 
-### - [cassemdb](./cmd/cassemdb/README.md)
+### - [cassemkv](./cmd/cassemkv/README.md)
 
 The KV storage component in cassem, provide gRPC API.
 
-<img src="./assets/cassemdb-architecture.svg" width="100%" />
+<img src="./assets/cassemkv-architecture.svg" width="100%" />
 
 ### - [cassemadm](cmd/cassemadm/README.md)
 
@@ -94,7 +94,7 @@ Run the full local release gate with a clean Compose cluster:
 make test.integration.cluster
 ```
 
-This target builds Web assets and Linux binaries, builds local images, starts the example Compose cluster, waits for cassemdb/cassemadm/cassemagent readiness, runs integration tests in strict mode, prints logs on failure, and removes containers/volumes afterward.
+This target builds Web assets and Linux binaries, builds local images, starts the example Compose cluster, waits for cassemkv/cassemadm/cassemagent readiness, runs integration tests in strict mode, prints logs on failure, and removes containers/volumes afterward.
 
 Docker users can override the default Podman runtime:
 

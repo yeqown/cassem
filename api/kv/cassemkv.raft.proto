@@ -3,8 +3,8 @@ syntax = "proto3";
 package cassem.api.kv;
 option go_package = "github.com/yeqown/cassem/api/kv;kv";
 
-//import "cassemdb/api/cassemdb.api.proto";
-import "cassemdb.api.proto";
+//import "cassemkv/api/cassemkv.api.proto";
+import "cassemkv.api.proto";
 import "buf/validate/validate.proto";
 
 message LogEntry  {
@@ -58,7 +58,7 @@ message listMembersResponse {
   repeated clusterMember members = 1;
 }
 
-// Cluster is a service that manage members in the cassemdb raft cluster.
+// Cluster is a service that manage members in the cassemkv raft cluster.
 service Cluster {
   rpc AddNode(addNodeRequest) returns(addNodeResponse) {};
   rpc RemoveNode(removeNodeRequest) returns(removeNodeResponse) {};

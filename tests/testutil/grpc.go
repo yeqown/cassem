@@ -10,7 +10,7 @@ import (
 	"google.golang.org/grpc"
 )
 
-func DialCassemDB(t TB, endpoints []string, mode apikv.Mode) *grpc.ClientConn {
+func DialCassemKV(t TB, endpoints []string, mode apikv.Mode) *grpc.ClientConn {
 	t.Helper()
 
 	var (
@@ -26,11 +26,11 @@ func DialCassemDB(t TB, endpoints []string, mode apikv.Mode) *grpc.ClientConn {
 		time.Sleep(300 * time.Millisecond)
 	}
 
-	t.Fatalf("dial cassemdb %v: %v", endpoints, err)
+	t.Fatalf("dial cassemkv %v: %v", endpoints, err)
 	return nil
 }
 
-func CheckCassemDB(endpoints []string, timeout time.Duration) error {
+func CheckCassemKV(endpoints []string, timeout time.Duration) error {
 	for _, endpoint := range endpoints {
 		if err := checkEndpointTCP(endpoint); err != nil {
 			return err
@@ -60,12 +60,12 @@ func CheckCassemDB(endpoints []string, timeout time.Duration) error {
 		time.Sleep(500 * time.Millisecond)
 	}
 
-	return fmt.Errorf("cassemdb did not become ready: %w", lastErr)
+	return fmt.Errorf("cassemkv did not become ready: %w", lastErr)
 }
 
-func WaitCassemDB(t TB, endpoints []string) {
+func WaitCassemKV(t TB, endpoints []string) {
 	t.Helper()
-	if err := CheckCassemDB(endpoints, 45*time.Second); err != nil {
+	if err := CheckCassemKV(endpoints, 45*time.Second); err != nil {
 		t.Fatalf("%v", err)
 	}
 }

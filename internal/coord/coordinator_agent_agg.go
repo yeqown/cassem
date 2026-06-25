@@ -19,8 +19,8 @@ func NewAgentAggregate(endpoints []string) (concept.AgentAggregate, error) {
 
 	c := apikv.NewKVClient(cc)
 	return agentAggregate{
-		kvReadOnly:     kvReadOnly{cassemdb: c},
-		instanceHybrid: instanceHybrid{cassemdb: c},
-		agentInsHybrid: agentInsHybrid{cassemdb: c},
+		kvReadOnly:     kvReadOnly{cassemkv: c},
+		instanceHybrid: instanceHybrid{cassemkv: c},
+		agentInsHybrid: agentInsHybrid{cassemkv: c},
 	}, nil
 }

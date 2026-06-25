@@ -8,26 +8,26 @@ import (
 )
 
 var (
-	_ resolver.Resolver = cassemdbResolver{}
-	_ resolver.Builder  = cassemdbResolverBuilder{}
+	_ resolver.Resolver = cassemkvResolver{}
+	_ resolver.Builder  = cassemkvResolverBuilder{}
 )
 
-// cassemdbResolver endpoints comes from config and keep fixed, so cassemdbResolver.ResolveNow would never
+// cassemkvResolver endpoints comes from config and keep fixed, so cassemkvResolver.ResolveNow would never
 // update resolver.ClientConn's state once resolver.Builder called.
-type cassemdbResolver struct{}
+type cassemkvResolver struct{}
 
-func (c cassemdbResolver) ResolveNow(option resolver.ResolveNowOptions) {}
-func (c cassemdbResolver) Close()                                       {}
+func (c cassemkvResolver) ResolveNow(option resolver.ResolveNowOptions) {}
+func (c cassemkvResolver) Close()                                       {}
 
-type cassemdbResolverBuilder struct{}
+type cassemkvResolverBuilder struct{}
 
-func (c cassemdbResolverBuilder) Build(
+func (c cassemkvResolverBuilder) Build(
 	target resolver.Target, cc resolver.ClientConn, opts resolver.BuildOptions) (resolver.Resolver, error) {
 	log.
 		WithFields(log.Fields{
 			"target": target,
 		}).
-		Debug("cassemdbResolverBuilder called")
+		Debug("cassemkvResolverBuilder called")
 
 	endpoint := strings.TrimPrefix(target.Endpoint(), "all//")
 	endpoints := strings.Split(endpoint, ",")
@@ -38,7 +38,7 @@ func (c cassemdbResolverBuilder) Build(
 		}
 		addrs = append(addrs, resolver.Address{
 			Addr:       v,
-			ServerName: "cassemdb:" + v,
+			ServerName: "cassemkv:" + v,
 			Attributes: nil,
 		})
 	}
@@ -55,22 +55,22 @@ func (c cassemdbResolverBuilder) Build(
 	//	WithFields(log.Fields{
 	//		"sc": sc,
 	//	}).
-	//	Debug("cassemdbResolverBuilder parse service config")
+	//	Debug("cassemkvResolverBuilder parse service config")
 
 	_ = cc.UpdateState(resolver.State{
 		Addresses: addrs,
 		// ServiceConfig: sc,
 	})
 
-	return cassemdbResolver{}, nil
+	return cassemkvResolver{}, nil
 }
 
 var (
 	// _SERVICE_CONFIG_JSON https://github.com/grpc/grpc/blob/master/doc/service_config.md
-	_SERVICE_CONFIG_JSON_WITH_HEALTH    = `{"healthCheckConfig":{"serviceName": "cassemdb.RaftLeader"},"loadBalancingConfig":[{"round_robin":{}}]}`
+	_SERVICE_CONFIG_JSON_WITH_HEALTH    = `{"healthCheckConfig":{"serviceName": "cassemkv.RaftLeader"},"loadBalancingConfig":[{"round_robin":{}}]}`
 	_SERVICE_CONFIG_JSON_WITHOUT_HEALTH = `{"loadBalancingConfig":[{"round_robin":{}}]}`
 )
 
-func (c cassemdbResolverBuilder) Scheme() string {
-	return "cassemdb"
+func (c cassemkvResolverBuilder) Scheme() string {
+	return "cassemkv"
 }

@@ -54,7 +54,7 @@ func (f *kvWriteOnlyTestKV) CompactElementHistory(context.Context, *apikv.Compac
 }
 
 func TestKVWriteOnlySaveRawPreservesMarshalFailure(t *testing.T) {
-	err := (kvWriteOnly{cassemdb: &kvWriteOnlyTestKV{}}).saveRaw(
+	err := (kvWriteOnly{cassemkv: &kvWriteOnlyTestKV{}}).saveRaw(
 		context.Background(),
 		"bad",
 		&concept.AppMetadata{Id: string([]byte{0xff})},
@@ -66,7 +66,7 @@ func TestKVWriteOnlySaveRawPreservesMarshalFailure(t *testing.T) {
 
 func TestKVWriteOnlyDeleteElementDeletesOperationPrefix(t *testing.T) {
 	kv := &kvWriteOnlyTestKV{}
-	err := (kvWriteOnly{cassemdb: kv}).DeleteElement(context.Background(), "app", "env", "key")
+	err := (kvWriteOnly{cassemkv: kv}).DeleteElement(context.Background(), "app", "env", "key")
 	require.NoError(t, err)
 	require.Equal(t, []*apikv.UnsetKVReq{
 		{Key: concept.GenElementKey("app", "env", "key"), IsDir: true},
@@ -76,7 +76,7 @@ func TestKVWriteOnlyDeleteElementDeletesOperationPrefix(t *testing.T) {
 
 func TestKVWriteOnlyDeleteEnvironmentDeletesOperationPrefix(t *testing.T) {
 	kv := &kvWriteOnlyTestKV{}
-	err := (kvWriteOnly{cassemdb: kv}).DeleteEnvironment(context.Background(), "app", "env")
+	err := (kvWriteOnly{cassemkv: kv}).DeleteEnvironment(context.Background(), "app", "env")
 	require.NoError(t, err)
 	require.Equal(t, []*apikv.UnsetKVReq{
 		{Key: concept.GenAppElementEnvKey("app", "env"), IsDir: true},
@@ -86,7 +86,7 @@ func TestKVWriteOnlyDeleteEnvironmentDeletesOperationPrefix(t *testing.T) {
 
 func TestKVWriteOnlyDeleteAppDeletesOperationPrefix(t *testing.T) {
 	kv := &kvWriteOnlyTestKV{}
-	err := (kvWriteOnly{cassemdb: kv}).DeleteApp(context.Background(), "app")
+	err := (kvWriteOnly{cassemkv: kv}).DeleteApp(context.Background(), "app")
 	require.NoError(t, err)
 	require.Equal(t, []*apikv.UnsetKVReq{
 		{Key: concept.GenAppElementKey("app"), IsDir: true},

@@ -60,7 +60,7 @@ func decodeClusterMemberRecord(data []byte) (clusterMemberRecord, error) {
 	return record, nil
 }
 
-func advertiseAddr(c *conf.CassemdbConfig) string {
+func advertiseAddr(c *conf.CassemKVConfig) string {
 	if c == nil {
 		return ""
 	}

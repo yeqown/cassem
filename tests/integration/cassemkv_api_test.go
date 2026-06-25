@@ -14,13 +14,13 @@ import (
 	"github.com/yeqown/cassem/tests/testutil"
 )
 
-func TestCassemDBReadWriteClient(t *testing.T) {
+func TestCassemKVReadWriteClient(t *testing.T) {
 	cluster := testutil.UseDBCluster(t)
-	cc := testutil.DialCassemDB(t, cluster.DBEndpoints, apikv.Mode_X)
+	cc := testutil.DialCassemKV(t, cluster.DBEndpoints, apikv.Mode_X)
 	t.Cleanup(func() { _ = cc.Close() })
 
 	client := apikv.NewKVClient(cc)
-	key := fmt.Sprintf("tests/integration/cassemdb/%d", time.Now().UnixNano())
+	key := fmt.Sprintf("tests/integration/cassemkv/%d", time.Now().UnixNano())
 	value := []byte("ok")
 
 	_, err := client.SetKV(context.Background(), &apikv.SetKVReq{
@@ -35,9 +35,9 @@ func TestCassemDBReadWriteClient(t *testing.T) {
 	require.Equal(t, value, resp.GetEntity().GetVal())
 }
 
-func TestCassemDBDistributedLock(t *testing.T) {
+func TestCassemKVDistributedLock(t *testing.T) {
 	cluster := testutil.UseDBCluster(t)
-	cc := testutil.DialCassemDB(t, cluster.DBEndpoints, apikv.Mode_X)
+	cc := testutil.DialCassemKV(t, cluster.DBEndpoints, apikv.Mode_X)
 	t.Cleanup(func() { _ = cc.Close() })
 
 	kv := apikv.NewKVClient(cc)

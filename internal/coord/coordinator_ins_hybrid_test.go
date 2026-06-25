@@ -95,7 +95,7 @@ func TestInstanceHybridSetInstanceInfoReturnsReversedWriteError(t *testing.T) {
 	failedKey := concept.GenInstanceReversedKeyWithInsId("app", "env", "key2", ins.Id())
 	kv.setErr[failedKey] = errors.New("boom")
 
-	err := (instanceHybrid{cassemdb: kv}).setInstanceInfo(context.Background(), ins)
+	err := (instanceHybrid{cassemkv: kv}).setInstanceInfo(context.Background(), ins)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), failedKey)
 	require.Contains(t, err.Error(), "boom")
@@ -114,7 +114,7 @@ func TestInstanceHybridUnregisterInstanceReturnsAllReversedDeleteErrors(t *testi
 	kv.unsetErr[firstFailedKey] = errors.New("first")
 	kv.unsetErr[secondFailedKey] = errors.New("second")
 
-	err = (instanceHybrid{cassemdb: kv}).UnregisterInstance(context.Background(), ins.Id())
+	err = (instanceHybrid{cassemkv: kv}).UnregisterInstance(context.Background(), ins.Id())
 	require.Error(t, err)
 	require.Contains(t, err.Error(), firstFailedKey)
 	require.Contains(t, err.Error(), secondFailedKey)

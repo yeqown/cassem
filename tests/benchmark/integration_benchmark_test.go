@@ -14,9 +14,9 @@ import (
 	"github.com/yeqown/cassem/tests/testutil"
 )
 
-func BenchmarkCassemDBSetKV32B(b *testing.B) {
+func BenchmarkCassemKVSetKV32B(b *testing.B) {
 	cluster := testutil.UseDBCluster(b)
-	cc := testutil.DialCassemDB(b, cluster.DBEndpoints, apikv.Mode_X)
+	cc := testutil.DialCassemKV(b, cluster.DBEndpoints, apikv.Mode_X)
 	b.Cleanup(func() { _ = cc.Close() })
 	client := apikv.NewKVClient(cc)
 	payload := []byte("12312312312312312312312312312312")
@@ -26,7 +26,7 @@ func BenchmarkCassemDBSetKV32B(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 		_, err := client.SetKV(ctx, &apikv.SetKVReq{
-			Key:       fmt.Sprintf("benchmark/cassemdb/set/%d", i),
+			Key:       fmt.Sprintf("benchmark/cassemkv/set/%d", i),
 			Val:       payload,
 			Ttl:       30,
 			Overwrite: true,
@@ -38,12 +38,12 @@ func BenchmarkCassemDBSetKV32B(b *testing.B) {
 	}
 }
 
-func BenchmarkCassemDBGetKV(b *testing.B) {
+func BenchmarkCassemKVGetKV(b *testing.B) {
 	cluster := testutil.UseDBCluster(b)
-	cc := testutil.DialCassemDB(b, cluster.DBEndpoints, apikv.Mode_X)
+	cc := testutil.DialCassemKV(b, cluster.DBEndpoints, apikv.Mode_X)
 	b.Cleanup(func() { _ = cc.Close() })
 	client := apikv.NewKVClient(cc)
-	key := "benchmark/cassemdb/get/key"
+	key := "benchmark/cassemkv/get/key"
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	_, err := client.SetKV(ctx, &apikv.SetKVReq{Key: key, Val: []byte("value"), Ttl: 30, Overwrite: true})

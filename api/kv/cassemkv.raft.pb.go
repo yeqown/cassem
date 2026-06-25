@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.33.0
 // 	protoc        v4.25.0
-// source: cassemdb.raft.proto
+// source: cassemkv.raft.proto
 
 package kv
 
@@ -55,11 +55,11 @@ func (x LogEntry_Action) String() string {
 }
 
 func (LogEntry_Action) Descriptor() protoreflect.EnumDescriptor {
-	return file_cassemdb_raft_proto_enumTypes[0].Descriptor()
+	return file_cassemkv_raft_proto_enumTypes[0].Descriptor()
 }
 
 func (LogEntry_Action) Type() protoreflect.EnumType {
-	return &file_cassemdb_raft_proto_enumTypes[0]
+	return &file_cassemkv_raft_proto_enumTypes[0]
 }
 
 func (x LogEntry_Action) Number() protoreflect.EnumNumber {
@@ -68,7 +68,7 @@ func (x LogEntry_Action) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use LogEntry_Action.Descriptor instead.
 func (LogEntry_Action) EnumDescriptor() ([]byte, []int) {
-	return file_cassemdb_raft_proto_rawDescGZIP(), []int{0, 0}
+	return file_cassemkv_raft_proto_rawDescGZIP(), []int{0, 0}
 }
 
 type MutateCommand_Op int32
@@ -104,11 +104,11 @@ func (x MutateCommand_Op) String() string {
 }
 
 func (MutateCommand_Op) Descriptor() protoreflect.EnumDescriptor {
-	return file_cassemdb_raft_proto_enumTypes[1].Descriptor()
+	return file_cassemkv_raft_proto_enumTypes[1].Descriptor()
 }
 
 func (MutateCommand_Op) Type() protoreflect.EnumType {
-	return &file_cassemdb_raft_proto_enumTypes[1]
+	return &file_cassemkv_raft_proto_enumTypes[1]
 }
 
 func (x MutateCommand_Op) Number() protoreflect.EnumNumber {
@@ -117,7 +117,7 @@ func (x MutateCommand_Op) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use MutateCommand_Op.Descriptor instead.
 func (MutateCommand_Op) EnumDescriptor() ([]byte, []int) {
-	return file_cassemdb_raft_proto_rawDescGZIP(), []int{1, 0}
+	return file_cassemkv_raft_proto_rawDescGZIP(), []int{1, 0}
 }
 
 type LogEntry struct {
@@ -134,7 +134,7 @@ type LogEntry struct {
 func (x *LogEntry) Reset() {
 	*x = LogEntry{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_cassemdb_raft_proto_msgTypes[0]
+		mi := &file_cassemkv_raft_proto_msgTypes[0]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -147,7 +147,7 @@ func (x *LogEntry) String() string {
 func (*LogEntry) ProtoMessage() {}
 
 func (x *LogEntry) ProtoReflect() protoreflect.Message {
-	mi := &file_cassemdb_raft_proto_msgTypes[0]
+	mi := &file_cassemkv_raft_proto_msgTypes[0]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -160,7 +160,7 @@ func (x *LogEntry) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LogEntry.ProtoReflect.Descriptor instead.
 func (*LogEntry) Descriptor() ([]byte, []int) {
-	return file_cassemdb_raft_proto_rawDescGZIP(), []int{0}
+	return file_cassemkv_raft_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *LogEntry) GetAction() LogEntry_Action {
@@ -199,7 +199,7 @@ type MutateCommand struct {
 func (x *MutateCommand) Reset() {
 	*x = MutateCommand{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_cassemdb_raft_proto_msgTypes[1]
+		mi := &file_cassemkv_raft_proto_msgTypes[1]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -212,7 +212,7 @@ func (x *MutateCommand) String() string {
 func (*MutateCommand) ProtoMessage() {}
 
 func (x *MutateCommand) ProtoReflect() protoreflect.Message {
-	mi := &file_cassemdb_raft_proto_msgTypes[1]
+	mi := &file_cassemkv_raft_proto_msgTypes[1]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -225,7 +225,7 @@ func (x *MutateCommand) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MutateCommand.ProtoReflect.Descriptor instead.
 func (*MutateCommand) Descriptor() ([]byte, []int) {
-	return file_cassemdb_raft_proto_rawDescGZIP(), []int{1}
+	return file_cassemkv_raft_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *MutateCommand) GetRequestId() uint64 {
@@ -275,7 +275,7 @@ type AddNodeRequest struct {
 func (x *AddNodeRequest) Reset() {
 	*x = AddNodeRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_cassemdb_raft_proto_msgTypes[2]
+		mi := &file_cassemkv_raft_proto_msgTypes[2]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -288,7 +288,7 @@ func (x *AddNodeRequest) String() string {
 func (*AddNodeRequest) ProtoMessage() {}
 
 func (x *AddNodeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_cassemdb_raft_proto_msgTypes[2]
+	mi := &file_cassemkv_raft_proto_msgTypes[2]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -301,7 +301,7 @@ func (x *AddNodeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AddNodeRequest.ProtoReflect.Descriptor instead.
 func (*AddNodeRequest) Descriptor() ([]byte, []int) {
-	return file_cassemdb_raft_proto_rawDescGZIP(), []int{2}
+	return file_cassemkv_raft_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *AddNodeRequest) GetRaftAddr() string {
@@ -330,7 +330,7 @@ type AddNodeResponse struct {
 func (x *AddNodeResponse) Reset() {
 	*x = AddNodeResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_cassemdb_raft_proto_msgTypes[3]
+		mi := &file_cassemkv_raft_proto_msgTypes[3]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -343,7 +343,7 @@ func (x *AddNodeResponse) String() string {
 func (*AddNodeResponse) ProtoMessage() {}
 
 func (x *AddNodeResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_cassemdb_raft_proto_msgTypes[3]
+	mi := &file_cassemkv_raft_proto_msgTypes[3]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -356,7 +356,7 @@ func (x *AddNodeResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AddNodeResponse.ProtoReflect.Descriptor instead.
 func (*AddNodeResponse) Descriptor() ([]byte, []int) {
-	return file_cassemdb_raft_proto_rawDescGZIP(), []int{3}
+	return file_cassemkv_raft_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *AddNodeResponse) GetNodeId() uint64 {
@@ -384,7 +384,7 @@ type RemoveNodeRequest struct {
 func (x *RemoveNodeRequest) Reset() {
 	*x = RemoveNodeRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_cassemdb_raft_proto_msgTypes[4]
+		mi := &file_cassemkv_raft_proto_msgTypes[4]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -397,7 +397,7 @@ func (x *RemoveNodeRequest) String() string {
 func (*RemoveNodeRequest) ProtoMessage() {}
 
 func (x *RemoveNodeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_cassemdb_raft_proto_msgTypes[4]
+	mi := &file_cassemkv_raft_proto_msgTypes[4]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -410,7 +410,7 @@ func (x *RemoveNodeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RemoveNodeRequest.ProtoReflect.Descriptor instead.
 func (*RemoveNodeRequest) Descriptor() ([]byte, []int) {
-	return file_cassemdb_raft_proto_rawDescGZIP(), []int{4}
+	return file_cassemkv_raft_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *RemoveNodeRequest) GetNodeId() uint64 {
@@ -429,7 +429,7 @@ type RemoveNodeResponse struct {
 func (x *RemoveNodeResponse) Reset() {
 	*x = RemoveNodeResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_cassemdb_raft_proto_msgTypes[5]
+		mi := &file_cassemkv_raft_proto_msgTypes[5]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -442,7 +442,7 @@ func (x *RemoveNodeResponse) String() string {
 func (*RemoveNodeResponse) ProtoMessage() {}
 
 func (x *RemoveNodeResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_cassemdb_raft_proto_msgTypes[5]
+	mi := &file_cassemkv_raft_proto_msgTypes[5]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -455,7 +455,7 @@ func (x *RemoveNodeResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RemoveNodeResponse.ProtoReflect.Descriptor instead.
 func (*RemoveNodeResponse) Descriptor() ([]byte, []int) {
-	return file_cassemdb_raft_proto_rawDescGZIP(), []int{5}
+	return file_cassemkv_raft_proto_rawDescGZIP(), []int{5}
 }
 
 type ClusterMember struct {
@@ -472,7 +472,7 @@ type ClusterMember struct {
 func (x *ClusterMember) Reset() {
 	*x = ClusterMember{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_cassemdb_raft_proto_msgTypes[6]
+		mi := &file_cassemkv_raft_proto_msgTypes[6]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -485,7 +485,7 @@ func (x *ClusterMember) String() string {
 func (*ClusterMember) ProtoMessage() {}
 
 func (x *ClusterMember) ProtoReflect() protoreflect.Message {
-	mi := &file_cassemdb_raft_proto_msgTypes[6]
+	mi := &file_cassemkv_raft_proto_msgTypes[6]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -498,7 +498,7 @@ func (x *ClusterMember) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClusterMember.ProtoReflect.Descriptor instead.
 func (*ClusterMember) Descriptor() ([]byte, []int) {
-	return file_cassemdb_raft_proto_rawDescGZIP(), []int{6}
+	return file_cassemkv_raft_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *ClusterMember) GetNodeId() uint64 {
@@ -538,7 +538,7 @@ type ListMembersRequest struct {
 func (x *ListMembersRequest) Reset() {
 	*x = ListMembersRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_cassemdb_raft_proto_msgTypes[7]
+		mi := &file_cassemkv_raft_proto_msgTypes[7]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -551,7 +551,7 @@ func (x *ListMembersRequest) String() string {
 func (*ListMembersRequest) ProtoMessage() {}
 
 func (x *ListMembersRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_cassemdb_raft_proto_msgTypes[7]
+	mi := &file_cassemkv_raft_proto_msgTypes[7]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -564,7 +564,7 @@ func (x *ListMembersRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListMembersRequest.ProtoReflect.Descriptor instead.
 func (*ListMembersRequest) Descriptor() ([]byte, []int) {
-	return file_cassemdb_raft_proto_rawDescGZIP(), []int{7}
+	return file_cassemkv_raft_proto_rawDescGZIP(), []int{7}
 }
 
 type ListMembersResponse struct {
@@ -578,7 +578,7 @@ type ListMembersResponse struct {
 func (x *ListMembersResponse) Reset() {
 	*x = ListMembersResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_cassemdb_raft_proto_msgTypes[8]
+		mi := &file_cassemkv_raft_proto_msgTypes[8]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -591,7 +591,7 @@ func (x *ListMembersResponse) String() string {
 func (*ListMembersResponse) ProtoMessage() {}
 
 func (x *ListMembersResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_cassemdb_raft_proto_msgTypes[8]
+	mi := &file_cassemkv_raft_proto_msgTypes[8]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -604,7 +604,7 @@ func (x *ListMembersResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListMembersResponse.ProtoReflect.Descriptor instead.
 func (*ListMembersResponse) Descriptor() ([]byte, []int) {
-	return file_cassemdb_raft_proto_rawDescGZIP(), []int{8}
+	return file_cassemkv_raft_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *ListMembersResponse) GetMembers() []*ClusterMember {
@@ -614,12 +614,12 @@ func (x *ListMembersResponse) GetMembers() []*ClusterMember {
 	return nil
 }
 
-var File_cassemdb_raft_proto protoreflect.FileDescriptor
+var File_cassemkv_raft_proto protoreflect.FileDescriptor
 
-var file_cassemdb_raft_proto_rawDesc = []byte{
-	0x0a, 0x13, 0x63, 0x61, 0x73, 0x73, 0x65, 0x6d, 0x64, 0x62, 0x2e, 0x72, 0x61, 0x66, 0x74, 0x2e,
+var file_cassemkv_raft_proto_rawDesc = []byte{
+	0x0a, 0x13, 0x63, 0x61, 0x73, 0x73, 0x65, 0x6d, 0x6b, 0x76, 0x2e, 0x72, 0x61, 0x66, 0x74, 0x2e,
 	0x70, 0x72, 0x6f, 0x74, 0x6f, 0x12, 0x0d, 0x63, 0x61, 0x73, 0x73, 0x65, 0x6d, 0x2e, 0x61, 0x70,
-	0x69, 0x2e, 0x6b, 0x76, 0x1a, 0x12, 0x63, 0x61, 0x73, 0x73, 0x65, 0x6d, 0x64, 0x62, 0x2e, 0x61,
+	0x69, 0x2e, 0x6b, 0x76, 0x1a, 0x12, 0x63, 0x61, 0x73, 0x73, 0x65, 0x6d, 0x6b, 0x76, 0x2e, 0x61,
 	0x70, 0x69, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x1a, 0x1b, 0x62, 0x75, 0x66, 0x2f, 0x76, 0x61,
 	0x6c, 0x69, 0x64, 0x61, 0x74, 0x65, 0x2f, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x65, 0x2e,
 	0x70, 0x72, 0x6f, 0x74, 0x6f, 0x22, 0x9d, 0x01, 0x0a, 0x08, 0x4c, 0x6f, 0x67, 0x45, 0x6e, 0x74,
@@ -699,20 +699,20 @@ var file_cassemdb_raft_proto_rawDesc = []byte{
 }
 
 var (
-	file_cassemdb_raft_proto_rawDescOnce sync.Once
-	file_cassemdb_raft_proto_rawDescData = file_cassemdb_raft_proto_rawDesc
+	file_cassemkv_raft_proto_rawDescOnce sync.Once
+	file_cassemkv_raft_proto_rawDescData = file_cassemkv_raft_proto_rawDesc
 )
 
-func file_cassemdb_raft_proto_rawDescGZIP() []byte {
-	file_cassemdb_raft_proto_rawDescOnce.Do(func() {
-		file_cassemdb_raft_proto_rawDescData = protoimpl.X.CompressGZIP(file_cassemdb_raft_proto_rawDescData)
+func file_cassemkv_raft_proto_rawDescGZIP() []byte {
+	file_cassemkv_raft_proto_rawDescOnce.Do(func() {
+		file_cassemkv_raft_proto_rawDescData = protoimpl.X.CompressGZIP(file_cassemkv_raft_proto_rawDescData)
 	})
-	return file_cassemdb_raft_proto_rawDescData
+	return file_cassemkv_raft_proto_rawDescData
 }
 
-var file_cassemdb_raft_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_cassemdb_raft_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
-var file_cassemdb_raft_proto_goTypes = []interface{}{
+var file_cassemkv_raft_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
+var file_cassemkv_raft_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
+var file_cassemkv_raft_proto_goTypes = []interface{}{
 	(LogEntry_Action)(0),        // 0: cassem.api.kv.LogEntry.Action
 	(MutateCommand_Op)(0),       // 1: cassem.api.kv.MutateCommand.Op
 	(*LogEntry)(nil),            // 2: cassem.api.kv.LogEntry
@@ -726,7 +726,7 @@ var file_cassemdb_raft_proto_goTypes = []interface{}{
 	(*ListMembersResponse)(nil), // 10: cassem.api.kv.listMembersResponse
 	(*Entity)(nil),              // 11: cassem.api.kv.Entity
 }
-var file_cassemdb_raft_proto_depIdxs = []int32{
+var file_cassemkv_raft_proto_depIdxs = []int32{
 	0,  // 0: cassem.api.kv.LogEntry.action:type_name -> cassem.api.kv.LogEntry.Action
 	1,  // 1: cassem.api.kv.MutateCommand.op:type_name -> cassem.api.kv.MutateCommand.Op
 	11, // 2: cassem.api.kv.MutateCommand.value:type_name -> cassem.api.kv.Entity
@@ -744,14 +744,14 @@ var file_cassemdb_raft_proto_depIdxs = []int32{
 	0,  // [0:4] is the sub-list for field type_name
 }
 
-func init() { file_cassemdb_raft_proto_init() }
-func file_cassemdb_raft_proto_init() {
-	if File_cassemdb_raft_proto != nil {
+func init() { file_cassemkv_raft_proto_init() }
+func file_cassemkv_raft_proto_init() {
+	if File_cassemkv_raft_proto != nil {
 		return
 	}
-	file_cassemdb_api_proto_init()
+	file_cassemkv_api_proto_init()
 	if !protoimpl.UnsafeEnabled {
-		file_cassemdb_raft_proto_msgTypes[0].Exporter = func(v interface{}, i int) interface{} {
+		file_cassemkv_raft_proto_msgTypes[0].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*LogEntry); i {
 			case 0:
 				return &v.state
@@ -763,7 +763,7 @@ func file_cassemdb_raft_proto_init() {
 				return nil
 			}
 		}
-		file_cassemdb_raft_proto_msgTypes[1].Exporter = func(v interface{}, i int) interface{} {
+		file_cassemkv_raft_proto_msgTypes[1].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*MutateCommand); i {
 			case 0:
 				return &v.state
@@ -775,7 +775,7 @@ func file_cassemdb_raft_proto_init() {
 				return nil
 			}
 		}
-		file_cassemdb_raft_proto_msgTypes[2].Exporter = func(v interface{}, i int) interface{} {
+		file_cassemkv_raft_proto_msgTypes[2].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*AddNodeRequest); i {
 			case 0:
 				return &v.state
@@ -787,7 +787,7 @@ func file_cassemdb_raft_proto_init() {
 				return nil
 			}
 		}
-		file_cassemdb_raft_proto_msgTypes[3].Exporter = func(v interface{}, i int) interface{} {
+		file_cassemkv_raft_proto_msgTypes[3].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*AddNodeResponse); i {
 			case 0:
 				return &v.state
@@ -799,7 +799,7 @@ func file_cassemdb_raft_proto_init() {
 				return nil
 			}
 		}
-		file_cassemdb_raft_proto_msgTypes[4].Exporter = func(v interface{}, i int) interface{} {
+		file_cassemkv_raft_proto_msgTypes[4].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*RemoveNodeRequest); i {
 			case 0:
 				return &v.state
@@ -811,7 +811,7 @@ func file_cassemdb_raft_proto_init() {
 				return nil
 			}
 		}
-		file_cassemdb_raft_proto_msgTypes[5].Exporter = func(v interface{}, i int) interface{} {
+		file_cassemkv_raft_proto_msgTypes[5].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*RemoveNodeResponse); i {
 			case 0:
 				return &v.state
@@ -823,7 +823,7 @@ func file_cassemdb_raft_proto_init() {
 				return nil
 			}
 		}
-		file_cassemdb_raft_proto_msgTypes[6].Exporter = func(v interface{}, i int) interface{} {
+		file_cassemkv_raft_proto_msgTypes[6].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*ClusterMember); i {
 			case 0:
 				return &v.state
@@ -835,7 +835,7 @@ func file_cassemdb_raft_proto_init() {
 				return nil
 			}
 		}
-		file_cassemdb_raft_proto_msgTypes[7].Exporter = func(v interface{}, i int) interface{} {
+		file_cassemkv_raft_proto_msgTypes[7].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*ListMembersRequest); i {
 			case 0:
 				return &v.state
@@ -847,7 +847,7 @@ func file_cassemdb_raft_proto_init() {
 				return nil
 			}
 		}
-		file_cassemdb_raft_proto_msgTypes[8].Exporter = func(v interface{}, i int) interface{} {
+		file_cassemkv_raft_proto_msgTypes[8].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*ListMembersResponse); i {
 			case 0:
 				return &v.state
@@ -864,21 +864,21 @@ func file_cassemdb_raft_proto_init() {
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: file_cassemdb_raft_proto_rawDesc,
+			RawDescriptor: file_cassemkv_raft_proto_rawDesc,
 			NumEnums:      2,
 			NumMessages:   9,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
-		GoTypes:           file_cassemdb_raft_proto_goTypes,
-		DependencyIndexes: file_cassemdb_raft_proto_depIdxs,
-		EnumInfos:         file_cassemdb_raft_proto_enumTypes,
-		MessageInfos:      file_cassemdb_raft_proto_msgTypes,
+		GoTypes:           file_cassemkv_raft_proto_goTypes,
+		DependencyIndexes: file_cassemkv_raft_proto_depIdxs,
+		EnumInfos:         file_cassemkv_raft_proto_enumTypes,
+		MessageInfos:      file_cassemkv_raft_proto_msgTypes,
 	}.Build()
-	File_cassemdb_raft_proto = out.File
-	file_cassemdb_raft_proto_rawDesc = nil
-	file_cassemdb_raft_proto_goTypes = nil
-	file_cassemdb_raft_proto_depIdxs = nil
+	File_cassemkv_raft_proto = out.File
+	file_cassemkv_raft_proto_rawDesc = nil
+	file_cassemkv_raft_proto_goTypes = nil
+	file_cassemkv_raft_proto_depIdxs = nil
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -1030,5 +1030,5 @@ var _Cluster_serviceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "cassemdb.raft.proto",
+	Metadata: "cassemkv.raft.proto",
 }

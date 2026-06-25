@@ -5,15 +5,15 @@ metadata:
   name: db-config
   namespace: cassem
   labels:
-    app: cassemdb
+    app: cassemkv
 data:
-  cassemdb.toml: |
+  cassemkv.toml: |
     debug = true
     listenAddr = "0.0.0.0:2021"
-    advertiseAddr = "cassemdb.cassem.svc.cluster.local:2021"
+    advertiseAddr = "cassemkv.cassem.svc.cluster.local:2021"
     [bolt]
         dir       = "./storage"
-        db        = "cassemdb.kv"
+        db        = "cassemkv.kv"
     [raft]
         snapCount = 300
 
@@ -29,10 +29,10 @@ metadata:
 data:
   cassemadmin.toml: |
     debug = true
-    cassemdb = [
-        "cassemdb-0.cassemdb.cassem.svc.cluster.local:2021",
-        "cassemdb-1.cassemdb.cassem.svc.cluster.local:2021",
-        "cassemdb-2.cassemdb.cassem.svc.cluster.local:2021"
+    cassemkv = [
+        "cassemkv-0.cassemkv.cassem.svc.cluster.local:2021",
+        "cassemkv-1.cassemkv.cassem.svc.cluster.local:2021",
+        "cassemkv-2.cassemkv.cassem.svc.cluster.local:2021"
     ]
     [http]
         addr = ":20218"
@@ -59,10 +59,10 @@ data:
     # renew agent registration interval (base), this is better less than ttl.
     renewInterval = 20
 
-    cassemdb = [
-        "cassemdb-0.cassemdb.cassem.svc.cluster.local:2021",
-        "cassemdb-1.cassemdb.cassem.svc.cluster.local:2021",
-        "cassemdb-2.cassemdb.cassem.svc.cluster.local:2021"
+    cassemkv = [
+        "cassemkv-0.cassemkv.cassem.svc.cluster.local:2021",
+        "cassemkv-1.cassemkv.cassem.svc.cluster.local:2021",
+        "cassemkv-2.cassemkv.cassem.svc.cluster.local:2021"
     ]
     [server]
         addr = "127.0.0.1:20219"

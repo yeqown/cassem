@@ -19,11 +19,11 @@ import (
 )
 
 // app is the storage server that would guard api server running and alas controls other components.
-// Especially, raft protocol which supports the architecture of cassemdb (master-slave).
+// Especially, raft protocol which supports the architecture of cassemkv (master-slave).
 //
 // Notice that all writes must be operated on master node, salve nodes could execute read operations.
 type app struct {
-	config *conf.CassemdbConfig
+	config *conf.CassemKVConfig
 
 	// watcher manages local subscriptions for committed raft changes.
 	watcher *channelWatcher
@@ -32,7 +32,7 @@ type app struct {
 	raft raftimpl.RaftNode
 }
 
-func New(cfg *conf.CassemdbConfig) (*app, error) {
+func New(cfg *conf.CassemKVConfig) (*app, error) {
 	d := &app{
 		config:  cfg,
 		watcher: nil,
@@ -59,7 +59,7 @@ func (d *app) bootstrap() {
 	d.raft = raftimpl.NewRaftNode(d.config.Bolt, d.config.Raft)
 
 	d.startRoutines()
-	runtime.GoFunc("cassemdb.registerCurrentMember", func() error {
+	runtime.GoFunc("cassemkv.registerCurrentMember", func() error {
 		for {
 			if err := d.registerCurrentMember(); err != nil {
 				log.WithField("error", err).Warn("register current cluster member failed")
@@ -271,7 +271,7 @@ func (d *app) compactElementHistory(req *apikv.CompactElementHistoryReq) (*apikv
 	return compactElementHistory(d, req, time.Now())
 }
 
-// expire one key in cassemdb, but notice that the never expired key
+// expire one key in cassemkv, but notice that the never expired key
 // will skip expire operation.
 //
 // FIXED(@yeqown): expire the key instead of clear it directly.

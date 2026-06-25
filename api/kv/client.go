@@ -15,7 +15,7 @@ import (
 	apiinternal "github.com/yeqown/cassem/api/internal"
 )
 
-// Mode indicates the way that gRPC client communicate with cassemdb cluster.
+// Mode indicates the way that gRPC client communicate with cassemkv cluster.
 type Mode uint8
 
 const (
@@ -26,14 +26,14 @@ const (
 )
 
 func init() {
-	resolver.Register(new(cassemdbResolverBuilder))
+	resolver.Register(new(cassemkvResolverBuilder))
 }
 
 // DialWithMode support multiple backend server and load balance while request
 // backend servers in round-robin.
 //
-// target = "cassemdb:///0.0.0.0:2021,1.1.1.1:2021" can only communicate to leader,
-// target = "cassemdb:/all//0.0.0.0:2021,1.1.1.1:2021" can communicate to other nodes,
+// target = "cassemkv:///0.0.0.0:2021,1.1.1.1:2021" can only communicate to leader,
+// target = "cassemkv:/all//0.0.0.0:2021,1.1.1.1:2021" can communicate to other nodes,
 // but note that the client can only execute READ operations.
 func DialWithMode(endpoints []string, mode Mode) (*grpc.ClientConn, error) {
 	timeout, cancel := context.WithTimeout(context.TODO(), 10*time.Second)
@@ -56,7 +56,7 @@ func DialWithModeContext(ctx context.Context, endpoints []string, mode Mode) (*g
 	}
 
 	var (
-		target  = "cassemdb:/"
+		target  = "cassemkv:/"
 		scPlain = _SERVICE_CONFIG_JSON_WITH_HEALTH
 	)
 	switch mode {

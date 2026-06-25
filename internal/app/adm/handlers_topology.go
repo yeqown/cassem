@@ -227,7 +227,7 @@ func (d app) collectTopologyInstances(ctx context.Context) ([]*concept.Instance,
 }
 
 func (d app) topologyDBNodes(ctx context.Context) []topologyDBNode {
-	endpoints := d.conf.CassemDBEndpoints
+	endpoints := d.conf.CassemKVEndpoints
 	out := make([]topologyDBNode, 0, len(endpoints))
 	for i, endpoint := range endpoints {
 		addr := strings.TrimSpace(endpoint)
@@ -322,7 +322,7 @@ func checkDBHealth(ctx context.Context, addr string) topologyHealth {
 	cc.Connect()
 	resp, err := grpc_health_v1.NewHealthClient(cc).Check(
 		checkCtx,
-		&grpc_health_v1.HealthCheckRequest{Service: "cassemdb.RaftLeader"},
+		&grpc_health_v1.HealthCheckRequest{Service: "cassemkv.RaftLeader"},
 		grpc.WaitForReady(true),
 	)
 	if err != nil {

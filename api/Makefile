@@ -16,7 +16,7 @@ kv.gen-proto:
 		-I . \
 		-I ../../thirdparty \
 		--go_out=paths=source_relative,plugins=grpc:. \
-		cassemdb.api.proto cassemdb.raft.proto
+		cassemkv.api.proto cassemkv.raft.proto
 
 agent.gen-proto:
 	cd agent && protoc \

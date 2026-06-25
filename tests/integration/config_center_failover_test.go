@@ -66,9 +66,9 @@ func TestConfigCenterReleaseGate_RaftLeaderFailoverPreservesWriteAvailability(t 
 func currentRaftLeader(t testing.TB, endpoints []string) (string, string) {
 	t.Helper()
 	serviceByEndpoint := map[string]string{
-		"127.0.0.1:2021": "cassemdb1",
-		"127.0.0.1:2022": "cassemdb2",
-		"127.0.0.1:2023": "cassemdb3",
+		"127.0.0.1:2021": "cassemkv1",
+		"127.0.0.1:2022": "cassemkv2",
+		"127.0.0.1:2023": "cassemkv3",
 	}
 	for _, endpoint := range endpoints {
 		cc, err := grpc.NewClient(endpoint, grpc.WithTransportCredentials(insecure.NewCredentials()))
@@ -77,7 +77,7 @@ func currentRaftLeader(t testing.TB, endpoints []string) (string, string) {
 		}
 		client := healthpb.NewHealthClient(cc)
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-		resp, err := client.Check(ctx, &healthpb.HealthCheckRequest{Service: "cassemdb.RaftLeader"})
+		resp, err := client.Check(ctx, &healthpb.HealthCheckRequest{Service: "cassemkv.RaftLeader"})
 		cancel()
 		_ = cc.Close()
 		if err == nil && resp.GetStatus() == healthpb.HealthCheckResponse_SERVING {

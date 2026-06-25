@@ -18,7 +18,7 @@ var (
 )
 
 type instanceHybrid struct {
-	cassemdb apikv.KVClient
+	cassemkv apikv.KVClient
 }
 
 // func NewInstanceHybrid(endpoints []string) (InstanceHybrid, error) {
@@ -28,7 +28,7 @@ type instanceHybrid struct {
 //	}
 //
 //	return instanceHybrid{
-//		cassemdb: apikv.NewKVClient(cc),
+//		cassemkv: apikv.NewKVClient(cc),
 //	}, nil
 // }
 
@@ -43,7 +43,7 @@ func (i instanceHybrid) GetInstances(
 		}).
 		Debug("instanceHybrid.GetInstances")
 
-	r, err := i.cassemdb.Range(ctx, &apikv.RangeReq{
+	r, err := i.cassemkv.Range(ctx, &apikv.RangeReq{
 		Key:   k,
 		Seek:  seek,
 		Limit: int32(limit),
@@ -69,7 +69,7 @@ func (i instanceHybrid) GetInstances(
 	}
 
 	// // get all instance detail information.
-	// r2, err2 := i.cassemdb.GetKVs(ctx, &apikv.GetKVsReq{
+	// r2, err2 := i.cassemkv.GetKVs(ctx, &apikv.GetKVsReq{
 	//	Keys: insIds,
 	// })
 	// if err2 != nil {
@@ -97,7 +97,7 @@ func (i instanceHybrid) GetInstancesByElement(
 		}).
 		Debug("instanceHybrid.GetInstances")
 
-	r, err := i.cassemdb.Range(ctx, &apikv.RangeReq{
+	r, err := i.cassemkv.Range(ctx, &apikv.RangeReq{
 		Key:   k,
 		Seek:  "",
 		Limit: 100,
@@ -123,7 +123,7 @@ func (i instanceHybrid) GetInstancesByElement(
 		insIds = append(insIds, insId)
 	}
 	// get all instance detail information.
-	r2, err2 := i.cassemdb.GetKVs(ctx, &apikv.GetKVsReq{
+	r2, err2 := i.cassemkv.GetKVs(ctx, &apikv.GetKVsReq{
 		Keys: insIds,
 	})
 	if err2 != nil {
@@ -144,7 +144,7 @@ func (i instanceHybrid) GetInstancesByElement(
 
 func (i instanceHybrid) GetInstance(ctx context.Context, insId string) (*concept.Instance, error) {
 	k := concept.GenInstanceNormalKey(insId)
-	r, err := i.cassemdb.GetKV(ctx, &apikv.GetKVReq{
+	r, err := i.cassemkv.GetKV(ctx, &apikv.GetKVReq{
 		Key: k,
 	})
 	if err != nil {
@@ -164,7 +164,7 @@ func (i instanceHybrid) RegisterInstance(ctx context.Context, ins *concept.Insta
 	insId := ins.Id()
 	k := concept.GenInstanceNormalKey(insId)
 
-	r, err := i.cassemdb.GetKV(ctx, &apikv.GetKVReq{
+	r, err := i.cassemkv.GetKV(ctx, &apikv.GetKVReq{
 		Key: k,
 	})
 	if err != nil && !errors.Is(err, concept.Err_NOT_FOUND) {
@@ -202,7 +202,7 @@ func (i instanceHybrid) setInstanceInfo(ctx context.Context, ins *concept.Instan
 	if err != nil {
 		return fmt.Errorf("instanceHybrid.setInstanceInfo.marshal: %w", err)
 	}
-	_, err = i.cassemdb.SetKV(ctx, &apikv.SetKVReq{
+	_, err = i.cassemkv.SetKV(ctx, &apikv.SetKVReq{
 		Key:       k,
 		IsDir:     false,
 		Ttl:       120,
@@ -217,7 +217,7 @@ func (i instanceHybrid) setInstanceInfo(ctx context.Context, ins *concept.Instan
 	for _, w := range ins.GetWatching() {
 		for _, key := range w.GetWatchKeys() {
 			k2 := concept.GenInstanceReversedKeyWithInsId(w.GetApp(), w.GetEnv(), key, insId)
-			_, err = i.cassemdb.SetKV(ctx, &apikv.SetKVReq{
+			_, err = i.cassemkv.SetKV(ctx, &apikv.SetKVReq{
 				Key:       k2,
 				IsDir:     false,
 				Ttl:       120,
@@ -246,7 +246,7 @@ func (i instanceHybrid) RenewInstance(ctx context.Context, ins *concept.Instance
 	// check duplicate instance
 	// insId := ins.Id()
 	// k := concept.GenInstanceNormalKey(insId)
-	// r, _ := i.cassemdb.GetKV(ctx, &apikv.GetKVReq{
+	// r, _ := i.cassemkv.GetKV(ctx, &apikv.GetKVReq{
 	//	Key: k,
 	// })
 	// if r.GetEntity() != nil {
@@ -268,7 +268,7 @@ func (i instanceHybrid) UnregisterInstance(ctx context.Context, insId string) er
 		Debug("instanceHybrid.UnregisterInstance")
 
 	// try to get instance detail
-	r, err := i.cassemdb.GetKV(ctx, &apikv.GetKVReq{
+	r, err := i.cassemkv.GetKV(ctx, &apikv.GetKVReq{
 		Key: k,
 	})
 	if err != nil {
@@ -285,7 +285,7 @@ func (i instanceHybrid) UnregisterInstance(ctx context.Context, insId string) er
 	}
 
 	// unset normalized kv
-	_, err = i.cassemdb.UnsetKV(ctx, &apikv.UnsetKVReq{
+	_, err = i.cassemkv.UnsetKV(ctx, &apikv.UnsetKVReq{
 		Key:   k,
 		IsDir: false,
 	})
@@ -297,7 +297,7 @@ func (i instanceHybrid) UnregisterInstance(ctx context.Context, insId string) er
 	for _, w := range ins.GetWatching() {
 		for _, key := range w.GetWatchKeys() {
 			k2 := concept.GenInstanceReversedKeyWithInsId(w.GetApp(), w.GetEnv(), key, insId)
-			_, err = i.cassemdb.UnsetKV(ctx, &apikv.UnsetKVReq{
+			_, err = i.cassemkv.UnsetKV(ctx, &apikv.UnsetKVReq{
 				Key: k2,
 			})
 			if err != nil {

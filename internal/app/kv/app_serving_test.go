@@ -63,7 +63,7 @@ func TestServingAPIInDebugModeDoesNotExposeKVHTTPRoutes(t *testing.T) {
 	t.Setenv("DEBUG", "1")
 	addr := testServingAPIListenAddr(t)
 	d := &app{
-		config:  &conf.CassemdbConfig{ListenAddr: addr},
+		config:  &conf.CassemKVConfig{ListenAddr: addr},
 		watcher: newChannelWatcher(1),
 		raft:    newServingAPIFakeRaft(),
 	}
@@ -85,7 +85,7 @@ func TestServingAPIInDebugModeDoesNotExposePprof(t *testing.T) {
 	t.Setenv("DEBUG", "1")
 	addr := testServingAPIListenAddr(t)
 	d := &app{
-		config:  &conf.CassemdbConfig{ListenAddr: addr},
+		config:  &conf.CassemKVConfig{ListenAddr: addr},
 		watcher: newChannelWatcher(1),
 		raft:    newServingAPIFakeRaft(),
 	}

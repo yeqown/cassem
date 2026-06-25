@@ -501,7 +501,7 @@ export function AgentsPage() {
                 Cluster topology
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                Animated view from cassemdb through agents to connected instances.
+                Animated view from cassemkv through agents to connected instances.
               </Typography>
             </Box>
 

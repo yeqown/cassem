@@ -37,7 +37,7 @@ func newRetentionGC(endpoints []string, config *conf.RetentionConfig) (*retentio
 
 	cc, err := apikv.DialWithMode(endpoints, apikv.Mode_X)
 	if err != nil {
-		return nil, fmt.Errorf("retention gc dial cassemdb: %w", err)
+		return nil, fmt.Errorf("retention gc dial cassemkv: %w", err)
 	}
 
 	return &retentionGC{client: apikv.NewKVClient(cc), config: config}, nil

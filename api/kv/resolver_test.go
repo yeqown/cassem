@@ -22,7 +22,7 @@ func (c *captureClientConn) NewAddress([]resolver.Address)                      
 func (c *captureClientConn) NewServiceConfig(string)                              {}
 func (c *captureClientConn) ParseServiceConfig(string) *serviceconfig.ParseResult { return nil }
 
-func TestCassemdbResolverBuildParsesEndpoint(t *testing.T) {
+func TestCassemKVResolverBuildParsesEndpoint(t *testing.T) {
 	tests := []struct {
 		name string
 		path string
@@ -30,21 +30,21 @@ func TestCassemdbResolverBuildParsesEndpoint(t *testing.T) {
 	}{
 		{
 			name: "write endpoints",
-			path: "/cassemdb1:2021,cassemdb2:2021",
-			want: []string{"cassemdb1:2021", "cassemdb2:2021"},
+			path: "/cassemkv1:2021,cassemkv2:2021",
+			want: []string{"cassemkv1:2021", "cassemkv2:2021"},
 		},
 		{
 			name: "read endpoints with all prefix",
-			path: "/all//cassemdb1:2021,cassemdb2:2021",
-			want: []string{"cassemdb1:2021", "cassemdb2:2021"},
+			path: "/all//cassemkv1:2021,cassemkv2:2021",
+			want: []string{"cassemkv1:2021", "cassemkv2:2021"},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cc := &captureClientConn{}
-			_, err := cassemdbResolverBuilder{}.Build(
-				resolver.Target{URL: url.URL{Scheme: "cassemdb", Path: tt.path}},
+			_, err := cassemkvResolverBuilder{}.Build(
+				resolver.Target{URL: url.URL{Scheme: "cassemkv", Path: tt.path}},
 				cc,
 				resolver.BuildOptions{},
 			)

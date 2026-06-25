@@ -16,12 +16,12 @@ import (
 
 var _ concept.KVWriteOnly = kvWriteOnly{}
 
-// kvWriteOnly can read and write to cassemdb.
+// kvWriteOnly can read and write to cassemkv.
 type kvWriteOnly struct {
-	cassemdb apikv.KVClient
+	cassemkv apikv.KVClient
 }
 
-// NewKVHybrid with endpoints these endpoints of cassemdb.
+// NewKVHybrid with endpoints these endpoints of cassemkv.
 func NewKVHybrid(endpoints []string) (concept.KVWriteOnly, error) {
 	cc, err := apikv.DialWithMode(endpoints, apikv.Mode_X)
 	if err != nil {
@@ -29,7 +29,7 @@ func NewKVHybrid(endpoints []string) (concept.KVWriteOnly, error) {
 	}
 
 	return kvWriteOnly{
-		cassemdb: apikv.NewKVClient(cc),
+		cassemkv: apikv.NewKVClient(cc),
 	}, nil
 }
 
@@ -108,7 +108,7 @@ func (_h kvWriteOnly) UpdateElement(ctx context.Context, app, env, key string, r
 
 func (_h kvWriteOnly) DeleteElement(ctx context.Context, app, env, eltKey string) error {
 	k := concept.GenElementKey(app, env, eltKey)
-	_, err := _h.cassemdb.UnsetKV(ctx, &apikv.UnsetKVReq{
+	_, err := _h.cassemkv.UnsetKV(ctx, &apikv.UnsetKVReq{
 		Key:   k,
 		IsDir: true,
 	})
@@ -121,7 +121,7 @@ func (_h kvWriteOnly) DeleteElement(ctx context.Context, app, env, eltKey string
 
 func (_h kvWriteOnly) CreateEnvironment(ctx context.Context, app, env string) error {
 	k := concept.GenAppElementEnvKey(app, env)
-	_, err := _h.cassemdb.SetKV(ctx, &apikv.SetKVReq{
+	_, err := _h.cassemkv.SetKV(ctx, &apikv.SetKVReq{
 		Key:   k,
 		IsDir: true,
 		// Ttl:                  0,
@@ -134,7 +134,7 @@ func (_h kvWriteOnly) CreateEnvironment(ctx context.Context, app, env string) er
 
 func (_h kvWriteOnly) DeleteEnvironment(ctx context.Context, app, env string) error {
 	k := concept.GenAppElementEnvKey(app, env)
-	_, err := _h.cassemdb.UnsetKV(ctx, &apikv.UnsetKVReq{
+	_, err := _h.cassemkv.UnsetKV(ctx, &apikv.UnsetKVReq{
 		Key:   k,
 		IsDir: true,
 		// Ttl:                  0,
@@ -241,14 +241,14 @@ func (_h kvWriteOnly) DeleteApp(ctx context.Context, appId string) error {
 	k := concept.GenAppKey(appId)
 	eleKey := concept.GenAppElementKey(appId)
 
-	_, err := _h.cassemdb.UnsetKV(ctx, &apikv.UnsetKVReq{
+	_, err := _h.cassemkv.UnsetKV(ctx, &apikv.UnsetKVReq{
 		Key:   eleKey,
 		IsDir: true,
 	})
 	if err != nil {
 		return err
 	}
-	_, err = _h.cassemdb.UnsetKV(ctx, &apikv.UnsetKVReq{
+	_, err = _h.cassemkv.UnsetKV(ctx, &apikv.UnsetKVReq{
 		Key:   k,
 		IsDir: false,
 	})
@@ -265,7 +265,7 @@ func (_h kvWriteOnly) getElementWithoutMetadata(ctx context.Context, key string,
 		return nil, fmt.Errorf("version could not be 0: %w", concept.Err_INVALID_ARGUMENT)
 	}
 
-	r, err := _h.cassemdb.GetKV(ctx, &apikv.GetKVReq{Key: concept.WithVersion(key, int(version))})
+	r, err := _h.cassemkv.GetKV(ctx, &apikv.GetKVReq{Key: concept.WithVersion(key, int(version))})
 	if err != nil {
 		return nil, err
 	}
@@ -279,7 +279,7 @@ func (_h kvWriteOnly) getElementWithoutMetadata(ctx context.Context, key string,
 
 // getElementMetadata returns metadata of specified element.
 func (_h kvWriteOnly) getElementMetadata(ctx context.Context, key string) (*concept.ElementMetadata, error) {
-	r, err := _h.cassemdb.GetKV(ctx, &apikv.GetKVReq{Key: concept.WithMetadataSuffix(key)})
+	r, err := _h.cassemkv.GetKV(ctx, &apikv.GetKVReq{Key: concept.WithMetadataSuffix(key)})
 	if err != nil {
 		return nil, err
 	}
@@ -292,7 +292,7 @@ func (_h kvWriteOnly) getElementMetadata(ctx context.Context, key string) (*conc
 }
 
 func (_h kvWriteOnly) deleteOperationPrefix(ctx context.Context, key string) error {
-	_, err := _h.cassemdb.UnsetKV(ctx, &apikv.UnsetKVReq{
+	_, err := _h.cassemkv.UnsetKV(ctx, &apikv.UnsetKVReq{
 		Key:   key,
 		IsDir: true,
 	})
@@ -320,7 +320,7 @@ func (_h kvWriteOnly) saveElementOperation(ctx context.Context, app, env, key st
 	return _h.saveRaw(ctx, opKey, operation, false)
 }
 
-// saveRaw calls cassemdb.SetKV to save val.
+// saveRaw calls cassemkv.SetKV to save val.
 // Notice that this method could not create directory which means SetKVReq{IsDir: false}.
 func (_h kvWriteOnly) saveRaw(ctx context.Context, key string, val proto.Message, overwrite bool) error {
 	bytes, err := concept.MarshalProto(val)
@@ -328,7 +328,7 @@ func (_h kvWriteOnly) saveRaw(ctx context.Context, key string, val proto.Message
 		return fmt.Errorf("kvWrite.saveRaw.marshal: %w", errors.Join(err, concept.Err_INTERNAL))
 	}
 
-	if _, err = _h.cassemdb.SetKV(ctx, &apikv.SetKVReq{
+	if _, err = _h.cassemkv.SetKV(ctx, &apikv.SetKVReq{
 		Key:       key,
 		Val:       bytes,
 		Overwrite: overwrite,

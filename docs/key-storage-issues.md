@@ -248,7 +248,7 @@ TTL 存在 entity 中。过期判断发生在读取或 range 时；物理删除�
 
 ### 证据
 
-- TTL 计算与过期判断：`api/kv/cassemdb.raft.pb.supplement.go:64`
+- TTL 计算与过期判断：`api/kv/cassemkv.raft.pb.supplement.go:64`
 - `GetKV` 发现过期后删除：`internal/app/kv/raftimpl/raft_impl.go:414`
 - `probeRemoveExpired` 调用 `UnsetKV`：`internal/app/kv/raftimpl/raft_impl.go:421`
 - `Range` 收集 expired keys：`internal/app/kv/storage/bbolt_impl.go:265`

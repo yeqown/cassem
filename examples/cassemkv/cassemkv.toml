@@ -1,0 +1,11 @@
+debug = false
+listenAddr = "0.0.0.0:2021"
+advertiseAddr = "127.0.0.1:2021"
+
+[bolt]
+    db = "cassemkv.kv"
+
+[raft]
+    bind = "http://cassemkv1:3021"
+    cluster = "http://cassemkv1:3021,http://cassemkv2:3022,http://cassemkv3:3023"
+    snapCount = 300

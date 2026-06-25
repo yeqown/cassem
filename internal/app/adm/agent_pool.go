@@ -21,7 +21,7 @@ import (
 	"github.com/yeqown/cassem/pkg/runtime"
 )
 
-// agentPool manages all ap those registered in cassemdb.
+// agentPool manages all ap those registered in cassemkv.
 type agentPool struct {
 	// nodes indicates map[agentId]*agentNode
 	nodes map[string]*agentNode

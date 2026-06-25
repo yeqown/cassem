@@ -12,7 +12,7 @@ COMPOSE := IMAGE_TAG=$(IMAGE_TAG) CASSEM_EXAMPLES_DIR=$(abspath examples) $(CONT
 define CLUSTER_ENDPOINTS
 	@echo ""
 	@echo "Endpoints:"
-	@echo "  cassemdb: 127.0.0.1:2021,127.0.0.1:2022,127.0.0.1:2023"
+	@echo "  cassemkv: 127.0.0.1:2021,127.0.0.1:2022,127.0.0.1:2023"
 	@echo "  cassemadm: http://127.0.0.1:20218/ui (using superadmin@example.com/cassem to visit UI page)"
 	@echo "  cassemagent: 127.0.0.1:20219"
 endef
@@ -23,7 +23,7 @@ help:
 	@echo "Usage: make <target>"
 	@echo ""
 	@echo "Cluster:"
-	@echo "  build-cli            Build local cassemdb-viewer CLI"
+	@echo "  build-cli            Build local cassemkv-viewer CLI"
 	@echo "  build-image          Build Linux binaries and local container images"
 	@echo "  cluster.start        Build images and start the local Compose cluster"
 	@echo "  cluster.stop         Stop the local Compose cluster"
@@ -60,14 +60,14 @@ ui.typecheck:
 
 build-cli:
 	mkdir -p ./bin
-	go build -o ./bin/cassemdb-viewer -ldflags "$(LDFLAGS)" ./cmd/cassemdb-viewer
+	go build -o ./bin/cassemkv-viewer -ldflags "$(LDFLAGS)" ./cmd/cassemkv-viewer
 
 build-image: ui.build
 	mkdir -p ./bin
-	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o ./bin/cassemdb -ldflags "$(LDFLAGS)" ./cmd/cassemdb
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o ./bin/cassemkv -ldflags "$(LDFLAGS)" ./cmd/cassemkv
 	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o ./bin/cassemadm -ldflags "$(LDFLAGS)" ./cmd/cassemadm
 	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o ./bin/cassemagent -ldflags "$(LDFLAGS)" ./cmd/cassemagent
-	$(CONTAINER_TOOL) build -t yeqown/cassemdb:$(IMAGE_TAG) -f ./.deploy/dockerfiles/cassemdb.Dockerfile .
+	$(CONTAINER_TOOL) build -t yeqown/cassemkv:$(IMAGE_TAG) -f ./.deploy/dockerfiles/cassemkv.Dockerfile .
 	$(CONTAINER_TOOL) build -t yeqown/cassemadm:$(IMAGE_TAG) -f ./.deploy/dockerfiles/cassemadm.Dockerfile .
 	$(CONTAINER_TOOL) build -t yeqown/cassemagent:$(IMAGE_TAG) -f ./.deploy/dockerfiles/cassemagent.Dockerfile .
 

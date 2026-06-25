@@ -129,14 +129,14 @@ func TestKVReadOnlyGetAppsSearchesByIdAndDescription(t *testing.T) {
 		entities[concept.GenAppKey(app.Id)] = apikv.NewEntityWithCreated(concept.GenAppKey(app.Id), data, 0, 1)
 	}
 
-	out, err := (kvReadOnly{cassemdb: &kvReadOnlyTestKV{entities: entities}}).GetApps(context.Background(), "", 1, "demo")
+	out, err := (kvReadOnly{cassemkv: &kvReadOnlyTestKV{entities: entities}}).GetApps(context.Background(), "", 1, "demo")
 	require.NoError(t, err)
 	require.Len(t, out.Apps, 1)
 	require.Equal(t, "billing", out.Apps[0].Id)
 	require.True(t, out.HasMore)
 	require.NotEmpty(t, out.NextSeek)
 
-	out, err = (kvReadOnly{cassemdb: &kvReadOnlyTestKV{entities: entities}}).GetApps(context.Background(), out.NextSeek, 1, "demo")
+	out, err = (kvReadOnly{cassemkv: &kvReadOnlyTestKV{entities: entities}}).GetApps(context.Background(), out.NextSeek, 1, "demo")
 	require.NoError(t, err)
 	require.Len(t, out.Apps, 1)
 	require.Equal(t, "demo-api", out.Apps[0].Id)
@@ -150,14 +150,14 @@ func TestKVReadOnlyGetElementsSearchesByKey(t *testing.T) {
 	addElementTestData(t, entities, "demo", "prod", "feature.flag", 1)
 	addElementTestData(t, entities, "demo", "prod", "service.API.timeout", 1)
 
-	out, err := (kvReadOnly{cassemdb: &kvReadOnlyTestKV{entities: entities}}).GetElements(context.Background(), "demo", "prod", "", 1, "api")
+	out, err := (kvReadOnly{cassemkv: &kvReadOnlyTestKV{entities: entities}}).GetElements(context.Background(), "demo", "prod", "", 1, "api")
 	require.NoError(t, err)
 	require.Len(t, out.Elements, 1)
 	require.Equal(t, "api.host", out.Elements[0].Metadata.Key)
 	require.True(t, out.HasMore)
 	require.NotEmpty(t, out.NextSeek)
 
-	out, err = (kvReadOnly{cassemdb: &kvReadOnlyTestKV{entities: entities}}).GetElements(context.Background(), "demo", "prod", out.NextSeek, 1, "api")
+	out, err = (kvReadOnly{cassemkv: &kvReadOnlyTestKV{entities: entities}}).GetElements(context.Background(), "demo", "prod", out.NextSeek, 1, "api")
 	require.NoError(t, err)
 	require.Len(t, out.Elements, 1)
 	require.Equal(t, "service.API.timeout", out.Elements[0].Metadata.Key)
@@ -182,7 +182,7 @@ func TestKVReadOnlyGetElementsNormalizesRangeKeys(t *testing.T) {
 	require.NoError(t, err)
 	entities[concept.WithVersion(baseKey, 1)] = apikv.NewEntityWithCreated(concept.WithVersion(baseKey, 1), elementData, 0, 1)
 
-	out, err := (kvReadOnly{cassemdb: &kvReadOnlyTestKV{entities: entities}}).GetElements(context.Background(), "demo", "prod", "", 15, "")
+	out, err := (kvReadOnly{cassemkv: &kvReadOnlyTestKV{entities: entities}}).GetElements(context.Background(), "demo", "prod", "", 15, "")
 	require.NoError(t, err)
 	require.Len(t, out.Elements, 1)
 	require.Equal(t, "api.host", out.Elements[0].Metadata.Key)
@@ -204,7 +204,7 @@ func TestKVReadOnlyGetElementsByKeysReturnsEmptyWhenMetadataHasNoAvailableVersio
 		concept.WithMetadataSuffix(baseKey): apikv.NewEntityWithCreated(concept.WithMetadataSuffix(baseKey), metadataData, 0, 1),
 	}}
 
-	out, err := (kvReadOnly{cassemdb: kv}).GetElementsByKeys(context.Background(), "app", "env", []string{"key"})
+	out, err := (kvReadOnly{cassemkv: kv}).GetElementsByKeys(context.Background(), "app", "env", []string{"key"})
 	require.NoError(t, err)
 	require.Empty(t, out.Elements)
 }
@@ -214,7 +214,7 @@ func TestKVReadOnlyGetElementsByKeysIgnoresMetadataNotFoundErrors(t *testing.T) 
 	addElementTestData(t, entities, "app", "env", "exists", 1)
 	kv := &kvReadOnlyTestKV{entities: entities}
 
-	out, err := (kvReadOnly{cassemdb: kv}).GetElementsByKeys(context.Background(), "app", "env", []string{"exists", "missing"})
+	out, err := (kvReadOnly{cassemkv: kv}).GetElementsByKeys(context.Background(), "app", "env", []string{"exists", "missing"})
 	require.NoError(t, err)
 	require.Len(t, out.Elements, 1)
 	require.Equal(t, "exists", out.Elements[0].Metadata.Key)
@@ -229,7 +229,7 @@ func TestKVReadOnlyGetElementsByKeysReturnsVersionNotFoundErrors(t *testing.T) {
 		concept.WithMetadataSuffix(baseKey): apikv.NewEntityWithCreated(concept.WithMetadataSuffix(baseKey), metadataData, 0, 1),
 	}}
 
-	_, err = (kvReadOnly{cassemdb: kv}).GetElementsByKeys(context.Background(), "app", "env", []string{"key"})
+	_, err = (kvReadOnly{cassemkv: kv}).GetElementsByKeys(context.Background(), "app", "env", []string{"key"})
 	require.ErrorIs(t, err, concept.Err_NOT_FOUND)
 	require.Contains(t, err.Error(), concept.WithVersion(baseKey, 1))
 	require.Contains(t, err.Error(), "NotFound")
@@ -244,7 +244,7 @@ func TestKVReadOnlyGetElementsByKeysReturnsNonNotFoundMetadataErrors(t *testing.
 		},
 	}
 
-	_, err := (kvReadOnly{cassemdb: kv}).GetElementsByKeys(context.Background(), "app", "env", []string{"key"})
+	_, err := (kvReadOnly{cassemkv: kv}).GetElementsByKeys(context.Background(), "app", "env", []string{"key"})
 	require.ErrorIs(t, err, concept.Err_INTERNAL)
 	require.Contains(t, err.Error(), "Internal")
 	require.Contains(t, err.Error(), "boom")
@@ -270,7 +270,7 @@ func TestGetElementWithVersionReturnsVersionZeroWhenNoUsingVersion(t *testing.T)
 		concept.WithVersion(baseKey, 1):     apikv.NewEntityWithCreated("v1", elementData, 0, 1),
 	}}
 
-	out, err := (kvReadOnly{cassemdb: kv}).GetElementWithVersion(context.Background(), "app", "env", "key", 0)
+	out, err := (kvReadOnly{cassemkv: kv}).GetElementWithVersion(context.Background(), "app", "env", "key", 0)
 	require.NoError(t, err)
 	require.Equal(t, int32(0), out.GetVersion())
 	require.Empty(t, out.GetRaw())
@@ -287,6 +287,6 @@ func TestGetElementWithVersionReturnsVersionLookupError(t *testing.T) {
 		concept.WithMetadataSuffix(concept.GenElementKey("app", "env", "key")): apikv.NewEntityWithCreated("md", data, 0, 1),
 	}}
 
-	_, err = (kvReadOnly{cassemdb: kv}).GetElementWithVersion(context.Background(), "app", "env", "key", 99)
+	_, err = (kvReadOnly{cassemkv: kv}).GetElementWithVersion(context.Background(), "app", "env", "key", 99)
 	require.ErrorIs(t, err, concept.Err_NOT_FOUND)
 }

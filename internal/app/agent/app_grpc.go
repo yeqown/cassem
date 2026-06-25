@@ -13,10 +13,10 @@ import (
 )
 
 // GetElement execute query request from clients, and also at the same time, agent app is
-// a cache-layer for cassemdb, so the request would be queried from cache firstly, cache is not hit
-// query from cassemdb. It failed only when query from local cache and remote both failed.
+// a cache-layer for cassemkv, so the request would be queried from cache firstly, cache is not hit
+// query from cassemkv. It failed only when query from local cache and remote both failed.
 //
-// DONE(@yeqown): get from cache first, if not hit send request to cassemdb component, and then refresh caches.
+// DONE(@yeqown): get from cache first, if not hit send request to cassemkv component, and then refresh caches.
 func (d *app) GetElement(ctx context.Context, req *apiagent.GetElementReq) (*apiagent.GetElementResp, error) {
 	resp := new(apiagent.GetElementResp)
 	if len(req.GetKeys()) == 0 {
@@ -33,7 +33,7 @@ func (d *app) GetElement(ctx context.Context, req *apiagent.GetElementReq) (*api
 	cr := d.queryFromCache(req.GetApp(), req.GetEnv(), req.GetKeys()...)
 	resp.Elems = append(resp.Elems, cr.elems...)
 
-	// re-request from cassemdb missed keys from cache.
+	// re-request from cassemkv missed keys from cache.
 	if len(cr.miss) != 0 {
 		r, err := d.aggregate.GetElementsByKeys(ctx, req.GetApp(), req.GetEnv(), cr.miss)
 		if err != nil {

@@ -26,7 +26,7 @@ func TestCheckDBHealthAcceptsReachableFollower(t *testing.T) {
 
 	server := grpc.NewServer()
 	healthServer := health.NewServer()
-	healthServer.SetServingStatus("cassemdb.RaftLeader", grpc_health_v1.HealthCheckResponse_NOT_SERVING)
+	healthServer.SetServingStatus("cassemkv.RaftLeader", grpc_health_v1.HealthCheckResponse_NOT_SERVING)
 	grpc_health_v1.RegisterHealthServer(server, healthServer)
 	go func() {
 		_ = server.Serve(listener)

@@ -17,7 +17,7 @@ const (
 )
 
 type agentInsHybrid struct {
-	cassemdb apikv.KVClient
+	cassemkv apikv.KVClient
 }
 
 // func NewAgentInstanceHybrid(endpoints []string) (AgentHybrid, error) {
@@ -25,11 +25,11 @@ type agentInsHybrid struct {
 //	if err != nil {
 //		return nil, errors.Wrap(err, "NewInstanceHybrid")
 //	}
-//	return &agentInsHybrid{cassemdb: apikv.NewKVClient(cc)}, nil
+//	return &agentInsHybrid{cassemkv: apikv.NewKVClient(cc)}, nil
 // }
 
 func (_h agentInsHybrid) Watch(ctx context.Context, ch chan<- *concept.AgentInstanceChange) error {
-	stream, err := _h.cassemdb.Watch(ctx, &apikv.WatchReq{
+	stream, err := _h.cassemkv.Watch(ctx, &apikv.WatchReq{
 		Keys: []string{_AGENT_PREFIX},
 	})
 	if err != nil {
@@ -97,7 +97,7 @@ func (_h agentInsHybrid) Register(ctx context.Context, ins *concept.AgentInstanc
 		return fmt.Errorf("cassem.concept.agentInsHybrid.Register: %w", err)
 	}
 
-	_, err = _h.cassemdb.SetKV(ctx, &apikv.SetKVReq{
+	_, err = _h.cassemkv.SetKV(ctx, &apikv.SetKVReq{
 		Key:       concept.WithAgentPrefix(ins.AgentId),
 		IsDir:     false,
 		Ttl:       ttl,
@@ -114,7 +114,7 @@ func (_h agentInsHybrid) Renew(ctx context.Context, ins *concept.AgentInstance, 
 		return fmt.Errorf("cassem.concept.agentInsHybrid.Renew: %w", err)
 	}
 
-	_, err = _h.cassemdb.SetKV(ctx, &apikv.SetKVReq{
+	_, err = _h.cassemkv.SetKV(ctx, &apikv.SetKVReq{
 		Key:       concept.WithAgentPrefix(ins.AgentId),
 		IsDir:     false,
 		Ttl:       ttl,
@@ -126,7 +126,7 @@ func (_h agentInsHybrid) Renew(ctx context.Context, ins *concept.AgentInstance, 
 }
 
 func (_h agentInsHybrid) Unregister(ctx context.Context, agentId string) error {
-	_, err := _h.cassemdb.UnsetKV(ctx, &apikv.UnsetKVReq{
+	_, err := _h.cassemkv.UnsetKV(ctx, &apikv.UnsetKVReq{
 		Key:   concept.WithAgentPrefix(agentId),
 		IsDir: false,
 	})
@@ -135,7 +135,7 @@ func (_h agentInsHybrid) Unregister(ctx context.Context, agentId string) error {
 }
 
 func (_h agentInsHybrid) GetAgents(ctx context.Context, seek string, limit int) (*concept.GetAgentsResult, error) {
-	r, err := _h.cassemdb.Range(ctx, &apikv.RangeReq{
+	r, err := _h.cassemkv.Range(ctx, &apikv.RangeReq{
 		Key:   _AGENT_PREFIX,
 		Seek:  seek,
 		Limit: int32(limit),

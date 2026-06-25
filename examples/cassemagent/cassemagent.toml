@@ -2,10 +2,10 @@ debug = false
 ttl = 30
 renewInterval = 20
 elementCacheSize = 1000
-cassemdb = [
-    "cassemdb1:2021",
-    "cassemdb2:2021",
-    "cassemdb3:2021"
+cassemkv = [
+    "cassemkv1:2021",
+    "cassemkv2:2021",
+    "cassemkv3:2021"
 ]
 
 [server]

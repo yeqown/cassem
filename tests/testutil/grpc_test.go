@@ -5,9 +5,9 @@ import (
 	"time"
 )
 
-func TestCheckCassemDBReturnsQuicklyWhenTCPClosed(t *testing.T) {
+func TestCheckCassemKVReturnsQuicklyWhenTCPClosed(t *testing.T) {
 	started := time.Now()
-	err := CheckCassemDB([]string{"127.0.0.1:1"}, time.Minute)
+	err := CheckCassemKV([]string{"127.0.0.1:1"}, time.Minute)
 
 	if err == nil {
 		t.Fatal("expected error")

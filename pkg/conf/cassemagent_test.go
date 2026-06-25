@@ -23,7 +23,7 @@ func TestCassemAgentConfig_Valid(t *testing.T) {
 		{
 			name: "empty endpoints",
 			config: &CassemAgentConfig{
-				CassemDBEndpoints: []string{},
+				CassemKVEndpoints: []string{},
 			},
 			expectError: true,
 			errMsg:      "empty endpoints",
@@ -31,7 +31,7 @@ func TestCassemAgentConfig_Valid(t *testing.T) {
 		{
 			name: "renewInterval greater than TTL",
 			config: &CassemAgentConfig{
-				CassemDBEndpoints: []string{"127.0.0.1:2021"},
+				CassemKVEndpoints: []string{"127.0.0.1:2021"},
 				TTL:               10,
 				RenewInterval:     20,
 			},
@@ -41,7 +41,7 @@ func TestCassemAgentConfig_Valid(t *testing.T) {
 		{
 			name: "valid config with defaults",
 			config: &CassemAgentConfig{
-				CassemDBEndpoints: []string{"127.0.0.1:2021"},
+				CassemKVEndpoints: []string{"127.0.0.1:2021"},
 			},
 			expectError: false,
 			checkFields: func(t *testing.T, c *CassemAgentConfig) {
@@ -55,7 +55,7 @@ func TestCassemAgentConfig_Valid(t *testing.T) {
 		{
 			name: "valid config with custom values",
 			config: &CassemAgentConfig{
-				CassemDBEndpoints: []string{"127.0.0.1:2021"},
+				CassemKVEndpoints: []string{"127.0.0.1:2021"},
 				TTL:               60,
 				RenewInterval:     40,
 				ElementCacheSize:  5000,
@@ -70,7 +70,7 @@ func TestCassemAgentConfig_Valid(t *testing.T) {
 		{
 			name: "TTL zero - should default to 30",
 			config: &CassemAgentConfig{
-				CassemDBEndpoints: []string{"127.0.0.1:2021"},
+				CassemKVEndpoints: []string{"127.0.0.1:2021"},
 				TTL:               0,
 			},
 			expectError: false,
@@ -82,7 +82,7 @@ func TestCassemAgentConfig_Valid(t *testing.T) {
 		{
 			name: "RenewInterval zero - should default to TTL * 0.666",
 			config: &CassemAgentConfig{
-				CassemDBEndpoints: []string{"127.0.0.1:2021"},
+				CassemKVEndpoints: []string{"127.0.0.1:2021"},
 				TTL:               30,
 				RenewInterval:     0,
 			},
@@ -96,7 +96,7 @@ func TestCassemAgentConfig_Valid(t *testing.T) {
 		{
 			name: "ElementCacheSize zero - should default to 1000",
 			config: &CassemAgentConfig{
-				CassemDBEndpoints: []string{"127.0.0.1:2021"},
+				CassemKVEndpoints: []string{"127.0.0.1:2021"},
 				ElementCacheSize:  0,
 			},
 			expectError: false,
@@ -107,7 +107,7 @@ func TestCassemAgentConfig_Valid(t *testing.T) {
 		{
 			name: "valid config with multiple endpoints",
 			config: &CassemAgentConfig{
-				CassemDBEndpoints: []string{
+				CassemKVEndpoints: []string{
 					"127.0.0.1:2021",
 					"127.0.0.1:2022",
 					"127.0.0.1:2023",

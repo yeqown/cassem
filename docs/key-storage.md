@@ -1,6 +1,6 @@
 # Cassem Key 存储结构
 
-Cassem 使用 `cassem/` 作为统一 KV 根前缀。key 由 `api/concept/key_generator.go` 生成，实际 value 多为 protobuf 序列化数据，通过 cassemdb 写入底层 BoltDB。
+Cassem 使用 `cassem/` 作为统一 KV 根前缀。key 由 `api/concept/key_generator.go` 生成，实际 value 多为 protobuf 序列化数据，通过 cassemkv 写入底层 BoltDB。
 
 ## 总览
 
@@ -153,7 +153,7 @@ cassem/acl/users/{account}
 | 列出 agent             | `cassem/agents`                                                |
 | 列出用户                 | `cassem/acl/users`                                             |
 
-分页由 cassemdb `Range` 返回 `hasMore` 与 `nextSeekKey`，调用方下一页使用 `seek=nextSeekKey`。
+分页由 cassemkv `Range` 返回 `hasMore` 与 `nextSeekKey`，调用方下一页使用 `seek=nextSeekKey`。
 
 ## 设计要点
 

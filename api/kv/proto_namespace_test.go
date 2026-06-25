@@ -7,8 +7,8 @@ import (
 )
 
 func TestProtoNamespaces(t *testing.T) {
-	assert.Equal(t, "cassem.api.kv", string(File_cassemdb_api_proto.Package()))
-	assert.Equal(t, "cassem.api.kv", string(File_cassemdb_raft_proto.Package()))
+	assert.Equal(t, "cassem.api.kv", string(File_cassemkv_api_proto.Package()))
+	assert.Equal(t, "cassem.api.kv", string(File_cassemkv_raft_proto.Package()))
 }
 
 func TestGRPCServiceNamespaces(t *testing.T) {

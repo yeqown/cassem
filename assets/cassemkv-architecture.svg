@@ -44,8 +44,8 @@
         </g>
         <g id="title" transform="translate(13.000000, 25.000000)">
             <rect id="矩形备份-3" stroke="#0D47A1" fill="#E0F7FA" x="0.5" y="0.5" width="300" height="19"></rect>
-            <text id="cassemdb-soft-archit" font-family="AndaleMono, Andale Mono" font-size="10" font-weight="normal" fill="#000000">
-                <tspan x="82" y="13">cassemdb soft architecture</tspan>
+            <text id="cassemkv-soft-archit" font-family="AndaleMono, Andale Mono" font-size="10" font-weight="normal" fill="#000000">
+                <tspan x="82" y="13">cassemkv soft architecture</tspan>
             </text>
         </g>
         <g id="infra-layer" transform="translate(13.000000, 167.000000)">

@@ -30,7 +30,7 @@ func init() {
 func main() {
 	app := cli.NewApp()
 	app.EnableBashCompletion = true
-	app.Name = "cassemdb"
+	app.Name = "cassemkv"
 	app.Usage = "cassem storage server"
 	app.Authors = []*cli.Author{
 		{
@@ -49,7 +49,7 @@ func main() {
 }
 
 func start(ctx *cli.Context) error {
-	c := new(conf.CassemdbConfig)
+	c := new(conf.CassemKVConfig)
 	if err := conf.Load(ctx.String("conf"), c); err != nil {
 		return err
 	}
@@ -78,8 +78,8 @@ var _cliGlobalFlags = []cli.Flag{
 	&cli.StringFlag{
 		Name:        "conf",
 		Aliases:     []string{"c"},
-		Value:       "./configs/cassemdb.example.toml",
-		DefaultText: "./configs/cassemdb.example.toml",
+		Value:       "./configs/cassemkv.example.toml",
+		DefaultText: "./configs/cassemkv.example.toml",
 		Usage:       "choose which `path/to/file` to load",
 		Required:    false,
 	},
@@ -87,17 +87,17 @@ var _cliGlobalFlags = []cli.Flag{
 		Name:        "storage",
 		Value:       "./storage",
 		DefaultText: "./storage",
-		Usage:       "specify the directory to store cassemdb data",
+		Usage:       "specify the directory to store cassemkv data",
 		Required:    false,
 	},
 	&cli.StringFlag{
 		Name:     "listen-addr",
-		Usage:    "specify the cassemdb gRPC listen address",
+		Usage:    "specify the cassemkv gRPC listen address",
 		Required: true,
 	},
 	&cli.StringFlag{
 		Name:     "advertise-addr",
-		Usage:    "specify the cassemdb gRPC endpoint advertised to clients",
+		Usage:    "specify the cassemkv gRPC endpoint advertised to clients",
 		Required: true,
 	},
 	&cli.StringFlag{
@@ -116,7 +116,7 @@ var _cliGlobalFlags = []cli.Flag{
 
 // fixConfig get nodeId while could not find in config file, next step to determine
 // the value from ENV and flags by order.
-func fixConfig(ctx *cli.Context, c *conf.CassemdbConfig) {
+func fixConfig(ctx *cli.Context, c *conf.CassemKVConfig) {
 	base := ctx.String("storage")
 	if base == "" && c.Raft.Base == "" {
 		base = "./storage"

@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.33.0
 // 	protoc        v4.25.0
-// source: cassemdb.api.proto
+// source: cassemkv.api.proto
 
 package kv
 
@@ -58,11 +58,11 @@ func (x EntityType) String() string {
 }
 
 func (EntityType) Descriptor() protoreflect.EnumDescriptor {
-	return file_cassemdb_api_proto_enumTypes[0].Descriptor()
+	return file_cassemkv_api_proto_enumTypes[0].Descriptor()
 }
 
 func (EntityType) Type() protoreflect.EnumType {
-	return &file_cassemdb_api_proto_enumTypes[0]
+	return &file_cassemkv_api_proto_enumTypes[0]
 }
 
 func (x EntityType) Number() protoreflect.EnumNumber {
@@ -71,7 +71,7 @@ func (x EntityType) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use EntityType.Descriptor instead.
 func (EntityType) EnumDescriptor() ([]byte, []int) {
-	return file_cassemdb_api_proto_rawDescGZIP(), []int{0}
+	return file_cassemkv_api_proto_rawDescGZIP(), []int{0}
 }
 
 type Change_Op int32
@@ -107,11 +107,11 @@ func (x Change_Op) String() string {
 }
 
 func (Change_Op) Descriptor() protoreflect.EnumDescriptor {
-	return file_cassemdb_api_proto_enumTypes[1].Descriptor()
+	return file_cassemkv_api_proto_enumTypes[1].Descriptor()
 }
 
 func (Change_Op) Type() protoreflect.EnumType {
-	return &file_cassemdb_api_proto_enumTypes[1]
+	return &file_cassemkv_api_proto_enumTypes[1]
 }
 
 func (x Change_Op) Number() protoreflect.EnumNumber {
@@ -120,7 +120,7 @@ func (x Change_Op) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use Change_Op.Descriptor instead.
 func (Change_Op) EnumDescriptor() ([]byte, []int) {
-	return file_cassemdb_api_proto_rawDescGZIP(), []int{1, 0}
+	return file_cassemkv_api_proto_rawDescGZIP(), []int{1, 0}
 }
 
 type Entity struct {
@@ -141,7 +141,7 @@ type Entity struct {
 func (x *Entity) Reset() {
 	*x = Entity{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_cassemdb_api_proto_msgTypes[0]
+		mi := &file_cassemkv_api_proto_msgTypes[0]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -154,7 +154,7 @@ func (x *Entity) String() string {
 func (*Entity) ProtoMessage() {}
 
 func (x *Entity) ProtoReflect() protoreflect.Message {
-	mi := &file_cassemdb_api_proto_msgTypes[0]
+	mi := &file_cassemkv_api_proto_msgTypes[0]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -167,7 +167,7 @@ func (x *Entity) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Entity.ProtoReflect.Descriptor instead.
 func (*Entity) Descriptor() ([]byte, []int) {
-	return file_cassemdb_api_proto_rawDescGZIP(), []int{0}
+	return file_cassemkv_api_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *Entity) GetFingerprint() string {
@@ -240,7 +240,7 @@ type Change struct {
 func (x *Change) Reset() {
 	*x = Change{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_cassemdb_api_proto_msgTypes[1]
+		mi := &file_cassemkv_api_proto_msgTypes[1]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -253,7 +253,7 @@ func (x *Change) String() string {
 func (*Change) ProtoMessage() {}
 
 func (x *Change) ProtoReflect() protoreflect.Message {
-	mi := &file_cassemdb_api_proto_msgTypes[1]
+	mi := &file_cassemkv_api_proto_msgTypes[1]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -266,7 +266,7 @@ func (x *Change) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Change.ProtoReflect.Descriptor instead.
 func (*Change) Descriptor() ([]byte, []int) {
-	return file_cassemdb_api_proto_rawDescGZIP(), []int{1}
+	return file_cassemkv_api_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *Change) GetOp() Change_Op {
@@ -309,7 +309,7 @@ type ParentDirectoryChange struct {
 func (x *ParentDirectoryChange) Reset() {
 	*x = ParentDirectoryChange{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_cassemdb_api_proto_msgTypes[2]
+		mi := &file_cassemkv_api_proto_msgTypes[2]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -322,7 +322,7 @@ func (x *ParentDirectoryChange) String() string {
 func (*ParentDirectoryChange) ProtoMessage() {}
 
 func (x *ParentDirectoryChange) ProtoReflect() protoreflect.Message {
-	mi := &file_cassemdb_api_proto_msgTypes[2]
+	mi := &file_cassemkv_api_proto_msgTypes[2]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -335,7 +335,7 @@ func (x *ParentDirectoryChange) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ParentDirectoryChange.ProtoReflect.Descriptor instead.
 func (*ParentDirectoryChange) Descriptor() ([]byte, []int) {
-	return file_cassemdb_api_proto_rawDescGZIP(), []int{2}
+	return file_cassemkv_api_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *ParentDirectoryChange) GetChange() *Change {
@@ -361,7 +361,7 @@ type Empty struct {
 func (x *Empty) Reset() {
 	*x = Empty{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_cassemdb_api_proto_msgTypes[3]
+		mi := &file_cassemkv_api_proto_msgTypes[3]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -374,7 +374,7 @@ func (x *Empty) String() string {
 func (*Empty) ProtoMessage() {}
 
 func (x *Empty) ProtoReflect() protoreflect.Message {
-	mi := &file_cassemdb_api_proto_msgTypes[3]
+	mi := &file_cassemkv_api_proto_msgTypes[3]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -387,7 +387,7 @@ func (x *Empty) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Empty.ProtoReflect.Descriptor instead.
 func (*Empty) Descriptor() ([]byte, []int) {
-	return file_cassemdb_api_proto_rawDescGZIP(), []int{3}
+	return file_cassemkv_api_proto_rawDescGZIP(), []int{3}
 }
 
 type GetKVReq struct {
@@ -401,7 +401,7 @@ type GetKVReq struct {
 func (x *GetKVReq) Reset() {
 	*x = GetKVReq{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_cassemdb_api_proto_msgTypes[4]
+		mi := &file_cassemkv_api_proto_msgTypes[4]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -414,7 +414,7 @@ func (x *GetKVReq) String() string {
 func (*GetKVReq) ProtoMessage() {}
 
 func (x *GetKVReq) ProtoReflect() protoreflect.Message {
-	mi := &file_cassemdb_api_proto_msgTypes[4]
+	mi := &file_cassemkv_api_proto_msgTypes[4]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -427,7 +427,7 @@ func (x *GetKVReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetKVReq.ProtoReflect.Descriptor instead.
 func (*GetKVReq) Descriptor() ([]byte, []int) {
-	return file_cassemdb_api_proto_rawDescGZIP(), []int{4}
+	return file_cassemkv_api_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *GetKVReq) GetKey() string {
@@ -448,7 +448,7 @@ type GetKVResp struct {
 func (x *GetKVResp) Reset() {
 	*x = GetKVResp{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_cassemdb_api_proto_msgTypes[5]
+		mi := &file_cassemkv_api_proto_msgTypes[5]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -461,7 +461,7 @@ func (x *GetKVResp) String() string {
 func (*GetKVResp) ProtoMessage() {}
 
 func (x *GetKVResp) ProtoReflect() protoreflect.Message {
-	mi := &file_cassemdb_api_proto_msgTypes[5]
+	mi := &file_cassemkv_api_proto_msgTypes[5]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -474,7 +474,7 @@ func (x *GetKVResp) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetKVResp.ProtoReflect.Descriptor instead.
 func (*GetKVResp) Descriptor() ([]byte, []int) {
-	return file_cassemdb_api_proto_rawDescGZIP(), []int{5}
+	return file_cassemkv_api_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *GetKVResp) GetEntity() *Entity {
@@ -495,7 +495,7 @@ type GetKVsReq struct {
 func (x *GetKVsReq) Reset() {
 	*x = GetKVsReq{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_cassemdb_api_proto_msgTypes[6]
+		mi := &file_cassemkv_api_proto_msgTypes[6]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -508,7 +508,7 @@ func (x *GetKVsReq) String() string {
 func (*GetKVsReq) ProtoMessage() {}
 
 func (x *GetKVsReq) ProtoReflect() protoreflect.Message {
-	mi := &file_cassemdb_api_proto_msgTypes[6]
+	mi := &file_cassemkv_api_proto_msgTypes[6]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -521,7 +521,7 @@ func (x *GetKVsReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetKVsReq.ProtoReflect.Descriptor instead.
 func (*GetKVsReq) Descriptor() ([]byte, []int) {
-	return file_cassemdb_api_proto_rawDescGZIP(), []int{6}
+	return file_cassemkv_api_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *GetKVsReq) GetKeys() []string {
@@ -544,7 +544,7 @@ type KeyError struct {
 func (x *KeyError) Reset() {
 	*x = KeyError{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_cassemdb_api_proto_msgTypes[7]
+		mi := &file_cassemkv_api_proto_msgTypes[7]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -557,7 +557,7 @@ func (x *KeyError) String() string {
 func (*KeyError) ProtoMessage() {}
 
 func (x *KeyError) ProtoReflect() protoreflect.Message {
-	mi := &file_cassemdb_api_proto_msgTypes[7]
+	mi := &file_cassemkv_api_proto_msgTypes[7]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -570,7 +570,7 @@ func (x *KeyError) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use KeyError.ProtoReflect.Descriptor instead.
 func (*KeyError) Descriptor() ([]byte, []int) {
-	return file_cassemdb_api_proto_rawDescGZIP(), []int{7}
+	return file_cassemkv_api_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *KeyError) GetKey() string {
@@ -606,7 +606,7 @@ type GetKVsResp struct {
 func (x *GetKVsResp) Reset() {
 	*x = GetKVsResp{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_cassemdb_api_proto_msgTypes[8]
+		mi := &file_cassemkv_api_proto_msgTypes[8]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -619,7 +619,7 @@ func (x *GetKVsResp) String() string {
 func (*GetKVsResp) ProtoMessage() {}
 
 func (x *GetKVsResp) ProtoReflect() protoreflect.Message {
-	mi := &file_cassemdb_api_proto_msgTypes[8]
+	mi := &file_cassemkv_api_proto_msgTypes[8]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -632,7 +632,7 @@ func (x *GetKVsResp) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetKVsResp.ProtoReflect.Descriptor instead.
 func (*GetKVsResp) Descriptor() ([]byte, []int) {
-	return file_cassemdb_api_proto_rawDescGZIP(), []int{8}
+	return file_cassemkv_api_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *GetKVsResp) GetEntities() []*Entity {
@@ -664,7 +664,7 @@ type SetKVReq struct {
 func (x *SetKVReq) Reset() {
 	*x = SetKVReq{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_cassemdb_api_proto_msgTypes[9]
+		mi := &file_cassemkv_api_proto_msgTypes[9]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -677,7 +677,7 @@ func (x *SetKVReq) String() string {
 func (*SetKVReq) ProtoMessage() {}
 
 func (x *SetKVReq) ProtoReflect() protoreflect.Message {
-	mi := &file_cassemdb_api_proto_msgTypes[9]
+	mi := &file_cassemkv_api_proto_msgTypes[9]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -690,7 +690,7 @@ func (x *SetKVReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetKVReq.ProtoReflect.Descriptor instead.
 func (*SetKVReq) Descriptor() ([]byte, []int) {
-	return file_cassemdb_api_proto_rawDescGZIP(), []int{9}
+	return file_cassemkv_api_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *SetKVReq) GetKey() string {
@@ -740,7 +740,7 @@ type UnsetKVReq struct {
 func (x *UnsetKVReq) Reset() {
 	*x = UnsetKVReq{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_cassemdb_api_proto_msgTypes[10]
+		mi := &file_cassemkv_api_proto_msgTypes[10]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -753,7 +753,7 @@ func (x *UnsetKVReq) String() string {
 func (*UnsetKVReq) ProtoMessage() {}
 
 func (x *UnsetKVReq) ProtoReflect() protoreflect.Message {
-	mi := &file_cassemdb_api_proto_msgTypes[10]
+	mi := &file_cassemkv_api_proto_msgTypes[10]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -766,7 +766,7 @@ func (x *UnsetKVReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UnsetKVReq.ProtoReflect.Descriptor instead.
 func (*UnsetKVReq) Descriptor() ([]byte, []int) {
-	return file_cassemdb_api_proto_rawDescGZIP(), []int{10}
+	return file_cassemkv_api_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *UnsetKVReq) GetKey() string {
@@ -794,7 +794,7 @@ type WatchReq struct {
 func (x *WatchReq) Reset() {
 	*x = WatchReq{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_cassemdb_api_proto_msgTypes[11]
+		mi := &file_cassemkv_api_proto_msgTypes[11]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -807,7 +807,7 @@ func (x *WatchReq) String() string {
 func (*WatchReq) ProtoMessage() {}
 
 func (x *WatchReq) ProtoReflect() protoreflect.Message {
-	mi := &file_cassemdb_api_proto_msgTypes[11]
+	mi := &file_cassemkv_api_proto_msgTypes[11]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -820,7 +820,7 @@ func (x *WatchReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WatchReq.ProtoReflect.Descriptor instead.
 func (*WatchReq) Descriptor() ([]byte, []int) {
-	return file_cassemdb_api_proto_rawDescGZIP(), []int{11}
+	return file_cassemkv_api_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *WatchReq) GetKeys() []string {
@@ -841,7 +841,7 @@ type TtlReq struct {
 func (x *TtlReq) Reset() {
 	*x = TtlReq{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_cassemdb_api_proto_msgTypes[12]
+		mi := &file_cassemkv_api_proto_msgTypes[12]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -854,7 +854,7 @@ func (x *TtlReq) String() string {
 func (*TtlReq) ProtoMessage() {}
 
 func (x *TtlReq) ProtoReflect() protoreflect.Message {
-	mi := &file_cassemdb_api_proto_msgTypes[12]
+	mi := &file_cassemkv_api_proto_msgTypes[12]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -867,7 +867,7 @@ func (x *TtlReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TtlReq.ProtoReflect.Descriptor instead.
 func (*TtlReq) Descriptor() ([]byte, []int) {
-	return file_cassemdb_api_proto_rawDescGZIP(), []int{12}
+	return file_cassemkv_api_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *TtlReq) GetKey() string {
@@ -888,7 +888,7 @@ type TtlResp struct {
 func (x *TtlResp) Reset() {
 	*x = TtlResp{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_cassemdb_api_proto_msgTypes[13]
+		mi := &file_cassemkv_api_proto_msgTypes[13]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -901,7 +901,7 @@ func (x *TtlResp) String() string {
 func (*TtlResp) ProtoMessage() {}
 
 func (x *TtlResp) ProtoReflect() protoreflect.Message {
-	mi := &file_cassemdb_api_proto_msgTypes[13]
+	mi := &file_cassemkv_api_proto_msgTypes[13]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -914,7 +914,7 @@ func (x *TtlResp) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TtlResp.ProtoReflect.Descriptor instead.
 func (*TtlResp) Descriptor() ([]byte, []int) {
-	return file_cassemdb_api_proto_rawDescGZIP(), []int{13}
+	return file_cassemkv_api_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *TtlResp) GetTtl() int32 {
@@ -935,7 +935,7 @@ type ExpireReq struct {
 func (x *ExpireReq) Reset() {
 	*x = ExpireReq{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_cassemdb_api_proto_msgTypes[14]
+		mi := &file_cassemkv_api_proto_msgTypes[14]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -948,7 +948,7 @@ func (x *ExpireReq) String() string {
 func (*ExpireReq) ProtoMessage() {}
 
 func (x *ExpireReq) ProtoReflect() protoreflect.Message {
-	mi := &file_cassemdb_api_proto_msgTypes[14]
+	mi := &file_cassemkv_api_proto_msgTypes[14]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -961,7 +961,7 @@ func (x *ExpireReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ExpireReq.ProtoReflect.Descriptor instead.
 func (*ExpireReq) Descriptor() ([]byte, []int) {
-	return file_cassemdb_api_proto_rawDescGZIP(), []int{14}
+	return file_cassemkv_api_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *ExpireReq) GetKey() string {
@@ -984,7 +984,7 @@ type RangeReq struct {
 func (x *RangeReq) Reset() {
 	*x = RangeReq{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_cassemdb_api_proto_msgTypes[15]
+		mi := &file_cassemkv_api_proto_msgTypes[15]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -997,7 +997,7 @@ func (x *RangeReq) String() string {
 func (*RangeReq) ProtoMessage() {}
 
 func (x *RangeReq) ProtoReflect() protoreflect.Message {
-	mi := &file_cassemdb_api_proto_msgTypes[15]
+	mi := &file_cassemkv_api_proto_msgTypes[15]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1010,7 +1010,7 @@ func (x *RangeReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RangeReq.ProtoReflect.Descriptor instead.
 func (*RangeReq) Descriptor() ([]byte, []int) {
-	return file_cassemdb_api_proto_rawDescGZIP(), []int{15}
+	return file_cassemkv_api_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *RangeReq) GetKey() string {
@@ -1047,7 +1047,7 @@ type RangeResp struct {
 func (x *RangeResp) Reset() {
 	*x = RangeResp{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_cassemdb_api_proto_msgTypes[16]
+		mi := &file_cassemkv_api_proto_msgTypes[16]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1060,7 +1060,7 @@ func (x *RangeResp) String() string {
 func (*RangeResp) ProtoMessage() {}
 
 func (x *RangeResp) ProtoReflect() protoreflect.Message {
-	mi := &file_cassemdb_api_proto_msgTypes[16]
+	mi := &file_cassemkv_api_proto_msgTypes[16]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1073,7 +1073,7 @@ func (x *RangeResp) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RangeResp.ProtoReflect.Descriptor instead.
 func (*RangeResp) Descriptor() ([]byte, []int) {
-	return file_cassemdb_api_proto_rawDescGZIP(), []int{16}
+	return file_cassemkv_api_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *RangeResp) GetEntities() []*Entity {
@@ -1112,7 +1112,7 @@ type CompactElementHistoryReq struct {
 func (x *CompactElementHistoryReq) Reset() {
 	*x = CompactElementHistoryReq{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_cassemdb_api_proto_msgTypes[17]
+		mi := &file_cassemkv_api_proto_msgTypes[17]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1125,7 +1125,7 @@ func (x *CompactElementHistoryReq) String() string {
 func (*CompactElementHistoryReq) ProtoMessage() {}
 
 func (x *CompactElementHistoryReq) ProtoReflect() protoreflect.Message {
-	mi := &file_cassemdb_api_proto_msgTypes[17]
+	mi := &file_cassemkv_api_proto_msgTypes[17]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1138,7 +1138,7 @@ func (x *CompactElementHistoryReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CompactElementHistoryReq.ProtoReflect.Descriptor instead.
 func (*CompactElementHistoryReq) Descriptor() ([]byte, []int) {
-	return file_cassemdb_api_proto_rawDescGZIP(), []int{17}
+	return file_cassemkv_api_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *CompactElementHistoryReq) GetElementKey() string {
@@ -1192,7 +1192,7 @@ type CompactElementHistoryResp struct {
 func (x *CompactElementHistoryResp) Reset() {
 	*x = CompactElementHistoryResp{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_cassemdb_api_proto_msgTypes[18]
+		mi := &file_cassemkv_api_proto_msgTypes[18]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1205,7 +1205,7 @@ func (x *CompactElementHistoryResp) String() string {
 func (*CompactElementHistoryResp) ProtoMessage() {}
 
 func (x *CompactElementHistoryResp) ProtoReflect() protoreflect.Message {
-	mi := &file_cassemdb_api_proto_msgTypes[18]
+	mi := &file_cassemkv_api_proto_msgTypes[18]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1218,7 +1218,7 @@ func (x *CompactElementHistoryResp) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CompactElementHistoryResp.ProtoReflect.Descriptor instead.
 func (*CompactElementHistoryResp) Descriptor() ([]byte, []int) {
-	return file_cassemdb_api_proto_rawDescGZIP(), []int{18}
+	return file_cassemkv_api_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *CompactElementHistoryResp) GetScannedVersions() int32 {
@@ -1263,10 +1263,10 @@ func (x *CompactElementHistoryResp) GetError() string {
 	return ""
 }
 
-var File_cassemdb_api_proto protoreflect.FileDescriptor
+var File_cassemkv_api_proto protoreflect.FileDescriptor
 
-var file_cassemdb_api_proto_rawDesc = []byte{
-	0x0a, 0x12, 0x63, 0x61, 0x73, 0x73, 0x65, 0x6d, 0x64, 0x62, 0x2e, 0x61, 0x70, 0x69, 0x2e, 0x70,
+var file_cassemkv_api_proto_rawDesc = []byte{
+	0x0a, 0x12, 0x63, 0x61, 0x73, 0x73, 0x65, 0x6d, 0x6b, 0x76, 0x2e, 0x61, 0x70, 0x69, 0x2e, 0x70,
 	0x72, 0x6f, 0x74, 0x6f, 0x12, 0x0d, 0x63, 0x61, 0x73, 0x73, 0x65, 0x6d, 0x2e, 0x61, 0x70, 0x69,
 	0x2e, 0x6b, 0x76, 0x1a, 0x1b, 0x62, 0x75, 0x66, 0x2f, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74,
 	0x65, 0x2f, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x65, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f,
@@ -1446,20 +1446,20 @@ var file_cassemdb_api_proto_rawDesc = []byte{
 }
 
 var (
-	file_cassemdb_api_proto_rawDescOnce sync.Once
-	file_cassemdb_api_proto_rawDescData = file_cassemdb_api_proto_rawDesc
+	file_cassemkv_api_proto_rawDescOnce sync.Once
+	file_cassemkv_api_proto_rawDescData = file_cassemkv_api_proto_rawDesc
 )
 
-func file_cassemdb_api_proto_rawDescGZIP() []byte {
-	file_cassemdb_api_proto_rawDescOnce.Do(func() {
-		file_cassemdb_api_proto_rawDescData = protoimpl.X.CompressGZIP(file_cassemdb_api_proto_rawDescData)
+func file_cassemkv_api_proto_rawDescGZIP() []byte {
+	file_cassemkv_api_proto_rawDescOnce.Do(func() {
+		file_cassemkv_api_proto_rawDescData = protoimpl.X.CompressGZIP(file_cassemkv_api_proto_rawDescData)
 	})
-	return file_cassemdb_api_proto_rawDescData
+	return file_cassemkv_api_proto_rawDescData
 }
 
-var file_cassemdb_api_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_cassemdb_api_proto_msgTypes = make([]protoimpl.MessageInfo, 19)
-var file_cassemdb_api_proto_goTypes = []interface{}{
+var file_cassemkv_api_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
+var file_cassemkv_api_proto_msgTypes = make([]protoimpl.MessageInfo, 19)
+var file_cassemkv_api_proto_goTypes = []interface{}{
 	(EntityType)(0),                   // 0: cassem.api.kv.EntityType
 	(Change_Op)(0),                    // 1: cassem.api.kv.Change.Op
 	(*Entity)(nil),                    // 2: cassem.api.kv.Entity
@@ -1482,7 +1482,7 @@ var file_cassemdb_api_proto_goTypes = []interface{}{
 	(*CompactElementHistoryReq)(nil),  // 19: cassem.api.kv.compactElementHistoryReq
 	(*CompactElementHistoryResp)(nil), // 20: cassem.api.kv.compactElementHistoryResp
 }
-var file_cassemdb_api_proto_depIdxs = []int32{
+var file_cassemkv_api_proto_depIdxs = []int32{
 	0,  // 0: cassem.api.kv.Entity.typ:type_name -> cassem.api.kv.EntityType
 	1,  // 1: cassem.api.kv.Change.op:type_name -> cassem.api.kv.Change.Op
 	2,  // 2: cassem.api.kv.Change.last:type_name -> cassem.api.kv.Entity
@@ -1517,13 +1517,13 @@ var file_cassemdb_api_proto_depIdxs = []int32{
 	0,  // [0:9] is the sub-list for field type_name
 }
 
-func init() { file_cassemdb_api_proto_init() }
-func file_cassemdb_api_proto_init() {
-	if File_cassemdb_api_proto != nil {
+func init() { file_cassemkv_api_proto_init() }
+func file_cassemkv_api_proto_init() {
+	if File_cassemkv_api_proto != nil {
 		return
 	}
 	if !protoimpl.UnsafeEnabled {
-		file_cassemdb_api_proto_msgTypes[0].Exporter = func(v interface{}, i int) interface{} {
+		file_cassemkv_api_proto_msgTypes[0].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*Entity); i {
 			case 0:
 				return &v.state
@@ -1535,7 +1535,7 @@ func file_cassemdb_api_proto_init() {
 				return nil
 			}
 		}
-		file_cassemdb_api_proto_msgTypes[1].Exporter = func(v interface{}, i int) interface{} {
+		file_cassemkv_api_proto_msgTypes[1].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*Change); i {
 			case 0:
 				return &v.state
@@ -1547,7 +1547,7 @@ func file_cassemdb_api_proto_init() {
 				return nil
 			}
 		}
-		file_cassemdb_api_proto_msgTypes[2].Exporter = func(v interface{}, i int) interface{} {
+		file_cassemkv_api_proto_msgTypes[2].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*ParentDirectoryChange); i {
 			case 0:
 				return &v.state
@@ -1559,7 +1559,7 @@ func file_cassemdb_api_proto_init() {
 				return nil
 			}
 		}
-		file_cassemdb_api_proto_msgTypes[3].Exporter = func(v interface{}, i int) interface{} {
+		file_cassemkv_api_proto_msgTypes[3].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*Empty); i {
 			case 0:
 				return &v.state
@@ -1571,7 +1571,7 @@ func file_cassemdb_api_proto_init() {
 				return nil
 			}
 		}
-		file_cassemdb_api_proto_msgTypes[4].Exporter = func(v interface{}, i int) interface{} {
+		file_cassemkv_api_proto_msgTypes[4].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*GetKVReq); i {
 			case 0:
 				return &v.state
@@ -1583,7 +1583,7 @@ func file_cassemdb_api_proto_init() {
 				return nil
 			}
 		}
-		file_cassemdb_api_proto_msgTypes[5].Exporter = func(v interface{}, i int) interface{} {
+		file_cassemkv_api_proto_msgTypes[5].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*GetKVResp); i {
 			case 0:
 				return &v.state
@@ -1595,7 +1595,7 @@ func file_cassemdb_api_proto_init() {
 				return nil
 			}
 		}
-		file_cassemdb_api_proto_msgTypes[6].Exporter = func(v interface{}, i int) interface{} {
+		file_cassemkv_api_proto_msgTypes[6].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*GetKVsReq); i {
 			case 0:
 				return &v.state
@@ -1607,7 +1607,7 @@ func file_cassemdb_api_proto_init() {
 				return nil
 			}
 		}
-		file_cassemdb_api_proto_msgTypes[7].Exporter = func(v interface{}, i int) interface{} {
+		file_cassemkv_api_proto_msgTypes[7].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*KeyError); i {
 			case 0:
 				return &v.state
@@ -1619,7 +1619,7 @@ func file_cassemdb_api_proto_init() {
 				return nil
 			}
 		}
-		file_cassemdb_api_proto_msgTypes[8].Exporter = func(v interface{}, i int) interface{} {
+		file_cassemkv_api_proto_msgTypes[8].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*GetKVsResp); i {
 			case 0:
 				return &v.state
@@ -1631,7 +1631,7 @@ func file_cassemdb_api_proto_init() {
 				return nil
 			}
 		}
-		file_cassemdb_api_proto_msgTypes[9].Exporter = func(v interface{}, i int) interface{} {
+		file_cassemkv_api_proto_msgTypes[9].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*SetKVReq); i {
 			case 0:
 				return &v.state
@@ -1643,7 +1643,7 @@ func file_cassemdb_api_proto_init() {
 				return nil
 			}
 		}
-		file_cassemdb_api_proto_msgTypes[10].Exporter = func(v interface{}, i int) interface{} {
+		file_cassemkv_api_proto_msgTypes[10].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*UnsetKVReq); i {
 			case 0:
 				return &v.state
@@ -1655,7 +1655,7 @@ func file_cassemdb_api_proto_init() {
 				return nil
 			}
 		}
-		file_cassemdb_api_proto_msgTypes[11].Exporter = func(v interface{}, i int) interface{} {
+		file_cassemkv_api_proto_msgTypes[11].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*WatchReq); i {
 			case 0:
 				return &v.state
@@ -1667,7 +1667,7 @@ func file_cassemdb_api_proto_init() {
 				return nil
 			}
 		}
-		file_cassemdb_api_proto_msgTypes[12].Exporter = func(v interface{}, i int) interface{} {
+		file_cassemkv_api_proto_msgTypes[12].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*TtlReq); i {
 			case 0:
 				return &v.state
@@ -1679,7 +1679,7 @@ func file_cassemdb_api_proto_init() {
 				return nil
 			}
 		}
-		file_cassemdb_api_proto_msgTypes[13].Exporter = func(v interface{}, i int) interface{} {
+		file_cassemkv_api_proto_msgTypes[13].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*TtlResp); i {
 			case 0:
 				return &v.state
@@ -1691,7 +1691,7 @@ func file_cassemdb_api_proto_init() {
 				return nil
 			}
 		}
-		file_cassemdb_api_proto_msgTypes[14].Exporter = func(v interface{}, i int) interface{} {
+		file_cassemkv_api_proto_msgTypes[14].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*ExpireReq); i {
 			case 0:
 				return &v.state
@@ -1703,7 +1703,7 @@ func file_cassemdb_api_proto_init() {
 				return nil
 			}
 		}
-		file_cassemdb_api_proto_msgTypes[15].Exporter = func(v interface{}, i int) interface{} {
+		file_cassemkv_api_proto_msgTypes[15].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*RangeReq); i {
 			case 0:
 				return &v.state
@@ -1715,7 +1715,7 @@ func file_cassemdb_api_proto_init() {
 				return nil
 			}
 		}
-		file_cassemdb_api_proto_msgTypes[16].Exporter = func(v interface{}, i int) interface{} {
+		file_cassemkv_api_proto_msgTypes[16].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*RangeResp); i {
 			case 0:
 				return &v.state
@@ -1727,7 +1727,7 @@ func file_cassemdb_api_proto_init() {
 				return nil
 			}
 		}
-		file_cassemdb_api_proto_msgTypes[17].Exporter = func(v interface{}, i int) interface{} {
+		file_cassemkv_api_proto_msgTypes[17].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*CompactElementHistoryReq); i {
 			case 0:
 				return &v.state
@@ -1739,7 +1739,7 @@ func file_cassemdb_api_proto_init() {
 				return nil
 			}
 		}
-		file_cassemdb_api_proto_msgTypes[18].Exporter = func(v interface{}, i int) interface{} {
+		file_cassemkv_api_proto_msgTypes[18].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*CompactElementHistoryResp); i {
 			case 0:
 				return &v.state
@@ -1756,21 +1756,21 @@ func file_cassemdb_api_proto_init() {
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: file_cassemdb_api_proto_rawDesc,
+			RawDescriptor: file_cassemkv_api_proto_rawDesc,
 			NumEnums:      2,
 			NumMessages:   19,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
-		GoTypes:           file_cassemdb_api_proto_goTypes,
-		DependencyIndexes: file_cassemdb_api_proto_depIdxs,
-		EnumInfos:         file_cassemdb_api_proto_enumTypes,
-		MessageInfos:      file_cassemdb_api_proto_msgTypes,
+		GoTypes:           file_cassemkv_api_proto_goTypes,
+		DependencyIndexes: file_cassemkv_api_proto_depIdxs,
+		EnumInfos:         file_cassemkv_api_proto_enumTypes,
+		MessageInfos:      file_cassemkv_api_proto_msgTypes,
 	}.Build()
-	File_cassemdb_api_proto = out.File
-	file_cassemdb_api_proto_rawDesc = nil
-	file_cassemdb_api_proto_goTypes = nil
-	file_cassemdb_api_proto_depIdxs = nil
+	File_cassemkv_api_proto = out.File
+	file_cassemkv_api_proto_rawDesc = nil
+	file_cassemkv_api_proto_goTypes = nil
+	file_cassemkv_api_proto_depIdxs = nil
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -2168,5 +2168,5 @@ var _KV_serviceDesc = grpc.ServiceDesc{
 			ServerStreams: true,
 		},
 	},
-	Metadata: "cassemdb.api.proto",
+	Metadata: "cassemkv.api.proto",
 }

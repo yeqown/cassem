@@ -1,3 +1,3 @@
-## api (cassemdb)
+## api (cassemkv)
 
-cassemdb component's client SDK.
+cassemkv component's client SDK.

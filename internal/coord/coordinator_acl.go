@@ -70,7 +70,7 @@ func rbacRole(role string) string {
 
 // newRBAC construct a RBAC ACL interface.
 func newRBAC(c apikv.KVClient) (concept.RBAC, error) {
-	a := &cassemAdapter{cassemdb: c}
+	a := &cassemAdapter{cassemkv: c}
 
 	m, err := model.NewModelFromString(_casbinModel)
 	if err != nil {
@@ -486,11 +486,11 @@ func (a aclImpl) BootstrapAdmin(account, nickname, password string) error {
 
 // cassemAdapter implements persist.Adapter of casbin acl model.
 type cassemAdapter struct {
-	cassemdb apikv.KVClient
+	cassemkv apikv.KVClient
 }
 
 func (c cassemAdapter) LoadPolicy(model model.Model) error {
-	r, err := c.cassemdb.GetKV(
+	r, err := c.cassemkv.GetKV(
 		context.TODO(),
 		&apikv.GetKVReq{Key: concept.GenAclPolicyKey()},
 	)
@@ -553,7 +553,7 @@ func (c cassemAdapter) SavePolicy(model model.Model) error {
 	}
 
 	data := apikv.Must(apikv.Marshal(s))
-	_, err := c.cassemdb.SetKV(context.TODO(), &apikv.SetKVReq{
+	_, err := c.cassemkv.SetKV(context.TODO(), &apikv.SetKVReq{
 		Key:       concept.GenAclPolicyKey(),
 		IsDir:     false,
 		Ttl:       0,

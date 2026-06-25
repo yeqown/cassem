@@ -70,7 +70,7 @@ type InstanceHybrid interface {
 	UnregisterInstance(ctx context.Context, insId string) error
 }
 
-// AgentHybrid describes all methods to manage agent nodes in cassemdb.
+// AgentHybrid describes all methods to manage agent nodes in cassemkv.
 type AgentHybrid interface {
 	// Watch would block util any error happened, otherwise any change of agents will be
 	// pushed into ch.

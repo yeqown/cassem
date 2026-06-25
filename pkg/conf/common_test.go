@@ -90,8 +90,8 @@ func TestRaft_Fix(t *testing.T) {
 	}
 }
 
-func TestCassemdbListenAndAdvertiseAddrConfig(t *testing.T) {
-	c := &CassemdbConfig{ListenAddr: "0.0.0.0:2021", AdvertiseAddr: "127.0.0.1:2021"}
+func TestCassemKVListenAndAdvertiseAddrConfig(t *testing.T) {
+	c := &CassemKVConfig{ListenAddr: "0.0.0.0:2021", AdvertiseAddr: "127.0.0.1:2021"}
 	assert.Equal(t, "0.0.0.0:2021", c.ListenAddr)
 	assert.Equal(t, "127.0.0.1:2021", c.AdvertiseAddr)
 }

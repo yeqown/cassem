@@ -42,7 +42,7 @@ func New(c *conf.CassemAdminConfig) (*app, error) {
 		return nil, fmt.Errorf("adm.New failed: %w", err)
 	}
 
-	agg, err := coord.NewAdmAggregate(c.CassemDBEndpoints)
+	agg, err := coord.NewAdmAggregate(c.CassemKVEndpoints)
 	if err != nil {
 		return nil, fmt.Errorf("adm.New: %w", err)
 	}
@@ -55,7 +55,7 @@ func New(c *conf.CassemAdminConfig) (*app, error) {
 		}
 	}
 
-	retention, err := newRetentionGC(c.CassemDBEndpoints, c.Retention)
+	retention, err := newRetentionGC(c.CassemKVEndpoints, c.Retention)
 	if err != nil {
 		return nil, fmt.Errorf("adm.New.RetentionGC: %w", err)
 	}

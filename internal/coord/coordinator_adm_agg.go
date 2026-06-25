@@ -36,10 +36,10 @@ func NewAdmAggregate(endpoints []string) (concept.AdmAggregate, error) {
 	}
 
 	return admAggregate{
-		kvReadOnly:     kvReadOnly{cassemdb: c},
-		kvWriteOnly:    kvWriteOnly{cassemdb: c},
-		instanceHybrid: instanceHybrid{cassemdb: c},
-		agentInsHybrid: agentInsHybrid{cassemdb: c},
+		kvReadOnly:     kvReadOnly{cassemkv: c},
+		kvWriteOnly:    kvWriteOnly{cassemkv: c},
+		instanceHybrid: instanceHybrid{cassemkv: c},
+		agentInsHybrid: agentInsHybrid{cassemkv: c},
 		aclImpl:        aclAgg,
 	}, nil
 }
