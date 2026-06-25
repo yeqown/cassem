@@ -3,7 +3,6 @@ package httpx
 import (
 	"bytes"
 	"fmt"
-	"io"
 	"net/http"
 	"net/http/httputil"
 	"os"
@@ -53,14 +52,14 @@ func RecoveryHTTP(next http.Handler) http.Handler {
 
 func LoggerHTTP(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var body []byte
-		if r.Body != nil {
-			var err error
-			body, err = io.ReadAll(r.Body)
-			if err == nil && len(body) != 0 {
-				r.Body = io.NopCloser(bytes.NewBuffer(body))
-			}
-		}
+		// var body []byte
+		// if r.Body != nil {
+		// 	var err error
+		// 	body, err = io.ReadAll(r.Body)
+		// 	if err == nil && len(body) != 0 {
+		// 		r.Body = io.NopCloser(bytes.NewBuffer(body))
+		// 	}
+		// }
 
 		start := time.Now()
 		recorder := &statusRecorder{ResponseWriter: w}
@@ -74,8 +73,7 @@ func LoggerHTTP(next http.Handler) http.Handler {
 
 		log.
 			WithFields(fields).
-			Infof("[%3d] [%v] %s '%s' [Body]: %s", recorder.Status(), latency,
-				r.Method, r.URL, body)
+			Infof("%3d %v %s %s", recorder.Status(), latency, r.Method, r.URL)
 	})
 }
 

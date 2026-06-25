@@ -10,6 +10,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/credentials/insecure"
+	_ "google.golang.org/grpc/health"
 	"google.golang.org/grpc/resolver"
 
 	apiinternal "github.com/yeqown/cassem/api/internal"
