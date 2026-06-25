@@ -3,8 +3,8 @@ package raftimpl
 import (
 	"context"
 
+	errorx "github.com/yeqown/cassem/api/concept"
 	apikv "github.com/yeqown/cassem/api/kv"
-	"github.com/yeqown/cassem/pkg/watcher"
 )
 
 // RaftNode defines the ability of what raft component should act.
@@ -29,7 +29,7 @@ type RaftNode interface {
 	// LeaderID returns current leader id, or 0 when unknown.
 	LeaderID() uint64
 	LeaderChangeCh(chan<- bool)
-	ChangeNotifyCh() <-chan watcher.IChange
+	ChangeNotifyCh() <-chan errorx.Change
 	AddNode(ctx context.Context, addr string) (nodeID uint64, peers []string, err error)
 	RemoveNode(ctx context.Context, nodeID uint64) error
 

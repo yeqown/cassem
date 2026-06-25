@@ -10,10 +10,9 @@ import (
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/status"
 
-	apikv "github.com/yeqown/cassem/api/kv"
 	errorx "github.com/yeqown/cassem/api/concept"
+	apikv "github.com/yeqown/cassem/api/kv"
 	"github.com/yeqown/cassem/pkg/grpcx"
-	"github.com/yeqown/cassem/pkg/watcher"
 )
 
 type grpcServer struct {
@@ -189,18 +188,18 @@ func (s grpcServer) CompactElementHistory(ctx context.Context, req *apikv.Compac
 	return s.coord.compactElementHistory(req)
 }
 
-// translateChange construct an kv.Change from watcher.IChange interface.
+// translateChange construct an kv.Change from concept.Change interface.
 // DONE(@yeqown): use proto to ignore convert procedure.
-func translateChange(change watcher.IChange) *apikv.Change {
+func translateChange(change errorx.Change) *apikv.Change {
 	var (
 		c  *apikv.Change
 		ok bool
 	)
 
 	switch change.Type() {
-	case watcher.ChangeType_KV:
+	case errorx.ChangeType_KV:
 		c, ok = change.(*apikv.Change)
-	case watcher.ChangeType_DIR:
+	case errorx.ChangeType_DIR:
 		var pdc *apikv.ParentDirectoryChange
 		if pdc, ok = change.(*apikv.ParentDirectoryChange); ok {
 			c = pdc.Change

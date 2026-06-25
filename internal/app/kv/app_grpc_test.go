@@ -9,7 +9,6 @@ import (
 
 	apikv "github.com/yeqown/cassem/api/kv"
 	errorx "github.com/yeqown/cassem/api/concept"
-	"github.com/yeqown/cassem/pkg/watcher"
 )
 
 type grpcGetKVsFakeCoord struct {
@@ -32,7 +31,7 @@ func (f *grpcGetKVsFakeCoord) setKV(context.Context, *setKVParam) error { return
 func (f *grpcGetKVsFakeCoord) unsetKV(context.Context, *unsetKVParam) error {
 	return errors.New("unused")
 }
-func (f *grpcGetKVsFakeCoord) watch(...string) (watcher.IObserver, func()) { return nil, func() {} }
+func (f *grpcGetKVsFakeCoord) watch(...string) (*builtinObserver, func()) { return nil, func() {} }
 func (f *grpcGetKVsFakeCoord) ttl(string) (int32, error)                   { return 0, errors.New("unused") }
 func (f *grpcGetKVsFakeCoord) expire(string) error                         { return errors.New("unused") }
 func (f *grpcGetKVsFakeCoord) iterate(*rangeParam) (*apikv.RangeResp, error) {

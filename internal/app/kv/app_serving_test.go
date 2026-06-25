@@ -11,20 +11,20 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	errorx "github.com/yeqown/cassem/api/concept"
 	apikv "github.com/yeqown/cassem/api/kv"
 	"github.com/yeqown/cassem/internal/app/kv/raftimpl"
 	"github.com/yeqown/cassem/pkg/conf"
-	"github.com/yeqown/cassem/pkg/watcher"
 )
 
 var _ raftimpl.RaftNode = (*servingAPIFakeRaft)(nil)
 
 type servingAPIFakeRaft struct {
-	changeCh chan watcher.IChange
+	changeCh chan errorx.Change
 }
 
 func newServingAPIFakeRaft() *servingAPIFakeRaft {
-	return &servingAPIFakeRaft{changeCh: make(chan watcher.IChange)}
+	return &servingAPIFakeRaft{changeCh: make(chan errorx.Change)}
 }
 
 func (f *servingAPIFakeRaft) GetKV(getReq *apikv.GetKVReq) (*apikv.Entity, error) {
@@ -47,7 +47,7 @@ func (f *servingAPIFakeRaft) RaftAddr() string              { return "127.0.0.1:
 func (f *servingAPIFakeRaft) Peers() []string               { return []string{"127.0.0.1:17001"} }
 func (f *servingAPIFakeRaft) LeaderID() uint64              { return 1 }
 func (f *servingAPIFakeRaft) LeaderChangeCh(chan<- bool)    {}
-func (f *servingAPIFakeRaft) ChangeNotifyCh() <-chan watcher.IChange {
+func (f *servingAPIFakeRaft) ChangeNotifyCh() <-chan errorx.Change {
 	return f.changeCh
 }
 func (f *servingAPIFakeRaft) AddNode(context.Context, string) (uint64, []string, error) {
@@ -64,7 +64,7 @@ func TestServingAPIInDebugModeDoesNotExposeKVHTTPRoutes(t *testing.T) {
 	addr := testServingAPIListenAddr(t)
 	d := &app{
 		config:  &conf.CassemdbConfig{ListenAddr: addr},
-		watcher: watcher.NewChannelWatcher(1),
+		watcher: newChannelWatcher(1),
 		raft:    newServingAPIFakeRaft(),
 	}
 
@@ -86,7 +86,7 @@ func TestServingAPIInDebugModeDoesNotExposePprof(t *testing.T) {
 	addr := testServingAPIListenAddr(t)
 	d := &app{
 		config:  &conf.CassemdbConfig{ListenAddr: addr},
-		watcher: watcher.NewChannelWatcher(1),
+		watcher: newChannelWatcher(1),
 		raft:    newServingAPIFakeRaft(),
 	}
 

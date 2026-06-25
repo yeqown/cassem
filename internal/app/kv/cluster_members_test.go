@@ -9,10 +9,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	errorx "github.com/yeqown/cassem/api/concept"
 	apikv "github.com/yeqown/cassem/api/kv"
 	"github.com/yeqown/cassem/internal/app/kv/storage"
 	"github.com/yeqown/cassem/pkg/conf"
-	"github.com/yeqown/cassem/pkg/watcher"
 )
 
 func TestClusterMemberKey(t *testing.T) {
@@ -61,7 +61,7 @@ func (f *fakeDiscoveryRaft) Peers() []string                        { return []s
 func (f *fakeDiscoveryRaft) LeaderID() uint64                       { return f.leaderID }
 func (f *fakeDiscoveryRaft) IsLeader() bool                         { return f.leaderID == f.nodeID }
 func (f *fakeDiscoveryRaft) LeaderChangeCh(chan<- bool)             {}
-func (f *fakeDiscoveryRaft) ChangeNotifyCh() <-chan watcher.IChange { return nil }
+func (f *fakeDiscoveryRaft) ChangeNotifyCh() <-chan errorx.Change { return nil }
 func (f *fakeDiscoveryRaft) AddNode(_ context.Context, addr string) (uint64, []string, error) {
 	return 2, []string{f.raftAddr, addr}, nil
 }

@@ -11,11 +11,11 @@ import (
 
 	"github.com/yeqown/log"
 
+	"github.com/yeqown/cassem/api/concept"
 	apikv "github.com/yeqown/cassem/api/kv"
 	"github.com/yeqown/cassem/internal/app/kv/raftimpl"
 	"github.com/yeqown/cassem/pkg/conf"
 	"github.com/yeqown/cassem/pkg/runtime"
-	"github.com/yeqown/cassem/pkg/watcher"
 )
 
 // app is the storage server that would guard api server running and alas controls other components.
@@ -25,9 +25,8 @@ import (
 type app struct {
 	config *conf.CassemdbConfig
 
-	// watcher is abstract watcher.IWatcher layer, so trigger and observers could be splitting.
-	// core.app has no need to care about how to get touch with observers, just produce signal and data.
-	watcher watcher.IWatcher
+	// watcher manages local subscriptions for committed raft changes.
+	watcher *channelWatcher
 
 	// raft is a customized raft node for cassem.
 	raft raftimpl.RaftNode
@@ -56,7 +55,7 @@ func New(cfg *conf.CassemdbConfig) (*app, error) {
 }
 
 func (d *app) bootstrap() {
-	d.watcher = watcher.NewChannelWatcher(100)
+	d.watcher = newChannelWatcher(100)
 	d.raft = raftimpl.NewRaftNode(d.config.Bolt, d.config.Raft)
 
 	d.startRoutines()
@@ -242,12 +241,12 @@ func (d *app) unsetKV(ctx context.Context, param *unsetKVParam) error {
 	})
 }
 
-func (d *app) watch(keys ...string) (ob watcher.IObserver, cancelFn func()) {
+func (d *app) watch(keys ...string) (ob *builtinObserver, cancelFn func()) {
 	if len(keys) == 0 {
-		return
+		return nil, func() {}
 	}
 
-	ch := make(chan watcher.IChange, 2)
+	ch := make(chan concept.Change, 2)
 	closeFn := func() {
 		log.Debug("observer closeFn called")
 		close(ch)

@@ -4,23 +4,21 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	apikv "github.com/yeqown/cassem/api/kv"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
+	errorx "github.com/yeqown/cassem/api/concept"
+	apikv "github.com/yeqown/cassem/api/kv"
+	"github.com/yeqown/cassem/internal/app/kv/storage"
+	"github.com/yeqown/cassem/pkg/conf"
+	"github.com/yeqown/cassem/pkg/runtime"
 	"github.com/yeqown/log"
 	"go.etcd.io/etcd/raft/v3"
 	"go.etcd.io/etcd/raft/v3/raftpb"
 	"go.etcd.io/etcd/server/v3/etcdserver/api/snap"
 	"google.golang.org/protobuf/proto"
-
-	errorx "github.com/yeqown/cassem/api/concept"
-	"github.com/yeqown/cassem/internal/app/kv/storage"
-	"github.com/yeqown/cassem/pkg/conf"
-	"github.com/yeqown/cassem/pkg/runtime"
-	"github.com/yeqown/cassem/pkg/watcher"
 )
 
 var (
@@ -41,7 +39,7 @@ type raftNodeImpl struct {
 
 	// proposeC to propose a commit to raft cluster.
 	proposeC          chan *apikv.Propose
-	changeC           chan watcher.IChange
+	changeC           chan errorx.Change
 	leadershipFanOutC []chan<- bool
 	snapshotter       *snap.Snapshotter
 	peersOp           peerOperator
@@ -59,7 +57,7 @@ func NewRaftNode(bolt *conf.Bolt, raftc *conf.Raft) (rc *raftNodeImpl) {
 		kvstore:           nil, // fill later
 		raftState:         0,   // fill later
 		proposeC:          make(chan *apikv.Propose, 4),
-		changeC:           make(chan watcher.IChange, 64),
+		changeC:           make(chan errorx.Change, 64),
 		leadershipFanOutC: make([]chan<- bool, 4),
 		snapshotter:       nil, // fill later
 		muLeaderChangeC:   sync.Mutex{},
@@ -262,12 +260,12 @@ func (r *raftNodeImpl) emitChange(change *apikv.Change) error {
 	return nil
 }
 
-func (r *raftNodeImpl) parentDirectoryChanges(change *apikv.Change) []watcher.IChange {
+func (r *raftNodeImpl) parentDirectoryChanges(change *apikv.Change) []errorx.Change {
 	paths, _ := storage.KeySplitter(change.GetKey())
 	if len(paths) == 0 {
 		return nil
 	}
-	return []watcher.IChange{&apikv.ParentDirectoryChange{Change: change, SpecificTopic: strings.Join(paths, "/")}}
+	return []errorx.Change{&apikv.ParentDirectoryChange{Change: change, SpecificTopic: strings.Join(paths, "/")}}
 }
 
 func (r *raftNodeImpl) getSnapshot() ([]byte, error) {
@@ -585,7 +583,7 @@ func (r *raftNodeImpl) LeaderChangeCh(c chan<- bool) {
 	r.leadershipFanOutC = append(r.leadershipFanOutC, c)
 }
 
-func (r *raftNodeImpl) ChangeNotifyCh() <-chan watcher.IChange {
+func (r *raftNodeImpl) ChangeNotifyCh() <-chan errorx.Change {
 	return r.changeC
 }
 

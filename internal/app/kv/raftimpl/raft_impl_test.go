@@ -8,8 +8,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	errorx "github.com/yeqown/cassem/api/concept"
 	"github.com/yeqown/cassem/internal/app/kv/storage"
-	"github.com/yeqown/cassem/pkg/watcher"
 )
 
 type snapshotKV struct {
@@ -143,7 +143,7 @@ func TestRaftNodeImplApplyMutateLogEntrySetResolvesAckAndEmitsChange(t *testing.
 	store := &mutateKV{data: map[string]*apikv.Entity{"root/key": last}}
 	r := &raftNodeImpl{
 		kvstore: store,
-		changeC: make(chan watcher.IChange, 4),
+		changeC: make(chan errorx.Change, 4),
 		pending: map[uint64]chan applyAck{1: ackCh},
 	}
 
@@ -161,7 +161,7 @@ func TestRaftNodeImplApplyMutateLogEntryUnsetResolvesAckAndEmitsChange(t *testin
 	store := &mutateKV{data: map[string]*apikv.Entity{"root/key": last}}
 	r := &raftNodeImpl{
 		kvstore: store,
-		changeC: make(chan watcher.IChange, 4),
+		changeC: make(chan errorx.Change, 4),
 		pending: map[uint64]chan applyAck{2: ackCh},
 	}
 
@@ -178,7 +178,7 @@ func TestRaftNodeImplApplyMutateLogEntryPropagatesStorageError(t *testing.T) {
 	ackCh := make(chan applyAck, 1)
 	r := &raftNodeImpl{
 		kvstore: &mutateKV{setErr: wantErr},
-		changeC: make(chan watcher.IChange, 1),
+		changeC: make(chan errorx.Change, 1),
 		pending: map[uint64]chan applyAck{3: ackCh},
 	}
 

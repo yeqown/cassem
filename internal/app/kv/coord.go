@@ -4,7 +4,6 @@ import (
 	"context"
 
 	apikv "github.com/yeqown/cassem/api/kv"
-	"github.com/yeqown/cassem/pkg/watcher"
 )
 
 // ICoordinator is a interface for app API layer.
@@ -12,7 +11,7 @@ type ICoordinator interface {
 	getKV(key string) (*apikv.Entity, error)
 	setKV(context.Context, *setKVParam) error
 	unsetKV(context.Context, *unsetKVParam) error
-	watch(keys ...string) (watcher.IObserver, func())
+	watch(keys ...string) (*builtinObserver, func())
 	ttl(key string) (int32, error)
 	expire(key string) error
 	iterate(*rangeParam) (*apikv.RangeResp, error)
