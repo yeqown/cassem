@@ -7,10 +7,10 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/yeqown/log"
+	pb "github.com/yeqown/cassem/internal/protogen"
 
-	apikv "github.com/yeqown/cassem/api/kv"
-	"github.com/yeqown/cassem/pkg/conf"
+	"github.com/yeqown/cassem/internal/pkg/conf"
+	"github.com/yeqown/log"
 )
 
 const clusterMemberKeyPrefix = "cassem/cluster/members"
@@ -81,7 +81,7 @@ func (d *app) upsertClusterMember(ctx context.Context, record clusterMemberRecor
 	if err != nil {
 		return err
 	}
-	return d.raft.SetKV(ctx, &apikv.SetKVReq{
+	return d.raft.SetKV(ctx, &pb.SetKVReq{
 		Key:       clusterMemberKey(record.NodeID),
 		Val:       data,
 		Overwrite: true,
@@ -89,11 +89,11 @@ func (d *app) upsertClusterMember(ctx context.Context, record clusterMemberRecor
 }
 
 func (d *app) deleteClusterMember(ctx context.Context, nodeID uint64) error {
-	return d.raft.UnsetKV(ctx, &apikv.UnsetKVReq{Key: clusterMemberKey(nodeID)})
+	return d.raft.UnsetKV(ctx, &pb.UnsetKVReq{Key: clusterMemberKey(nodeID)})
 }
 
-func (d *app) listMembers() ([]*apikv.ClusterMember, error) {
-	resp, err := d.raft.Range(&apikv.RangeReq{Key: clusterMemberKeyPrefix, Limit: 100})
+func (d *app) listMembers() ([]*pb.ClusterMember, error) {
+	resp, err := d.raft.Range(&pb.RangeReq{Key: clusterMemberKeyPrefix, Limit: 100})
 	if err != nil {
 		return nil, fmt.Errorf("range cluster members: %w", err)
 	}
@@ -103,7 +103,7 @@ func (d *app) listMembers() ([]*apikv.ClusterMember, error) {
 		liveRaftAddrs[peer] = struct{}{}
 	}
 	leaderID := d.raft.LeaderID()
-	members := make([]*apikv.ClusterMember, 0, len(resp.GetEntities()))
+	members := make([]*pb.ClusterMember, 0, len(resp.GetEntities()))
 	for _, entity := range resp.GetEntities() {
 		record, err := decodeClusterMemberRecord(entity.GetVal())
 		if err != nil {
@@ -116,7 +116,7 @@ func (d *app) listMembers() ([]*apikv.ClusterMember, error) {
 				continue
 			}
 		}
-		members = append(members, &apikv.ClusterMember{
+		members = append(members, &pb.ClusterMember{
 			NodeId:       record.NodeID,
 			RaftAddr:     record.RaftAddr,
 			GrpcEndpoint: record.GRPCEndpoint,

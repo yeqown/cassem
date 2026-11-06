@@ -17,12 +17,13 @@ import { DiffViewer } from '../../components/DiffViewer'
 import { useToast } from '../../components/ToastProvider'
 import { WizardLayout } from '../../components/WizardLayout'
 import type { Element } from '../../domain/types'
+import { useI18n, type Translator } from '../../i18n'
 import { ApiError, apiRequest, jsonBody } from '../../lib/api'
 import { decodeRaw } from '../../lib/raw'
 import { renderVersionMenuItem } from './VersionMenuItem'
-import { requestAgentIdOptions, requestComparisonElement, requestInstanceIdOptions, requestVersionOptions, type VersionOption } from './workflowOptions'
+import { getVersionLabel, requestAgentIdOptions, requestComparisonElement, requestInstanceIdOptions, requestVersionOptions, type VersionOption } from './workflowOptions'
 
-const steps = ['Version', 'Strategy', 'Targets', 'Review diff', 'Impact confirmation', 'Result']
+const stepKeys = ['operations.version', 'operations.strategy', 'operations.targets', 'operations.reviewDiff', 'operations.impactConfirmation', 'operations.result'] as const
 
 function getErrorMessage(error: unknown, fallback: string) {
   return error instanceof ApiError ? error.message : fallback
@@ -32,8 +33,8 @@ function buildDetailPath(appId: string, env: string, key: string) {
   return `/apps/${encodeURIComponent(appId)}/envs/${encodeURIComponent(env)}/elements/${encodeURIComponent(key)}`
 }
 
-function getStrategyLabel(publishMode: number) {
-  return publishMode === 1 ? 'Gray publish' : 'Full publish'
+function getStrategyLabel(publishMode: number, t: Translator) {
+  return t(publishMode === 1 ? 'operations.publish.gray' : 'operations.publish.full')
 }
 
 function isPublishVersionDisabled(option: VersionOption, usingVersion: number | null) {
@@ -56,6 +57,7 @@ type PublishWizardFlowProps = {
 }
 
 function PublishWizardFlow({ appId, env, elementKey }: PublishWizardFlowProps) {
+  const { t } = useI18n()
   const navigate = useNavigate()
   const { showToast } = useToast()
   const [activeStep, setActiveStep] = useState(0)
@@ -83,7 +85,7 @@ function PublishWizardFlow({ appId, env, elementKey }: PublishWizardFlowProps) {
   const requiresExplicitTargets = publishMode === 1
   const hasExplicitTargets = agentIds.length > 0 || instanceIds.length > 0
   const grayTargetsAreValid = !requiresExplicitTargets || hasExplicitTargets
-  const targetsValidationMessage = 'Gray publish requires at least one agent or instance target.'
+  const targetsValidationMessage = t('operations.publish.targetsRequired')
 
   const loadOptions = useCallback(async () => {
     if (missingParams) return
@@ -112,11 +114,11 @@ function PublishWizardFlow({ appId, env, elementKey }: PublishWizardFlowProps) {
       setUsingVersion(null)
       setAgentOptions([])
       setInstanceOptions([])
-      showToast(getErrorMessage(err, 'failed to load workflow options'), 'error')
+      showToast(getErrorMessage(err, t('operations.publish.loadFailed')), 'error')
     } finally {
       if (mountedRef.current) setOptionsLoading(false)
     }
-  }, [appId, elementKey, env, missingParams, showToast])
+  }, [appId, elementKey, env, missingParams, showToast, t])
 
   useEffect(() => {
     mountedRef.current = true
@@ -147,7 +149,7 @@ function PublishWizardFlow({ appId, env, elementKey }: PublishWizardFlowProps) {
 
     if (!targetVersion) {
       setDiffLoading(false)
-      showToast('select a version before continuing', 'error')
+      showToast(t('operations.publish.selectVersion'), 'error')
       return
     }
 
@@ -170,7 +172,7 @@ function PublishWizardFlow({ appId, env, elementKey }: PublishWizardFlowProps) {
 
     if (usingVersion === null) {
       setDiffLoading(false)
-      showToast('no comparison data is available to review this publish.', 'error')
+      showToast(t('operations.publish.noComparison'), 'error')
       return
     }
 
@@ -179,7 +181,7 @@ function PublishWizardFlow({ appId, env, elementKey }: PublishWizardFlowProps) {
       if (!mountedRef.current) return
 
       if (currentVersionData.version !== usingVersion) {
-        showToast('no comparison data is available to review this publish.', 'error')
+        showToast(t('operations.publish.noComparison'), 'error')
         return
       }
 
@@ -189,7 +191,7 @@ function PublishWizardFlow({ appId, env, elementKey }: PublishWizardFlowProps) {
       setActiveStep(3)
     } catch (err) {
       if (!mountedRef.current) return
-      showToast(getErrorMessage(err, 'no comparison data is available to review this publish.'), 'error')
+      showToast(getErrorMessage(err, t('operations.publish.noComparison')), 'error')
     } finally {
       if (mountedRef.current) setDiffLoading(false)
     }
@@ -214,11 +216,11 @@ function PublishWizardFlow({ appId, env, elementKey }: PublishWizardFlowProps) {
 
       if (!mountedRef.current) return
 
-      showToast(`Version ${parsedVersion} was queued for ${getStrategyLabel(publishMode).toLowerCase()}.`, 'success')
+      showToast(t('operations.publish.queued', { version: parsedVersion ?? '-', strategy: getStrategyLabel(publishMode, t).toLowerCase() }), 'success')
       setActiveStep(5)
     } catch (err) {
       if (!mountedRef.current) return
-      showToast(getErrorMessage(err, 'failed to publish element'), 'error')
+      showToast(getErrorMessage(err, t('operations.publish.failed')), 'error')
     } finally {
       if (mountedRef.current) setSubmitting(false)
     }
@@ -228,13 +230,13 @@ function PublishWizardFlow({ appId, env, elementKey }: PublishWizardFlowProps) {
     if (submitting || diffLoading) return
 
     if (missingParams) {
-      showToast('missing app, environment, or key', 'error')
+      showToast(t('operations.missingParams'), 'error')
       return
     }
 
     if (activeStep === 0) {
       if (!versionIsValid) {
-        showToast('select a version before continuing', 'error')
+        showToast(t('operations.publish.selectVersion'), 'error')
         return
       }
 
@@ -275,7 +277,7 @@ function PublishWizardFlow({ appId, env, elementKey }: PublishWizardFlowProps) {
     setActiveStep((currentStep) => Math.max(currentStep - 1, 0))
   }
 
-  const nextLabel = activeStep === 4 ? 'Publish' : activeStep === 5 ? 'Done' : 'Next'
+  const nextLabel = activeStep === 4 ? t('operations.publish') : activeStep === 5 ? t('operations.done') : t('operations.next')
   const nextDisabled =
     missingParams ||
     submitting ||
@@ -289,16 +291,16 @@ function PublishWizardFlow({ appId, env, elementKey }: PublishWizardFlowProps) {
     <Stack spacing={3}>
       <AppBreadcrumbs
         items={[
-          { label: 'Apps', to: '/apps' },
-          { label: appId || 'unknown', to: `/apps/${encodeURIComponent(appId)}/envs` },
-          { label: env || 'unknown', to: `/apps/${encodeURIComponent(appId)}/envs/${encodeURIComponent(env)}/elements` },
-          { label: elementKey || 'unknown', to: detailPath },
-          { label: 'Publish' },
+          { label: t('operations.apps'), to: '/apps' },
+          { label: appId || t('operations.unknown'), to: `/apps/${encodeURIComponent(appId)}/envs` },
+          { label: env || t('operations.unknown'), to: `/apps/${encodeURIComponent(appId)}/envs/${encodeURIComponent(env)}/elements` },
+          { label: elementKey || t('operations.unknown'), to: detailPath },
+          { label: t('operations.publish') },
         ]}
       />
       <WizardLayout
-        title="Publish element"
-        steps={steps}
+        title={t('operations.publish.title')}
+        steps={stepKeys.map((key) => t(key))}
         activeStep={activeStep}
         onBack={handleBack}
         onNext={() => void handleNext()}
@@ -311,14 +313,14 @@ function PublishWizardFlow({ appId, env, elementKey }: PublishWizardFlowProps) {
           {activeStep === 0 && (
             <Stack spacing={2.5}>
               <Typography variant="h6" component="h2">
-                Choose the version to publish
+                {t('operations.publish.chooseVersion')}
               </Typography>
               <Typography color="text.secondary">
-                Pick the draft or historical version you want to ship into the selected environment.
+                {t('operations.publish.versionDescription')}
               </Typography>
               <TextField
                 select
-                label="Version"
+                label={t('operations.version')}
                 value={version}
                 onChange={(event) => {
                   setVersion(event.target.value)
@@ -329,11 +331,11 @@ function PublishWizardFlow({ appId, env, elementKey }: PublishWizardFlowProps) {
                 required
                 fullWidth
                 disabled={submitting || diffLoading || missingParams || optionsLoading}
-                helperText={optionsLoading ? 'Loading versions.' : versionOptions.some((option) => !isPublishVersionDisabled(option, usingVersion)) ? 'Select a newer version to publish.' : 'No newer version available.'}
+                helperText={optionsLoading ? t('operations.loadingVersions') : versionOptions.some((option) => !isPublishVersionDisabled(option, usingVersion)) ? t('operations.publish.selectNewerVersion') : t('operations.publish.noNewerVersion')}
               >
                 {versionOptions.length > 0
-                  ? versionOptions.map((option) => renderVersionMenuItem(option, isPublishVersionDisabled(option, usingVersion), option.version === usingVersion))
-                  : renderVersionMenuItem({ value: '', label: 'No version candidates', version: 0, published: true, element: { metadata: { key: elementKey } } }, true)}
+                  ? versionOptions.map((option) => renderVersionMenuItem(option, t, isPublishVersionDisabled(option, usingVersion), option.version === usingVersion))
+                  : renderVersionMenuItem({ value: '', label: t('operations.publish.noVersionCandidates'), version: 0, published: true, element: { metadata: { key: elementKey } } }, t, true)}
               </TextField>
             </Stack>
           )}
@@ -341,10 +343,10 @@ function PublishWizardFlow({ appId, env, elementKey }: PublishWizardFlowProps) {
           {activeStep === 1 && (
             <Stack spacing={2.5}>
               <Typography variant="h6" component="h2">
-                Choose a rollout strategy
+                {t('operations.publish.chooseStrategy')}
               </Typography>
               <Typography color="text.secondary">
-                Use a full publish for broad rollout, or gray publish for a narrower targeted release.
+                {t('operations.publish.strategyDescription')}
               </Typography>
               <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 3 }}>
                 <RadioGroup
@@ -363,9 +365,9 @@ function PublishWizardFlow({ appId, env, elementKey }: PublishWizardFlowProps) {
                     control={<Radio />}
                     label={
                       <Box>
-                        <Typography fontWeight={600}>Full publish</Typography>
+                        <Typography fontWeight={600}>{t('operations.publish.full')}</Typography>
                         <Typography variant="body2" color="text.secondary">
-                          Publish to the standard audience with no explicit targeting requirements.
+                          {t('operations.publish.fullDescription')}
                         </Typography>
                       </Box>
                     }
@@ -375,9 +377,9 @@ function PublishWizardFlow({ appId, env, elementKey }: PublishWizardFlowProps) {
                     control={<Radio />}
                     label={
                       <Box>
-                        <Typography fontWeight={600}>Gray publish</Typography>
+                        <Typography fontWeight={600}>{t('operations.publish.gray')}</Typography>
                         <Typography variant="body2" color="text.secondary">
-                          Limit rollout with explicit agent or instance targeting.
+                          {t('operations.publish.grayDescription')}
                         </Typography>
                       </Box>
                     }
@@ -390,12 +392,12 @@ function PublishWizardFlow({ appId, env, elementKey }: PublishWizardFlowProps) {
           {activeStep === 2 && (
             <Stack spacing={2.5}>
               <Typography variant="h6" component="h2">
-                Define rollout targets
+                {t('operations.publish.defineTargets')}
               </Typography>
               {requiresExplicitTargets ? (
                 <>
                   <Typography color="text.secondary">
-                    Select agent or instance targets for this element. Gray publish requires at least one target before you can continue.
+                    {t('operations.publish.targetsDescription')}
                   </Typography>
                   {!hasExplicitTargets && <Typography color="error.main">{targetsValidationMessage}</Typography>}
                   <Autocomplete
@@ -407,7 +409,7 @@ function PublishWizardFlow({ appId, env, elementKey }: PublishWizardFlowProps) {
                     }}
                     disabled={submitting || diffLoading || missingParams}
                     renderInput={(params) => (
-                      <TextField {...params} label="Agent IDs" helperText={agentOptions.length > 0 ? 'Select one or more agent targets.' : 'No agent candidates found.'} />
+                      <TextField {...params} label={t('operations.publish.agentIds')} helperText={agentOptions.length > 0 ? t('operations.publish.selectAgents') : t('operations.publish.noAgentCandidates')} />
                     )}
                   />
                   <Autocomplete
@@ -419,14 +421,14 @@ function PublishWizardFlow({ appId, env, elementKey }: PublishWizardFlowProps) {
                     }}
                     disabled={submitting || diffLoading || missingParams}
                     renderInput={(params) => (
-                      <TextField {...params} label="Instance IDs" helperText={instanceOptions.length > 0 ? 'Select one or more instance targets.' : 'No instance candidates found for this element.'} />
+                      <TextField {...params} label={t('operations.publish.instanceIds')} helperText={instanceOptions.length > 0 ? t('operations.publish.selectInstances') : t('operations.publish.noInstanceCandidates')} />
                     )}
                   />
                 </>
               ) : (
                 <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 3 }}>
                   <Typography color="text.secondary">
-                    Full publish does not use explicit agent or instance targets. Continue to review the rollout payload.
+                    {t('operations.publish.fullTargetsDescription')}
                   </Typography>
                 </Paper>
               )}
@@ -436,39 +438,39 @@ function PublishWizardFlow({ appId, env, elementKey }: PublishWizardFlowProps) {
           {activeStep === 3 && (
             <Stack spacing={2.5}>
               <Typography variant="h6" component="h2">
-                Review diff
+                {t('operations.reviewDiff')}
               </Typography>
               <Typography color="text.secondary">
-                Inspect the change between the current live version and the selected publish version before proceeding.
+                {t('operations.publish.diffDescription')}
               </Typography>
               <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 3 }}>
                 <Stack spacing={2}>
                   <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
                     <Box sx={{ flex: 1 }}>
                       <Typography variant="caption" color="text.secondary">
-                        Current version
+                        {t('operations.currentVersion')}
                       </Typography>
                       <Typography fontWeight={600}>{currentVersion ?? '-'}</Typography>
                     </Box>
                     <Box sx={{ flex: 1 }}>
                       <Typography variant="caption" color="text.secondary">
-                        Publish version
+                        {t('operations.publishVersion')}
                       </Typography>
-                      <Typography fontWeight={600}>{selectedVersion?.label || '-'}</Typography>
+                      <Typography fontWeight={600}>{selectedVersion ? getVersionLabel(selectedVersion, t) : '-'}</Typography>
                     </Box>
                   </Stack>
                   {diffLoaded && diffPair ? (
                     <DiffViewer
                       oldValue={decodeRaw(diffPair.base.raw)}
                       newValue={decodeRaw(diffPair.compare.raw)}
-                      baseLabel={`Current v${currentVersion ?? '-'}`}
-                      compareLabel={selectedVersion?.label || 'Publish version'}
+                      baseLabel={t('operations.currentVersionLabel', { version: currentVersion ?? '-' })}
+                      compareLabel={selectedVersion ? getVersionLabel(selectedVersion, t) : t('operations.publishVersion')}
                       contentType={diffPair.compare.metadata?.contentType}
                     />
                   ) : diffLoading ? (
-                    <Typography color="text.secondary">Loading diff…</Typography>
+                    <Typography color="text.secondary">{t('operations.loadingDiff')}</Typography>
                   ) : (
-                    <Typography color="text.secondary">No diff loaded yet.</Typography>
+                    <Typography color="text.secondary">{t('operations.noDiff')}</Typography>
                   )}
                 </Stack>
               </Paper>
@@ -478,16 +480,16 @@ function PublishWizardFlow({ appId, env, elementKey }: PublishWizardFlowProps) {
           {activeStep === 4 && (
             <Stack spacing={2.5}>
               <Typography variant="h6" component="h2">
-                Impact confirmation
+                {t('operations.impactConfirmation')}
               </Typography>
               <Typography color="text.secondary">
-                Review the publish payload before dispatching it to the control plane.
+                {t('operations.publish.impactDescription')}
               </Typography>
               <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 3 }}>
                 <Box data-testid="publish-impact-grid" sx={impactGridSx}>
                   <Box data-testid="publish-impact-app" sx={{ minWidth: 0 }}>
                     <Typography variant="caption" color="text.secondary">
-                      App
+                      {t('operations.app')}
                     </Typography>
                     <Typography fontWeight={600} sx={{ overflowWrap: 'anywhere' }}>
                       {appId || '-'}
@@ -495,7 +497,7 @@ function PublishWizardFlow({ appId, env, elementKey }: PublishWizardFlowProps) {
                   </Box>
                   <Box data-testid="publish-impact-env" sx={{ minWidth: 0 }}>
                     <Typography variant="caption" color="text.secondary">
-                      Env
+                      {t('operations.env')}
                     </Typography>
                     <Typography fontWeight={600} sx={{ overflowWrap: 'anywhere' }}>
                       {env || '-'}
@@ -503,7 +505,7 @@ function PublishWizardFlow({ appId, env, elementKey }: PublishWizardFlowProps) {
                   </Box>
                   <Box data-testid="publish-impact-key" sx={{ minWidth: 0 }}>
                     <Typography variant="caption" color="text.secondary">
-                      Key
+                      {t('operations.key')}
                     </Typography>
                     <Typography fontWeight={600} sx={{ overflowWrap: 'anywhere' }}>
                       {elementKey || '-'}
@@ -511,30 +513,30 @@ function PublishWizardFlow({ appId, env, elementKey }: PublishWizardFlowProps) {
                   </Box>
                   <Box data-testid="publish-impact-version" sx={{ minWidth: 0 }}>
                     <Typography variant="caption" color="text.secondary">
-                      Version
+                      {t('operations.version')}
                     </Typography>
-                    <Typography fontWeight={600}>{selectedVersion?.label || '-'}</Typography>
+                    <Typography fontWeight={600}>{selectedVersion ? getVersionLabel(selectedVersion, t) : '-'}</Typography>
                   </Box>
                   <Box data-testid="publish-impact-strategy" sx={{ minWidth: 0 }}>
                     <Typography variant="caption" color="text.secondary">
-                      Strategy
+                      {t('operations.strategy')}
                     </Typography>
-                    <Typography fontWeight={600}>{getStrategyLabel(publishMode)}</Typography>
+                    <Typography fontWeight={600}>{getStrategyLabel(publishMode, t)}</Typography>
                   </Box>
                   <Box data-testid="publish-impact-agent-ids" sx={fullRowSx}>
                     <Typography variant="caption" color="text.secondary">
-                      Agent IDs
+                      {t('operations.publish.agentIds')}
                     </Typography>
                     <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap" sx={{ mt: 1 }}>
-                      {agentIds.length > 0 ? agentIds.map((agentId) => <Chip key={agentId} label={agentId} variant="outlined" />) : <Typography color="text.secondary">No explicit agent targets.</Typography>}
+                      {agentIds.length > 0 ? agentIds.map((agentId) => <Chip key={agentId} label={agentId} variant="outlined" />) : <Typography color="text.secondary">{t('operations.publish.noAgentTargets')}</Typography>}
                     </Stack>
                   </Box>
                   <Box data-testid="publish-impact-instance-ids" sx={fullRowSx}>
                     <Typography variant="caption" color="text.secondary">
-                      Instance IDs
+                      {t('operations.publish.instanceIds')}
                     </Typography>
                     <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap" sx={{ mt: 1 }}>
-                      {instanceIds.length > 0 ? instanceIds.map((instanceId) => <Chip key={instanceId} label={instanceId} variant="outlined" />) : <Typography color="text.secondary">No explicit instance targets.</Typography>}
+                      {instanceIds.length > 0 ? instanceIds.map((instanceId) => <Chip key={instanceId} label={instanceId} variant="outlined" />) : <Typography color="text.secondary">{t('operations.publish.noInstanceTargets')}</Typography>}
                     </Stack>
                   </Box>
                 </Box>
@@ -545,10 +547,10 @@ function PublishWizardFlow({ appId, env, elementKey }: PublishWizardFlowProps) {
           {activeStep === 5 && (
             <Stack spacing={2.5}>
               <Typography variant="h6" component="h2">
-                Result
+                {t('operations.result')}
               </Typography>
               <Typography color="text.secondary">
-                Select Done to return to the element detail page and continue reviewing versions or operations.
+                {t('operations.publish.resultDescription')}
               </Typography>
             </Stack>
           )}

@@ -6,12 +6,12 @@ import (
 	"testing"
 	"time"
 
+	pb "github.com/yeqown/cassem/internal/protogen"
+
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
 	"google.golang.org/grpc/health/grpc_health_v1"
-
-	"github.com/yeqown/cassem/api/concept"
 )
 
 func TestTopologyInstancePageLimitFitsRangeValidation(t *testing.T) {
@@ -46,7 +46,7 @@ func TestTopologyHealthHelpers(t *testing.T) {
 	}{
 		{
 			name: "agent with valid renewal annotations is healthy",
-			got: agentHealth(&concept.AgentInstance{
+			got: agentHealth(&pb.AgentInstance{
 				Addr:        "127.0.0.1:2030",
 				Annotations: map[string]string{"ttl": "60", "renewInterval": "30"},
 			}),
@@ -54,13 +54,13 @@ func TestTopologyHealthHelpers(t *testing.T) {
 		},
 		{
 			name: "agent with invalid renewal interval is unhealthy",
-			got: agentHealth(&concept.AgentInstance{
+			got: agentHealth(&pb.AgentInstance{
 				Addr:        "127.0.0.1:2030",
 				Annotations: map[string]string{"ttl": "30", "renewInterval": "30"},
 			}),
 			want: topologyHealthUnhealthy,
 		},
-		{name: "agent without address is offline", got: agentHealth(&concept.AgentInstance{}), want: topologyHealthOffline},
+		{name: "agent without address is offline", got: agentHealth(&pb.AgentInstance{}), want: topologyHealthOffline},
 		{name: "fresh instance is healthy", got: instanceHealth(now.Add(-30*time.Second).Unix(), now), want: topologyHealthHealthy},
 		{name: "stale instance is unhealthy", got: instanceHealth(now.Add(-90*time.Second).Unix(), now), want: topologyHealthUnhealthy},
 		{name: "expired instance is offline", got: instanceHealth(now.Add(-3*time.Minute).Unix(), now), want: topologyHealthOffline},

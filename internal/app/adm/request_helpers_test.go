@@ -10,7 +10,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/yeqown/cassem/api/concept"
+	"github.com/yeqown/cassem/internal/concept"
 )
 
 type bindRequestSample struct {

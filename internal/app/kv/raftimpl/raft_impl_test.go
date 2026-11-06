@@ -3,13 +3,14 @@ package raftimpl
 import (
 	"context"
 	"errors"
-	apikv "github.com/yeqown/cassem/api/kv"
 	"testing"
+
+	pb "github.com/yeqown/cassem/internal/protogen"
 
 	"github.com/stretchr/testify/require"
 
-	errorx "github.com/yeqown/cassem/api/concept"
 	"github.com/yeqown/cassem/internal/app/kv/storage"
+	errorx "github.com/yeqown/cassem/internal/concept"
 )
 
 type snapshotKV struct {
@@ -20,13 +21,13 @@ type snapshotKV struct {
 }
 
 type mutateKV struct {
-	data     map[string]*apikv.Entity
+	data     map[string]*pb.Entity
 	getErr   error
 	setErr   error
 	unsetErr error
 }
 
-func (m *mutateKV) GetKV(key string, _ bool) (*apikv.Entity, error) {
+func (m *mutateKV) GetKV(key string, _ bool) (*pb.Entity, error) {
 	if m.getErr != nil {
 		return nil, m.getErr
 	}
@@ -37,12 +38,12 @@ func (m *mutateKV) GetKV(key string, _ bool) (*apikv.Entity, error) {
 	return entity, nil
 }
 
-func (m *mutateKV) SetKV(key string, val *apikv.Entity, _ bool) error {
+func (m *mutateKV) SetKV(key string, val *pb.Entity, _ bool) error {
 	if m.setErr != nil {
 		return m.setErr
 	}
 	if m.data == nil {
-		m.data = make(map[string]*apikv.Entity)
+		m.data = make(map[string]*pb.Entity)
 	}
 	m.data[key] = val
 	return nil
@@ -60,15 +61,15 @@ func (m *mutateKV) Range(string, string, int) (*storage.RangeResult, error) {
 	return &storage.RangeResult{}, nil
 }
 
-func (m *mutateKV) Snapshot() ([]byte, error) { return nil, nil }
+func (m *mutateKV) Snapshot() ([]byte, error)    { return nil, nil }
 func (m *mutateKV) RecoverSnapshot([]byte) error { return nil }
 
-func (s *snapshotKV) GetKV(string, bool) (*apikv.Entity, error) {
+func (s *snapshotKV) GetKV(string, bool) (*pb.Entity, error) {
 	return nil, storage.ErrNotFound
 }
 
-func (s *snapshotKV) SetKV(string, *apikv.Entity, bool) error { return nil }
-func (s *snapshotKV) UnsetKV(string, bool) error              { return nil }
+func (s *snapshotKV) SetKV(string, *pb.Entity, bool) error { return nil }
+func (s *snapshotKV) UnsetKV(string, bool) error           { return nil }
 func (s *snapshotKV) Range(string, string, int) (*storage.RangeResult, error) {
 	return &storage.RangeResult{}, nil
 }
@@ -82,7 +83,7 @@ func TestRaftNodeImplProposeReturnsCanceledContext(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	err := (&raftNodeImpl{proposeC: make(chan *apikv.Propose)}).propose(ctx, &apikv.MutateCommand{Key: "k", Op: apikv.MutateCommand_SET})
+	err := (&raftNodeImpl{proposeC: make(chan *proposal)}).propose(ctx, &pb.MutateCommand{Key: "k", Op: pb.MutateCommand_SET})
 	require.ErrorIs(t, err, context.Canceled)
 }
 
@@ -137,17 +138,17 @@ func TestRaftNodeImplRecoverSnapshotPropagatesStorageErrors(t *testing.T) {
 }
 
 func TestRaftNodeImplApplyMutateLogEntrySetResolvesAckAndEmitsChange(t *testing.T) {
-	last := apikv.NewEntityWithCreated("root/key", []byte("old"), 0, 1)
-	cur := apikv.NewEntityWithCreated("root/key", []byte("new"), 0, 1)
+	last := storage.NewEntityWithCreated("root/key", []byte("old"), 0, 1)
+	cur := storage.NewEntityWithCreated("root/key", []byte("new"), 0, 1)
 	ackCh := make(chan applyAck, 1)
-	store := &mutateKV{data: map[string]*apikv.Entity{"root/key": last}}
+	store := &mutateKV{data: map[string]*pb.Entity{"root/key": last}}
 	r := &raftNodeImpl{
 		kvstore: store,
 		changeC: make(chan errorx.Change, 4),
 		pending: map[uint64]chan applyAck{1: ackCh},
 	}
 
-	err := r.applyMutateLogEntry(mutateEntry(t, &apikv.MutateCommand{RequestId: 1, Op: apikv.MutateCommand_SET, Key: "root/key", Value: cur}))
+	err := r.applyMutateLogEntry(mutateEntry(t, &pb.MutateCommand{RequestId: 1, Op: pb.MutateCommand_SET, Key: "root/key", Value: cur}))
 	require.NoError(t, err)
 	require.Equal(t, cur.GetFingerprint(), store.data["root/key"].GetFingerprint())
 	require.Equal(t, cur.GetKey(), store.data["root/key"].GetKey())
@@ -156,16 +157,16 @@ func TestRaftNodeImplApplyMutateLogEntrySetResolvesAckAndEmitsChange(t *testing.
 }
 
 func TestRaftNodeImplApplyMutateLogEntryUnsetResolvesAckAndEmitsChange(t *testing.T) {
-	last := apikv.NewEntityWithCreated("root/key", []byte("old"), 0, 1)
+	last := storage.NewEntityWithCreated("root/key", []byte("old"), 0, 1)
 	ackCh := make(chan applyAck, 1)
-	store := &mutateKV{data: map[string]*apikv.Entity{"root/key": last}}
+	store := &mutateKV{data: map[string]*pb.Entity{"root/key": last}}
 	r := &raftNodeImpl{
 		kvstore: store,
 		changeC: make(chan errorx.Change, 4),
 		pending: map[uint64]chan applyAck{2: ackCh},
 	}
 
-	err := r.applyMutateLogEntry(mutateEntry(t, &apikv.MutateCommand{RequestId: 2, Op: apikv.MutateCommand_UNSET, Key: "root/key"}))
+	err := r.applyMutateLogEntry(mutateEntry(t, &pb.MutateCommand{RequestId: 2, Op: pb.MutateCommand_UNSET, Key: "root/key"}))
 	require.NoError(t, err)
 	_, ok := store.data["root/key"]
 	require.False(t, ok)
@@ -182,7 +183,7 @@ func TestRaftNodeImplApplyMutateLogEntryPropagatesStorageError(t *testing.T) {
 		pending: map[uint64]chan applyAck{3: ackCh},
 	}
 
-	err := r.applyMutateLogEntry(mutateEntry(t, &apikv.MutateCommand{RequestId: 3, Op: apikv.MutateCommand_SET, Key: "root/key", Value: apikv.NewEntityWithCreated("root/key", []byte("new"), 0, 1)}))
+	err := r.applyMutateLogEntry(mutateEntry(t, &pb.MutateCommand{RequestId: 3, Op: pb.MutateCommand_SET, Key: "root/key", Value: storage.NewEntityWithCreated("root/key", []byte("new"), 0, 1)}))
 	require.ErrorIs(t, err, wantErr)
 	require.ErrorIs(t, (<-ackCh).err, wantErr)
 	select {
@@ -196,7 +197,7 @@ func TestRaftNodeImplShutdownFailsPendingRequests(t *testing.T) {
 	ack1 := make(chan applyAck, 1)
 	ack2 := make(chan applyAck, 1)
 	r := &raftNodeImpl{
-		proposeC: make(chan *apikv.Propose),
+		proposeC: make(chan *proposal),
 		pending:  map[uint64]chan applyAck{1: ack1, 2: ack2},
 	}
 
@@ -205,7 +206,7 @@ func TestRaftNodeImplShutdownFailsPendingRequests(t *testing.T) {
 	require.ErrorIs(t, (<-ack2).err, ErrShuttingDown)
 }
 
-func mutateEntry(t *testing.T, cmd *apikv.MutateCommand) *apikv.LogEntry {
+func mutateEntry(t *testing.T, cmd *pb.MutateCommand) *pb.LogEntry {
 	t.Helper()
-	return &apikv.LogEntry{Action: apikv.LogEntry_Mutate, Command: apikv.Must(apikv.Marshal(cmd))}
+	return &pb.LogEntry{Action: pb.LogEntry_Mutate, Command: errorx.MustMarshalProto(cmd)}
 }

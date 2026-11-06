@@ -38,6 +38,7 @@ import { EmptyState, ErrorState, LoadingState } from '../../components/StateView
 import { useErrorState } from '../../components/useErrorState'
 import { useToast } from '../../components/ToastProvider'
 import type { DomainOptionsResponse, RoleValue, User, UserAccessBinding, UserAccessResponse, UsersResponse } from '../../domain/types'
+import { useI18n } from '../../i18n'
 import { ApiError, apiRequest, buildQuery, jsonBody } from '../../lib/api'
 import { roleOptions } from '../../domain/types'
 
@@ -64,15 +65,12 @@ function isSuperadminUser(user: User) {
 const assignableRoleOptions = roleOptions.filter((role) => role.value !== 'superadmin')
 
 function UserStatusChip({ status }: { status?: number }) {
+  const { t } = useI18n()
   return isUserDisabled(status) ? (
-    <Chip size="small" color="error" variant="outlined" icon={<BlockIcon />} label="Disabled" />
+    <Chip size="small" color="error" variant="outlined" icon={<BlockIcon />} label={t('management.users.disabled')} />
   ) : (
-    <Chip size="small" color="success" variant="outlined" icon={<CheckCircleIcon />} label="Enabled" />
+    <Chip size="small" color="success" variant="outlined" icon={<CheckCircleIcon />} label={t('management.users.enabled')} />
   )
-}
-
-function roleLabel(role: string) {
-  return roleOptions.find((item) => item.value === role)?.label || role
 }
 
 async function requestUsers() {
@@ -94,6 +92,7 @@ function buildDomain(scopeMode: ScopeMode, app: string, env: string) {
 }
 
 export function UsersPage() {
+  const { t, formatNumber } = useI18n()
   const { showToast } = useToast()
   const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
@@ -139,11 +138,11 @@ export function UsersPage() {
     } catch (err) {
       if (!mountedRef.current || requestId !== requestSeq.current) return
       setUsers([])
-      setError(getErrorMessage(err, 'failed to load users'))
+      setError(getErrorMessage(err, t('management.users.loadFailed')))
     } finally {
       if (mountedRef.current && requestId === requestSeq.current) setLoading(false)
     }
-  }, [setError])
+  }, [setError, t])
 
   const loadDomainOptions = useCallback(async () => {
     try {
@@ -152,9 +151,9 @@ export function UsersPage() {
       setDomainOptions(data.domains || [])
     } catch (err) {
       if (!mountedRef.current) return
-      setError(getErrorMessage(err, 'failed to load ACL domains'))
+      setError(getErrorMessage(err, t('management.users.loadDomainsFailed')))
     }
-  }, [setError])
+  }, [setError, t])
 
   useEffect(() => {
     mountedRef.current = true
@@ -172,6 +171,11 @@ export function UsersPage() {
       mountedRef.current = false
     }
   }, [loadUsers, loadDomainOptions])
+
+  function roleLabel(role: string) {
+    const option = roleOptions.find((item) => item.value === role)
+    return option ? t(`management.roles.${option.value}`) : role
+  }
 
   function updateCreateField(field: keyof CreateFormState, value: string) {
     setCreateForm((current) => ({ ...current, [field]: value }))
@@ -219,10 +223,10 @@ export function UsersPage() {
       await apiRequest<void>('/api/account/add', jsonBody({ account, password, nickname }))
       setCreateOpen(false)
       setCreateForm({ account: '', nickname: '', password: '' })
-      showToast('User added successfully.', 'success')
+      showToast(t('management.users.added'), 'success')
       await loadUsers()
     } catch (err) {
-      showToast(getErrorMessage(err, 'Failed to add user.'), 'error')
+      showToast(getErrorMessage(err, t('management.users.addFailed')), 'error')
     } finally {
       setSubmitting(false)
     }
@@ -238,10 +242,10 @@ export function UsersPage() {
     try {
       await apiRequest<void>(`/api/account/disable${buildQuery({ account })}`)
       setDisableTarget(null)
-      showToast('User disabled successfully.', 'success')
+      showToast(t('management.users.disabledSuccess'), 'success')
       await loadUsers()
     } catch (err) {
-      showToast(getErrorMessage(err, 'Failed to disable user.'), 'error')
+      showToast(getErrorMessage(err, t('management.users.disableFailed')), 'error')
     } finally {
       setSubmitting(false)
     }
@@ -260,10 +264,10 @@ export function UsersPage() {
       await apiRequest<void>('/api/account/reset', jsonBody({ account, password: resetPassword }))
       setResetTarget(null)
       setResetPassword('')
-      showToast('Password reset successfully.', 'success')
+      showToast(t('management.users.passwordReset'), 'success')
       await loadUsers()
     } catch (err) {
-      showToast(getErrorMessage(err, 'Failed to reset password.'), 'error')
+      showToast(getErrorMessage(err, t('management.users.resetFailed')), 'error')
     } finally {
       setSubmitting(false)
     }
@@ -280,7 +284,7 @@ export function UsersPage() {
       setAccessBindings(data.bindings || [])
     } catch (err) {
       if (!mountedRef.current) return
-      setError(getErrorMessage(err, 'Failed to load access bindings.'))
+      setError(getErrorMessage(err, t('management.users.loadAccessFailed')))
     } finally {
       if (mountedRef.current) setAccessLoading(false)
     }
@@ -294,7 +298,7 @@ export function UsersPage() {
       return true
     } catch (err) {
       if (mountedRef.current) {
-        showToast(getErrorMessage(err, 'Failed to refresh access bindings.'), 'error')
+        showToast(getErrorMessage(err, t('management.users.refreshAccessFailed')), 'error')
       }
       return false
     }
@@ -312,11 +316,11 @@ export function UsersPage() {
     setError('')
     try {
       await apiRequest<void>(`/api/account/acl/assign${buildQuery({ account, role: roleValue, domain })}`)
-      showToast('Role assigned successfully.', 'success')
+      showToast(t('management.acl.assigned'), 'success')
       await refreshAccessBindings(account)
       void loadUsers()
     } catch (err) {
-      showToast(getErrorMessage(err, 'Failed to assign role.'), 'error')
+      showToast(getErrorMessage(err, t('management.acl.assignFailed')), 'error')
     } finally {
       if (mountedRef.current) setSubmitting(false)
     }
@@ -330,11 +334,11 @@ export function UsersPage() {
     setError('')
     try {
       await apiRequest<void>(`/api/account/acl/revoke${buildQuery({ account, role: binding.role, domain: binding.domain })}`)
-      showToast('Role revoked successfully.', 'success')
+      showToast(t('management.acl.revoked'), 'success')
       await refreshAccessBindings(account)
       void loadUsers()
     } catch (err) {
-      showToast(getErrorMessage(err, 'Failed to revoke role.'), 'error')
+      showToast(getErrorMessage(err, t('management.acl.revokeFailed')), 'error')
     } finally {
       if (mountedRef.current) setSubmitting(false)
     }
@@ -347,13 +351,13 @@ export function UsersPage() {
           <Stack direction="row" spacing={1} alignItems="center">
             <ManageAccountsIcon color="primary" />
             <Typography variant="h4" component="h1">
-              Users
+              {t('management.users.title')}
             </Typography>
           </Stack>
-          <Typography color="text.secondary">Review accounts, add new users, manage access, disable access, and reset passwords.</Typography>
+          <Typography color="text.secondary">{t('management.users.description')}</Typography>
         </Box>
         <Button variant="contained" startIcon={<PersonAddAlt1Icon />} onClick={() => setCreateOpen(true)} disabled={submitting}>
-          Add user
+          {t('management.users.add')}
         </Button>
       </Stack>
 
@@ -361,9 +365,9 @@ export function UsersPage() {
 
       <DangerConfirmDialog
         open={Boolean(disableTarget)}
-        title="Disable user"
-        description={<>This will disable user <strong>{disableTarget?.account}</strong>.</>}
-        confirmLabel="Disable"
+        title={t('management.users.disableUser')}
+        description={t('management.users.disableDescription', { account: disableTarget?.account || '' })}
+        confirmLabel={t('management.users.disable')}
         loading={submitting}
         onClose={closeDisableDialog}
         onConfirm={() => void handleDisableUser()}
@@ -371,92 +375,92 @@ export function UsersPage() {
 
       <Dialog open={createOpen} onClose={closeCreateDialog} fullWidth maxWidth="sm">
         <Box component="form" onSubmit={(event) => void handleAddUser(event)}>
-          <DialogTitle>Add user</DialogTitle>
+          <DialogTitle>{t('management.users.add')}</DialogTitle>
           <DialogContent>
             <Stack spacing={2} sx={{ mt: 1 }}>
               <TextField
-                label="Account"
+                label={t('management.users.account')}
                 value={createForm.account}
                 onChange={(event) => updateCreateField('account', event.target.value)}
                 required
                 fullWidth
                 disabled={submitting}
-                helperText="User login account. Must be a valid email address."
+                helperText={t('management.users.accountHelp')}
                 InputProps={{ startAdornment: <InputAdornment position="start"><PersonIcon fontSize="small" /></InputAdornment> }}
               />
               <TextField
-                label="Nickname"
+                label={t('management.users.nickname')}
                 value={createForm.nickname}
                 onChange={(event) => updateCreateField('nickname', event.target.value)}
                 required
                 fullWidth
                 disabled={submitting}
-                helperText="Display name shown in the admin UI and account menu."
+                helperText={t('management.users.nicknameHelp')}
                 InputProps={{ startAdornment: <InputAdornment position="start"><ManageAccountsIcon fontSize="small" /></InputAdornment> }}
               />
               <TextField
-                label="Password"
+                label={t('management.users.password')}
                 type="password"
                 value={createForm.password}
                 onChange={(event) => updateCreateField('password', event.target.value)}
                 required
                 fullWidth
                 disabled={submitting}
-                helperText="Initial password for the new account."
+                helperText={t('management.users.passwordHelp')}
                 InputProps={{ startAdornment: <InputAdornment position="start"><KeyIcon fontSize="small" /></InputAdornment> }}
               />
             </Stack>
           </DialogContent>
           <DialogActions>
-            <Button onClick={closeCreateDialog} disabled={submitting}>Cancel</Button>
-            <Button type="submit" variant="contained" disabled={submitting || !createForm.account.trim() || !createForm.nickname.trim() || !createForm.password.trim()}>Create</Button>
+            <Button onClick={closeCreateDialog} disabled={submitting}>{t('management.common.cancel')}</Button>
+            <Button type="submit" variant="contained" disabled={submitting || !createForm.account.trim() || !createForm.nickname.trim() || !createForm.password.trim()}>{t('management.common.create')}</Button>
           </DialogActions>
         </Box>
       </Dialog>
 
       <Dialog open={Boolean(resetTarget)} onClose={closeResetDialog} fullWidth maxWidth="sm">
         <Box component="form" onSubmit={(event) => void handleResetPassword(event)}>
-          <DialogTitle>Reset password</DialogTitle>
+          <DialogTitle>{t('management.users.resetPassword')}</DialogTitle>
           <DialogContent>
             <Stack spacing={2} sx={{ mt: 1 }}>
-              <TextField label="Account" value={resetTarget?.account || ''} fullWidth disabled InputProps={{ startAdornment: <InputAdornment position="start"><PersonIcon fontSize="small" /></InputAdornment> }} />
+              <TextField label={t('management.users.account')} value={resetTarget?.account || ''} fullWidth disabled InputProps={{ startAdornment: <InputAdornment position="start"><PersonIcon fontSize="small" /></InputAdornment> }} />
               <TextField
-                label="Password"
+                label={t('management.users.password')}
                 type="password"
                 value={resetPassword}
                 onChange={(event) => setResetPassword(event.target.value)}
                 required
                 fullWidth
                 disabled={submitting}
-                helperText="New password to assign to this user."
+                helperText={t('management.users.newPasswordHelp')}
                 InputProps={{ startAdornment: <InputAdornment position="start"><LockResetIcon fontSize="small" /></InputAdornment> }}
               />
             </Stack>
           </DialogContent>
           <DialogActions>
-            <Button onClick={closeResetDialog} disabled={submitting}>Cancel</Button>
-            <Button type="submit" variant="contained" disabled={submitting || !resetPassword.trim()}>Reset</Button>
+            <Button onClick={closeResetDialog} disabled={submitting}>{t('management.common.cancel')}</Button>
+            <Button type="submit" variant="contained" disabled={submitting || !resetPassword.trim()}>{t('management.users.reset')}</Button>
           </DialogActions>
         </Box>
       </Dialog>
 
       <Dialog open={Boolean(accessTarget)} onClose={closeAccessDialog} fullWidth maxWidth="md">
-        <DialogTitle>Manage access</DialogTitle>
+        <DialogTitle>{t('management.users.manageAccess')}</DialogTitle>
         <DialogContent>
           <Stack spacing={3} sx={{ mt: 1 }}>
-            <TextField label="Account" value={accessTarget?.account || ''} fullWidth disabled InputProps={{ startAdornment: <InputAdornment position="start"><SecurityIcon fontSize="small" /></InputAdornment> }} />
+            <TextField label={t('management.users.account')} value={accessTarget?.account || ''} fullWidth disabled InputProps={{ startAdornment: <InputAdornment position="start"><SecurityIcon fontSize="small" /></InputAdornment> }} />
             {accessLoading ? (
-              <LoadingState label="Loading access bindings" />
+              <LoadingState label={t('management.users.loadingAccess')} />
             ) : accessBindings.length === 0 ? (
-              <EmptyState title="No access bindings" description="Add a role binding for this user." />
+              <EmptyState title={t('management.users.emptyAccess')} description={t('management.users.emptyAccessDescription')} />
             ) : (
               <TableContainer component={Paper} variant="outlined">
                 <Table>
                   <TableHead>
                     <TableRow>
-                      <TableCell>Role</TableCell>
-                      <TableCell>Domain</TableCell>
-                      <TableCell align="right">Actions</TableCell>
+                      <TableCell>{t('management.users.role')}</TableCell>
+                      <TableCell>{t('management.users.domain')}</TableCell>
+                      <TableCell align="right">{t('management.common.actions')}</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -466,7 +470,7 @@ export function UsersPage() {
                         <TableCell>{binding.domain}</TableCell>
                         <TableCell align="right">
                           <Button color="error" size="small" startIcon={<DeleteOutlineIcon />} disabled={submitting || binding.role === 'superadmin'} onClick={() => void handleRevokeBinding(binding)}>
-                            Revoke
+                            {t('management.users.revoke')}
                           </Button>
                         </TableCell>
                       </TableRow>
@@ -477,27 +481,27 @@ export function UsersPage() {
             )}
             <Paper variant="outlined" sx={{ p: 2 }}>
               <Stack spacing={2}>
-                <Typography variant="subtitle1">Add binding</Typography>
+                <Typography variant="subtitle1">{t('management.users.addBinding')}</Typography>
                 <FormControl fullWidth>
-                  <InputLabel id="acl-role-label">Role</InputLabel>
-                  <Select labelId="acl-role-label" value={roleValue} label="Role" onChange={(event) => setRoleValue(event.target.value as RoleValue)}>
+                  <InputLabel id="acl-role-label">{t('management.users.role')}</InputLabel>
+                  <Select labelId="acl-role-label" value={roleValue} label={t('management.users.role')} onChange={(event) => setRoleValue(event.target.value as RoleValue)}>
                     {assignableRoleOptions.map((role) => (
-                      <MenuItem key={role.value} value={role.value}>{role.label}</MenuItem>
+                      <MenuItem key={role.value} value={role.value}>{t(`management.roles.${role.value}`)}</MenuItem>
                     ))}
                   </Select>
                 </FormControl>
                 <FormControl fullWidth>
-                  <InputLabel id="scope-mode-label">Scope</InputLabel>
-                  <Select labelId="scope-mode-label" value={scopeMode} label="Scope" onChange={(event) => setScopeMode(event.target.value as ScopeMode)}>
-                    <MenuItem value="cluster">Cluster</MenuItem>
-                    <MenuItem value="app-all">Entire app</MenuItem>
-                    <MenuItem value="app-env">Specific environment</MenuItem>
+                  <InputLabel id="scope-mode-label">{t('management.users.scope')}</InputLabel>
+                  <Select labelId="scope-mode-label" value={scopeMode} label={t('management.users.scope')} onChange={(event) => setScopeMode(event.target.value as ScopeMode)}>
+                    <MenuItem value="cluster">{t('management.users.cluster')}</MenuItem>
+                    <MenuItem value="app-all">{t('management.users.entireApp')}</MenuItem>
+                    <MenuItem value="app-env">{t('management.users.specificEnvironment')}</MenuItem>
                   </Select>
                 </FormControl>
                 {scopeMode !== 'cluster' && (
                   <FormControl fullWidth>
-                    <InputLabel id="scope-app-label">App</InputLabel>
-                    <Select labelId="scope-app-label" value={selectedApp} label="App" onChange={(event) => { setSelectedApp(event.target.value); setSelectedEnv('') }}>
+                    <InputLabel id="scope-app-label">{t('management.users.app')}</InputLabel>
+                    <Select labelId="scope-app-label" value={selectedApp} label={t('management.users.app')} onChange={(event) => { setSelectedApp(event.target.value); setSelectedEnv('') }}>
                       {appOptions.map((app) => (
                         <MenuItem key={app} value={app}>{app}</MenuItem>
                       ))}
@@ -506,8 +510,8 @@ export function UsersPage() {
                 )}
                 {scopeMode === 'app-env' && (
                   <FormControl fullWidth>
-                    <InputLabel id="scope-env-label">Environment</InputLabel>
-                    <Select labelId="scope-env-label" value={selectedEnv} label="Environment" onChange={(event) => setSelectedEnv(event.target.value)}>
+                    <InputLabel id="scope-env-label">{t('management.common.environment')}</InputLabel>
+                    <Select labelId="scope-env-label" value={selectedEnv} label={t('management.common.environment')} onChange={(event) => setSelectedEnv(event.target.value)}>
                       {envOptions.map((env) => (
                         <MenuItem key={env} value={env}>{env}</MenuItem>
                       ))}
@@ -515,10 +519,10 @@ export function UsersPage() {
                   </FormControl>
                 )}
                 <TextField
-                  label="Computed domain"
+                  label={t('management.users.computedDomain')}
                   value={scopeMode === 'cluster' ? 'cluster' : selectedApp ? buildDomain(scopeMode, selectedApp, selectedEnv) : ''}
                   fullWidth
-                  helperText="Preview of the exact domain string that will be written to ACL bindings."
+                  helperText={t('management.users.domainHelp')}
                   InputProps={{ readOnly: true }}
                 />
                 <Stack direction="row" justifyContent="flex-end">
@@ -528,7 +532,7 @@ export function UsersPage() {
                     disabled={submitting || (scopeMode !== 'cluster' && !selectedApp) || (scopeMode === 'app-env' && !selectedEnv)}
                     onClick={() => void handleAddBinding()}
                   >
-                    Add binding
+                    {t('management.users.addBinding')}
                   </Button>
                 </Stack>
               </Stack>
@@ -536,25 +540,25 @@ export function UsersPage() {
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button onClick={closeAccessDialog} disabled={submitting || accessLoading}>Close</Button>
+          <Button onClick={closeAccessDialog} disabled={submitting || accessLoading}>{t('management.common.close')}</Button>
         </DialogActions>
       </Dialog>
 
       {loading ? (
-        <LoadingState label="Loading users" />
+        <LoadingState label={t('management.users.loading')} />
       ) : error.message ? null : users.length === 0 ? (
-        <EmptyState title="No users found" description="Add a user to start managing account access." />
+        <EmptyState title={t('management.users.empty')} description={t('management.users.emptyDescription')} />
       ) : (
         <TableContainer component={Paper}>
           <Table>
             <TableHead>
               <TableRow>
-                <TableCell>Nickname</TableCell>
-                <TableCell>Account</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell>Roles</TableCell>
-                <TableCell>Bindings</TableCell>
-                <TableCell align="right">Actions</TableCell>
+                <TableCell>{t('management.users.nickname')}</TableCell>
+                <TableCell>{t('management.users.account')}</TableCell>
+                <TableCell>{t('management.common.status')}</TableCell>
+                <TableCell>{t('management.users.roles')}</TableCell>
+                <TableCell>{t('management.users.bindings')}</TableCell>
+                <TableCell align="right">{t('management.common.actions')}</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -567,17 +571,17 @@ export function UsersPage() {
                     <TableCell>{user.account}</TableCell>
                     <TableCell><UserStatusChip status={user.status} /></TableCell>
                     <TableCell>{user.roles?.length ? user.roles.map(roleLabel).join(', ') : '-'}</TableCell>
-                    <TableCell>{user.bindingCount ?? user.accessSummary?.length ?? 0}</TableCell>
+                    <TableCell>{formatNumber(user.bindingCount ?? user.accessSummary?.length ?? 0)}</TableCell>
                     <TableCell align="right">
                       <Stack direction="row" spacing={1} justifyContent="flex-end">
                         <Button size="small" startIcon={<AdminPanelSettingsIcon />} disabled={submitting || protectedUser} onClick={() => void handleOpenAccess(user)}>
-                          Manage access
+                          {t('management.users.manageAccess')}
                         </Button>
                         <Button color="warning" size="small" startIcon={<DeleteOutlineIcon />} disabled={submitting || disabled || protectedUser} onClick={() => setDisableTarget(user)}>
-                          Disable
+                          {t('management.users.disable')}
                         </Button>
                         <Button size="small" startIcon={<LockResetIcon />} disabled={submitting || protectedUser} onClick={() => setResetTarget(user)}>
-                          Reset password
+                          {t('management.users.resetPassword')}
                         </Button>
                       </Stack>
                     </TableCell>

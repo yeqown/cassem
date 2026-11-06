@@ -7,7 +7,7 @@ LDFLAGS := -s \
 	-X main.Version=$(shell git describe --tags --abbrev=0 2>/dev/null || true) \
 	-X main.BuildTime=$(shell TZ=UTC date -u '+%Y-%m-%dT%H:%M:%SZ') \
 	-X main.GitHash=$(shell git rev-parse HEAD)
-COMPOSE := IMAGE_TAG=$(IMAGE_TAG) CASSEM_EXAMPLES_DIR=$(abspath examples) $(CONTAINER_TOOL) compose -p cassem -f examples/compose.cluster.yaml
+COMPOSE := IMAGE_TAG=$(IMAGE_TAG) CASSEM_EXAMPLE_CONFIGS_DIR=$(abspath .deploy/example-configs) $(CONTAINER_TOOL) compose -p cassem -f .deploy/example-configs/compose.cluster.yaml
 
 define CLUSTER_ENDPOINTS
 	@echo ""
@@ -17,7 +17,7 @@ define CLUSTER_ENDPOINTS
 	@echo "  cassemagent: 127.0.0.1:20219"
 endef
 
-.PHONY: help build-cli build-image ui.install ui.build ui.test ui.lint ui.typecheck cluster.up cluster.start cluster.stop cluster.restart cluster.status cluster.logs cluster.clean test test.integration.cluster lint lint.go lint.api vet
+.PHONY: help build-cli build-image ui.install ui.build ui.test ui.lint ui.typecheck cluster.up cluster.start cluster.stop cluster.restart cluster.status cluster.logs cluster.clean test test.go test.sdk test.sdk.go test.integration.cluster lint lint.go lint.sdk vet
 
 help:
 	@echo "Usage: make <target>"
@@ -40,7 +40,8 @@ help:
 	@echo "  ui.lint              Run cassemadm Web lint"
 	@echo "  ui.typecheck         Run cassemadm Web typecheck"
 	@echo "  test                 Run all Go tests"
-	@echo "  lint                 Run golangci-lint"
+	@echo "  test.sdk             Test the Go SDK with race detection"
+	@echo "  lint                 Run locally installed golangci-lint"
 	@echo "  vet                  Run go vet"
 
 ui.install:
@@ -101,16 +102,25 @@ test.integration.cluster: cluster.clean cluster.up
 	CASSEM_INTEGRATION_STRICT=1 go test -tags integration ./tests/testutil -run TestIntegrationClusterReady -count=1 -v; \
 	CASSEM_INTEGRATION_STRICT=1 go test -tags integration ./tests/integration/... -p 1 -count=1 -v
 
-test: ui.typecheck ui.test
-	go test ./...
+test: ui.typecheck ui.test test.go
 
-lint: ui.typecheck ui.lint lint.go lint.api
+test.go:
+	go test ./...
+	go -C sdk/go test ./...
+
+test.sdk: test.sdk.go
+
+test.sdk.go:
+	GOWORK=off go -C sdk/go test -race ./...
+
+lint: ui.typecheck ui.lint lint.go lint.sdk
 
 lint.go:
-	go tool golangci-lint run
+	golangci-lint run
 
-lint.api:
-	go -C api tool golangci-lint run --config=../.golangci.yml
+lint.sdk:
+	cd sdk/go && golangci-lint run --config=../../.golangci.yml
 
 vet:
 	go vet ./...
+	go -C sdk/go vet ./...

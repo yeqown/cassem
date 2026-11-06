@@ -6,9 +6,9 @@ import (
 
 	"github.com/yeqown/log"
 
-	"github.com/yeqown/cassem/api/concept"
-	"github.com/yeqown/cassem/pkg/hash"
-	"github.com/yeqown/cassem/pkg/runtime"
+	"github.com/yeqown/cassem/internal/concept"
+	"github.com/yeqown/cassem/internal/pkg/hash"
+	"github.com/yeqown/cassem/internal/pkg/runtime"
 )
 
 const slowObserverTimeout = 200 * time.Millisecond
@@ -161,9 +161,9 @@ func newTopicObserver(changesCh chan concept.Change, closeFn func(), keys []stri
 	}
 }
 
-func (t *builtinObserver) Identity() string                  { return t.id }
-func (t *builtinObserver) Inbound() chan<- concept.Change    { return t.ch }
-func (t *builtinObserver) Outbound() <-chan concept.Change   { return t.ch }
+func (t *builtinObserver) Identity() string                { return t.id }
+func (t *builtinObserver) Inbound() chan<- concept.Change  { return t.ch }
+func (t *builtinObserver) Outbound() <-chan concept.Change { return t.ch }
 func (t *builtinObserver) Close() {
 	t.once.Do(func() {
 		if t.closeFn != nil {

@@ -1,0 +1,168 @@
+package concept
+
+import (
+	"context"
+
+	pb "github.com/yeqown/cassem/internal/protogen"
+)
+
+// AdmAggregate describes all methods should storage component should support.
+type AdmAggregate interface {
+	KVReadOnly
+	KVWriteOnly
+	InstanceHybrid
+	AgentHybrid
+	RBAC
+}
+
+type AgentAggregate interface {
+	KVReadOnly
+	InstanceHybrid
+	AgentHybrid
+}
+
+// Change describes the minimal event contract shared by API messages and watchers.
+type Change interface {
+	Topic() string
+	Type() pb.ChangeType
+}
+
+type KVReadOnly interface {
+	GetElementWithVersion(ctx context.Context, app, env, key string, version int) (*Element, error)
+	GetElementVersions(ctx context.Context, app, env, key string,
+		seek string, limit int) (*GetElementsResult, error)
+	GetElements(ctx context.Context, app, env string, seek string, limit int, query string) (*GetElementsResult, error)
+	GetElementsByKeys(ctx context.Context, app, env string, keys []string) (*GetElementsResult, error)
+	GetElementOperations(ctx context.Context, app, env, key string,
+		seek string, limit int) (*GetElementOperationsResult, error)
+
+	GetApp(ctx context.Context, app string) (*pb.AppMetadata, error)
+	GetApps(ctx context.Context, seek string, limit int, query string) (*GetAppsResult, error)
+
+	GetEnvironments(ctx context.Context, app, seek string, limit int) (*GetAppEnvsResult, error)
+}
+
+type KVWriteOnly interface {
+	CreateElement(ctx context.Context, app, env, key string, raw []byte, contentTyp ContentType) error
+	UpdateElement(ctx context.Context, app, env, key string, raw []byte) error
+	DeleteElement(ctx context.Context, app, env, key string) error
+
+	CreateEnvironment(ctx context.Context, app, env string) error
+	DeleteEnvironment(ctx context.Context, app, env string) error
+
+	RollbackElementVersion(ctx context.Context, app string, env string, key string,
+		rollbackVersion uint32) error
+	PublishElementVersion(ctx context.Context, app string, env string, key string,
+		publishVersion uint32) (*Element, error)
+
+	CreateApp(ctx context.Context, md *pb.AppMetadata) error
+	DeleteApp(ctx context.Context, appId string) error
+}
+
+// InstanceHybrid describes all methods to manages instance information.
+type InstanceHybrid interface {
+	// GetInstances get all instance those have registered into cluster.
+	GetInstances(ctx context.Context, seek string, limit int) (*GetInstancesResult, error)
+	// GetInstancesByElement get all instance those watching this app/env/key.
+	GetInstancesByElement(ctx context.Context, app, env, key string) (*GetInstancesResult, error)
+
+	// GetInstance describes instance detail by insId.
+	GetInstance(ctx context.Context, insId string) (*Instance, error)
+
+	RegisterInstance(ctx context.Context, ins *Instance) error
+	RenewInstance(ctx context.Context, ins *Instance) error
+	UnregisterInstance(ctx context.Context, insId string) error
+}
+
+// AgentHybrid describes all methods to manage agent nodes in cassemkv.
+type AgentHybrid interface {
+	// Watch would block util any error happened, otherwise any change of agents will be
+	// pushed into ch.
+	Watch(ctx context.Context, ch chan<- *pb.AgentInstanceChange) error
+	// Register helps agent registers itself.
+	Register(ctx context.Context, ins *pb.AgentInstance, ttl int32) error
+	// Renew helps agents keep online.
+	Renew(ctx context.Context, ins *pb.AgentInstance, ttl int32) error
+	// Unregister helps agent unregister itself.
+	Unregister(ctx context.Context, agentId string) error
+	GetAgents(ctx context.Context, seek string, limit int) (*GetAgentsResult, error)
+}
+
+// RBAC is an ACL model to implement authentication permission management.
+type RBAC interface {
+	GetUser(account string) (*pb.User, error)
+	GetUsers(seek string, limit int) (*GetUsersResult, error)
+	GetUserRoles(account string) ([]string, error)
+	GetUserRoleBindings(account string) ([]RoleBinding, error)
+	ListDomainOptions() ([]string, error)
+	AddUser(u *pb.User) error
+	DisableUser(account string) error
+	ResetUser(account, password string) error
+	AssignRole(account, role string, domain ...string) error
+	RevokeRole(account, role string, domain ...string) error
+	Enforce(subject, domain, object, act string) (bool, error)
+	AutoMigrate() error
+	BootstrapAdmin(account, nickname, password string) error
+}
+
+type CommonPager struct {
+	HasMore  bool   `json:"hasMore"`
+	NextSeek string `json:"nextSeek"`
+}
+
+type GetAppsResult struct {
+	CommonPager
+
+	Apps []*pb.AppMetadata `json:"apps"`
+}
+
+type RoleBinding struct {
+	Role   string `json:"role"`
+	Domain string `json:"domain"`
+}
+
+type GetUsersResult struct {
+	CommonPager
+
+	Users []*pb.User `json:"users"`
+}
+
+type GetAppEnvsResult struct {
+	CommonPager
+
+	Environments []string `json:"envs"`
+}
+
+type GetElementsResult struct {
+	CommonPager
+
+	Elements []*Element `json:"elements"`
+}
+
+type GetElementOperationsResult struct {
+	CommonPager
+
+	Operations []*pb.ElementOperation `json:"operations"`
+}
+
+// PublishingMode indicates how to publish the element's update.
+type PublishingMode uint8
+
+const (
+	// PublishMode_GRAY gray publish mode only push to specified instance.
+	PublishMode_GRAY PublishingMode = iota + 1
+	// PublishMode_FULL full publish mode, push to all instances.
+	PublishMode_FULL
+)
+
+type GetAgentsResult struct {
+	CommonPager
+
+	Agents []*pb.AgentInstance `json:"agents"`
+}
+
+type GetInstancesResult struct {
+	CommonPager
+
+	Instances []*Instance `json:"instances"`
+}

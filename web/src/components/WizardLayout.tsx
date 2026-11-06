@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { Box, Button, Paper, Stack, Step, StepLabel, Stepper, Typography } from '@mui/material'
 import { DangerConfirmDialog } from './DangerConfirmDialog'
+import { useI18n } from '../i18n'
 
 type WizardLayoutProps = {
   title: string
@@ -29,10 +30,11 @@ export function WizardLayout({
   onBack,
   onNext,
   onCancel,
-  nextLabel = 'Next',
+  nextLabel,
   backDisabled = false,
   nextDisabled = false,
 }: WizardLayoutProps) {
+  const { t } = useI18n()
   const [cancelOpen, setCancelOpen] = useState(false)
   const workflowInset = `calc(100% / ${steps.length * 2})`
 
@@ -55,7 +57,7 @@ export function WizardLayout({
               fontWeight: 700,
             }}
           >
-            Element workflow
+            {t('common.workflow')}
           </Typography>
           <Typography variant="h4" component="h1" sx={{ mt: 0.5 }}>
             {title}
@@ -63,16 +65,16 @@ export function WizardLayout({
         </Box>
         {onCancel && (
           <Button color="warning" variant="outlined" onClick={() => setCancelOpen(true)}>
-            Cancel
+            {t('common.cancel')}
           </Button>
         )}
       </Stack>
 
       <DangerConfirmDialog
         open={cancelOpen}
-        title="Cancel workflow"
-        description="Current workflow progress will be discarded and you will return to the element detail page."
-        confirmLabel="Confirm cancel"
+        title={t('common.cancelWorkflow')}
+        description={t('common.cancelWorkflowDescription')}
+        confirmLabel={t('common.confirmCancel')}
         onClose={() => setCancelOpen(false)}
         onConfirm={() => {
           setCancelOpen(false)
@@ -116,10 +118,10 @@ export function WizardLayout({
           <Box data-testid="wizard-actions-frame" sx={{ ...workflowFrameSx, px: workflowInset }}>
             <Stack direction="row" justifyContent="flex-end" spacing={1.5} data-testid="wizard-actions">
               <Button variant="text" onClick={onBack} disabled={!onBack || backDisabled}>
-                Back
+                {t('common.back')}
               </Button>
               <Button variant="contained" onClick={onNext} disabled={!onNext || nextDisabled}>
-                {nextLabel}
+                {nextLabel ?? t('common.next')}
               </Button>
             </Stack>
           </Box>

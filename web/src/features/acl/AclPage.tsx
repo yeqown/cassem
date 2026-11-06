@@ -2,6 +2,7 @@ import { useMemo, useState, type FormEvent } from 'react'
 import { Box, Button, MenuItem, Paper, Stack, TextField, Typography } from '@mui/material'
 import { useToast } from '../../components/ToastProvider'
 import { roleOptions, type RoleValue } from '../../domain/types'
+import { useI18n } from '../../i18n'
 import { ApiError, apiRequest, buildQuery } from '../../lib/api'
 
 type AclFormState = {
@@ -22,6 +23,7 @@ function parseDomains(input: string) {
 }
 
 export function AclPage() {
+  const { t } = useI18n()
   const { showToast } = useToast()
   const [form, setForm] = useState<AclFormState>({ account: '', role: 'appdeveloper', domains: '' })
   const [submitting, setSubmitting] = useState(false)
@@ -40,9 +42,9 @@ export function AclPage() {
 
     try {
       await apiRequest<void>(`/api/account/acl/${action}${buildQuery({ account, role: form.role, domain: domains.length ? domains : undefined })}`)
-      showToast(action === 'assign' ? 'Role assigned successfully.' : 'Role revoked successfully.', 'success')
+      showToast(action === 'assign' ? t('management.acl.assigned') : t('management.acl.revoked'), 'success')
     } catch (error) {
-      showToast(getErrorMessage(error, action === 'assign' ? 'Failed to assign role.' : 'Failed to revoke role.'), 'error')
+      showToast(getErrorMessage(error, action === 'assign' ? t('management.acl.assignFailed') : t('management.acl.revokeFailed')), 'error')
     } finally {
       setSubmitting(false)
     }
@@ -56,20 +58,20 @@ export function AclPage() {
     <Stack spacing={3}>
       <Box>
         <Typography variant="h4" component="h1">
-          ACL
+          {t('management.acl.title')}
         </Typography>
         <Typography color="text.secondary">
-          Assign or revoke fixed backend roles. Leave domains empty to use the backend default cluster domain.
+          {t('management.acl.description')}
         </Typography>
       </Box>
 
       <Paper component="form" onSubmit={handleSubmit} sx={{ p: 3 }}>
         <Stack spacing={2}>
           <Typography variant="h6" component="h2">
-            Role binding
+            {t('management.acl.roleBinding')}
           </Typography>
           <TextField
-            label="Account"
+            label={t('management.users.account')}
             value={form.account}
             onChange={(event) => updateField('account', event.target.value)}
             required
@@ -78,7 +80,7 @@ export function AclPage() {
           />
           <TextField
             select
-            label="Role"
+            label={t('management.users.role')}
             value={form.role}
             onChange={(event) => updateField('role', event.target.value as RoleValue)}
             fullWidth
@@ -86,26 +88,26 @@ export function AclPage() {
           >
             {roleOptions.map((role) => (
               <MenuItem key={role.value} value={role.value}>
-                {role.label}
+                {t(`management.roles.${role.value}`)}
               </MenuItem>
             ))}
           </TextField>
           <TextField
-            label="Domains"
+            label={t('management.acl.domains')}
             value={form.domains}
             onChange={(event) => updateField('domains', event.target.value)}
             fullWidth
             multiline
             minRows={3}
             disabled={submitting}
-            helperText="Enter one domain per line or separate multiple domains with commas."
+            helperText={t('management.acl.domainsHelp')}
           />
           <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
             <Button variant="contained" disabled={submitting || !account} onClick={() => void submitAclAction('assign')}>
-              Assign role
+              {t('management.acl.assign')}
             </Button>
             <Button variant="outlined" color="warning" disabled={submitting || !account} onClick={() => void submitAclAction('revoke')}>
-              Revoke role
+              {t('management.acl.revoke')}
             </Button>
           </Stack>
         </Stack>

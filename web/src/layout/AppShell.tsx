@@ -1,9 +1,9 @@
 import { useMemo, useState, type MouseEvent, type ReactElement } from 'react'
 import AccountCircleIcon from '@mui/icons-material/AccountCircle'
 import AppsIcon from '@mui/icons-material/Apps'
+import AutoStoriesIcon from '@mui/icons-material/AutoStories'
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft'
 import ChevronRightIcon from '@mui/icons-material/ChevronRight'
-import DashboardIcon from '@mui/icons-material/Dashboard'
 import DnsIcon from '@mui/icons-material/Dns'
 import ExpandLessIcon from '@mui/icons-material/ExpandLess'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
@@ -36,39 +36,38 @@ import {
 import { Link as RouterLink, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../auth/AuthProvider'
 import { assetUrl } from '../lib/assets'
+import { useI18n } from '../i18n'
+import { LanguageSwitcher } from '../components/LanguageSwitcher'
 
 const expandedDrawerWidth = 248
 const collapsedDrawerWidth = 88
 const nav = [
-  { label: 'Dashboard', path: '/dashboard', icon: <DashboardIcon /> },
-  { label: 'Apps', path: '/apps', icon: <AppsIcon /> },
-  { label: 'Users', path: '/users', icon: <GroupIcon /> },
+  { label: 'common.guide', path: '/docs', icon: <AutoStoriesIcon /> },
+  { label: 'common.apps', path: '/apps', icon: <AppsIcon /> },
+  { label: 'common.users', path: '/users', icon: <GroupIcon /> },
   {
-    label: 'Cluster',
+    label: 'common.cluster',
     icon: <FolderOpenIcon />,
     children: [
-      { label: 'Topology', path: '/cluster/topology', icon: <HubIcon /> },
-      { label: 'Instances', path: '/cluster/instances', icon: <DnsIcon /> },
+      { label: 'common.topology', path: '/cluster/topology', icon: <HubIcon /> },
+      { label: 'common.instances', path: '/cluster/instances', icon: <DnsIcon /> },
     ],
   },
-  { label: 'Settings', path: '/settings', icon: <SettingsIcon /> },
+  { label: 'common.settings', path: '/settings', icon: <SettingsIcon /> },
 ] as const
 
-function getStatusLabel(status?: number) {
-  return status === 1 ? 'disabled' : 'normal'
-}
-
 export function AppShell() {
+  const { t } = useI18n()
   const location = useLocation()
   const { user, logout } = useAuth()
   const theme = useTheme()
   const isDesktop = useMediaQuery(theme.breakpoints.up('md'))
   const [mobileOpen, setMobileOpen] = useState(false)
   const [desktopCollapsed, setDesktopCollapsed] = useState(false)
-  const [clusterExpanded, setClusterExpanded] = useState(true)
+  const [clusterExpanded, setClusterExpanded] = useState(false)
   const [accountAnchor, setAccountAnchor] = useState<HTMLElement | null>(null)
   const drawerWidth = isDesktop ? (desktopCollapsed ? collapsedDrawerWidth : expandedDrawerWidth) : expandedDrawerWidth
-  const accountLabel = user?.nickname || user?.account || 'signed in'
+  const accountLabel = user?.nickname || user?.account || t('common.signedIn')
   const rolesLabel = user?.roles?.length ? user.roles.join(', ') : '-'
 
   const selectedPath = useMemo(
@@ -118,7 +117,7 @@ export function AppShell() {
           sx={{ px: collapsed ? 1.5 : 2, justifyContent: collapsed ? 'center' : 'flex-start' }}
         >
           <Stack direction="row" spacing={collapsed ? 0 : 1.5} alignItems="center" sx={{ overflow: 'hidden' }}>
-            <Box component="img" data-testid="sidebar-logo" src={assetUrl('logo.svg')} alt="Cassem logo" sx={{ width: 34, height: 34, flexShrink: 0 }} />
+            <Box component="img" data-testid="sidebar-logo" src={assetUrl('logo.svg')} alt={t('common.logo')} sx={{ width: 34, height: 34, flexShrink: 0 }} />
             {!collapsed && <Typography variant="h6" sx={{ fontWeight: 700, letterSpacing: 1 }}>CASSEM</Typography>}
           </Stack>
         </Toolbar>
@@ -126,13 +125,13 @@ export function AppShell() {
         <List>
           {nav.map((item) =>
             'path' in item ? (
-              renderNavButton(item.label, item.path, item.icon, collapsed)
+              renderNavButton(t(item.label), item.path, item.icon, collapsed)
             ) : (
               <Box key={item.label}>
-                <Tooltip title={item.label} placement="right" disableHoverListener={!collapsed}>
+                <Tooltip title={t(item.label)} placement="right" disableHoverListener={!collapsed}>
                   <ListItemButton
                     selected={clusterSelected}
-                    aria-label={item.label}
+                    aria-label={t(item.label)}
                     onClick={() => {
                       if (collapsed) {
                         setMobileOpen(false)
@@ -143,16 +142,16 @@ export function AppShell() {
                     sx={{ minHeight: 44, px: collapsed ? 2.25 : 3, justifyContent: collapsed ? 'center' : 'flex-start' }}
                   >
                     <ListItemIcon sx={{ minWidth: collapsed ? 0 : 36, mr: collapsed ? 0 : 1.5, justifyContent: 'center' }}>{item.icon}</ListItemIcon>
-                    {!collapsed && <ListItemText primary={item.label} />}
+                    {!collapsed && <ListItemText primary={t(item.label)} />}
                     {!collapsed && (clusterExpanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />)}
                   </ListItemButton>
                 </Tooltip>
                 <Collapse in={!collapsed && clusterExpanded} timeout="auto" unmountOnExit>
                   <List disablePadding>
-                    {item.children.map((child) => renderNavButton(child.label, child.path, child.icon, false, true))}
+                    {item.children.map((child) => renderNavButton(t(child.label), child.path, child.icon, false, true))}
                   </List>
                 </Collapse>
-                {collapsed && item.children.map((child) => renderNavButton(child.label, child.path, child.icon, true))}
+                {collapsed && item.children.map((child) => renderNavButton(t(child.label), child.path, child.icon, true))}
               </Box>
             ),
           )}
@@ -166,35 +165,36 @@ export function AppShell() {
       <AppBar position="fixed" sx={{ zIndex: (appTheme) => appTheme.zIndex.drawer + 1, width: isDesktop ? `calc(100% - ${drawerWidth}px)` : '100%', ml: isDesktop ? `${drawerWidth}px` : 0 }}>
         <Toolbar>
           {isDesktop ? (
-            <IconButton color="inherit" edge="start" onClick={() => setDesktopCollapsed((value) => !value)} aria-label={desktopCollapsed ? 'expand navigation' : 'collapse navigation'} sx={{ mr: 1 }}>
+            <IconButton color="inherit" edge="start" onClick={() => setDesktopCollapsed((value) => !value)} aria-label={t(desktopCollapsed ? 'common.expandNavigation' : 'common.collapseNavigation')} sx={{ mr: 1 }}>
               {desktopCollapsed ? <ChevronRightIcon /> : <ChevronLeftIcon />}
             </IconButton>
           ) : (
-            <IconButton color="inherit" edge="start" onClick={() => setMobileOpen(true)} sx={{ mr: 2 }} aria-label="open navigation">
+            <IconButton color="inherit" edge="start" onClick={() => setMobileOpen(true)} sx={{ mr: 2 }} aria-label={t('common.openNavigation')}>
               <MenuIcon />
             </IconButton>
           )}
           <Box sx={{ flexGrow: 1 }} />
-          <IconButton color="inherit" aria-label="account menu" onClick={handleAccountMenuOpen}>
+          <LanguageSwitcher />
+          <IconButton color="inherit" aria-label={t('common.accountMenu')} onClick={handleAccountMenuOpen}>
             <AccountCircleIcon />
           </IconButton>
-          <Typography variant="body2" sx={{ ml: 1 }}>{accountLabel}</Typography>
+          <Typography variant="body2" noWrap sx={{ ml: 1, maxWidth: { xs: 136, sm: 280 } }}>{accountLabel}</Typography>
           <Menu anchorEl={accountAnchor} open={Boolean(accountAnchor)} onClose={handleAccountMenuClose} keepMounted>
             <Box sx={{ px: 2, py: 1.5, minWidth: 240 }}>
               <Typography variant="subtitle1">{accountLabel}</Typography>
               <Typography variant="body2" color="text.secondary">{user?.account || '-'}</Typography>
-              <Typography variant="body2" color="text.secondary">Roles: {rolesLabel}</Typography>
-              <Typography variant="body2" color="text.secondary">Status: {getStatusLabel(user?.status)}</Typography>
+              <Typography variant="body2" color="text.secondary">{t('common.roles', { roles: rolesLabel })}</Typography>
+              <Typography variant="body2" color="text.secondary">{t('common.status', { status: t(user?.status === 1 ? 'common.disabled' : 'common.normal') })}</Typography>
             </Box>
             <Divider />
             <MenuItem onClick={handleLogout}>
               <ListItemIcon><LogoutIcon fontSize="small" /></ListItemIcon>
-              Logout
+              {t('common.logout')}
             </MenuItem>
           </Menu>
         </Toolbar>
       </AppBar>
-      <Box component="nav" sx={{ width: { md: drawerWidth }, flexShrink: { md: 0 } }} aria-label="navigation">
+      <Box component="nav" sx={{ width: { md: drawerWidth }, flexShrink: { md: 0 } }} aria-label={t('common.navigation')}>
         <Drawer variant="temporary" open={!isDesktop && mobileOpen} onClose={() => setMobileOpen(false)} ModalProps={{ keepMounted: true }} sx={{ display: { xs: 'block', md: 'none' }, '& .MuiDrawer-paper': { width: expandedDrawerWidth, boxSizing: 'border-box' } }}>
           {renderDrawerContent(false)}
         </Drawer>
@@ -202,7 +202,7 @@ export function AppShell() {
           {renderDrawerContent(desktopCollapsed)}
         </Drawer>
       </Box>
-      <Box component="main" sx={{ flexGrow: 1, p: 6, width: { md: `calc(100% - ${drawerWidth}px)` } }}>
+      <Box component="main" sx={{ flexGrow: 1, minWidth: 0, p: selectedPath('/docs') ? { xs: 2, sm: 3, md: 6 } : 6, width: { md: `calc(100% - ${drawerWidth}px)` } }}>
         <Toolbar />
         <Outlet />
       </Box>

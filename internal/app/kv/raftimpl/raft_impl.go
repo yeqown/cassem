@@ -9,16 +9,16 @@ import (
 	"sync/atomic"
 	"time"
 
-	errorx "github.com/yeqown/cassem/api/concept"
-	apikv "github.com/yeqown/cassem/api/kv"
+	pb "github.com/yeqown/cassem/internal/protogen"
+
 	"github.com/yeqown/cassem/internal/app/kv/storage"
-	"github.com/yeqown/cassem/pkg/conf"
-	"github.com/yeqown/cassem/pkg/runtime"
+	errorx "github.com/yeqown/cassem/internal/concept"
+	"github.com/yeqown/cassem/internal/pkg/conf"
+	"github.com/yeqown/cassem/internal/pkg/runtime"
 	"github.com/yeqown/log"
 	"go.etcd.io/etcd/raft/v3"
 	"go.etcd.io/etcd/raft/v3/raftpb"
 	"go.etcd.io/etcd/server/v3/etcdserver/api/snap"
-	"google.golang.org/protobuf/proto"
 )
 
 var (
@@ -38,7 +38,7 @@ type raftNodeImpl struct {
 	raftState raft.StateType
 
 	// proposeC to propose a commit to raft cluster.
-	proposeC          chan *apikv.Propose
+	proposeC          chan *proposal
 	changeC           chan errorx.Change
 	leadershipFanOutC []chan<- bool
 	snapshotter       *snap.Snapshotter
@@ -56,7 +56,7 @@ func NewRaftNode(bolt *conf.Bolt, raftc *conf.Raft) (rc *raftNodeImpl) {
 	rc = &raftNodeImpl{
 		kvstore:           nil, // fill later
 		raftState:         0,   // fill later
-		proposeC:          make(chan *apikv.Propose, 4),
+		proposeC:          make(chan *proposal, 4),
 		changeC:           make(chan errorx.Change, 64),
 		leadershipFanOutC: make([]chan<- bool, 4),
 		snapshotter:       nil, // fill later
@@ -182,24 +182,24 @@ func (r *raftNodeImpl) applySnapshotFromCommit() {
 }
 
 func (r *raftNodeImpl) applyCommitData(data string) error {
-	entry := new(apikv.LogEntry)
-	if err := apikv.Unmarshal(runtime.ToBytes(data), entry); err != nil {
+	entry := new(pb.LogEntry)
+	if err := errorx.UnmarshalProto(runtime.ToBytes(data), entry); err != nil {
 		return fmt.Errorf("raftNodeImpl.applyCommits.decode log entry: %w", err)
 	}
 
 	log.Debug("raftNodeImpl.applyCommits recv one logEntry")
 
 	switch entry.Action {
-	case apikv.LogEntry_Mutate:
+	case pb.LogEntry_Mutate:
 		return r.applyMutateLogEntry(entry)
 	default:
 		return nil
 	}
 }
 
-func (r *raftNodeImpl) applyMutateLogEntry(entry *apikv.LogEntry) error {
-	cmd := new(apikv.MutateCommand)
-	if err := apikv.Unmarshal(entry.Command, cmd); err != nil {
+func (r *raftNodeImpl) applyMutateLogEntry(entry *pb.LogEntry) error {
+	cmd := new(pb.MutateCommand)
+	if err := errorx.UnmarshalProto(entry.Command, cmd); err != nil {
 		return fmt.Errorf("raftNodeImpl.applyCommits.decode mutate command: %w", err)
 	}
 
@@ -212,12 +212,12 @@ func (r *raftNodeImpl) applyMutateLogEntry(entry *apikv.LogEntry) error {
 		last = nil
 	}
 
-	var cur *apikv.Entity
+	var cur *pb.Entity
 	switch cmd.GetOp() {
-	case apikv.MutateCommand_SET:
+	case pb.MutateCommand_SET:
 		cur = cmd.GetValue()
 		err = r.kvstore.SetKV(cmd.GetKey(), cur, cmd.GetIsDir())
-	case apikv.MutateCommand_UNSET:
+	case pb.MutateCommand_UNSET:
 		cur = nil
 		err = r.kvstore.UnsetKV(cmd.GetKey(), cmd.GetIsDir())
 	default:
@@ -229,7 +229,7 @@ func (r *raftNodeImpl) applyMutateLogEntry(entry *apikv.LogEntry) error {
 	}
 
 	change := r.buildChange(cmd, last, cur)
-		r.resolvePending(cmd.GetRequestId(), nil)
+	r.resolvePending(cmd.GetRequestId(), nil)
 	if change == nil {
 		return nil
 	}
@@ -239,33 +239,33 @@ func (r *raftNodeImpl) applyMutateLogEntry(entry *apikv.LogEntry) error {
 	return nil
 }
 
-func (r *raftNodeImpl) buildChange(cmd *apikv.MutateCommand, last, cur *apikv.Entity) *apikv.Change {
-	if cmd.GetOp() == apikv.MutateCommand_SET && last != nil && cur != nil && last.GetFingerprint() == cur.GetFingerprint() {
+func (r *raftNodeImpl) buildChange(cmd *pb.MutateCommand, last, cur *pb.Entity) *pb.Change {
+	if cmd.GetOp() == pb.MutateCommand_SET && last != nil && cur != nil && last.GetFingerprint() == cur.GetFingerprint() {
 		return nil
 	}
 
-	op := apikv.Change_Set
-	if cmd.GetOp() == apikv.MutateCommand_UNSET {
-		op = apikv.Change_Unset
+	op := pb.Change_Set
+	if cmd.GetOp() == pb.MutateCommand_UNSET {
+		op = pb.Change_Unset
 	}
 
-	return &apikv.Change{Op: op, Key: cmd.GetKey(), Last: last, Current: cur}
+	return &pb.Change{Op: op, Key: cmd.GetKey(), Last: last, Current: cur}
 }
 
-func (r *raftNodeImpl) emitChange(change *apikv.Change) error {
-	r.changeC <- change
+func (r *raftNodeImpl) emitChange(change *pb.Change) error {
+	r.changeC <- &errorx.KVChange{Change: change}
 	for _, parent := range r.parentDirectoryChanges(change) {
 		r.changeC <- parent
 	}
 	return nil
 }
 
-func (r *raftNodeImpl) parentDirectoryChanges(change *apikv.Change) []errorx.Change {
+func (r *raftNodeImpl) parentDirectoryChanges(change *pb.Change) []errorx.Change {
 	paths, _ := storage.KeySplitter(change.GetKey())
 	if len(paths) == 0 {
 		return nil
 	}
-	return []errorx.Change{&apikv.ParentDirectoryChange{Change: change, SpecificTopic: strings.Join(paths, "/")}}
+	return []errorx.Change{&errorx.DirectoryChange{ParentDirectoryChange: &pb.ParentDirectoryChange{Change: change, SpecificTopic: strings.Join(paths, "/")}}}
 }
 
 func (r *raftNodeImpl) getSnapshot() ([]byte, error) {
@@ -285,12 +285,6 @@ func (r *raftNodeImpl) loadSnapshot() (*raftpb.Snapshot, error) {
 
 func (r *raftNodeImpl) recoverFromSnapshot(snapshot []byte) error {
 	return r.kvstore.RecoverSnapshot(snapshot)
-}
-
-type LogEntryCommand interface {
-	proto.Message
-
-	Action() apikv.LogEntry_Action
 }
 
 func (r *raftNodeImpl) registerPending() (uint64, <-chan applyAck, func()) {
@@ -351,7 +345,7 @@ func (r *raftNodeImpl) waitPending(ctx context.Context, ch <-chan applyAck) erro
 }
 
 // propose log to commit
-func (r *raftNodeImpl) propose(ctx context.Context, cmd LogEntryCommand) error {
+func (r *raftNodeImpl) propose(ctx context.Context, cmd *pb.MutateCommand) error {
 	if cmd == nil {
 		return errors.New("empty logEntryCommand")
 	}
@@ -359,14 +353,14 @@ func (r *raftNodeImpl) propose(ctx context.Context, cmd LogEntryCommand) error {
 		return ErrShuttingDown
 	}
 
-	entry := &apikv.LogEntry{
-		Action:    cmd.Action(),
-		Command:   apikv.Must(apikv.Marshal(cmd)),
+	entry := &pb.LogEntry{
+		Action:    pb.LogEntry_Mutate,
+		Command:   errorx.MustMarshalProto(cmd),
 		CreatedAt: time.Now().Unix(),
 	}
 	errC := make(chan error)
 	select {
-	case r.proposeC <- apikv.NewProposeWithContext(ctx, entry, errC):
+	case r.proposeC <- newProposal(ctx, entry, errC):
 	case <-ctx.Done():
 		return ctx.Err()
 	}
@@ -383,7 +377,7 @@ func (r *raftNodeImpl) propose(ctx context.Context, cmd LogEntryCommand) error {
 // isDir parameter indicates key means a kv or directory, if it's ture val will be ignored,
 // overwrite indicates the operation MUST BE failed if key exists with storage.ErrExists,
 // ttl means Time To Live, which will only be stored in file and recalculated in memory to use.
-func (r *raftNodeImpl) SetKV(ctx context.Context, req *apikv.SetKVReq) (err error) {
+func (r *raftNodeImpl) SetKV(ctx context.Context, req *pb.SetKVReq) (err error) {
 	log.
 		WithFields(log.Fields{
 			"key":       req.GetKey(),
@@ -409,35 +403,35 @@ func (r *raftNodeImpl) SetKV(ctx context.Context, req *apikv.SetKVReq) (err erro
 	}
 
 	createdAt := time.Now().Unix()
-	if last != nil && !last.Expired() {
+	if last != nil && !storage.EntityExpired(last) {
 		createdAt = last.CreatedAt
 	}
-	v := apikv.NewEntityWithCreated(req.GetKey(), req.GetVal(), req.GetTtl(), createdAt)
+	v := storage.NewEntityWithCreated(req.GetKey(), req.GetVal(), req.GetTtl(), createdAt)
 
 	requestID, ackCh, cleanup := r.registerPending()
 	defer cleanup()
 	if ackCh == nil {
 		return ErrShuttingDown
 	}
-	if err = r.propose(ctx, &apikv.MutateCommand{RequestId: requestID, Op: apikv.MutateCommand_SET, Key: req.GetKey(), IsDir: req.GetIsDir(), Value: v}); err != nil {
+	if err = r.propose(ctx, &pb.MutateCommand{RequestId: requestID, Op: pb.MutateCommand_SET, Key: req.GetKey(), IsDir: req.GetIsDir(), Value: v}); err != nil {
 		return fmt.Errorf("raftNodeImpl.SetKV: %w", err)
 	}
 	return r.waitPending(ctx, ackCh)
 }
 
-func (r *raftNodeImpl) UnsetKV(ctx context.Context, req *apikv.UnsetKVReq) error {
+func (r *raftNodeImpl) UnsetKV(ctx context.Context, req *pb.UnsetKVReq) error {
 	requestID, ackCh, cleanup := r.registerPending()
 	defer cleanup()
 	if ackCh == nil {
 		return ErrShuttingDown
 	}
-	if err := r.propose(ctx, &apikv.MutateCommand{RequestId: requestID, Op: apikv.MutateCommand_UNSET, Key: req.GetKey(), IsDir: req.GetIsDir()}); err != nil {
+	if err := r.propose(ctx, &pb.MutateCommand{RequestId: requestID, Op: pb.MutateCommand_UNSET, Key: req.GetKey(), IsDir: req.GetIsDir()}); err != nil {
 		return fmt.Errorf("raftNodeImpl.UnsetKV: %w", err)
 	}
 	return r.waitPending(ctx, ackCh)
 }
 
-func (r *raftNodeImpl) GetKV(req *apikv.GetKVReq) (*apikv.Entity, error) {
+func (r *raftNodeImpl) GetKV(req *pb.GetKVReq) (*pb.Entity, error) {
 	val, err := r.kvstore.GetKV(req.GetKey(), false)
 	if err != nil {
 		log.
@@ -456,14 +450,14 @@ func (r *raftNodeImpl) GetKV(req *apikv.GetKVReq) (*apikv.Entity, error) {
 	return val, nil
 }
 
-// probeRemoveExpired returns true while val.Expired() is true.
-func (r *raftNodeImpl) probeRemoveExpired(val *apikv.Entity) (removed bool) {
+// probeRemoveExpired returns true while storage.EntityExpired(val) is true.
+func (r *raftNodeImpl) probeRemoveExpired(val *pb.Entity) (removed bool) {
 	if val == nil {
 		return false
 	}
 
-	if val.Expired() {
-		if err := r.UnsetKV(context.Background(), &apikv.UnsetKVReq{Key: val.GetKey()}); err != nil {
+	if storage.EntityExpired(val) {
+		if err := r.UnsetKV(context.Background(), &pb.UnsetKVReq{Key: val.GetKey()}); err != nil {
 			log.
 				WithFields(log.Fields{"key": val.Key, "error": err}).
 				Error("kvstore.GetKV failed to remove expired key")
@@ -475,14 +469,14 @@ func (r *raftNodeImpl) probeRemoveExpired(val *apikv.Entity) (removed bool) {
 }
 
 var (
-	emptyRangeResp = &apikv.RangeResp{
-		Entities:    make([]*apikv.Entity, 0),
+	emptyRangeResp = &pb.RangeResp{
+		Entities:    make([]*pb.Entity, 0),
 		HasMore:     false,
 		NextSeekKey: "",
 	}
 )
 
-func (r *raftNodeImpl) Range(req *apikv.RangeReq) (*apikv.RangeResp, error) {
+func (r *raftNodeImpl) Range(req *pb.RangeReq) (*pb.RangeResp, error) {
 	// DONE(@yeqown): return expired keys and trigger probeRemoveExpired methods
 	result, err := r.kvstore.Range(req.GetKey(), req.GetSeek(), int(req.GetLimit()))
 	if err != nil {
@@ -503,13 +497,13 @@ func (r *raftNodeImpl) Range(req *apikv.RangeReq) (*apikv.RangeResp, error) {
 				Debug("raftNodeImpl.Range trigger remove expired keys")
 
 			for _, k := range result.ExpiredKeys {
-				_ = r.UnsetKV(context.Background(), &apikv.UnsetKVReq{Key: k})
+				_ = r.UnsetKV(context.Background(), &pb.UnsetKVReq{Key: k})
 			}
 		}()
 	}
 
-	resp := &apikv.RangeResp{
-		Entities:    make([]*apikv.Entity, 0, len(result.Items)),
+	resp := &pb.RangeResp{
+		Entities:    make([]*pb.Entity, 0, len(result.Items)),
 		HasMore:     result.HasMore,
 		NextSeekKey: result.NextSeekKey,
 	}
@@ -518,7 +512,7 @@ func (r *raftNodeImpl) Range(req *apikv.RangeReq) (*apikv.RangeResp, error) {
 	return resp, err
 }
 
-func (r *raftNodeImpl) Expire(req *apikv.ExpireReq) error {
+func (r *raftNodeImpl) Expire(req *pb.ExpireReq) error {
 	v, err := r.kvstore.GetKV(req.GetKey(), false)
 	if err != nil {
 		if errors.Is(err, errorx.Err_NOT_FOUND) {
@@ -528,16 +522,16 @@ func (r *raftNodeImpl) Expire(req *apikv.ExpireReq) error {
 		return fmt.Errorf("cassemkv.raftNodeImpl.Expire: %w", err)
 	}
 
-	if v.GetTtl() == apikv.NEVER_EXPIRED {
+	if v.GetTtl() == storage.NeverExpired {
 		return nil
 	}
 
 	// unset the key value directly or update it's TTL, choose update it's TTL
 	// so that the expiry(expire) operation is same to method's meaning.
-	return r.SetKV(context.Background(), &apikv.SetKVReq{
+	return r.SetKV(context.Background(), &pb.SetKVReq{
 		Key:       req.GetKey(),
 		IsDir:     false,
-		Ttl:       apikv.EXPIRED,
+		Ttl:       storage.Expired,
 		Val:       v.Val,
 		Overwrite: true,
 	})

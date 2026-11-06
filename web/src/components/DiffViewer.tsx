@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Box, Stack, Typography } from '@mui/material'
 import ReactDiffViewer, { DiffMethod } from 'react-diff-viewer-continued'
-
-const emptyDiffMessage = 'No differences found for this comparison.'
+import { useI18n } from '../i18n'
 
 type DiffViewerProps = {
   oldValue: string
@@ -143,7 +142,8 @@ const diffStyles = {
   },
 } as const
 
-export function DiffViewer({ oldValue, newValue, baseLabel = 'Base', compareLabel = 'Compare', ariaLabel = 'Diff', contentType }: DiffViewerProps) {
+export function DiffViewer({ oldValue, newValue, baseLabel, compareLabel, ariaLabel, contentType }: DiffViewerProps) {
+  const { t } = useI18n()
   const hasDiff = oldValue !== newValue
   const highlightLanguage = useMemo(() => getHighlightLanguage(contentType), [contentType])
   const [loadedHighlightLanguage, setLoadedHighlightLanguage] = useState(() => (highlightLanguage && hasHighlightLanguage(highlightLanguage) ? highlightLanguage : undefined))
@@ -185,7 +185,7 @@ export function DiffViewer({ oldValue, newValue, baseLabel = 'Base', compareLabe
 
   return (
     <Box
-      aria-label={ariaLabel}
+      aria-label={ariaLabel ?? t('common.diff')}
       data-variant="split"
       data-wrap="false"
       sx={{
@@ -209,16 +209,16 @@ export function DiffViewer({ oldValue, newValue, baseLabel = 'Base', compareLabe
           }}
         >
           <Typography variant="caption" fontWeight={700} sx={{ px: 1.5, py: 0.75, borderRight: '1px solid #d0d7de' }}>
-            {baseLabel}
+            {baseLabel ?? t('common.diffBase')}
           </Typography>
           <Typography variant="caption" fontWeight={700} sx={{ px: 1.5, py: 0.75 }}>
-            {compareLabel}
+            {compareLabel ?? t('common.diffCompare')}
           </Typography>
         </Box>
 
         {!hasDiff ? (
           <Typography color="text.secondary" sx={{ p: 2, fontFamily: 'ui-monospace, SFMono-Regular, SFMono, Consolas, Liberation Mono, Menlo, monospace' }}>
-            {emptyDiffMessage}
+            {t('common.noDifferences')}
           </Typography>
         ) : (
           <Stack

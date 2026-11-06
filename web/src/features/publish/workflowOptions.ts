@@ -1,4 +1,5 @@
 import type { AgentNode, Element, ElementsResponse, InstancesResponse } from '../../domain/types'
+import type { Translator } from '../../i18n'
 import { apiRequest, buildQuery } from '../../lib/api'
 
 export type VersionOption = {
@@ -7,6 +8,14 @@ export type VersionOption = {
   version: number
   published: boolean
   element: Element
+}
+
+export function getVersionLabel(option: VersionOption, t: Translator) {
+  if (option.version <= 0) return option.label
+  return t('operations.versionLabel', {
+    version: option.version,
+    status: t(option.published ? 'operations.versionPublished' : 'operations.versionDraft'),
+  })
 }
 
 function uniqueStrings(values: string[]) {

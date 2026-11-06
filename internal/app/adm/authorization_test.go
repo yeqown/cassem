@@ -10,7 +10,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	errorx "github.com/yeqown/cassem/api/concept"
+	errorx "github.com/yeqown/cassem/internal/concept"
 )
 
 func TestSessionRejectsLegacyUnsignedToken(t *testing.T) {

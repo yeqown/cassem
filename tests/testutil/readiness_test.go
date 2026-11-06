@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"github.com/yeqown/cassem/pkg/httpx"
+	"github.com/yeqown/cassem/internal/pkg/httpx"
 )
 
 func TestCheckCassemAdmRequiresLoginSession(t *testing.T) {

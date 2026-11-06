@@ -5,27 +5,28 @@ package benchmark_test
 import (
 	"context"
 	"fmt"
-	apikv "github.com/yeqown/cassem/api/kv"
 	"net/http"
 	"testing"
 	"time"
 
-	"github.com/yeqown/cassem/api/concept"
+	"github.com/yeqown/cassem/internal/concept"
+	"github.com/yeqown/cassem/internal/kvclient"
+	pb "github.com/yeqown/cassem/internal/protogen"
 	"github.com/yeqown/cassem/tests/testutil"
 )
 
 func BenchmarkCassemKVSetKV32B(b *testing.B) {
 	cluster := testutil.UseDBCluster(b)
-	cc := testutil.DialCassemKV(b, cluster.DBEndpoints, apikv.Mode_X)
+	cc := testutil.DialCassemKV(b, cluster.DBEndpoints, kvclient.Mode_X)
 	b.Cleanup(func() { _ = cc.Close() })
-	client := apikv.NewKVClient(cc)
+	client := pb.NewKVClient(cc)
 	payload := []byte("12312312312312312312312312312312")
 
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-		_, err := client.SetKV(ctx, &apikv.SetKVReq{
+		_, err := client.SetKV(ctx, &pb.SetKVReq{
 			Key:       fmt.Sprintf("benchmark/cassemkv/set/%d", i),
 			Val:       payload,
 			Ttl:       30,
@@ -40,13 +41,13 @@ func BenchmarkCassemKVSetKV32B(b *testing.B) {
 
 func BenchmarkCassemKVGetKV(b *testing.B) {
 	cluster := testutil.UseDBCluster(b)
-	cc := testutil.DialCassemKV(b, cluster.DBEndpoints, apikv.Mode_X)
+	cc := testutil.DialCassemKV(b, cluster.DBEndpoints, kvclient.Mode_X)
 	b.Cleanup(func() { _ = cc.Close() })
-	client := apikv.NewKVClient(cc)
+	client := pb.NewKVClient(cc)
 	key := "benchmark/cassemkv/get/key"
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	_, err := client.SetKV(ctx, &apikv.SetKVReq{Key: key, Val: []byte("value"), Ttl: 30, Overwrite: true})
+	_, err := client.SetKV(ctx, &pb.SetKVReq{Key: key, Val: []byte("value"), Ttl: 30, Overwrite: true})
 	cancel()
 	if err != nil {
 		b.Fatal(err)
@@ -54,10 +55,10 @@ func BenchmarkCassemKVGetKV(b *testing.B) {
 
 	b.ReportAllocs()
 	b.ResetTimer()
-	b.RunParallel(func(pb *testing.PB) {
-		for pb.Next() {
+	b.RunParallel(func(worker *testing.PB) {
+		for worker.Next() {
 			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-			_, err := client.GetKV(ctx, &apikv.GetKVReq{Key: key})
+			_, err := client.GetKV(ctx, &pb.GetKVReq{Key: key})
 			cancel()
 			if err != nil {
 				b.Fatal(err)

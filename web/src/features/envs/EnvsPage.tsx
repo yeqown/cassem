@@ -29,6 +29,7 @@ import { DangerConfirmDialog } from '../../components/DangerConfirmDialog'
 import { EmptyState, ErrorState, LoadingState } from '../../components/StateView'
 import { useErrorState } from '../../components/useErrorState'
 import type { EnvsResponse } from '../../domain/types'
+import { useI18n } from '../../i18n'
 import { ApiError, apiRequest, buildQuery } from '../../lib/api'
 import { CopyEnvDialog } from './CopyEnvDialog'
 
@@ -43,6 +44,7 @@ async function requestEnvs(appId: string) {
 }
 
 export function EnvsPage() {
+  const { t } = useI18n()
   const { appId = '' } = useParams()
   const [envs, setEnvs] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
@@ -73,7 +75,7 @@ export function EnvsPage() {
     if (!appId) {
       if (mountedRef.current && requestId === requestSeq.current) {
         setEnvs([])
-        setError('missing app id')
+        setError(t('management.envs.missingApp'))
         setLoading(false)
       }
       return
@@ -87,11 +89,11 @@ export function EnvsPage() {
     } catch (err) {
       if (!mountedRef.current || requestId !== requestSeq.current) return
       setEnvs([])
-      setError(getErrorMessage(err, 'failed to load environments'))
+      setError(getErrorMessage(err, t('management.envs.loadFailed')))
     } finally {
       if (mountedRef.current && requestId === requestSeq.current) setLoading(false)
     }
-  }, [appId, setError])
+  }, [appId, setError, t])
 
   useEffect(() => {
     mountedRef.current = true
@@ -142,7 +144,7 @@ export function EnvsPage() {
       await loadEnvs()
     } catch (err) {
       if (canApplyMutationResult(startedAppId)) {
-        setError(getErrorMessage(err, 'failed to create environment'))
+        setError(getErrorMessage(err, t('management.envs.createFailed')))
       }
     } finally {
       if (mountedRef.current) setSubmitting(false)
@@ -168,7 +170,7 @@ export function EnvsPage() {
       await loadEnvs()
     } catch (err) {
       if (canApplyMutationResult(startedAppId)) {
-        setError(getErrorMessage(err, 'failed to delete environment'))
+        setError(getErrorMessage(err, t('management.envs.deleteFailed')))
       }
     } finally {
       if (mountedRef.current) setSubmitting(false)
@@ -177,17 +179,17 @@ export function EnvsPage() {
 
   return (
     <Stack spacing={3}>
-      <AppBreadcrumbs items={[{ label: 'Apps', to: '/apps' }, { label: appId || 'unknown', to: `/apps/${encodeURIComponent(appId)}/envs` }, { label: 'Environments' }]} />
+      <AppBreadcrumbs items={[{ label: t('management.apps.title'), to: '/apps' }, { label: appId || t('management.common.unknown'), to: `/apps/${encodeURIComponent(appId)}/envs` }, { label: t('management.envs.title') }]} />
 
       <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} justifyContent="space-between" alignItems={{ md: 'center' }}>
         <Box>
           <Stack direction="row" spacing={1} alignItems="center">
             <FolderOpenIcon color="primary" />
             <Typography variant="h4" component="h1">
-              Environments
+              {t('management.envs.title')}
             </Typography>
           </Stack>
-          <Typography color="text.secondary">Environments separate app configuration by runtime target, such as dev, test, stage, or prod.</Typography>
+          <Typography color="text.secondary">{t('management.envs.description')}</Typography>
         </Box>
         <Stack direction="row" spacing={1}>
           <Button
@@ -196,10 +198,10 @@ export function EnvsPage() {
             onClick={() => setCopyOpen(true)}
             disabled={submitting || copyBusy || !appId || envs.length === 0}
           >
-            Copy
+            {t('management.envs.copy')}
           </Button>
           <Button variant="contained" startIcon={<AddCircleOutlineIcon />} onClick={() => setCreateOpen(true)} disabled={submitting || copyBusy || !appId}>
-            Add environment
+            {t('management.envs.add')}
           </Button>
         </Stack>
       </Stack>
@@ -208,9 +210,9 @@ export function EnvsPage() {
 
       <DangerConfirmDialog
         open={Boolean(deleteTarget)}
-        title="Delete environment"
-        description={<>This will delete environment <strong>{deleteTarget}</strong> from app <strong>{appId}</strong>.</>}
-        confirmLabel="Delete"
+        title={t('management.envs.delete')}
+        description={t('management.envs.deleteDescription', { env: deleteTarget, app: appId })}
+        confirmLabel={t('management.common.delete')}
         loading={submitting || copyBusy}
         onClose={closeDeleteDialog}
         onConfirm={() => void handleDelete()}
@@ -227,7 +229,7 @@ export function EnvsPage() {
 
       <Dialog open={createOpen} onClose={closeCreateDialog} fullWidth maxWidth="sm">
         <Box component="form" onSubmit={(event) => void handleCreate(event)}>
-          <DialogTitle>Add environment</DialogTitle>
+          <DialogTitle>{t('management.envs.add')}</DialogTitle>
           <DialogContent>
             <Stack spacing={2} sx={{ mt: 1 }}>
               <Autocomplete
@@ -241,33 +243,33 @@ export function EnvsPage() {
                 renderInput={(params) => (
                   <TextField
                     {...params}
-                    label="Environment"
+                    label={t('management.common.environment')}
                     required
                     fullWidth
-                    helperText="Choose a common environment or type a custom name. Values are saved lowercase."
+                    helperText={t('management.envs.nameHelp')}
                   />
                 )}
               />
             </Stack>
           </DialogContent>
           <DialogActions>
-            <Button onClick={closeCreateDialog} disabled={submitting}>Cancel</Button>
-            <Button type="submit" variant="contained" disabled={submitting || !appId || !envName.trim()}>Create</Button>
+            <Button onClick={closeCreateDialog} disabled={submitting}>{t('management.common.cancel')}</Button>
+            <Button type="submit" variant="contained" disabled={submitting || !appId || !envName.trim()}>{t('management.common.create')}</Button>
           </DialogActions>
         </Box>
       </Dialog>
 
       {loading ? (
-        <LoadingState label="Loading environments" />
+        <LoadingState label={t('management.envs.loading')} />
       ) : envs.length === 0 ? (
-        error.message ? null : <EmptyState title="No environments found" description="Create an environment for this app to manage its elements." />
+        error.message ? null : <EmptyState title={t('management.envs.empty')} description={t('management.envs.emptyDescription')} />
       ) : (
         <TableContainer component={Paper}>
           <Table>
             <TableHead>
               <TableRow>
-                <TableCell>Environment</TableCell>
-                <TableCell align="right">Actions</TableCell>
+                <TableCell>{t('management.common.environment')}</TableCell>
+                <TableCell align="right">{t('management.common.actions')}</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -277,10 +279,10 @@ export function EnvsPage() {
                   <TableCell align="right">
                     <Stack direction="row" spacing={1} justifyContent="flex-end">
                       <Button component={RouterLink} to={`/apps/${encodeURIComponent(appId)}/envs/${encodeURIComponent(env)}/elements`} size="small" startIcon={<LayersIcon />}>
-                        Elements
+                        {t('management.envs.elements')}
                       </Button>
                       <Button color="error" size="small" startIcon={<DeleteOutlineIcon />} onClick={() => setDeleteTarget(env)} disabled={submitting || copyBusy}>
-                        Delete
+                        {t('management.common.delete')}
                       </Button>
                     </Stack>
                   </TableCell>

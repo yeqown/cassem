@@ -9,12 +9,13 @@ import (
 	"testing"
 	"time"
 
+	pb "github.com/yeqown/cassem/internal/protogen"
+
 	"github.com/stretchr/testify/require"
 
-	errorx "github.com/yeqown/cassem/api/concept"
-	apikv "github.com/yeqown/cassem/api/kv"
 	"github.com/yeqown/cassem/internal/app/kv/raftimpl"
-	"github.com/yeqown/cassem/pkg/conf"
+	errorx "github.com/yeqown/cassem/internal/concept"
+	"github.com/yeqown/cassem/internal/pkg/conf"
 )
 
 var _ raftimpl.RaftNode = (*servingAPIFakeRaft)(nil)
@@ -27,26 +28,26 @@ func newServingAPIFakeRaft() *servingAPIFakeRaft {
 	return &servingAPIFakeRaft{changeCh: make(chan errorx.Change)}
 }
 
-func (f *servingAPIFakeRaft) GetKV(getReq *apikv.GetKVReq) (*apikv.Entity, error) {
-	return &apikv.Entity{Key: getReq.GetKey(), Val: []byte("value")}, nil
+func (f *servingAPIFakeRaft) GetKV(getReq *pb.GetKVReq) (*pb.Entity, error) {
+	return &pb.Entity{Key: getReq.GetKey(), Val: []byte("value")}, nil
 }
 
-func (f *servingAPIFakeRaft) SetKV(context.Context, *apikv.SetKVReq) error {
+func (f *servingAPIFakeRaft) SetKV(context.Context, *pb.SetKVReq) error {
 	return errors.New("unused")
 }
-func (f *servingAPIFakeRaft) UnsetKV(context.Context, *apikv.UnsetKVReq) error {
+func (f *servingAPIFakeRaft) UnsetKV(context.Context, *pb.UnsetKVReq) error {
 	return errors.New("unused")
 }
-func (f *servingAPIFakeRaft) Range(*apikv.RangeReq) (*apikv.RangeResp, error) {
+func (f *servingAPIFakeRaft) Range(*pb.RangeReq) (*pb.RangeResp, error) {
 	return nil, errors.New("unused")
 }
-func (f *servingAPIFakeRaft) Expire(*apikv.ExpireReq) error { return errors.New("unused") }
-func (f *servingAPIFakeRaft) IsLeader() bool                { return true }
-func (f *servingAPIFakeRaft) NodeID() uint64                { return 1 }
-func (f *servingAPIFakeRaft) RaftAddr() string              { return "127.0.0.1:17001" }
-func (f *servingAPIFakeRaft) Peers() []string               { return []string{"127.0.0.1:17001"} }
-func (f *servingAPIFakeRaft) LeaderID() uint64              { return 1 }
-func (f *servingAPIFakeRaft) LeaderChangeCh(chan<- bool)    {}
+func (f *servingAPIFakeRaft) Expire(*pb.ExpireReq) error { return errors.New("unused") }
+func (f *servingAPIFakeRaft) IsLeader() bool             { return true }
+func (f *servingAPIFakeRaft) NodeID() uint64             { return 1 }
+func (f *servingAPIFakeRaft) RaftAddr() string           { return "127.0.0.1:17001" }
+func (f *servingAPIFakeRaft) Peers() []string            { return []string{"127.0.0.1:17001"} }
+func (f *servingAPIFakeRaft) LeaderID() uint64           { return 1 }
+func (f *servingAPIFakeRaft) LeaderChangeCh(chan<- bool) {}
 func (f *servingAPIFakeRaft) ChangeNotifyCh() <-chan errorx.Change {
 	return f.changeCh
 }

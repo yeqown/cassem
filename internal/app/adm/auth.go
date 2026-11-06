@@ -12,10 +12,12 @@ import (
 	"strings"
 	"time"
 
+	pb "github.com/yeqown/cassem/internal/protogen"
+
 	"github.com/go-chi/chi/v5"
 
-	"github.com/yeqown/cassem/api/concept"
-	"github.com/yeqown/cassem/pkg/httpx"
+	"github.com/yeqown/cassem/internal/concept"
+	"github.com/yeqown/cassem/internal/pkg/httpx"
 )
 
 func requestDomainHTTP(r *http.Request) string {
@@ -66,6 +68,10 @@ var defMapping = map[string]objectDef{
 	"GET/api/account/acl/domains":        {object: concept.Object_ACL, act: concept.Action_READ},
 	"GET/api/account/acl/assign":         {object: concept.Object_ACL, act: concept.Action_WRITE},
 	"GET/api/account/acl/revoke":         {object: concept.Object_ACL, act: concept.Action_WRITE},
+
+	"GET/api/account/users/:account/tokens":             {object: concept.Object_ACL, act: concept.Action_READ},
+	"POST/api/account/users/:account/tokens":            {object: concept.Object_ACL, act: concept.Action_WRITE},
+	"DELETE/api/account/users/:account/tokens/:tokenId": {object: concept.Object_ACL, act: concept.Action_WRITE},
 
 	"GET/api/admin/retention": {object: concept.Object_CLUSTER, act: concept.Action_READ},
 
@@ -145,8 +151,8 @@ func authorizeRequest(r *http.Request, rbac concept.RBAC, sessionSecret string) 
 	return sess, nil
 }
 
-func validSession(sess *Session, user *concept.User) error {
-	if user.GetStatus() != concept.User_NORMAL {
+func validSession(sess *Session, user *pb.User) error {
+	if user.GetStatus() != pb.User_NORMAL {
 		return fmt.Errorf("status disabled: %w", concept.Err_UNAUTHENTICATED)
 	}
 	if user.GetSalt() != sess.Salt {

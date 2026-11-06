@@ -35,6 +35,21 @@ jobs:
       - name: Build binaries
         run: go build -v ./...
 
+  sdk:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.26'
+          cache-dependency-path: sdk/go/go.sum
+
+      - name: Test independent Go SDK
+        run: make test.sdk
+
   integration:
     runs-on: ubuntu-latest
     needs: test

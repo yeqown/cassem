@@ -45,6 +45,7 @@ import { EmptyState, ErrorState, LoadingState } from '../../components/StateView
 import { useToast } from '../../components/ToastProvider'
 import { useErrorState } from '../../components/useErrorState'
 import { formatVersionLabel, type Element, type ElementOperation, type ElementOperationsResponse, type ElementsResponse, type RetentionPolicy } from '../../domain/types'
+import { useI18n } from '../../i18n'
 import { ApiError, apiRequest, buildQuery, jsonBody } from '../../lib/api'
 import { decodeRaw } from '../../lib/raw'
 import { readSettings } from '../../lib/settings'
@@ -55,14 +56,6 @@ import { getContentTypeLabel } from './contentView'
 
 function getErrorMessage(error: unknown, fallback: string) {
   return error instanceof ApiError ? error.message : fallback
-}
-
-function formatTimestamp(timestamp?: number) {
-  if (!timestamp) return '-'
-
-  const milliseconds = timestamp > 1_000_000_000_000_000 ? Math.floor(timestamp / 1_000_000) : timestamp
-  const date = new Date(milliseconds)
-  return Number.isNaN(date.getTime()) ? '-' : date.toLocaleString()
 }
 
 const operationLabels = new Map<string | number, string>([
@@ -107,6 +100,7 @@ async function requestRetentionPolicy() {
 }
 
 export function ElementDetailPage() {
+  const { t, formatDateTime, formatNumber } = useI18n()
   const { appId = '', env = '', key = '' } = useParams()
   const { showToast } = useToast()
   const [element, setElement] = useState<Element | null>(null)
@@ -161,7 +155,7 @@ export function ElementDetailPage() {
         setNewVersionOpen(false)
         setPublishDirectConfirmOpen(false)
         setPreviewVersion(null)
-        setError('missing app, environment, or key')
+        setError(t('elements.error.missingDetailLocation'))
         setLoading(false)
       }
       return
@@ -214,11 +208,11 @@ export function ElementDetailPage() {
       setPreviewVersion(null)
       setDiffPair(null)
       setDiffLoaded(false)
-      setError(getErrorMessage(err, 'failed to load element detail'))
+      setError(getErrorMessage(err, t('elements.error.loadDetail')))
     } finally {
       if (mountedRef.current && requestId === requestSeq.current) setLoading(false)
     }
-  }, [appId, env, key, setError])
+  }, [appId, env, key, setError, t])
 
   useEffect(() => {
     mountedRef.current = true
@@ -240,21 +234,21 @@ export function ElementDetailPage() {
     if (!newVersionOpen) return
 
     const timer = window.setTimeout(() => {
-      setEditValidation(validateContent(element?.metadata?.contentType, editRaw))
+      setEditValidation(validateContent(element?.metadata?.contentType, editRaw, t))
     }, 250)
 
     return () => window.clearTimeout(timer)
-  }, [newVersionOpen, element?.metadata?.contentType, editRaw])
+  }, [newVersionOpen, element?.metadata?.contentType, editRaw, t])
 
   function handleOpenNewVersion() {
     const draftVersion = metadata?.unpublishedVersion
     if (draftVersion) {
-      setError(`Draft v${draftVersion} already exists. Publish or rollback it before creating a new version.`)
+      setError(t('elements.error.existingDraft', { version: draftVersion }))
       return
     }
 
     setEditRaw(raw)
-    setEditValidation(validateContent(element?.metadata?.contentType, raw))
+    setEditValidation(validateContent(element?.metadata?.contentType, raw, t))
     setError('')
     setNewVersionOpen(true)
   }
@@ -271,7 +265,7 @@ export function ElementDetailPage() {
     const startedKey = key
     if (!startedAppId || !startedEnv || !startedKey) return
 
-    const validation = validateContent(element?.metadata?.contentType, editRaw)
+    const validation = validateContent(element?.metadata?.contentType, editRaw, t)
     setEditValidation(validation)
     if (!validation.valid) return
 
@@ -292,7 +286,7 @@ export function ElementDetailPage() {
       await loadPage()
     } catch (err) {
       if (canApplyMutationResult(startedAppId, startedEnv, startedKey)) {
-        setError(getErrorMessage(err, 'failed to create new version'))
+        setError(getErrorMessage(err, t('elements.error.createVersion')))
       }
     } finally {
       if (mountedRef.current) setSaving(false)
@@ -305,7 +299,7 @@ export function ElementDetailPage() {
     const startedKey = key
     if (!startedAppId || !startedEnv || !startedKey) return
 
-    const validation = validateContent(element?.metadata?.contentType, editRaw)
+    const validation = validateContent(element?.metadata?.contentType, editRaw, t)
     setEditValidation(validation)
     if (!validation.valid) return
 
@@ -326,7 +320,7 @@ export function ElementDetailPage() {
       const previousLatestVersion = metadata?.latestVersion || 0
       const latestVersion = updatedElement.metadata?.latestVersion || 0
       const version = updatedElement.metadata?.unpublishedVersion || (latestVersion > previousLatestVersion ? latestVersion : 0)
-      if (!version) throw new Error('new version was created without a publishable draft')
+      if (!version) throw new Error(t('elements.error.missingPublishableDraft'))
 
       await apiRequest<void>(
         `/api/apps/${encodeURIComponent(startedAppId)}/envs/${encodeURIComponent(startedEnv)}/elements/${encodeURIComponent(startedKey)}/publish`,
@@ -338,12 +332,12 @@ export function ElementDetailPage() {
       setPublishDirectConfirmOpen(false)
       setNewVersionOpen(false)
       setEditValidation({ valid: true })
-      showToast(`Version ${version} was queued for full publish.`, 'success')
+      showToast(t('elements.publishQueued', { version }), 'success')
       setLoading(true)
       await loadPage()
     } catch (err) {
       if (canApplyMutationResult(startedAppId, startedEnv, startedKey)) {
-        setError(getErrorMessage(err, 'failed to publish directly'))
+        setError(getErrorMessage(err, t('elements.error.publishDirectly')))
       }
     } finally {
       if (mountedRef.current) setSaving(false)
@@ -362,7 +356,7 @@ export function ElementDetailPage() {
     if (!baseElement || !compareElement) {
       setDiffPair(null)
       setDiffLoaded(false)
-      setError('selected versions are not available in the loaded version list')
+      setError(t('elements.error.unavailableVersions'))
       return
     }
 
@@ -375,14 +369,20 @@ export function ElementDetailPage() {
   const previewVersionLabel = previewVersion?.version === undefined || previewVersion.version === null ? '-' : `v${previewVersion.version}`
   const previewRaw = previewVersion ? decodeRaw(previewVersion.raw) : ''
 
+  function formatTimestamp(timestamp?: number) {
+    if (!timestamp) return '-'
+    const milliseconds = timestamp > 1_000_000_000_000_000 ? Math.floor(timestamp / 1_000_000) : timestamp
+    return formatDateTime(milliseconds)
+  }
+
   return (
     <Stack spacing={3}>
       <AppBreadcrumbs items={[
-        { label: 'Apps', to: '/apps' },
-        { label: appId || 'unknown', to: `/apps/${encodeURIComponent(appId)}/envs` },
-        { label: env || 'unknown', to: `/apps/${encodeURIComponent(appId)}/envs/${encodeURIComponent(env)}/elements` },
-        { label: key || 'unknown', to: `/apps/${encodeURIComponent(appId)}/envs/${encodeURIComponent(env)}/elements/${encodeURIComponent(key)}` },
-        { label: 'Detail' },
+        { label: t('elements.apps'), to: '/apps' },
+        { label: appId || t('elements.unknown'), to: `/apps/${encodeURIComponent(appId)}/envs` },
+        { label: env || t('elements.unknown'), to: `/apps/${encodeURIComponent(appId)}/envs/${encodeURIComponent(env)}/elements` },
+        { label: key || t('elements.unknown'), to: `/apps/${encodeURIComponent(appId)}/envs/${encodeURIComponent(env)}/elements/${encodeURIComponent(key)}` },
+        { label: t('elements.detail') },
       ]} />
 
       <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} justifyContent="space-between" alignItems={{ md: 'center' }}>
@@ -390,25 +390,25 @@ export function ElementDetailPage() {
           <Stack direction="row" spacing={1} alignItems="center">
             <Inventory2Icon color="primary" />
             <Typography variant="h4" component="h1">
-              Element detail
+              {t('elements.detailTitle')}
             </Typography>
           </Stack>
           <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap" sx={{ mt: 1 }}>
-            <Chip label={`Latest: ${formatVersionLabel(metadata?.latestVersion)}`} />
-            <Chip label={`Current: ${formatVersionLabel(metadata?.usingVersion)}`} />
-            <Chip label={`Draft: ${formatVersionLabel(metadata?.unpublishedVersion)}`} />
-            <Chip label={`Type: ${getContentTypeLabel(metadata?.contentType)}`} />
+            <Chip label={t('elements.latestVersion', { version: formatVersionLabel(metadata?.latestVersion) })} />
+            <Chip label={t('elements.currentVersion', { version: formatVersionLabel(metadata?.usingVersion) })} />
+            <Chip label={t('elements.draftVersion', { version: formatVersionLabel(metadata?.unpublishedVersion) })} />
+            <Chip label={t('elements.typeLabel', { type: getContentTypeLabel(metadata?.contentType) })} />
           </Stack>
         </Box>
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} data-testid="element-detail-actions">
           <Button variant="outlined" startIcon={<AddCircleOutlineIcon />} onClick={handleOpenNewVersion}>
-            New Version
+            {t('elements.newVersion')}
           </Button>
           <Button component={RouterLink} to={`/apps/${encodeURIComponent(appId)}/envs/${encodeURIComponent(env)}/elements/${encodeURIComponent(key)}/publish`} variant="outlined" startIcon={<PublishIcon />}>
-            Publish
+            {t('elements.publish')}
           </Button>
           <Button component={RouterLink} to={`/apps/${encodeURIComponent(appId)}/envs/${encodeURIComponent(env)}/elements/${encodeURIComponent(key)}/rollback`} variant="outlined" startIcon={<LockResetIcon />}>
-            Rollback
+            {t('elements.rollback')}
           </Button>
         </Stack>
       </Stack>
@@ -416,44 +416,44 @@ export function ElementDetailPage() {
       {error.message && <ErrorState message={error.message} eventKey={error.eventKey} />}
 
       {loading ? (
-        <LoadingState label="Loading element detail" />
+        <LoadingState label={t('elements.loadingDetail')} />
       ) : !element ? (
-        <EmptyState title="Element not found" description="Reload the page or return to the elements list." />
+        <EmptyState title={t('elements.notFound')} description={t('elements.notFoundDescription')} />
       ) : (
         <Stack spacing={3}>
           <Paper>
             <Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between" sx={{ px: 3, py: 2, borderBottom: 1, borderColor: 'divider' }}>
-              <Typography variant="h6" component="h2">Content</Typography>
-              <Chip size="small" label={`${getContentTypeLabel(metadata?.contentType)} · read-only`} />
+              <Typography variant="h6" component="h2">{t('elements.content')}</Typography>
+              <Chip size="small" label={t('elements.readOnlyType', { type: getContentTypeLabel(metadata?.contentType) })} />
             </Stack>
-            <ContentViewer value={raw} contentType={metadata?.contentType} ariaLabel="Current content" bordered={false} codeTheme={settings.codeTheme} lineWrapping={settings.editorLineWrapping} minRows={8} showLabel={false} />
+            <ContentViewer value={raw} contentType={metadata?.contentType} ariaLabel={t('elements.currentContent')} bordered={false} codeTheme={settings.codeTheme} lineWrapping={settings.editorLineWrapping} minRows={8} showLabel={false} />
           </Paper>
 
           <Paper>
-            <Tabs value={tab} onChange={(_, nextValue: number) => setTab(nextValue)} aria-label="element detail tabs" variant="scrollable" scrollButtons="auto">
-              <Tab label="Versions" />
-              <Tab label="Diff" />
-              <Tab label="Operations" />
-              <Tab label="Instances" />
+            <Tabs value={tab} onChange={(_, nextValue: number) => setTab(nextValue)} aria-label={t('elements.detailTabs')} variant="scrollable" scrollButtons="auto">
+              <Tab label={t('elements.versions')} />
+              <Tab label={t('elements.diff')} />
+              <Tab label={t('elements.operations')} />
+              <Tab label={t('elements.instances')} />
             </Tabs>
             <Divider />
             <Box sx={{ p: 3 }}>
             {tab === 0 && (
               <Stack spacing={3}>
                 {retentionPolicy?.enabled && retentionPolicy.versionPolicy && (
-                  <Alert severity="info" variant="outlined">{retentionPolicy.versionPolicy}</Alert>
+                  <Alert severity="info" variant="outlined">{t('elements.versionRetention', { count: formatNumber(retentionPolicy.keepVersionCount), days: formatNumber(retentionPolicy.keepVersionDays) })}</Alert>
                 )}
                 {versions.length === 0 ? (
-                  <EmptyState title="No versions found" description="This element does not have any version history yet." />
+                  <EmptyState title={t('elements.noVersions')} description={t('elements.noVersionsDescription')} />
                 ) : (
                   <TableContainer component={Paper} variant="outlined">
                     <Table>
                       <TableHead>
                         <TableRow>
-                          <TableCell>Version</TableCell>
-                          <TableCell>State</TableCell>
-                          <TableCell>Type</TableCell>
-                          <TableCell>Preview</TableCell>
+                          <TableCell>{t('elements.version')}</TableCell>
+                          <TableCell>{t('elements.state')}</TableCell>
+                          <TableCell>{t('elements.type')}</TableCell>
+                          <TableCell>{t('elements.preview')}</TableCell>
                         </TableRow>
                       </TableHead>
                       <TableBody>
@@ -482,7 +482,7 @@ export function ElementDetailPage() {
                                   </Typography>
                                   {isCurrent && (
                                     <Typography component="span" variant="caption" sx={{ color: 'primary.main', fontWeight: 600 }}>
-                                      (current)
+                                      {t('elements.current')}
                                     </Typography>
                                   )}
                                 </Stack>
@@ -491,7 +491,7 @@ export function ElementDetailPage() {
                                 <Stack direction="row" spacing={0.75} alignItems="center" sx={{ color: version.published ? 'success.main' : 'text.secondary', fontWeight: 600 }}>
                                   {version.published ? <CheckCircleOutlineIcon fontSize="small" /> : <RadioButtonUncheckedIcon fontSize="small" />}
                                   <Typography component="span" variant="body2" sx={{ fontWeight: 600 }}>
-                                    {version.published ? 'Published' : 'Draft'}
+                                    {version.published ? t('elements.published') : t('elements.draft')}
                                   </Typography>
                                 </Stack>
                               </TableCell>
@@ -505,7 +505,7 @@ export function ElementDetailPage() {
                                   >
                                     {decodedRaw || '-'}
                                   </Typography>
-                                  <IconButton size="small" aria-label={`Preview ${versionLabel}`} onClick={() => setPreviewVersion(version)}>
+                                  <IconButton size="small" aria-label={t('elements.previewVersion', { version: versionLabel })} onClick={() => setPreviewVersion(version)}>
                                     <VisibilityOutlinedIcon fontSize="small" />
                                   </IconButton>
                                 </Stack>
@@ -524,8 +524,8 @@ export function ElementDetailPage() {
               <Stack spacing={2}>
                 <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems={{ md: 'flex-start' }}>
                   <FormControl fullWidth>
-                    <InputLabel id="diff-base-label">Base</InputLabel>
-                    <Select labelId="diff-base-label" value={diffBase} label="Base" onChange={(event) => setDiffBase(event.target.value)}>
+                    <InputLabel id="diff-base-label">{t('elements.base')}</InputLabel>
+                    <Select labelId="diff-base-label" value={diffBase} label={t('elements.base')} onChange={(event) => setDiffBase(event.target.value)}>
                       {versions.map((version) => (
                         <MenuItem key={`base-${version.version}`} value={String(version.version)}>
                           v{version.version}
@@ -534,8 +534,8 @@ export function ElementDetailPage() {
                     </Select>
                   </FormControl>
                   <FormControl fullWidth>
-                    <InputLabel id="diff-compare-label">Compare</InputLabel>
-                    <Select labelId="diff-compare-label" value={diffCompare} label="Compare" onChange={(event) => setDiffCompare(event.target.value)}>
+                    <InputLabel id="diff-compare-label">{t('elements.compare')}</InputLabel>
+                    <Select labelId="diff-compare-label" value={diffCompare} label={t('elements.compare')} onChange={(event) => setDiffCompare(event.target.value)}>
                       {versions.map((version) => (
                         <MenuItem key={`compare-${version.version}`} value={String(version.version)}>
                           v{version.version}
@@ -544,19 +544,19 @@ export function ElementDetailPage() {
                     </Select>
                   </FormControl>
                   <Button variant="outlined" startIcon={<CompareArrowsIcon />} onClick={handleLoadDiff} disabled={!diffBase.trim() || !diffCompare.trim()} sx={{ minWidth: 140, whiteSpace: 'nowrap', alignSelf: { md: 'center' } }}>
-                    Show diff
+                    {t('elements.showDiff')}
                   </Button>
                 </Stack>
                 {diffLoaded && diffPair ? (
                   <DiffViewer
                     oldValue={decodeRaw(diffPair.base.raw)}
                     newValue={decodeRaw(diffPair.compare.raw)}
-                    baseLabel={`Base v${diffBase}`}
-                    compareLabel={`Compare v${diffCompare}`}
+                    baseLabel={t('elements.baseVersion', { version: diffBase })}
+                    compareLabel={t('elements.compareVersion', { version: diffCompare })}
                     contentType={diffPair.compare.metadata?.contentType}
                   />
                 ) : (
-                  <Typography color="text.secondary">Select two versions to compare.</Typography>
+                  <Typography color="text.secondary">{t('elements.selectVersions')}</Typography>
                 )}
               </Stack>
             )}
@@ -564,19 +564,19 @@ export function ElementDetailPage() {
             {tab === 2 && (
               <Stack spacing={2}>
                 {retentionPolicy?.enabled && retentionPolicy.operationPolicy && (
-                  <Alert severity="info" variant="outlined">{retentionPolicy.operationPolicy}</Alert>
+                  <Alert severity="info" variant="outlined">{t('elements.operationRetention', { days: formatNumber(retentionPolicy.keepOperationDays) })}</Alert>
                 )}
                 {operations.length === 0 ? (
-                  <EmptyState title="No operations found" description="No recorded operations are available for this element yet." />
+                  <EmptyState title={t('elements.noOperations')} description={t('elements.noOperationsDescription')} />
                 ) : (
                   <TableContainer component={Paper} variant="outlined">
                     <Table>
                       <TableHead>
                         <TableRow>
-                          <TableCell>Time</TableCell>
-                          <TableCell>Operation</TableCell>
-                          <TableCell>Operator</TableCell>
-                          <TableCell>Version change</TableCell>
+                          <TableCell>{t('elements.time')}</TableCell>
+                          <TableCell>{t('elements.operation')}</TableCell>
+                          <TableCell>{t('elements.operator')}</TableCell>
+                          <TableCell>{t('elements.versionChange')}</TableCell>
                         </TableRow>
                       </TableHead>
                       <TableBody>
@@ -597,10 +597,10 @@ export function ElementDetailPage() {
 
             {tab === 3 && (
               <Stack spacing={2}>
-                <Typography color="text.secondary">View instances currently associated with this element in the cluster instances page.</Typography>
+                <Typography color="text.secondary">{t('elements.instancesDescription')}</Typography>
                 <Stack direction="row">
                   <Button component={RouterLink} to={`/cluster/instances${buildQuery({ app: appId, env, key })}`} variant="outlined" startIcon={<LaunchIcon />}>
-                    View instances
+                    {t('elements.viewInstances')}
                   </Button>
                 </Stack>
               </Stack>
@@ -611,34 +611,34 @@ export function ElementDetailPage() {
       )}
 
       <Dialog open={newVersionOpen} onClose={closeNewVersionDialog} fullWidth maxWidth="md" aria-labelledby="new-version-title">
-        <DialogTitle id="new-version-title">New Version</DialogTitle>
+        <DialogTitle id="new-version-title">{t('elements.newVersion')}</DialogTitle>
         <DialogContent>
-          <ContentEditor value={editRaw} contentType={metadata?.contentType} ariaLabel="New version content" codeTheme={settings.codeTheme} disabled={saving} lineWrapping={settings.editorLineWrapping} validation={editValidation} onChange={setEditRaw} />
+          <ContentEditor value={editRaw} contentType={metadata?.contentType} ariaLabel={t('elements.newVersionContent')} codeTheme={settings.codeTheme} disabled={saving} lineWrapping={settings.editorLineWrapping} validation={editValidation} onChange={setEditRaw} />
         </DialogContent>
         <DialogActions>
-          <Button onClick={closeNewVersionDialog} disabled={saving}>Cancel</Button>
-          <Button variant="outlined" startIcon={<PublishIcon />} onClick={() => setPublishDirectConfirmOpen(true)} disabled={saving || !editValidation.valid}>Publish directly</Button>
-          <Button variant="contained" startIcon={<SaveIcon />} onClick={() => void handleSubmitNewVersion()} disabled={saving || !editValidation.valid}>Submit</Button>
+          <Button onClick={closeNewVersionDialog} disabled={saving}>{t('elements.cancel')}</Button>
+          <Button variant="outlined" startIcon={<PublishIcon />} onClick={() => setPublishDirectConfirmOpen(true)} disabled={saving || !editValidation.valid}>{t('elements.publishDirectly')}</Button>
+          <Button variant="contained" startIcon={<SaveIcon />} onClick={() => void handleSubmitNewVersion()} disabled={saving || !editValidation.valid}>{t('elements.submit')}</Button>
         </DialogActions>
       </Dialog>
 
       <DangerConfirmDialog
         open={publishDirectConfirmOpen}
-        title="Publish directly"
-        description={<>This will create a new version and full publish it to all clients.</>}
-        confirmLabel="Publish directly"
+        title={t('elements.publishDirectly')}
+        description={t('elements.publishDirectDescription')}
+        confirmLabel={t('elements.publishDirectly')}
         loading={saving}
         onClose={() => setPublishDirectConfirmOpen(false)}
         onConfirm={() => void handlePublishDirectly()}
       />
 
       <Dialog open={Boolean(previewVersion)} onClose={() => setPreviewVersion(null)} fullWidth maxWidth="md" aria-labelledby="version-preview-title">
-        <DialogTitle id="version-preview-title">Version {previewVersionLabel} Preview</DialogTitle>
+        <DialogTitle id="version-preview-title">{t('elements.previewTitle', { version: previewVersionLabel })}</DialogTitle>
         <DialogContent>
-          <ContentViewer value={previewRaw} contentType={previewVersion?.metadata?.contentType} ariaLabel="Version preview content" codeTheme={settings.codeTheme} lineWrapping={settings.editorLineWrapping} />
+          <ContentViewer value={previewRaw} contentType={previewVersion?.metadata?.contentType} ariaLabel={t('elements.previewContent')} codeTheme={settings.codeTheme} lineWrapping={settings.editorLineWrapping} />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setPreviewVersion(null)}>Close</Button>
+          <Button onClick={() => setPreviewVersion(null)}>{t('elements.close')}</Button>
         </DialogActions>
       </Dialog>
     </Stack>

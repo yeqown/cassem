@@ -3,14 +3,16 @@ package testutil
 import (
 	"context"
 	"fmt"
-	apikv "github.com/yeqown/cassem/api/kv"
 	"net"
 	"time"
 
+	pb "github.com/yeqown/cassem/internal/protogen"
+
+	"github.com/yeqown/cassem/internal/kvclient"
 	"google.golang.org/grpc"
 )
 
-func DialCassemKV(t TB, endpoints []string, mode apikv.Mode) *grpc.ClientConn {
+func DialCassemKV(t TB, endpoints []string, mode kvclient.Mode) *grpc.ClientConn {
 	t.Helper()
 
 	var (
@@ -19,7 +21,7 @@ func DialCassemKV(t TB, endpoints []string, mode apikv.Mode) *grpc.ClientConn {
 	)
 	deadline := time.Now().Add(30 * time.Second)
 	for time.Now().Before(deadline) {
-		cc, err = apikv.DialWithMode(endpoints, mode)
+		cc, err = kvclient.DialWithMode(endpoints, mode)
 		if err == nil {
 			return cc
 		}
@@ -40,11 +42,11 @@ func CheckCassemKV(endpoints []string, timeout time.Duration) error {
 	deadline := time.Now().Add(timeout)
 	var lastErr error
 	for time.Now().Before(deadline) {
-		cc, err := apikv.DialWithMode(endpoints, apikv.Mode_X)
+		cc, err := kvclient.DialWithMode(endpoints, kvclient.Mode_X)
 		if err == nil {
-			client := apikv.NewKVClient(cc)
+			client := pb.NewKVClient(cc)
 			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-			_, lastErr = client.SetKV(ctx, &apikv.SetKVReq{
+			_, lastErr = client.SetKV(ctx, &pb.SetKVReq{
 				Key:       fmt.Sprintf("tests/health/%d", time.Now().UnixNano()),
 				Val:       []byte("ok"),
 				Overwrite: true,

@@ -6,30 +6,31 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	apikv "github.com/yeqown/cassem/api/kv"
 	"time"
 
-	proto "google.golang.org/protobuf/proto"
+	pb "github.com/yeqown/cassem/internal/protogen"
 
-	"github.com/yeqown/cassem/api/concept"
+	"github.com/yeqown/cassem/internal/concept"
+	"github.com/yeqown/cassem/internal/kvclient"
+	proto "google.golang.org/protobuf/proto"
 )
 
 var _ concept.KVWriteOnly = kvWriteOnly{}
 
 // kvWriteOnly can read and write to cassemkv.
 type kvWriteOnly struct {
-	cassemkv apikv.KVClient
+	cassemkv pb.KVClient
 }
 
 // NewKVHybrid with endpoints these endpoints of cassemkv.
 func NewKVHybrid(endpoints []string) (concept.KVWriteOnly, error) {
-	cc, err := apikv.DialWithMode(endpoints, apikv.Mode_X)
+	cc, err := kvclient.DialWithMode(endpoints, kvclient.Mode_X)
 	if err != nil {
 		return nil, fmt.Errorf("NewWriter: %w", err)
 	}
 
 	return kvWriteOnly{
-		cassemkv: apikv.NewKVClient(cc),
+		cassemkv: pb.NewKVClient(cc),
 	}, nil
 }
 
@@ -64,7 +65,7 @@ func (_h kvWriteOnly) CreateElement(ctx context.Context,
 		return err
 	}
 
-	return _h.saveElementOperation(ctx, app, env, key, concept.ElementOperation_SET, 0, version, "")
+	return _h.saveElementOperation(ctx, app, env, key, pb.ElementOperation_SET, 0, version, "")
 }
 
 // UpdateElement add a new version to element, and update element's metadata info.
@@ -103,12 +104,12 @@ func (_h kvWriteOnly) UpdateElement(ctx context.Context, app, env, key string, r
 		return err
 	}
 
-	return _h.saveElementOperation(ctx, app, env, key, concept.ElementOperation_SET, lastVersion, version, "")
+	return _h.saveElementOperation(ctx, app, env, key, pb.ElementOperation_SET, lastVersion, version, "")
 }
 
 func (_h kvWriteOnly) DeleteElement(ctx context.Context, app, env, eltKey string) error {
 	k := concept.GenElementKey(app, env, eltKey)
-	_, err := _h.cassemkv.UnsetKV(ctx, &apikv.UnsetKVReq{
+	_, err := _h.cassemkv.UnsetKV(ctx, &pb.UnsetKVReq{
 		Key:   k,
 		IsDir: true,
 	})
@@ -121,7 +122,7 @@ func (_h kvWriteOnly) DeleteElement(ctx context.Context, app, env, eltKey string
 
 func (_h kvWriteOnly) CreateEnvironment(ctx context.Context, app, env string) error {
 	k := concept.GenAppElementEnvKey(app, env)
-	_, err := _h.cassemkv.SetKV(ctx, &apikv.SetKVReq{
+	_, err := _h.cassemkv.SetKV(ctx, &pb.SetKVReq{
 		Key:   k,
 		IsDir: true,
 		// Ttl:                  0,
@@ -134,7 +135,7 @@ func (_h kvWriteOnly) CreateEnvironment(ctx context.Context, app, env string) er
 
 func (_h kvWriteOnly) DeleteEnvironment(ctx context.Context, app, env string) error {
 	k := concept.GenAppElementEnvKey(app, env)
-	_, err := _h.cassemkv.UnsetKV(ctx, &apikv.UnsetKVReq{
+	_, err := _h.cassemkv.UnsetKV(ctx, &pb.UnsetKVReq{
 		Key:   k,
 		IsDir: true,
 		// Ttl:                  0,
@@ -179,7 +180,7 @@ func (_h kvWriteOnly) RollbackElementVersion(ctx context.Context, app string, en
 		return err
 	}
 
-	return _h.saveElementOperation(ctx, app, env, key, concept.ElementOperation_PUBLISH,
+	return _h.saveElementOperation(ctx, app, env, key, pb.ElementOperation_PUBLISH,
 		lastUsingVersion, rollback.GetVersion(), fmt.Sprintf("rollback to version %d", rollbackVersion))
 }
 
@@ -225,14 +226,14 @@ func (_h kvWriteOnly) PublishElementVersion(ctx context.Context, app string, env
 		return nil, err
 	}
 	publish.Metadata = md
-	if err = _h.saveElementOperation(ctx, app, env, key, concept.ElementOperation_PUBLISH,
+	if err = _h.saveElementOperation(ctx, app, env, key, pb.ElementOperation_PUBLISH,
 		lastUsingVersion, publish.GetVersion(), ""); err != nil {
 		return nil, err
 	}
 	return publish, nil
 }
 
-func (_h kvWriteOnly) CreateApp(ctx context.Context, md *concept.AppMetadata) error {
+func (_h kvWriteOnly) CreateApp(ctx context.Context, md *pb.AppMetadata) error {
 	k := concept.GenAppKey(md.Id)
 	return _h.saveRaw(ctx, k, md, false)
 }
@@ -241,14 +242,14 @@ func (_h kvWriteOnly) DeleteApp(ctx context.Context, appId string) error {
 	k := concept.GenAppKey(appId)
 	eleKey := concept.GenAppElementKey(appId)
 
-	_, err := _h.cassemkv.UnsetKV(ctx, &apikv.UnsetKVReq{
+	_, err := _h.cassemkv.UnsetKV(ctx, &pb.UnsetKVReq{
 		Key:   eleKey,
 		IsDir: true,
 	})
 	if err != nil {
 		return err
 	}
-	_, err = _h.cassemkv.UnsetKV(ctx, &apikv.UnsetKVReq{
+	_, err = _h.cassemkv.UnsetKV(ctx, &pb.UnsetKVReq{
 		Key:   k,
 		IsDir: false,
 	})
@@ -265,7 +266,7 @@ func (_h kvWriteOnly) getElementWithoutMetadata(ctx context.Context, key string,
 		return nil, fmt.Errorf("version could not be 0: %w", concept.Err_INVALID_ARGUMENT)
 	}
 
-	r, err := _h.cassemkv.GetKV(ctx, &apikv.GetKVReq{Key: concept.WithVersion(key, int(version))})
+	r, err := _h.cassemkv.GetKV(ctx, &pb.GetKVReq{Key: concept.WithVersion(key, int(version))})
 	if err != nil {
 		return nil, err
 	}
@@ -279,7 +280,7 @@ func (_h kvWriteOnly) getElementWithoutMetadata(ctx context.Context, key string,
 
 // getElementMetadata returns metadata of specified element.
 func (_h kvWriteOnly) getElementMetadata(ctx context.Context, key string) (*concept.ElementMetadata, error) {
-	r, err := _h.cassemkv.GetKV(ctx, &apikv.GetKVReq{Key: concept.WithMetadataSuffix(key)})
+	r, err := _h.cassemkv.GetKV(ctx, &pb.GetKVReq{Key: concept.WithMetadataSuffix(key)})
 	if err != nil {
 		return nil, err
 	}
@@ -292,7 +293,7 @@ func (_h kvWriteOnly) getElementMetadata(ctx context.Context, key string) (*conc
 }
 
 func (_h kvWriteOnly) deleteOperationPrefix(ctx context.Context, key string) error {
-	_, err := _h.cassemkv.UnsetKV(ctx, &apikv.UnsetKVReq{
+	_, err := _h.cassemkv.UnsetKV(ctx, &pb.UnsetKVReq{
 		Key:   key,
 		IsDir: true,
 	})
@@ -304,10 +305,10 @@ func (_h kvWriteOnly) deleteOperationPrefix(ctx context.Context, key string) err
 }
 
 func (_h kvWriteOnly) saveElementOperation(ctx context.Context, app, env, key string,
-	op concept.ElementOperation_Op, lastVersion, currentVersion int32, remark string) error {
+	op pb.ElementOperation_Op, lastVersion, currentVersion int32, remark string) error {
 	operatedAt := time.Now().UnixNano()
 	opKey := concept.GenElementOperationKey(app, env, key, operatedAt)
-	operation := &concept.ElementOperation{
+	operation := &pb.ElementOperation{
 		Operator:       concept.OperatorFromContext(ctx),
 		OperatedAt:     operatedAt,
 		OperatedKey:    key,
@@ -328,7 +329,7 @@ func (_h kvWriteOnly) saveRaw(ctx context.Context, key string, val proto.Message
 		return fmt.Errorf("kvWrite.saveRaw.marshal: %w", errors.Join(err, concept.Err_INTERNAL))
 	}
 
-	if _, err = _h.cassemkv.SetKV(ctx, &apikv.SetKVReq{
+	if _, err = _h.cassemkv.SetKV(ctx, &pb.SetKVReq{
 		Key:       key,
 		Val:       bytes,
 		Overwrite: overwrite,

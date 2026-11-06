@@ -7,19 +7,21 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	pb "github.com/yeqown/cassem/internal/protogen"
+
 	"github.com/go-chi/chi/v5"
 	"github.com/stretchr/testify/require"
 
-	"github.com/yeqown/cassem/api/concept"
+	"github.com/yeqown/cassem/internal/concept"
 )
 
 type appHandlerAggregate struct {
 	concept.AdmAggregate
 
-	created *concept.AppMetadata
+	created *pb.AppMetadata
 }
 
-func (f *appHandlerAggregate) CreateApp(_ context.Context, md *concept.AppMetadata) error {
+func (f *appHandlerAggregate) CreateApp(_ context.Context, md *pb.AppMetadata) error {
 	f.created = md
 	return nil
 }

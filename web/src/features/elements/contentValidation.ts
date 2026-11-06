@@ -1,4 +1,5 @@
 import { parse as parseToml } from 'smol-toml'
+import { translate, type Translator } from '../../i18n'
 
 export type ContentTypeInput = number | string | undefined
 
@@ -18,9 +19,10 @@ export type ContentValidationResult = {
   diagnostics?: ContentDiagnostic[]
 }
 
-type Validator = (raw: string) => ContentValidationResult
+type Validator = (raw: string, t: Translator) => ContentValidationResult
 
 const validResult: ContentValidationResult = { valid: true }
+const defaultTranslator: Translator = (key, params) => translate('en', key, params)
 
 const contentTypeNameKeys = new Map<string, number>([
   ['JSON', 1],
@@ -46,18 +48,18 @@ function invalidResult(message: string, line?: number, column?: number, length?:
   return { valid: false, message, line, column, diagnostics: [diagnostic] }
 }
 
-function validateJson(raw: string): ContentValidationResult {
+function validateJson(raw: string, t: Translator): ContentValidationResult {
   if (!raw.trim()) return validResult
 
   try {
     JSON.parse(raw)
     return validResult
   } catch (error) {
-    return invalidResult(errorMessage(error, 'Invalid JSON'), 1, 1)
+    return invalidResult(errorMessage(error, t('elements.validation.invalidJson')), 1, 1)
   }
 }
 
-function validateIni(raw: string): ContentValidationResult {
+function validateIni(raw: string, t: Translator): ContentValidationResult {
   const lines = raw.split(/\r?\n/)
   const sectionPattern = /^\[[^\]\r\n]+\]$/
   const keyValuePattern = /^[^=:#\r\n][^=:\r\n]*\s*[=:]\s*.*$/
@@ -67,7 +69,7 @@ function validateIni(raw: string): ContentValidationResult {
     if (!trimmed || trimmed.startsWith(';') || trimmed.startsWith('#')) continue
     if (sectionPattern.test(trimmed) || keyValuePattern.test(trimmed)) continue
 
-    return invalidResult('Expected key=value or section header', index + 1, 1, line.length || 1)
+    return invalidResult(t('elements.validation.invalidIni'), index + 1, 1, line.length || 1)
   }
 
   return validResult
@@ -83,7 +85,7 @@ function parserColumn(error: unknown) {
   return undefined
 }
 
-function validateToml(raw: string): ContentValidationResult {
+function validateToml(raw: string, t: Translator): ContentValidationResult {
   if (!raw.trim()) return validResult
 
   try {
@@ -92,7 +94,7 @@ function validateToml(raw: string): ContentValidationResult {
   } catch (error) {
     const line = parserLine(error)
     const column = parserColumn(error)
-    return invalidResult(errorMessage(error, 'Invalid TOML'), line, column)
+    return invalidResult(errorMessage(error, t('elements.validation.invalidToml')), line, column)
   }
 }
 
@@ -102,21 +104,21 @@ const validators = new Map<number, Validator>([
   [3, validateIni],
 ])
 
-export function validateContent(contentType: ContentTypeInput, raw: string): ContentValidationResult {
+export function validateContent(contentType: ContentTypeInput, raw: string, t: Translator = defaultTranslator): ContentValidationResult {
   const key = contentTypeKey(contentType)
   const validator = key === undefined ? undefined : validators.get(key)
   if (!validator) return validResult
 
   try {
-    return validator(raw)
+    return validator(raw, t)
   } catch {
-    return { valid: false, message: 'Unable to validate content' }
+    return { valid: false, message: t('elements.validation.unavailable') }
   }
 }
 
-export function formatValidationMessage(result: ContentValidationResult): string {
+export function formatValidationMessage(result: ContentValidationResult, t: Translator = defaultTranslator): string {
   if (result.valid || !result.message) return ''
-  if (result.line !== undefined && result.column !== undefined) return `Line ${result.line}, Column ${result.column}: ${result.message}`
-  if (result.line !== undefined) return `Line ${result.line}: ${result.message}`
+  if (result.line !== undefined && result.column !== undefined) return t('elements.validation.lineColumn', { line: result.line, column: result.column, message: result.message })
+  if (result.line !== undefined) return t('elements.validation.line', { line: result.line, message: result.message })
   return result.message
 }

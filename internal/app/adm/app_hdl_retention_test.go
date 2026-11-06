@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/yeqown/cassem/pkg/conf"
+	"github.com/yeqown/cassem/internal/pkg/conf"
 )
 
 func TestRetentionPolicyResponseFromConfig(t *testing.T) {

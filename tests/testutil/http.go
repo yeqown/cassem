@@ -10,8 +10,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/yeqown/cassem/api/concept"
-	"github.com/yeqown/cassem/pkg/httpx"
+	pb "github.com/yeqown/cassem/internal/protogen"
+
+	"github.com/yeqown/cassem/internal/pkg/httpx"
 )
 
 type HTTPClient struct {
@@ -129,8 +130,8 @@ func LoginSuperadmin(t testing.TB, baseURL string) string {
 	t.Helper()
 	client := NewHTTPClient(baseURL)
 	var resp struct {
-		User    *concept.User `json:"user"`
-		Session string        `json:"session"`
+		User    *pb.User `json:"user"`
+		Session string   `json:"session"`
 	}
 	client.DoJSON(t, http.MethodPost, "/api/account/login", map[string]any{
 		"account":  "superadmin@example.com",

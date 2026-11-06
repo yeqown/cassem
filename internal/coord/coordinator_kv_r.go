@@ -4,13 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	apikv "github.com/yeqown/cassem/api/kv"
 	"strings"
 
+	pb "github.com/yeqown/cassem/internal/protogen"
+
+	"github.com/yeqown/cassem/internal/concept"
+	"github.com/yeqown/cassem/internal/kvclient"
 	"github.com/yeqown/log"
 	"google.golang.org/grpc/codes"
-
-	"github.com/yeqown/cassem/api/concept"
 )
 
 const (
@@ -20,18 +21,18 @@ const (
 
 // kvReadOnly manages all read operation from cassemkv, it is allowed to read only.
 type kvReadOnly struct {
-	cassemkv apikv.KVClient
+	cassemkv pb.KVClient
 }
 
 // NewKVReader with endpoints these endpoints of cassemkv.
 func NewKVReader(endpoints []string) (concept.KVReadOnly, error) {
-	cc, err := apikv.DialWithMode(endpoints, apikv.Mode_R)
+	cc, err := kvclient.DialWithMode(endpoints, kvclient.Mode_R)
 	if err != nil {
 		return nil, fmt.Errorf("NewWriter: %w", err)
 	}
 
 	return kvReadOnly{
-		cassemkv: apikv.NewKVClient(cc),
+		cassemkv: pb.NewKVClient(cc),
 	}, nil
 }
 
@@ -39,7 +40,7 @@ func (_r kvReadOnly) GetElementWithVersion(
 	ctx context.Context, app, env, key string, version int) (*concept.Element, error) {
 	// get metadata
 	k := concept.GenElementKey(app, env, key)
-	r1, err := _r.cassemkv.GetKV(ctx, &apikv.GetKVReq{Key: concept.WithMetadataSuffix(k)})
+	r1, err := _r.cassemkv.GetKV(ctx, &pb.GetKVReq{Key: concept.WithMetadataSuffix(k)})
 	if err != nil {
 		return nil, err
 	}
@@ -56,7 +57,7 @@ func (_r kvReadOnly) GetElementWithVersion(
 	}
 
 	// get element with specified version
-	r2, err2 := _r.cassemkv.GetKV(ctx, &apikv.GetKVReq{Key: concept.WithVersion(k, version)})
+	r2, err2 := _r.cassemkv.GetKV(ctx, &pb.GetKVReq{Key: concept.WithVersion(k, version)})
 	if err2 != nil {
 		return nil, err2
 	}
@@ -82,7 +83,7 @@ func (_r kvReadOnly) GetElementVersions(
 		}).
 		Debug("kvReadOnly.GetElementVersions enter")
 
-	r, err := _r.cassemkv.GetKVs(ctx, &apikv.GetKVsReq{
+	r, err := _r.cassemkv.GetKVs(ctx, &pb.GetKVsReq{
 		Keys: []string{concept.WithMetadataSuffix(k)},
 	})
 	if err != nil {
@@ -97,7 +98,7 @@ func (_r kvReadOnly) GetElementVersions(
 		seek = _VERSION_PREFIX
 	}
 
-	r2, err := _r.cassemkv.Range(ctx, &apikv.RangeReq{
+	r2, err := _r.cassemkv.Range(ctx, &pb.RangeReq{
 		Key:   k,
 		Seek:  seek,
 		Limit: int32(limit),
@@ -134,7 +135,7 @@ func (_r kvReadOnly) GetElements(
 		}).
 		Debug("kvReadOnly.GetElements enter")
 	if strings.TrimSpace(query) == "" {
-		r, err := _r.cassemkv.Range(ctx, &apikv.RangeReq{
+		r, err := _r.cassemkv.Range(ctx, &pb.RangeReq{
 			Key:   k,
 			Seek:  seek,
 			Limit: int32(limit),
@@ -163,7 +164,7 @@ func (_r kvReadOnly) GetElements(
 	matched := make([]string, 0, limit+1)
 	nextSeek := seek
 	for len(matched) <= limit {
-		r, err := _r.cassemkv.Range(ctx, &apikv.RangeReq{
+		r, err := _r.cassemkv.Range(ctx, &pb.RangeReq{
 			Key:   k,
 			Seek:  nextSeek,
 			Limit: int32(limit),
@@ -218,7 +219,7 @@ func (_r kvReadOnly) GetElementsByKeys(
 	return
 }
 
-func getKVsErrors(resp *apikv.GetKVsResp, ignoreNotFound bool) error {
+func getKVsErrors(resp *pb.GetKVsResp, ignoreNotFound bool) error {
 	var errs []error
 	for _, item := range resp.GetErrors() {
 		if ignoreNotFound && item.GetCode() == codes.NotFound.String() {
@@ -233,7 +234,7 @@ func getKVsErrors(resp *apikv.GetKVsResp, ignoreNotFound bool) error {
 	return nil
 }
 
-func keyErrorToError(item *apikv.KeyError) error {
+func keyErrorToError(item *pb.KeyError) error {
 	msg := fmt.Errorf("key %s: %s: %s", item.GetKey(), item.GetCode(), item.GetMessage())
 	ok, sentinel := keyErrorCodeSentinel(item.GetCode())
 	if !ok {
@@ -281,11 +282,11 @@ func keyErrorCodeSentinel(code string) (bool, error) {
 	}
 }
 
-func getKVsNonNotFoundErrors(resp *apikv.GetKVsResp) error {
+func getKVsNonNotFoundErrors(resp *pb.GetKVsResp) error {
 	return getKVsErrors(resp, true)
 }
 
-func getKVsAnyErrors(resp *apikv.GetKVsResp) error {
+func getKVsAnyErrors(resp *pb.GetKVsResp) error {
 	return getKVsErrors(resp, false)
 }
 
@@ -302,7 +303,7 @@ func (_r kvReadOnly) getElementsByKeys(
 		k := concept.GenElementKey(app, env, key)
 		mdKeys = append(mdKeys, concept.WithMetadataSuffix(k))
 	}
-	r, err := _r.cassemkv.GetKVs(ctx, &apikv.GetKVsReq{
+	r, err := _r.cassemkv.GetKVs(ctx, &pb.GetKVsReq{
 		Keys: mdKeys,
 	})
 	if err != nil {
@@ -317,7 +318,7 @@ func (_r kvReadOnly) getElementsByKeys(
 	if len(eleVersionKeys) == 0 {
 		return []*concept.Element{}, nil
 	}
-	r2, err2 := _r.cassemkv.GetKVs(ctx, &apikv.GetKVsReq{
+	r2, err2 := _r.cassemkv.GetKVs(ctx, &pb.GetKVsReq{
 		Keys: eleVersionKeys,
 	})
 	if err2 != nil {
@@ -334,7 +335,7 @@ func (_r kvReadOnly) getElementsByKeys(
 
 func (_r kvReadOnly) GetElementOperations(
 	ctx context.Context, app, env, eltKey string, seek string, limit int) (*concept.GetElementOperationsResult, error) {
-	r, err := _r.cassemkv.Range(ctx, &apikv.RangeReq{
+	r, err := _r.cassemkv.Range(ctx, &pb.RangeReq{
 		Key:   concept.GenElementOperationDirKey(app, env, eltKey),
 		Seek:  seek,
 		Limit: int32(limit),
@@ -348,10 +349,10 @@ func (_r kvReadOnly) GetElementOperations(
 			HasMore:  r.GetHasMore(),
 			NextSeek: r.GetNextSeekKey(),
 		},
-		Operations: make([]*concept.ElementOperation, 0, len(r.GetEntities())),
+		Operations: make([]*pb.ElementOperation, 0, len(r.GetEntities())),
 	}
 	for _, entity := range r.GetEntities() {
-		op := new(concept.ElementOperation)
+		op := new(pb.ElementOperation)
 		if err = concept.UnmarshalProto(entity.GetVal(), op); err != nil {
 			continue
 		}
@@ -361,23 +362,23 @@ func (_r kvReadOnly) GetElementOperations(
 	return result, nil
 }
 
-func (_r kvReadOnly) GetApp(ctx context.Context, app string) (*concept.AppMetadata, error) {
+func (_r kvReadOnly) GetApp(ctx context.Context, app string) (*pb.AppMetadata, error) {
 	k := concept.GenAppKey(app)
-	r, err := _r.cassemkv.GetKV(ctx, &apikv.GetKVReq{
+	r, err := _r.cassemkv.GetKV(ctx, &pb.GetKVReq{
 		Key: k,
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	md := new(concept.AppMetadata)
+	md := new(pb.AppMetadata)
 	err = concept.UnmarshalProto(r.GetEntity().GetVal(), md)
 	return md, err
 }
 
 func (_r kvReadOnly) GetApps(ctx context.Context, seek string, limit int, query string) (*concept.GetAppsResult, error) {
 	if strings.TrimSpace(query) == "" {
-		r, err := _r.cassemkv.Range(ctx, &apikv.RangeReq{
+		r, err := _r.cassemkv.Range(ctx, &pb.RangeReq{
 			Key:   _APP_PREFIX,
 			Seek:  seek,
 			Limit: int32(limit),
@@ -391,11 +392,11 @@ func (_r kvReadOnly) GetApps(ctx context.Context, seek string, limit int, query 
 				HasMore:  r.GetHasMore(),
 				NextSeek: r.GetNextSeekKey(),
 			},
-			Apps: make([]*concept.AppMetadata, 0, len(r.GetEntities())),
+			Apps: make([]*pb.AppMetadata, 0, len(r.GetEntities())),
 		}
 
 		for _, v := range r.GetEntities() {
-			md := new(concept.AppMetadata)
+			md := new(pb.AppMetadata)
 			_ = concept.UnmarshalProto(v.Val, md)
 			result.Apps = append(result.Apps, md)
 		}
@@ -404,10 +405,10 @@ func (_r kvReadOnly) GetApps(ctx context.Context, seek string, limit int, query 
 	}
 
 	needle := strings.ToLower(strings.TrimSpace(query))
-	matched := make([]*concept.AppMetadata, 0, limit+1)
+	matched := make([]*pb.AppMetadata, 0, limit+1)
 	nextSeek := seek
 	for len(matched) <= limit {
-		r, err := _r.cassemkv.Range(ctx, &apikv.RangeReq{
+		r, err := _r.cassemkv.Range(ctx, &pb.RangeReq{
 			Key:   _APP_PREFIX,
 			Seek:  nextSeek,
 			Limit: int32(limit),
@@ -417,7 +418,7 @@ func (_r kvReadOnly) GetApps(ctx context.Context, seek string, limit int, query 
 		}
 
 		for _, v := range r.GetEntities() {
-			md := new(concept.AppMetadata)
+			md := new(pb.AppMetadata)
 			_ = concept.UnmarshalProto(v.Val, md)
 			if strings.Contains(strings.ToLower(md.GetId()), needle) || strings.Contains(strings.ToLower(md.GetDescription()), needle) {
 				matched = append(matched, md)
@@ -447,7 +448,7 @@ func (_r kvReadOnly) GetApps(ctx context.Context, seek string, limit int, query 
 
 func (_r kvReadOnly) GetEnvironments(ctx context.Context, app, seek string, limit int) (*concept.GetAppEnvsResult, error) {
 	k := concept.GenAppElementKey(app)
-	r, err := _r.cassemkv.Range(ctx, &apikv.RangeReq{
+	r, err := _r.cassemkv.Range(ctx, &pb.RangeReq{
 		Key:   k,
 		Seek:  seek,
 		Limit: int32(limit),

@@ -6,21 +6,24 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"github.com/yeqown/cassem/api/concept"
-	apikv "github.com/yeqown/cassem/api/kv"
-	"github.com/yeqown/cassem/pkg/conf"
-	"github.com/yeqown/cassem/pkg/runtime"
-	"github.com/yeqown/log"
 	"path"
 	"strconv"
 	"strings"
 	"time"
+
+	pb "github.com/yeqown/cassem/internal/protogen"
+
+	"github.com/yeqown/cassem/internal/concept"
+	"github.com/yeqown/cassem/internal/kvclient"
+	"github.com/yeqown/cassem/internal/pkg/conf"
+	"github.com/yeqown/cassem/internal/pkg/runtime"
+	"github.com/yeqown/log"
 )
 
 const retentionRunTimeout = 30 * time.Second
 
 type retentionGC struct {
-	client apikv.KVClient
+	client pb.KVClient
 	config *conf.RetentionConfig
 }
 
@@ -35,12 +38,12 @@ func newRetentionGC(endpoints []string, config *conf.RetentionConfig) (*retentio
 		return &retentionGC{config: config}, nil
 	}
 
-	cc, err := apikv.DialWithMode(endpoints, apikv.Mode_X)
+	cc, err := kvclient.DialWithMode(endpoints, kvclient.Mode_X)
 	if err != nil {
 		return nil, fmt.Errorf("retention gc dial cassemkv: %w", err)
 	}
 
-	return &retentionGC{client: apikv.NewKVClient(cc), config: config}, nil
+	return &retentionGC{client: pb.NewKVClient(cc), config: config}, nil
 }
 
 func (g *retentionGC) run() {
@@ -123,14 +126,14 @@ func (g *retentionGC) inert() bool {
 	return g == nil || g.config == nil || !g.config.EnabledValue() || g.client == nil
 }
 
-func (g *retentionGC) compactElement(ctx context.Context, ref retentionElementRef) (*apikv.CompactElementHistoryResp, error) {
+func (g *retentionGC) compactElement(ctx context.Context, ref retentionElementRef) (*pb.CompactElementHistoryResp, error) {
 	req := retentionPolicyFromConfig(g.config)
 	req.ElementKey = concept.GenElementKey(ref.App, ref.Env, ref.Key)
 	return g.client.CompactElementHistory(ctx, req)
 }
 
 func (g *retentionGC) loadCursor(ctx context.Context) retentionCursor {
-	resp, err := g.client.GetKV(ctx, &apikv.GetKVReq{Key: retentionCursorKey})
+	resp, err := g.client.GetKV(ctx, &pb.GetKVReq{Key: retentionCursorKey})
 	if err != nil || resp.GetEntity() == nil {
 		return retentionCursor{}
 	}
@@ -250,7 +253,7 @@ func (g *retentionGC) hasElementAtOrAfterCursor(ctx context.Context, cursor rete
 }
 
 func (g *retentionGC) rangeLeavesPageWithError(ctx context.Context, root string, seek string) ([]string, bool, string, error) {
-	resp, err := g.client.Range(ctx, &apikv.RangeReq{
+	resp, err := g.client.Range(ctx, &pb.RangeReq{
 		Key:   root,
 		Seek:  seek,
 		Limit: int32(g.config.ElementPageSizeValue()),
@@ -284,7 +287,7 @@ func (g *retentionGC) persistJSON(ctx context.Context, key string, value any, tt
 	if err != nil {
 		return fmt.Errorf("marshal retention json %s: %w", key, err)
 	}
-	_, err = g.client.SetKV(ctx, &apikv.SetKVReq{Key: key, Val: data, Ttl: ttl, Overwrite: true})
+	_, err = g.client.SetKV(ctx, &pb.SetKVReq{Key: key, Val: data, Ttl: ttl, Overwrite: true})
 	if err != nil {
 		return fmt.Errorf("set retention json %s: %w", key, err)
 	}
@@ -359,14 +362,14 @@ type retentionFailureRecord struct {
 	OccurredAt int64    `json:"occurredAt"`
 }
 
-func retentionPolicyFromConfig(c *conf.RetentionConfig) *apikv.CompactElementHistoryReq {
+func retentionPolicyFromConfig(c *conf.RetentionConfig) *pb.CompactElementHistoryReq {
 	if c == nil {
 		c = conf.DefaultRetentionConfig()
 	}
 
 	daySeconds := int64((24 * time.Hour) / time.Second)
 
-	return &apikv.CompactElementHistoryReq{
+	return &pb.CompactElementHistoryReq{
 		KeepVersionCount:     int32(c.KeepVersionCountValue()),
 		KeepVersionSeconds:   int64(c.KeepVersionDaysValue()) * daySeconds,
 		KeepOperationSeconds: int64(c.KeepOperationDaysValue()) * daySeconds,

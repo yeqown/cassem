@@ -4,18 +4,19 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	apikv "github.com/yeqown/cassem/api/kv"
 	"os"
 	"path"
 	"sync"
+
+	pb "github.com/yeqown/cassem/internal/protogen"
 
 	"github.com/yeqown/log"
 	bolt "go.etcd.io/bbolt"
 	bolterrors "go.etcd.io/bbolt/errors"
 
-	"github.com/yeqown/cassem/pkg/conf"
-	errorx "github.com/yeqown/cassem/api/concept"
-	"github.com/yeqown/cassem/pkg/runtime"
+	errorx "github.com/yeqown/cassem/internal/concept"
+	"github.com/yeqown/cassem/internal/pkg/conf"
+	"github.com/yeqown/cassem/internal/pkg/runtime"
 )
 
 var (
@@ -126,7 +127,7 @@ func (b *boltRepoImpl) locateBucket(
 	return buk, leaf, nil
 }
 
-func (b *boltRepoImpl) GetKV(key string, dir bool) (val *apikv.Entity, err error) {
+func (b *boltRepoImpl) GetKV(key string, dir bool) (val *pb.Entity, err error) {
 	b.mu.RLock()
 	defer b.mu.RUnlock()
 
@@ -156,16 +157,16 @@ func (b *boltRepoImpl) GetKV(key string, dir bool) (val *apikv.Entity, err error
 	}
 
 	if dir {
-		return &apikv.Entity{Key: key}, nil
+		return &pb.Entity{Key: key}, nil
 	}
 
-	val = new(apikv.Entity)
-	err = apikv.Unmarshal(d, val)
+	val = new(pb.Entity)
+	err = errorx.UnmarshalProto(d, val)
 
 	return val, err
 }
 
-func (b *boltRepoImpl) SetKV(key string, val *apikv.Entity, dir bool) (err error) {
+func (b *boltRepoImpl) SetKV(key string, val *pb.Entity, dir bool) (err error) {
 	b.mu.RLock()
 	defer b.mu.RUnlock()
 
@@ -187,7 +188,7 @@ func (b *boltRepoImpl) SetKV(key string, val *apikv.Entity, dir bool) (err error
 			_, err2 = bucket.CreateBucketIfNotExists(runtime.ToBytes(leaf))
 			return err2
 		}
-		d := apikv.Must(apikv.Marshal(val))
+		d := errorx.MustMarshalProto(val)
 
 		return bucket.Put(runtime.ToBytes(leaf), d)
 	})
@@ -249,7 +250,7 @@ func (b *boltRepoImpl) Range(key string, seek string, limit int) (*RangeResult, 
 
 		k, v := cur.First()
 		result = &RangeResult{
-			Items:       make([]*apikv.Entity, 0, limit),
+			Items:       make([]*pb.Entity, 0, limit),
 			HasMore:     false,
 			NextSeekKey: "",
 		}
@@ -259,15 +260,15 @@ func (b *boltRepoImpl) Range(key string, seek string, limit int) (*RangeResult, 
 
 		for ; k != nil && count < limit; k, v = cur.Next() {
 			entryKey := path.Join(key, runtime.ToString(k))
-			entity := &apikv.Entity{
+			entity := &pb.Entity{
 				Key: entryKey,
 			}
 			if v != nil {
-				if err2 = apikv.Unmarshal(v, entity); err2 != nil {
+				if err2 = errorx.UnmarshalProto(v, entity); err2 != nil {
 					return fmt.Errorf("range.decode %s: %w", entryKey, err2)
 				}
 				// FIXED: shielding expired data in range
-				if entity.Expired() {
+				if EntityExpired(entity) {
 					result.ExpiredKeys = append(result.ExpiredKeys, entity.Key)
 					continue
 				}

@@ -1,14 +1,16 @@
 import { useEffect } from 'react'
 import { Box, CircularProgress, Typography } from '@mui/material'
 import { useToast } from './ToastProvider'
+import { useI18n } from '../i18n'
 
 const recentlyEmittedMessages = new Set<string>()
 
-export function LoadingState({ label = 'Loading' }: { label?: string }) {
+export function LoadingState({ label }: { label?: string }) {
+  const { t } = useI18n()
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, p: 3 }}>
       <CircularProgress size={20} />
-      <Typography>{label}</Typography>
+      <Typography>{label ?? t('common.loading')}</Typography>
     </Box>
   )
 }

@@ -2,10 +2,11 @@ import { HighlightStyle, StreamLanguage, syntaxHighlighting, type LanguageSuppor
 import { json } from '@codemirror/lang-json'
 import { properties } from '@codemirror/legacy-modes/mode/properties'
 import { toml } from '@codemirror/legacy-modes/mode/toml'
-import type { Extension } from '@codemirror/state'
+import { EditorState, type Extension } from '@codemirror/state'
 import { EditorView } from '@codemirror/view'
 import { tags as t } from '@lezer/highlight'
 import { contentTypes } from '../../domain/types'
+import type { Translator } from '../../i18n'
 import type { CodeTheme } from '../../lib/settings'
 
 type ContentTooling = {
@@ -167,6 +168,39 @@ export function getContentLanguage(contentType?: number | string) {
   return language ? [language] : []
 }
 
-export function getContentExtensions(contentType?: number | string, codeTheme: CodeTheme = 'github-light-plus', lineWrapping = true) {
-  return [...(lineWrapping ? [EditorView.lineWrapping] : []), ...createCodeTheme(codeTheme), ...getContentLanguage(contentType)]
+function getEditorPhrases(t: Translator) {
+  return EditorState.phrases.of({
+    'Fold line': t('elements.editor.foldLine'),
+    'Unfold line': t('elements.editor.unfoldLine'),
+    'folded code': t('elements.editor.foldedCode'),
+    unfold: t('elements.editor.unfold'),
+    'Folded lines': t('elements.editor.foldedLines'),
+    'Unfolded lines': t('elements.editor.unfoldedLines'),
+    to: t('elements.editor.to'),
+    Find: t('elements.editor.find'),
+    Replace: t('elements.editor.replace'),
+    next: t('elements.editor.next'),
+    previous: t('elements.editor.previous'),
+    all: t('elements.editor.all'),
+    'match case': t('elements.editor.matchCase'),
+    regexp: t('elements.editor.regexp'),
+    'by word': t('elements.editor.byWord'),
+    replace: t('elements.editor.replaceAction'),
+    'replace all': t('elements.editor.replaceAll'),
+    close: t('elements.editor.close'),
+    'Go to line': t('elements.editor.goToLine'),
+    go: t('elements.editor.go'),
+    Diagnostics: t('elements.editor.diagnostics'),
+    'No diagnostics': t('elements.editor.noDiagnostics'),
+    Completions: t('elements.editor.completions'),
+    'replaced match on line $': t('elements.editor.replacedLine'),
+    'replaced $ matches': t('elements.editor.replacedMatches'),
+    'current match': t('elements.editor.currentMatch'),
+    'on line': t('elements.editor.onLine'),
+    'Control character': t('elements.editor.controlCharacter'),
+  })
+}
+
+export function getContentExtensions(contentType?: number | string, codeTheme: CodeTheme = 'github-light-plus', lineWrapping = true, t?: Translator) {
+  return [...(lineWrapping ? [EditorView.lineWrapping] : []), ...createCodeTheme(codeTheme), ...getContentLanguage(contentType), ...(t ? [getEditorPhrases(t)] : [])]
 }

@@ -10,7 +10,7 @@ import (
 
 func TestProductionSourceHasNoGinImports(t *testing.T) {
 	repoRoot := filepath.Clean(filepath.Join("..", "..", ".."))
-	for _, dir := range []string{"internal", "pkg", "cmd"} {
+	for _, dir := range []string{"internal", "cmd"} {
 		root := filepath.Join(repoRoot, dir)
 		err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 			if err != nil {

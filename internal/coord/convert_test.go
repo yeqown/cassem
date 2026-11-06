@@ -1,14 +1,15 @@
 package coord
 
 import (
-	apikv "github.com/yeqown/cassem/api/kv"
 	"testing"
+
+	pb "github.com/yeqown/cassem/internal/protogen"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/yeqown/cassem/api/concept"
+	"github.com/yeqown/cassem/internal/concept"
 )
 
 func marshalTestProto(t testing.TB, msg proto.Message) []byte {
@@ -21,12 +22,12 @@ func marshalTestProto(t testing.TB, msg proto.Message) []byte {
 func TestConvertFromEntitiesToElements(t *testing.T) {
 	baseKey := concept.GenElementKey("app", "prod", "feature")
 	metadata := &concept.ElementMetadata{Key: "feature", App: "app", Env: "prod", UsingVersion: 2}
-	entity := &apikv.Entity{
+	entity := &pb.Entity{
 		Key: concept.WithVersion(baseKey, 2),
 		Val: marshalTestProto(t, &concept.Element{Version: 2, Raw: []byte("enabled"), Published: true}),
 	}
 
-	out := ConvertFromEntitiesToElements([]*apikv.Entity{
+	out := ConvertFromEntitiesToElements([]*pb.Entity{
 		entity,
 		{Key: concept.WithVersion(baseKey, 3), Val: []byte("bad proto")},
 	}, map[string]*concept.ElementMetadata{baseKey: metadata})
@@ -44,7 +45,7 @@ func TestConvertFromEntitiesToMetadata(t *testing.T) {
 	badKey := concept.GenElementKey("app", "prod", "bad")
 	using := &concept.ElementMetadata{Key: "using", App: "app", Env: "prod", UsingVersion: 2, UnpublishedVersion: 3}
 	unpublished := &concept.ElementMetadata{Key: "draft", App: "app", Env: "prod", UnpublishedVersion: 4}
-	entities := []*apikv.Entity{
+	entities := []*pb.Entity{
 		{Key: concept.WithMetadataSuffix(usingKey), Val: marshalTestProto(t, using)},
 		{Key: concept.WithMetadataSuffix(unpublishedKey), Val: marshalTestProto(t, unpublished)},
 		{Key: concept.WithMetadataSuffix(badKey), Val: []byte("bad proto")},
@@ -69,21 +70,21 @@ func TestConvertFromEntitiesToMetadata(t *testing.T) {
 }
 
 func TestConvertChangeToChange(t *testing.T) {
-	ins := &concept.AgentInstance{AgentId: "agent-1", Addr: "127.0.0.1:9000"}
-	current := &apikv.Entity{Val: marshalTestProto(t, ins)}
+	ins := &pb.AgentInstance{AgentId: "agent-1", Addr: "127.0.0.1:9000"}
+	current := &pb.Entity{Val: marshalTestProto(t, ins)}
 
 	tests := []struct {
 		name   string
-		change *apikv.Change
+		change *pb.Change
 		wantOK bool
-		wantOp concept.ChangeOp
+		wantOp pb.ChangeOp
 	}{
 		{name: "nil", change: nil, wantOK: false},
-		{name: "set new", change: &apikv.Change{Op: apikv.Change_Set, Current: current}, wantOK: true, wantOp: concept.ChangeOp_NEW},
-		{name: "set update", change: &apikv.Change{Op: apikv.Change_Set, Last: &apikv.Entity{}, Current: current}, wantOK: true, wantOp: concept.ChangeOp_UPDATE},
-		{name: "unset", change: &apikv.Change{Op: apikv.Change_Unset, Current: current}, wantOK: true, wantOp: concept.ChangeOp_DELETE},
-		{name: "invalid op", change: &apikv.Change{Op: apikv.Change_Invalid, Current: current}, wantOK: false},
-		{name: "invalid proto", change: &apikv.Change{Op: apikv.Change_Set, Current: &apikv.Entity{Val: []byte("bad proto")}}, wantOK: false},
+		{name: "set new", change: &pb.Change{Op: pb.Change_Set, Current: current}, wantOK: true, wantOp: pb.ChangeOp_NEW},
+		{name: "set update", change: &pb.Change{Op: pb.Change_Set, Last: &pb.Entity{}, Current: current}, wantOK: true, wantOp: pb.ChangeOp_UPDATE},
+		{name: "unset", change: &pb.Change{Op: pb.Change_Unset, Current: current}, wantOK: true, wantOp: pb.ChangeOp_DELETE},
+		{name: "invalid op", change: &pb.Change{Op: pb.Change_Invalid, Current: current}, wantOK: false},
+		{name: "invalid proto", change: &pb.Change{Op: pb.Change_Set, Current: &pb.Entity{Val: []byte("bad proto")}}, wantOK: false},
 	}
 
 	for _, tt := range tests {

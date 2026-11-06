@@ -1,6 +1,7 @@
 import CodeMirror from '@uiw/react-codemirror'
 import { Chip, FormHelperText, Stack } from '@mui/material'
 import { lintGutter } from '@codemirror/lint'
+import { useI18n } from '../../i18n'
 import { getContentExtensions, getContentTypeLabel } from './contentRegistry'
 import { createContentDiagnostics } from './contentDiagnostics'
 import { formatValidationMessage, type ContentValidationResult } from './contentValidation'
@@ -20,12 +21,13 @@ type ContentEditorProps = {
   onChange: (value: string) => void
 }
 
-export function ContentEditor({ value, contentType, ariaLabel = 'Raw content', codeTheme = 'github-light-plus', disabled = false, lineWrapping = true, minRows = 12, maxRows = 24, showContentType = true, validation, onChange }: ContentEditorProps) {
+export function ContentEditor({ value, contentType, ariaLabel, codeTheme = 'github-light-plus', disabled = false, lineWrapping = true, minRows = 12, maxRows = 24, showContentType = true, validation, onChange }: ContentEditorProps) {
+  const { t } = useI18n()
   const minHeight = `${minRows * 24}px`
   const maxHeight = `${maxRows * 24}px`
-  const validationMessage = validation && !validation.valid ? formatValidationMessage(validation) : ''
+  const validationMessage = validation && !validation.valid ? formatValidationMessage(validation, t) : ''
   const hasValidationError = Boolean(validationMessage)
-  const extensions = [...getContentExtensions(contentType, codeTheme, lineWrapping), lintGutter(), ...createContentDiagnostics(contentType)]
+  const extensions = [...getContentExtensions(contentType, codeTheme, lineWrapping, t), lintGutter(), ...createContentDiagnostics(contentType, t)]
 
   return (
     <Stack spacing={1.5}>
@@ -36,7 +38,7 @@ export function ContentEditor({ value, contentType, ariaLabel = 'Raw content', c
       )}
       <Stack data-testid="content-editor" data-code-theme={codeTheme} data-validation-state={hasValidationError ? 'invalid' : 'valid'} sx={{ border: 1, borderColor: hasValidationError ? 'error.main' : 'divider', borderRadius: 2, overflow: 'hidden' }}>
         <CodeMirror
-          aria-label={ariaLabel}
+          aria-label={ariaLabel ?? t('elements.rawContent')}
           value={value}
           minHeight={minHeight}
           maxHeight={maxHeight}

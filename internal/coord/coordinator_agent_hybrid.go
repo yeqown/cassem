@@ -4,12 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	apikv "github.com/yeqown/cassem/api/kv"
 	"io"
 
-	"github.com/yeqown/log"
+	pb "github.com/yeqown/cassem/internal/protogen"
 
-	"github.com/yeqown/cassem/api/concept"
+	"github.com/yeqown/cassem/internal/concept"
+	"github.com/yeqown/log"
 )
 
 const (
@@ -17,19 +17,19 @@ const (
 )
 
 type agentInsHybrid struct {
-	cassemkv apikv.KVClient
+	cassemkv pb.KVClient
 }
 
 // func NewAgentInstanceHybrid(endpoints []string) (AgentHybrid, error) {
-//	cc, err := apikv.DialWithMode(endpoints, apikv.Mode_X)
+//	cc, err := kvclient.DialWithMode(endpoints, kvclient.Mode_X)
 //	if err != nil {
 //		return nil, errors.Wrap(err, "NewInstanceHybrid")
 //	}
-//	return &agentInsHybrid{cassemkv: apikv.NewKVClient(cc)}, nil
+//	return &agentInsHybrid{cassemkv: pb.NewKVClient(cc)}, nil
 // }
 
-func (_h agentInsHybrid) Watch(ctx context.Context, ch chan<- *concept.AgentInstanceChange) error {
-	stream, err := _h.cassemkv.Watch(ctx, &apikv.WatchReq{
+func (_h agentInsHybrid) Watch(ctx context.Context, ch chan<- *pb.AgentInstanceChange) error {
+	stream, err := _h.cassemkv.Watch(ctx, &pb.WatchReq{
 		Keys: []string{_AGENT_PREFIX},
 	})
 	if err != nil {
@@ -39,7 +39,7 @@ func (_h agentInsHybrid) Watch(ctx context.Context, ch chan<- *concept.AgentInst
 		return err
 	}
 
-	change := new(apikv.Change)
+	change := new(pb.Change)
 	ctx2, cancel := context.WithCancel(stream.Context())
 	defer cancel()
 loop:
@@ -91,13 +91,13 @@ loop:
 	return err
 }
 
-func (_h agentInsHybrid) Register(ctx context.Context, ins *concept.AgentInstance, ttl int32) error {
+func (_h agentInsHybrid) Register(ctx context.Context, ins *pb.AgentInstance, ttl int32) error {
 	bytes, err := concept.MarshalProto(ins)
 	if err != nil {
 		return fmt.Errorf("cassem.concept.agentInsHybrid.Register: %w", err)
 	}
 
-	_, err = _h.cassemkv.SetKV(ctx, &apikv.SetKVReq{
+	_, err = _h.cassemkv.SetKV(ctx, &pb.SetKVReq{
 		Key:       concept.WithAgentPrefix(ins.AgentId),
 		IsDir:     false,
 		Ttl:       ttl,
@@ -108,13 +108,13 @@ func (_h agentInsHybrid) Register(ctx context.Context, ins *concept.AgentInstanc
 	return err
 }
 
-func (_h agentInsHybrid) Renew(ctx context.Context, ins *concept.AgentInstance, ttl int32) error {
+func (_h agentInsHybrid) Renew(ctx context.Context, ins *pb.AgentInstance, ttl int32) error {
 	bytes, err := concept.MarshalProto(ins)
 	if err != nil {
 		return fmt.Errorf("cassem.concept.agentInsHybrid.Renew: %w", err)
 	}
 
-	_, err = _h.cassemkv.SetKV(ctx, &apikv.SetKVReq{
+	_, err = _h.cassemkv.SetKV(ctx, &pb.SetKVReq{
 		Key:       concept.WithAgentPrefix(ins.AgentId),
 		IsDir:     false,
 		Ttl:       ttl,
@@ -126,7 +126,7 @@ func (_h agentInsHybrid) Renew(ctx context.Context, ins *concept.AgentInstance, 
 }
 
 func (_h agentInsHybrid) Unregister(ctx context.Context, agentId string) error {
-	_, err := _h.cassemkv.UnsetKV(ctx, &apikv.UnsetKVReq{
+	_, err := _h.cassemkv.UnsetKV(ctx, &pb.UnsetKVReq{
 		Key:   concept.WithAgentPrefix(agentId),
 		IsDir: false,
 	})
@@ -135,7 +135,7 @@ func (_h agentInsHybrid) Unregister(ctx context.Context, agentId string) error {
 }
 
 func (_h agentInsHybrid) GetAgents(ctx context.Context, seek string, limit int) (*concept.GetAgentsResult, error) {
-	r, err := _h.cassemkv.Range(ctx, &apikv.RangeReq{
+	r, err := _h.cassemkv.Range(ctx, &pb.RangeReq{
 		Key:   _AGENT_PREFIX,
 		Seek:  seek,
 		Limit: int32(limit),
@@ -149,10 +149,10 @@ func (_h agentInsHybrid) GetAgents(ctx context.Context, seek string, limit int) 
 			HasMore:  r.GetHasMore(),
 			NextSeek: r.GetNextSeekKey(),
 		},
-		Agents: make([]*concept.AgentInstance, 0, len(r.GetEntities())),
+		Agents: make([]*pb.AgentInstance, 0, len(r.GetEntities())),
 	}
 	for _, v := range r.GetEntities() {
-		agent := new(concept.AgentInstance)
+		agent := new(pb.AgentInstance)
 		if err2 := concept.UnmarshalProto(v.GetVal(), agent); err2 != nil {
 			log.
 				WithFields(log.Fields{

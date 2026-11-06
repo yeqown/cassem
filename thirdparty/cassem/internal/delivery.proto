@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+import "cassem/client/types.proto";
+
+package cassem.api.agent;
+option go_package = "github.com/yeqown/cassem/internal/protogen;protogen";
+
+message dispatchReq {
+  repeated cassem.api.concept.Element elems = 1;
+  repeated string instanceIds = 2;
+}
+
+message dispatchResp {}
+
+// delivery service provide API for cassem.adm.
+service delivery {
+  rpc Dispatch(dispatchReq) returns (dispatchResp) {};
+}

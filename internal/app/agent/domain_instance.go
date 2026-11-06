@@ -6,7 +6,7 @@ import (
 
 	"github.com/yeqown/log"
 
-	"github.com/yeqown/cassem/api/concept"
+	"github.com/yeqown/cassem/internal/concept"
 )
 
 // InstancePool is a pool provide open API ability to Register / Unregister / Notify instances.

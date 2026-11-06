@@ -12,17 +12,19 @@ import (
 	"syscall"
 	"time"
 
+	pb "github.com/yeqown/cassem/internal/protogen"
+	clientpb "github.com/yeqown/cassem/sdk/go/protogen"
+
+	"github.com/yeqown/cassem/internal/concept"
+	"github.com/yeqown/cassem/internal/coord"
+	"github.com/yeqown/cassem/internal/pkg/conf"
+	"github.com/yeqown/cassem/internal/pkg/grpcx"
+	"github.com/yeqown/cassem/internal/pkg/hash"
+	"github.com/yeqown/cassem/internal/pkg/httpx"
+	"github.com/yeqown/cassem/internal/pkg/runtime"
 	"github.com/yeqown/log"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
-
-	apiagent "github.com/yeqown/cassem/api/agent"
-	"github.com/yeqown/cassem/api/concept"
-	"github.com/yeqown/cassem/internal/coord"
-	"github.com/yeqown/cassem/pkg/conf"
-	"github.com/yeqown/cassem/pkg/grpcx"
-	"github.com/yeqown/cassem/pkg/hash"
-	"github.com/yeqown/cassem/pkg/runtime"
 )
 
 // getHostname returns the hostname or "unknown" if error occurs.
@@ -46,8 +48,8 @@ func advertiseAddr(bindAddr, hostname string) string {
 }
 
 type app struct {
-	apiagent.UnimplementedAgentServer
-	apiagent.UnimplementedDeliveryServer
+	clientpb.UnimplementedAgentServer
+	pb.UnimplementedDeliveryServer
 
 	uniqueId    string
 	quit        chan struct{}
@@ -58,7 +60,8 @@ type app struct {
 	actualRenewInterval int32
 	conf                *conf.CassemAgentConfig
 
-	aggregate concept.AgentAggregate
+	aggregate  concept.AgentAggregate
+	authorizer concept.TokenAuthorizer
 
 	cache        Cache
 	instancePool InstancePool
@@ -74,6 +77,11 @@ func New(c *conf.CassemAgentConfig) (*app, error) {
 		return nil, fmt.Errorf("cassemagent.New: %w", err)
 	}
 
+	authorizer, err := coord.NewTokenService(c.CassemKVEndpoints)
+	if err != nil {
+		return nil, fmt.Errorf("cassemagent.New.TokenService: %w", err)
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 	d := &app{
 		uniqueId:     "",
@@ -83,6 +91,7 @@ func New(c *conf.CassemAgentConfig) (*app, error) {
 		cancel:       cancel,
 		conf:         c,
 		aggregate:    agg,
+		authorizer:   authorizer,
 		cache:        NewCache(uint(c.ElementCacheSize)),
 		instancePool: NewInstancePool(),
 	}
@@ -132,22 +141,21 @@ func (d *app) serve() error {
 	// blocked here until app register itself success
 	<-d.regSuccessC
 
+	return httpx.NewGateway(d.conf.Server.Addr, d.httpHandler(), d.grpcServer()).ListenAndServe()
+}
+
+func (d *app) grpcServer() *grpc.Server {
 	s := grpc.NewServer(
 		grpc.UnaryInterceptor(grpcx.ChainUnaryServer(
 			grpcx.ServerRecovery(), grpcx.ServerLogger(), grpcx.SevrerErrorx(), grpcx.ServerValidation())),
 	)
 
 	// register service and rpcs
-	apiagent.RegisterAgentServer(s, d)
-	apiagent.RegisterDeliveryServer(s, d)
+	clientpb.RegisterAgentServer(s, d)
+	pb.RegisterDeliveryServer(s, d)
 	reflection.Register(s)
 
-	lis, err := net.Listen("tcp", d.conf.Server.Addr)
-	if err != nil {
-		return err
-	}
-
-	return s.Serve(lis)
+	return s
 }
 
 // renew
@@ -155,7 +163,7 @@ func (d *app) renew() error {
 	renewSelf := func() error {
 		timeoutCtx, cancel := context.WithTimeout(d.lifecycleContext(), 3*time.Second)
 		defer cancel()
-		err := d.aggregate.Renew(timeoutCtx, &concept.AgentInstance{
+		err := d.aggregate.Renew(timeoutCtx, &pb.AgentInstance{
 			AgentId: d.uniqueId,
 			Addr:    advertiseAddr(d.conf.Server.Addr, getHostname()),
 			Annotations: map[string]string{
@@ -176,7 +184,7 @@ func (d *app) renew() error {
 	d.actualRenewInterval = d.conf.RenewInterval + rand.Int31n(d.conf.TTL-d.conf.RenewInterval)
 	for {
 		timeoutCtx, cancel := context.WithTimeout(d.lifecycleContext(), 3*time.Second)
-		err := d.aggregate.Register(timeoutCtx, &concept.AgentInstance{
+		err := d.aggregate.Register(timeoutCtx, &pb.AgentInstance{
 			AgentId: d.uniqueId,
 			Addr:    advertiseAddr(d.conf.Server.Addr, getHostname()),
 			Annotations: map[string]string{

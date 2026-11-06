@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { useI18n } from '../i18n'
 import WarningAmberIcon from '@mui/icons-material/WarningAmber'
 import {
   Button,
@@ -29,6 +30,7 @@ export function DangerConfirmDialog({
   onClose,
   onConfirm,
 }: DangerConfirmDialogProps) {
+  const { t } = useI18n()
   return (
     <Dialog open={open} onClose={loading ? undefined : onClose} fullWidth maxWidth="sm">
       <DialogTitle>
@@ -41,7 +43,7 @@ export function DangerConfirmDialog({
         <DialogContentText component="div">{description}</DialogContentText>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose} disabled={loading}>Cancel</Button>
+        <Button onClick={onClose} disabled={loading}>{t('common.cancel')}</Button>
         <Button variant="contained" color="error" onClick={onConfirm} disabled={loading}>
           {confirmLabel}
         </Button>

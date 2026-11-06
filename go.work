@@ -2,7 +2,5 @@ go 1.26
 
 use (
 	.
-	./api
-	./examples
-	./tools
+	./sdk/go
 )

@@ -35,6 +35,9 @@ func (d app) mountAdminRoutes(r chi.Router) {
 
 	d.mountAPIRoute(r, http.MethodGet, "/api/account/users", d.GetUsersHTTP)
 	d.mountAPIRoute(r, http.MethodGet, "/api/account/users/{account}/acl", d.GetUserACLHTTP)
+	d.mountAPIRoute(r.With(tokenNoStore), http.MethodPost, "/api/account/users/{account}/tokens", d.IssueTokenHTTP)
+	d.mountAPIRoute(r.With(tokenNoStore), http.MethodGet, "/api/account/users/{account}/tokens", d.GetTokensHTTP)
+	d.mountAPIRoute(r.With(tokenNoStore), http.MethodDelete, "/api/account/users/{account}/tokens/{tokenId}", d.RevokeTokenHTTP)
 	d.mountAPIRoute(r, http.MethodPost, "/api/account/add", d.AddUserHTTP)
 	d.mountAPIRoute(r, http.MethodGet, "/api/account/disable", d.DisableUserHTTP)
 	d.mountAPIRoute(r, http.MethodGet, "/api/account/reset", d.ResetUserHTTP)

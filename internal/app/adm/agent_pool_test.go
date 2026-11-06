@@ -7,22 +7,22 @@ import (
 	"testing"
 	"time"
 
+	pb "github.com/yeqown/cassem/internal/protogen"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
+	"github.com/yeqown/cassem/internal/concept"
 	"google.golang.org/grpc"
-
-	"github.com/yeqown/cassem/api/agent"
-	"github.com/yeqown/cassem/api/concept"
 )
 
 type fakeDeliveryClient struct{}
 
-func (fakeDeliveryClient) Dispatch(ctx context.Context, in *agent.DispatchReq, opts ...grpc.CallOption) (*agent.DispatchResp, error) {
-	return &agent.DispatchResp{}, nil
+func (fakeDeliveryClient) Dispatch(ctx context.Context, in *pb.DispatchReq, opts ...grpc.CallOption) (*pb.DispatchResp, error) {
+	return &pb.DispatchResp{}, nil
 }
 
-var _ agent.DeliveryClient = fakeDeliveryClient{}
+var _ pb.DeliveryClient = fakeDeliveryClient{}
 
 type testAgentPoolSuite struct {
 	suite.Suite
@@ -39,48 +39,47 @@ func (t *testAgentPoolSuite) eventually(assertion func() bool) {
 }
 
 func (t *testAgentPoolSuite) Test_consumeAgentInstanceChange() {
-	ch := make(chan *concept.AgentInstanceChange, 10)
-	defer close(ch)
-
-	change := &concept.AgentInstanceChange{
-		Ins: &concept.AgentInstance{
-			AgentId:     "agentId",
-			Addr:        "addr",
-			Annotations: nil,
-		},
-		Op: concept.ChangeOp_NEW,
+	ch := make(chan *pb.AgentInstanceChange, 10)
+	ins := &pb.AgentInstance{
+		AgentId: "agentId",
+		Addr:    "addr",
 	}
 
+	done := make(chan struct{})
+	fn := t.ap.updateAgentInstanceFromCh(ch)
 	go func() {
-		fn := t.ap.updateAgentInstanceFromCh(ch)
+		defer close(done)
 		_ = fn()
 	}()
+	defer func() {
+		close(ch)
+		<-done
+	}()
 
-	ch <- change
+	ch <- &pb.AgentInstanceChange{Ins: ins, Op: pb.ChangeOp_NEW}
 	t.eventually(func() bool {
 		t.ap.rwMutex.RLock()
 		defer t.ap.rwMutex.RUnlock()
 		return len(t.ap.allAgentIds) == 1 && len(t.ap.nodes) == 1
 	})
 
-	change.Op = concept.ChangeOp_UPDATE
-	ch <- change
+	updated := &pb.AgentInstance{AgentId: ins.AgentId, Addr: "updated-addr"}
+	ch <- &pb.AgentInstanceChange{Ins: updated, Op: pb.ChangeOp_UPDATE}
 	t.eventually(func() bool {
 		t.ap.rwMutex.RLock()
 		defer t.ap.rwMutex.RUnlock()
-		return len(t.ap.allAgentIds) == 1 && len(t.ap.nodes) == 1
+		node, ok := t.ap.nodes[ins.AgentId]
+		return len(t.ap.allAgentIds) == 1 && len(t.ap.nodes) == 1 && ok && node.snapshot().Addr == updated.Addr
 	})
 
-	change.Op = concept.ChangeOp_DELETE
-	ch <- change
+	ch <- &pb.AgentInstanceChange{Ins: updated, Op: pb.ChangeOp_DELETE}
 	t.eventually(func() bool {
 		t.ap.rwMutex.RLock()
 		defer t.ap.rwMutex.RUnlock()
 		return len(t.ap.allAgentIds) == 0 && len(t.ap.nodes) == 0
 	})
 
-	change.Op = concept.ChangeOp_NEW
-	ch <- change
+	ch <- &pb.AgentInstanceChange{Ins: ins, Op: pb.ChangeOp_NEW}
 	t.eventually(func() bool {
 		t.ap.rwMutex.RLock()
 		defer t.ap.rwMutex.RUnlock()
@@ -100,7 +99,7 @@ func (t *testAgentPoolSuite) Test_agentNode_zip() {
 
 func TestAgentPoolConcurrentAccess(t *testing.T) {
 	ap := newAgentPool(nil)
-	node, err := newAgentNode(&concept.AgentInstance{AgentId: "agent", Addr: "127.0.0.1:1"})
+	node, err := newAgentNode(&pb.AgentInstance{AgentId: "agent", Addr: "127.0.0.1:1"})
 	require.NoError(t, err)
 	ap.nodes["agent"] = node
 	ap.allAgentIds["agent"] = struct{}{}
@@ -134,7 +133,7 @@ func TestNormalizeInstanceIds(t *testing.T) {
 
 func TestAgentNodeSnapshotCopiesAnnotations(t *testing.T) {
 	node := &agentNode{
-		AgentInstance: &concept.AgentInstance{
+		AgentInstance: &pb.AgentInstance{
 			AgentId:     "agent-1",
 			Addr:        "127.0.0.1:9000",
 			Annotations: map[string]string{"zone": "cn"},
@@ -156,22 +155,22 @@ func TestNewAgentNodeRejectsInvalidInstance(t *testing.T) {
 	_, err := newAgentNode(nil)
 	require.Error(t, err)
 
-	_, err = newAgentNode(&concept.AgentInstance{AgentId: "agent"})
+	_, err = newAgentNode(&pb.AgentInstance{AgentId: "agent"})
 	require.Error(t, err)
 }
 
 func TestAgentNodeUpdateInstance(t *testing.T) {
 	client := fakeDeliveryClient{}
 	node := &agentNode{
-		AgentInstance: &concept.AgentInstance{AgentId: "agent-1", Addr: "127.0.0.1:9000"},
+		AgentInstance: &pb.AgentInstance{AgentId: "agent-1", Addr: "127.0.0.1:9000"},
 		mu:            sync.RWMutex{},
 		c:             client,
 	}
 
-	node.updateInstance(&concept.AgentInstance{AgentId: "agent-1", Addr: "127.0.0.1:9000"})
+	node.updateInstance(&pb.AgentInstance{AgentId: "agent-1", Addr: "127.0.0.1:9000"})
 	assert.Equal(t, client, node.c)
 
-	node.updateInstance(&concept.AgentInstance{AgentId: "agent-1", Addr: "127.0.0.1:9001"})
+	node.updateInstance(&pb.AgentInstance{AgentId: "agent-1", Addr: "127.0.0.1:9001"})
 	assert.Nil(t, node.c)
 	assert.Equal(t, "127.0.0.1:9001", node.Addr)
 

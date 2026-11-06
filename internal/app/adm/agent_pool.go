@@ -14,11 +14,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/yeqown/log"
+	pb "github.com/yeqown/cassem/internal/protogen"
 
-	"github.com/yeqown/cassem/api/agent"
-	"github.com/yeqown/cassem/api/concept"
-	"github.com/yeqown/cassem/pkg/runtime"
+	"github.com/yeqown/cassem/internal/concept"
+	"github.com/yeqown/cassem/internal/pkg/runtime"
+	"github.com/yeqown/log"
 )
 
 // agentPool manages all ap those registered in cassemkv.
@@ -60,7 +60,7 @@ func newAgentPool(agg concept.AgentHybrid) *agentPool {
 // run to start background routines to help agentPool manage agent instances.
 func (p *agentPool) run() {
 	p.once.Do(func() {
-		ch := make(chan *concept.AgentInstanceChange, _SIZE_AGENT_NODE_BUF)
+		ch := make(chan *pb.AgentInstanceChange, _SIZE_AGENT_NODE_BUF)
 		runtime.GoFunc("watchingAgentInstanceRaw", func() error {
 			return p.agg.Watch(p.ctx, ch)
 		})
@@ -87,11 +87,11 @@ func (p *agentPool) run() {
 	})
 }
 
-func (p *agentPool) all() []*concept.AgentInstance {
+func (p *agentPool) all() []*pb.AgentInstance {
 	p.rwMutex.RLock()
 	defer p.rwMutex.RUnlock()
 
-	out := make([]*concept.AgentInstance, 0, len(p.nodes))
+	out := make([]*pb.AgentInstance, 0, len(p.nodes))
 	for _, node := range p.nodes {
 		if node == nil {
 			continue
@@ -158,7 +158,7 @@ func (p *agentPool) updateAgentNodesManually() error {
 	return nil
 }
 
-func (p *agentPool) updateAgentInstanceFromCh(ch <-chan *concept.AgentInstanceChange) func() error {
+func (p *agentPool) updateAgentInstanceFromCh(ch <-chan *pb.AgentInstanceChange) func() error {
 	return func() error {
 		// There is a node changed, then judge and update p.nodes and p.allAgentIds
 		for change := range ch {
@@ -168,7 +168,7 @@ func (p *agentPool) updateAgentInstanceFromCh(ch <-chan *concept.AgentInstanceCh
 
 			agentId := change.GetIns().GetAgentId()
 			switch change.Op {
-			case concept.ChangeOp_NEW, concept.ChangeOp_UPDATE:
+			case pb.ChangeOp_NEW, pb.ChangeOp_UPDATE:
 				p.rwMutex.Lock()
 				node, ok := p.nodes[agentId]
 				if !ok {
@@ -187,7 +187,7 @@ func (p *agentPool) updateAgentInstanceFromCh(ch <-chan *concept.AgentInstanceCh
 				}
 				p.allAgentIds[agentId] = struct{}{}
 				p.rwMutex.Unlock()
-			case concept.ChangeOp_DELETE:
+			case pb.ChangeOp_DELETE:
 				p.rwMutex.Lock()
 				delete(p.nodes, agentId)
 				delete(p.allAgentIds, agentId)
@@ -283,18 +283,18 @@ type agentDispatchItem struct {
 // agentNode contains agent node information, includes the address to
 // agent node.
 type agentNode struct {
-	*concept.AgentInstance
+	*pb.AgentInstance
 
 	mu sync.RWMutex
 	ch chan agentDispatchItem
-	c  agent.DeliveryClient
+	c  pb.DeliveryClient
 }
 
 // _SIZE_AGENT_NODE_BUF buf size of agent node notify channel, it indicates the maximum
 // elements could be held by agent node.
 const _SIZE_AGENT_NODE_BUF = 1024
 
-func newAgentNode(ins *concept.AgentInstance) (*agentNode, error) {
+func newAgentNode(ins *pb.AgentInstance) (*agentNode, error) {
 	if ins == nil {
 		return nil, fmt.Errorf("agent instance is required")
 	}
@@ -326,7 +326,7 @@ func (n *agentNode) postbox() chan<- agentDispatchItem {
 	return n.ch
 }
 
-func (n *agentNode) snapshot() *concept.AgentInstance {
+func (n *agentNode) snapshot() *pb.AgentInstance {
 	n.mu.RLock()
 	defer n.mu.RUnlock()
 	if n.AgentInstance == nil {
@@ -336,7 +336,7 @@ func (n *agentNode) snapshot() *concept.AgentInstance {
 	for k, v := range n.GetAnnotations() {
 		annotations[k] = v
 	}
-	return &concept.AgentInstance{
+	return &pb.AgentInstance{
 		AgentId:     n.GetAgentId(),
 		Addr:        n.GetAddr(),
 		Annotations: annotations,
@@ -427,12 +427,12 @@ func (n *agentNode) delivery(batch []agentDispatchItem) {
 		}).
 		Debug("agentNode.delivery called")
 
-	grouped := make(map[string]*agent.DispatchReq, len(batch))
+	grouped := make(map[string]*pb.DispatchReq, len(batch))
 	for _, item := range batch {
 		key := normalizeInstanceIds(item.instanceIds)
 		req, ok := grouped[key]
 		if !ok {
-			req = &agent.DispatchReq{
+			req = &pb.DispatchReq{
 				Elems:       make([]*concept.Element, 0, len(batch)),
 				InstanceIds: append([]string(nil), item.instanceIds...),
 			}
@@ -475,7 +475,7 @@ func normalizeInstanceIds(instanceIds []string) string {
 }
 
 // FIXED(@yeqown): shouldn't retry forever: maxRetryCount = 3
-func (n *agentNode) getClient() agent.DeliveryClient {
+func (n *agentNode) getClient() pb.DeliveryClient {
 	n.mu.RLock()
 	if n.c != nil {
 		c := n.c
@@ -499,7 +499,7 @@ func (n *agentNode) getClient() agent.DeliveryClient {
 		retryCnt int
 	)
 	for {
-		n.c, err = agent.DialDelivery(addr)
+		n.c, err = dialDelivery(addr)
 		if err == nil {
 			return n.c
 		}
@@ -518,7 +518,7 @@ func (n *agentNode) getClient() agent.DeliveryClient {
 	}
 }
 
-func (n *agentNode) updateInstance(ins *concept.AgentInstance) {
+func (n *agentNode) updateInstance(ins *pb.AgentInstance) {
 	if ins == nil {
 		return
 	}
@@ -539,7 +539,7 @@ func (n *agentNode) updateAddr(addr string) {
 	}
 
 	if n.AgentInstance == nil {
-		n.AgentInstance = &concept.AgentInstance{}
+		n.AgentInstance = &pb.AgentInstance{}
 	}
 	n.Addr = addr
 	n.c = nil

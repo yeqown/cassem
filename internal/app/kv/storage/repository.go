@@ -1,18 +1,19 @@
 package storage
 
 import (
-	apikv "github.com/yeqown/cassem/api/kv"
 	"strings"
+
+	pb "github.com/yeqown/cassem/internal/protogen"
 )
 
 // KV is a proxy who helps convert data between logic and persistence.Not only all parameters of KV
 // are logic datatype, but also all return values.
 type KV interface {
 	// GetKV get value of key
-	GetKV(key string, isDir bool) (*apikv.Entity, error)
+	GetKV(key string, isDir bool) (*pb.Entity, error)
 
 	// SetKV save key and value
-	SetKV(key string, value *apikv.Entity, isDir bool) error
+	SetKV(key string, value *pb.Entity, isDir bool) error
 
 	// UnsetKV save key and value
 	UnsetKV(key string, isDir bool) error
@@ -25,7 +26,7 @@ type KV interface {
 }
 
 type RangeResult struct {
-	Items       []*apikv.Entity
+	Items       []*pb.Entity
 	HasMore     bool
 	NextSeekKey string
 	ExpiredKeys []string

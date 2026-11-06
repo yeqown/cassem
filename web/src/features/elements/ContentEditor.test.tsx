@@ -1,9 +1,36 @@
 import { render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
+import { AppThemeProvider } from '../../AppThemeProvider'
 import { ContentEditor } from './ContentEditor'
 
 
 describe('ContentEditor', () => {
+  it('localizes the real search panel without changing configuration content', async () => {
+    localStorage.setItem('cassem.locale', 'zh-CN')
+    const user = userEvent.setup()
+    const onChange = vi.fn()
+
+    render(
+      <AppThemeProvider>
+        <ContentEditor value={'greeting = "你好"\nfeature = "enabled"'} contentType={4} onChange={onChange} />
+      </AppThemeProvider>,
+    )
+
+    const editor = screen.getByRole('textbox')
+    editor.focus()
+    await user.keyboard('{Control>}f{/Control}')
+
+    const search = await screen.findByRole('textbox', { name: '查找' })
+    expect(screen.getByRole('textbox', { name: '替换' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '下一个' })).toBeInTheDocument()
+    expect(screen.getByRole('checkbox', { name: '区分大小写' })).toBeInTheDocument()
+    await user.type(search, 'feature')
+    expect(editor).toHaveTextContent('greeting = "你好"')
+    expect(editor).toHaveTextContent('feature = "enabled"')
+    expect(onChange).not.toHaveBeenCalled()
+  })
+
   it('renders syntax editor with line numbers and content type label', () => {
     const onChange = vi.fn()
 

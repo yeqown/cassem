@@ -7,14 +7,16 @@ import (
 	"testing"
 	"time"
 
+	pb "github.com/yeqown/cassem/internal/protogen"
+
 	"github.com/go-chi/chi/v5"
 	"github.com/stretchr/testify/require"
 
-	"github.com/yeqown/cassem/api/concept"
+	"github.com/yeqown/cassem/internal/concept"
 )
 
 type authHTTPFakeRBAC struct {
-	user         *concept.User
+	user         *pb.User
 	allow        bool
 	enforceCalls []authHTTPEnforceCall
 }
@@ -26,7 +28,7 @@ type authHTTPEnforceCall struct {
 	act     string
 }
 
-func (f *authHTTPFakeRBAC) GetUser(account string) (*concept.User, error) {
+func (f *authHTTPFakeRBAC) GetUser(account string) (*pb.User, error) {
 	return f.user, nil
 }
 
@@ -46,7 +48,7 @@ func (f *authHTTPFakeRBAC) ListDomainOptions() ([]string, error) {
 	return nil, nil
 }
 
-func (f *authHTTPFakeRBAC) AddUser(*concept.User) error {
+func (f *authHTTPFakeRBAC) AddUser(*pb.User) error {
 	return nil
 }
 
@@ -87,10 +89,10 @@ func (f *authHTTPFakeRBAC) BootstrapAdmin(string, string, string) error {
 func newAuthHTTPFakeRBAC(allow bool) *authHTTPFakeRBAC {
 	return &authHTTPFakeRBAC{
 		allow: allow,
-		user: &concept.User{
+		user: &pb.User{
 			Account: "alice",
 			Salt:    "salt-1",
-			Status:  concept.User_NORMAL,
+			Status:  pb.User_NORMAL,
 		},
 	}
 }

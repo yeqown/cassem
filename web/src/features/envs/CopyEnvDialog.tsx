@@ -43,6 +43,7 @@ import {
 import { useNavigate } from 'react-router-dom'
 import { useToast } from '../../components/ToastProvider'
 import { contentTypes, type Element, type ElementsResponse } from '../../domain/types'
+import { useI18n } from '../../i18n'
 import { ApiError, apiRequest, buildQuery, jsonBody } from '../../lib/api'
 import { decodeRaw } from '../../lib/raw'
 
@@ -60,6 +61,7 @@ type CopyResult = {
   key: string
   status: CopyResultStatus
   message?: string
+  messageKey?: 'management.copy.emptySkipped' | 'management.copy.elementFailed'
 }
 
 type CopyProgress = {
@@ -153,11 +155,11 @@ function createInitialProgress(total = 0): CopyProgress {
   }
 }
 
-const copyResultStatusMeta: Record<CopyResultStatus, { label: string; color: string; backgroundColor: string }> = {
-  success: { label: 'Success', color: 'rgb(46, 125, 50)', backgroundColor: 'rgba(46, 125, 50, 0.08)' },
-  skipped: { label: 'Skipped', color: 'rgb(97, 97, 97)', backgroundColor: 'rgba(97, 97, 97, 0.08)' },
-  failed: { label: 'Failed', color: 'rgb(211, 47, 47)', backgroundColor: 'rgba(211, 47, 47, 0.08)' },
-}
+const copyResultStatusMeta = {
+  success: { labelKey: 'management.copy.success', color: 'rgb(46, 125, 50)', backgroundColor: 'rgba(46, 125, 50, 0.08)' },
+  skipped: { labelKey: 'management.copy.skipped', color: 'rgb(97, 97, 97)', backgroundColor: 'rgba(97, 97, 97, 0.08)' },
+  failed: { labelKey: 'management.copy.failed', color: 'rgb(211, 47, 47)', backgroundColor: 'rgba(211, 47, 47, 0.08)' },
+} as const
 
 function getCopyResultIcon(status: CopyResultStatus) {
   if (status === 'success') return <CheckCircleOutlineIcon fontSize="small" aria-hidden="true" />
@@ -166,32 +168,35 @@ function getCopyResultIcon(status: CopyResultStatus) {
 }
 
 function CopyResultCount({ status, count, testId }: { status: CopyResultStatus; count: number; testId: string }) {
+  const { t, formatNumber } = useI18n()
   const meta = copyResultStatusMeta[status]
 
   return (
     <Stack component="span" data-testid={testId} direction="row" spacing={0.5} alignItems="center" sx={{ color: meta.color, fontWeight: 700 }}>
       {getCopyResultIcon(status)}
       <Typography component="span" variant="body2" sx={{ color: 'inherit', fontWeight: 700 }}>
-        {meta.label} {count}
+        {t('management.copy.resultCount', { status: t(meta.labelKey), count: formatNumber(count) })}
       </Typography>
     </Stack>
   )
 }
 
 function CopyResultState({ status }: { status: CopyResultStatus }) {
+  const { t } = useI18n()
   const meta = copyResultStatusMeta[status]
 
   return (
     <Stack component="span" direction="row" spacing={0.5} alignItems="center" sx={{ color: meta.color, fontWeight: 700 }}>
       {getCopyResultIcon(status)}
       <Typography component="span" sx={{ color: 'inherit', fontSize: 'inherit', fontWeight: 700, lineHeight: 'inherit' }}>
-        {meta.label}
+        {t(meta.labelKey)}
       </Typography>
     </Stack>
   )
 }
 
 export function CopyEnvDialog({ open, appId, envs, onClose, onBusyChange, onFinished }: CopyEnvDialogProps) {
+  const { t, formatNumber } = useI18n()
   const navigate = useNavigate()
   const { showToast } = useToast()
   const [step, setStep] = useState<CopyStep>('create')
@@ -201,9 +206,9 @@ export function CopyEnvDialog({ open, appId, envs, onClose, onBusyChange, onFini
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(() => new Set())
   const [emptyStrategy, setEmptyStrategy] = useState<EmptyElementStrategy>('skip')
   const [loadingElements, setLoadingElements] = useState(false)
-  const [loadError, setLoadError] = useState('')
+  const [loadError, setLoadError] = useState<{ message: string } | null>(null)
   const [copying, setCopying] = useState(false)
-  const [copyError, setCopyError] = useState('')
+  const [copyError, setCopyError] = useState<{ message: string } | null>(null)
   const [progress, setProgress] = useState<CopyProgress>(() => createInitialProgress())
   const [resultStatus, setResultStatus] = useState<CopyResultStatus>('success')
   const loadSeq = useRef(0)
@@ -213,6 +218,9 @@ export function CopyEnvDialog({ open, appId, envs, onClose, onBusyChange, onFini
   const lastLoadErrorRef = useRef('')
   const lastZeroCopyErrorRef = useRef('')
   const lastCopyErrorRef = useRef('')
+
+  const loadErrorMessage = loadError ? loadError.message || t('management.copy.loadFailed') : ''
+  const copyErrorMessage = copyError ? copyError.message || t('management.copy.createFailed') : ''
 
   const selectedElements = useMemo(() => {
     return elements.filter((element) => selectedKeys.has(getElementKey(element)))
@@ -224,12 +232,12 @@ export function CopyEnvDialog({ open, appId, envs, onClose, onBusyChange, onFini
   const copyEmptyElements = emptyStrategy === 'copy'
   const duplicateTarget = Boolean(targetEnv && envs.includes(targetEnv))
   const sameTarget = Boolean(targetEnv && sourceEnv && targetEnv === sourceEnv)
-  const targetError = duplicateTarget ? 'Environment already exists' : sameTarget ? 'Target env must be different from source env' : ''
-  const zeroCopyError = selectedElements.length > 0 && estimatedCopyCount === 0 ? 'Estimated copy is 0. Enable Copy empty elements or select non-empty elements.' : ''
+  const targetError = duplicateTarget ? t('management.copy.exists') : sameTarget ? t('management.copy.sameEnv') : ''
+  const zeroCopyError = selectedElements.length > 0 && estimatedCopyCount === 0 ? t('management.copy.zeroEstimate') : ''
   const canStart = Boolean(appId && sourceEnv && targetEnv && !targetError && !zeroCopyError && !loadingElements && estimatedCopyCount > 0 && step === 'create')
   const emptyStrategyDescription = copyEmptyElements
-    ? 'Copy empty elements is on. Empty elements will be copied and may fail server validation.'
-    : 'Copy empty elements is off. Empty elements will be skipped.'
+    ? t('management.copy.emptyOn')
+    : t('management.copy.emptyOff')
   const resultCounts: Record<CopyResultStatus, number> = {
     success: progress.results.filter((result) => result.status === 'success').length,
     skipped: progress.results.filter((result) => result.status === 'skipped').length,
@@ -246,7 +254,7 @@ export function CopyEnvDialog({ open, appId, envs, onClose, onBusyChange, onFini
       elements: [] as Element[],
       selectedKeys: new Set<string>(),
       loadingElements: false,
-      loadError: '',
+      loadError: null,
     }),
     [],
   )
@@ -261,7 +269,7 @@ export function CopyEnvDialog({ open, appId, envs, onClose, onBusyChange, onFini
     setLoadingElements(loadResetState.loadingElements)
     setLoadError(loadResetState.loadError)
     setCopying(false)
-    setCopyError('')
+    setCopyError(null)
     setProgress(createInitialProgress())
     setResultStatus('success')
   }, [loadResetState])
@@ -288,12 +296,12 @@ export function CopyEnvDialog({ open, appId, envs, onClose, onBusyChange, onFini
 
     const handleBeforeUnload = (event: BeforeUnloadEvent) => {
       event.preventDefault()
-      event.returnValue = 'copy in progress'
+      event.returnValue = t('management.copy.inProgress')
     }
 
     window.addEventListener('beforeunload', handleBeforeUnload)
     return () => window.removeEventListener('beforeunload', handleBeforeUnload)
-  }, [copying])
+  }, [copying, t])
 
   useEffect(() => {
     if (!open || !appId || !sourceEnv) return undefined
@@ -305,13 +313,13 @@ export function CopyEnvDialog({ open, appId, envs, onClose, onBusyChange, onFini
         if (!isActive() || requestId !== loadSeq.current) return
         setElements(items)
         setSelectedKeys(new Set(items.map(getElementKey)))
-        setLoadError('')
+        setLoadError(null)
       })
       .catch((err) => {
         if (!isActive() || requestId !== loadSeq.current) return
         setElements(loadResetState.elements)
         setSelectedKeys(loadResetState.selectedKeys)
-        setLoadError(getErrorMessage(err, 'failed to load source elements'))
+        setLoadError({ message: getErrorMessage(err, '') })
       })
       .finally(() => {
         if (isActive() && requestId === loadSeq.current) setLoadingElements(false)
@@ -329,14 +337,14 @@ export function CopyEnvDialog({ open, appId, envs, onClose, onBusyChange, onFini
   }, [showToast, targetError])
 
   useEffect(() => {
-    if (!loadError) {
+    if (!loadErrorMessage) {
       lastLoadErrorRef.current = ''
       return
     }
-    if (lastLoadErrorRef.current === loadError) return
-    lastLoadErrorRef.current = loadError
-    showToast(loadError, 'error')
-  }, [loadError, showToast])
+    if (lastLoadErrorRef.current === loadErrorMessage) return
+    lastLoadErrorRef.current = loadErrorMessage
+    showToast(loadErrorMessage, 'error')
+  }, [loadErrorMessage, showToast])
 
   useEffect(() => {
     if (!zeroCopyError) {
@@ -349,14 +357,14 @@ export function CopyEnvDialog({ open, appId, envs, onClose, onBusyChange, onFini
   }, [showToast, zeroCopyError])
 
   useEffect(() => {
-    if (!copyError) {
+    if (!copyErrorMessage) {
       lastCopyErrorRef.current = ''
       return
     }
-    if (lastCopyErrorRef.current === copyError) return
-    lastCopyErrorRef.current = copyError
-    showToast(copyError, 'error')
-  }, [copyError, showToast])
+    if (lastCopyErrorRef.current === copyErrorMessage) return
+    lastCopyErrorRef.current = copyErrorMessage
+    showToast(copyErrorMessage, 'error')
+  }, [copyErrorMessage, showToast])
 
   function handleClose() {
     if (copying) return
@@ -366,7 +374,7 @@ export function CopyEnvDialog({ open, appId, envs, onClose, onBusyChange, onFini
   function handleSourceEnvChange(value: string) {
     setSourceEnv(value)
     setLoadingElements(Boolean(open && appId && value))
-    setLoadError('')
+    setLoadError(null)
   }
 
   function toggleElement(key: string) {
@@ -388,13 +396,13 @@ export function CopyEnvDialog({ open, appId, envs, onClose, onBusyChange, onFini
     try {
       const detail = await requestElement(appId, sourceEnv, key)
       if (isElementEmpty(detail) && emptyStrategy === 'skip') {
-        return { key, status: 'skipped', message: 'empty element skipped' }
+        return { key, status: 'skipped', messageKey: 'management.copy.emptySkipped' }
       }
 
       await createElement(appId, targetEnv, key, detail)
       return { key, status: 'success' }
     } catch (err) {
-      return { key, status: 'failed', message: getErrorMessage(err, 'failed to copy element') }
+      return { key, status: 'failed', message: getErrorMessage(err, ''), messageKey: err instanceof ApiError ? undefined : 'management.copy.elementFailed' }
     }
   }
 
@@ -430,7 +438,7 @@ export function CopyEnvDialog({ open, appId, envs, onClose, onBusyChange, onFini
     const items = selectedElements
     setStep('execute')
     setCopying(true)
-    setCopyError('')
+    setCopyError(null)
     setProgress({ ...createInitialProgress(items.length), createEnv: 'doing' })
 
     try {
@@ -443,7 +451,7 @@ export function CopyEnvDialog({ open, appId, envs, onClose, onBusyChange, onFini
       setProgress((current) => ({ ...current, copyElements: 'done', complete: 'done' }))
     } catch (err) {
       if (!isActive()) return
-      setCopyError(getErrorMessage(err, 'failed to create target environment'))
+      setCopyError({ message: getErrorMessage(err, '') })
       setProgress((current) => ({ ...current, createEnv: 'failed', copyElements: 'pending', complete: 'pending' }))
       setCopying(false)
       return
@@ -472,16 +480,16 @@ export function CopyEnvDialog({ open, appId, envs, onClose, onBusyChange, onFini
       maxWidth="md"
       aria-labelledby="copy-environment-dialog-title"
     >
-      <DialogTitle id="copy-environment-dialog-title">Copy environment</DialogTitle>
+      <DialogTitle id="copy-environment-dialog-title">{t('management.copy.title')}</DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>
           <Stack direction="row" spacing={1} alignItems="center">
             <Typography variant="overline" color={step === 'create' ? 'primary' : 'text.secondary'}>
-              Task creation
+              {t('management.copy.taskCreation')}
             </Typography>
             <Divider flexItem orientation="vertical" />
             <Typography variant="overline" color={step === 'execute' ? 'primary' : 'text.secondary'}>
-              Task execution
+              {t('management.copy.taskExecution')}
             </Typography>
           </Stack>
 
@@ -489,10 +497,10 @@ export function CopyEnvDialog({ open, appId, envs, onClose, onBusyChange, onFini
             <Stack spacing={2}>
               <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
                 <FormControl fullWidth disabled={!appId || loadingElements} required>
-                  <InputLabel id="copy-source-env-label" required>Source env</InputLabel>
+                  <InputLabel id="copy-source-env-label" required>{t('management.copy.sourceEnv')}</InputLabel>
                   <Select
                     labelId="copy-source-env-label"
-                    label="Source env *"
+                    label={t('management.copy.sourceEnvRequired')}
                     value={sourceEnv}
                     onChange={(event) => handleSourceEnvChange(String(event.target.value))}
                   >
@@ -505,11 +513,11 @@ export function CopyEnvDialog({ open, appId, envs, onClose, onBusyChange, onFini
                 </FormControl>
 
                 <TextField
-                  label="To env"
+                  label={t('management.copy.toEnv')}
                   value={targetEnv}
                   onChange={(event) => setTargetEnv(event.target.value.trim().toLowerCase())}
                   error={Boolean(targetError)}
-                  helperText={targetError || 'New environment name. Values are saved lowercase.'}
+                  helperText={targetError || t('management.copy.targetHelp')}
                   fullWidth
                   disabled={!appId}
                   required
@@ -519,21 +527,21 @@ export function CopyEnvDialog({ open, appId, envs, onClose, onBusyChange, onFini
               <FormControl>
                 <Stack direction="row" spacing={1.5} alignItems="center" flexWrap="wrap">
                   <Typography color={!copyEmptyElements ? 'warning.dark' : 'text.secondary'} sx={{ fontWeight: !copyEmptyElements ? 700 : 500 }}>
-                    Skip empty
+                    {t('management.copy.skipEmpty')}
                   </Typography>
                   <Switch
                     checked={copyEmptyElements}
                     onChange={(event) => setEmptyStrategy(event.target.checked ? 'copy' : 'skip')}
-                    slotProps={{ input: { 'aria-label': 'Copy empty elements', 'aria-describedby': 'copy-empty-elements-help' } }}
+                    slotProps={{ input: { 'aria-label': t('management.copy.copyEmptyElements'), 'aria-describedby': 'copy-empty-elements-help' } }}
                   />
                   <Typography color={copyEmptyElements ? 'primary.main' : 'text.secondary'} sx={{ fontWeight: copyEmptyElements ? 700 : 500 }}>
-                    Copy empty
+                    {t('management.copy.copyEmpty')}
                   </Typography>
                 </Stack>
                 <FormHelperText id="copy-empty-elements-help">{emptyStrategyDescription}</FormHelperText>
               </FormControl>
 
-              {loadingElements && <LinearProgress aria-label="Loading source elements" />}
+              {loadingElements && <LinearProgress aria-label={t('management.copy.loadingElements')} />}
 
               {sourceEnv && !loadingElements && !loadError && (
                 <Paper variant="outlined">
@@ -546,13 +554,13 @@ export function CopyEnvDialog({ open, appId, envs, onClose, onBusyChange, onFini
                           onChange={(event) => toggleAll(event.target.checked)}
                         />
                       }
-                      label={`Select all elements (${selectedKeys.size}/${elements.length})`}
+                      label={t('management.copy.selectAll', { selected: formatNumber(selectedKeys.size), total: formatNumber(elements.length) })}
                     />
                     <Divider />
                     {elements.length === 0 ? (
-                      <Typography color="text.secondary">No elements found in source environment.</Typography>
+                      <Typography color="text.secondary">{t('management.copy.emptySource')}</Typography>
                     ) : (
-                      <Box role="region" aria-label="Copy elements list" sx={{ maxHeight: '240px', overflowY: 'auto' }}>
+                      <Box role="region" aria-label={t('management.copy.elementsList')} sx={{ maxHeight: '240px', overflowY: 'auto' }}>
                         <List dense disablePadding>
                           {elements.map((element) => {
                             const key = getElementKey(element)
@@ -573,7 +581,7 @@ export function CopyEnvDialog({ open, appId, envs, onClose, onBusyChange, onFini
                                   </ListItemIcon>
                                   <ListItemText
                                     primary={key}
-                                    secondary={`using v${element.metadata.usingVersion || '-'} · ${getContentTypeLabel(element.metadata.contentType)}${empty ? ' · empty' : ''}`}
+                                    secondary={t(empty ? 'management.copy.elementSummaryEmpty' : 'management.copy.elementSummary', { version: element.metadata.usingVersion || '-', type: getContentTypeLabel(element.metadata.contentType) })}
                                   />
                                 </ListItemButton>
                               </ListItem>
@@ -588,31 +596,31 @@ export function CopyEnvDialog({ open, appId, envs, onClose, onBusyChange, onFini
 
               <Paper variant="outlined" sx={{ p: 2 }}>
                 <Stack spacing={1.5}>
-                  <Typography variant="subtitle2">Copy summary</Typography>
+                  <Typography variant="subtitle2">{t('management.copy.summary')}</Typography>
                   <Box data-testid="copy-summary-grid" sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', columnGap: 3, rowGap: 1 }}>
                     <Box data-testid="copy-summary-source-env" sx={{ display: 'grid', gridTemplateColumns: '150px minmax(0, 1fr)', alignItems: 'baseline', columnGap: 1 }}>
-                      <Typography data-testid="copy-summary-source-env-label" sx={{ fontWeight: 700 }} color="text.secondary">Source env</Typography>
+                      <Typography data-testid="copy-summary-source-env-label" sx={{ fontWeight: 700 }} color="text.secondary">{t('management.copy.sourceEnv')}</Typography>
                       <Typography data-testid="copy-summary-source-env-value" sx={{ overflowWrap: 'anywhere' }}>{sourceEnv || '-'}</Typography>
                     </Box>
                     <Box data-testid="copy-summary-target-env" sx={{ display: 'grid', gridTemplateColumns: '150px minmax(0, 1fr)', alignItems: 'baseline', columnGap: 1 }}>
-                      <Typography data-testid="copy-summary-target-env-label" sx={{ fontWeight: 700 }} color="text.secondary">Target env</Typography>
+                      <Typography data-testid="copy-summary-target-env-label" sx={{ fontWeight: 700 }} color="text.secondary">{t('management.copy.targetEnv')}</Typography>
                       <Typography data-testid="copy-summary-target-env-value" sx={{ overflowWrap: 'anywhere' }}>{targetEnv || '-'}</Typography>
                     </Box>
                     <Box data-testid="copy-summary-selected-elements" sx={{ display: 'grid', gridTemplateColumns: '150px minmax(0, 1fr)', alignItems: 'baseline', columnGap: 1 }}>
-                      <Typography data-testid="copy-summary-selected-elements-label" sx={{ fontWeight: 700 }} color="text.secondary">Selected elements</Typography>
-                      <Typography data-testid="copy-summary-selected-elements-value">{selectedElements.length}</Typography>
+                      <Typography data-testid="copy-summary-selected-elements-label" sx={{ fontWeight: 700 }} color="text.secondary">{t('management.copy.selectedElements')}</Typography>
+                      <Typography data-testid="copy-summary-selected-elements-value">{formatNumber(selectedElements.length)}</Typography>
                     </Box>
                     <Box data-testid="copy-summary-empty-elements" sx={{ display: 'grid', gridTemplateColumns: '150px minmax(0, 1fr)', alignItems: 'baseline', columnGap: 1 }}>
-                      <Typography data-testid="copy-summary-empty-elements-label" sx={{ fontWeight: 700 }} color="text.secondary">Empty elements</Typography>
-                      <Typography data-testid="copy-summary-empty-elements-value">{emptySelectedCount}</Typography>
+                      <Typography data-testid="copy-summary-empty-elements-label" sx={{ fontWeight: 700 }} color="text.secondary">{t('management.copy.emptyElements')}</Typography>
+                      <Typography data-testid="copy-summary-empty-elements-value">{formatNumber(emptySelectedCount)}</Typography>
                     </Box>
                     <Box data-testid="copy-summary-estimated-skipped" sx={{ display: 'grid', gridTemplateColumns: '150px minmax(0, 1fr)', alignItems: 'baseline', columnGap: 1 }}>
-                      <Typography data-testid="copy-summary-estimated-skipped-label" sx={{ fontWeight: 700 }} color="text.secondary">Estimated skipped</Typography>
-                      <Typography data-testid="copy-summary-estimated-skipped-value">{skippedEstimate}</Typography>
+                      <Typography data-testid="copy-summary-estimated-skipped-label" sx={{ fontWeight: 700 }} color="text.secondary">{t('management.copy.estimatedSkipped')}</Typography>
+                      <Typography data-testid="copy-summary-estimated-skipped-value">{formatNumber(skippedEstimate)}</Typography>
                     </Box>
                     <Box data-testid="copy-summary-estimated-copy" sx={{ display: 'grid', gridTemplateColumns: '150px minmax(0, 1fr)', alignItems: 'baseline', columnGap: 1 }}>
-                      <Typography data-testid="copy-summary-estimated-copy-label" sx={{ fontWeight: 700 }} color="text.secondary">Estimated copy</Typography>
-                      <Typography data-testid="copy-summary-estimated-copy-value" color={estimatedCopyCount === 0 ? 'error.main' : 'text.primary'}>{estimatedCopyCount}</Typography>
+                      <Typography data-testid="copy-summary-estimated-copy-label" sx={{ fontWeight: 700 }} color="text.secondary">{t('management.copy.estimatedCopy')}</Typography>
+                      <Typography data-testid="copy-summary-estimated-copy-value" color={estimatedCopyCount === 0 ? 'error.main' : 'text.primary'}>{formatNumber(estimatedCopyCount)}</Typography>
                     </Box>
                   </Box>
                 </Stack>
@@ -622,21 +630,21 @@ export function CopyEnvDialog({ open, appId, envs, onClose, onBusyChange, onFini
             <Stack spacing={2}>
               <Paper variant="outlined" sx={{ p: 2 }}>
                 <Stack spacing={2}>
-                  <Typography variant="subtitle2">Progress</Typography>
+                  <Typography variant="subtitle2">{t('management.copy.progress')}</Typography>
                   <Stepper activeStep={activeProgressStep} alternativeLabel>
                     <Step completed={progress.createEnv === 'done'}>
-                      <StepLabel error={progress.createEnv === 'failed'} optional={<Typography variant="caption">{progress.createEnv}</Typography>}>
-                        Create env
+                      <StepLabel error={progress.createEnv === 'failed'} optional={<Typography variant="caption">{t(`management.copy.progress.${progress.createEnv}`)}</Typography>}>
+                        {t('management.copy.createEnv')}
                       </StepLabel>
                     </Step>
                     <Step completed={progress.copyElements === 'done'}>
-                      <StepLabel error={progress.copyElements === 'failed'} optional={<Typography variant="caption">{progress.copyElements}</Typography>}>
-                        Copy elements
+                      <StepLabel error={progress.copyElements === 'failed'} optional={<Typography variant="caption">{t(`management.copy.progress.${progress.copyElements}`)}</Typography>}>
+                        {t('management.copy.copyElements')}
                       </StepLabel>
                     </Step>
                     <Step completed={progress.complete === 'done'}>
-                      <StepLabel error={progress.complete === 'failed'} optional={<Typography variant="caption">{progress.complete}</Typography>}>
-                        Complete
+                      <StepLabel error={progress.complete === 'failed'} optional={<Typography variant="caption">{t(`management.copy.progress.${progress.complete}`)}</Typography>}>
+                        {t('management.copy.complete')}
                       </StepLabel>
                     </Step>
                   </Stepper>
@@ -644,21 +652,21 @@ export function CopyEnvDialog({ open, appId, envs, onClose, onBusyChange, onFini
                     <LinearProgress
                       variant="determinate"
                       value={progressPercent}
-                      aria-label="Copy elements progress"
+                      aria-label={t('management.copy.elementsProgress')}
                     />
                     <Typography variant="body2" color="text.secondary">
-                      {progress.completed}/{progress.total} elements processed
+                      {t('management.copy.processed', { completed: formatNumber(progress.completed), total: formatNumber(progress.total) })}
                     </Typography>
                   </Stack>
                 </Stack>
               </Paper>
 
               {progress.results.length > 0 && (
-                <Paper variant="outlined" sx={{ p: 2 }} role="region" aria-label="Copy results">
+                <Paper variant="outlined" sx={{ p: 2 }} role="region" aria-label={t('management.copy.results')}>
                   <Stack spacing={1.5}>
                     <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} alignItems={{ xs: 'stretch', md: 'center' }} justifyContent="space-between">
-                      <Typography variant="subtitle2">Results</Typography>
-                      <Tabs value={resultStatus} onChange={(_, value: CopyResultStatus) => setResultStatus(value)} aria-label="Copy result states">
+                      <Typography variant="subtitle2">{t('management.copy.resultsTitle')}</Typography>
+                      <Tabs value={resultStatus} onChange={(_, value: CopyResultStatus) => setResultStatus(value)} aria-label={t('management.copy.resultStates')}>
                         {copyResultStatuses.map((status) => (
                           <Tab
                             key={status}
@@ -670,12 +678,12 @@ export function CopyEnvDialog({ open, appId, envs, onClose, onBusyChange, onFini
                       </Tabs>
                     </Stack>
                     <TableContainer sx={{ maxHeight: 260, overflowY: 'auto' }}>
-                      <Table stickyHeader size="small" aria-label="Copy results">
+                      <Table stickyHeader size="small" aria-label={t('management.copy.results')}>
                         <TableHead>
                           <TableRow>
-                            <TableCell>Key</TableCell>
-                            <TableCell>State</TableCell>
-                            <TableCell>Reason</TableCell>
+                            <TableCell>{t('management.copy.key')}</TableCell>
+                            <TableCell>{t('management.copy.state')}</TableCell>
+                            <TableCell>{t('management.copy.reason')}</TableCell>
                           </TableRow>
                         </TableHead>
                         <TableBody>
@@ -686,7 +694,7 @@ export function CopyEnvDialog({ open, appId, envs, onClose, onBusyChange, onFini
                               <TableRow key={`${result.key}-${result.status}`} sx={{ backgroundColor: meta.backgroundColor }}>
                                 <TableCell sx={{ color: meta.color, overflowWrap: 'anywhere' }}>{result.key}</TableCell>
                                 <TableCell sx={{ color: meta.color }}><CopyResultState status={result.status} /></TableCell>
-                                <TableCell sx={{ color: meta.color, overflowWrap: 'anywhere' }}>{result.message || '-'}</TableCell>
+                                <TableCell sx={{ color: meta.color, overflowWrap: 'anywhere' }}>{result.messageKey ? t(result.messageKey) : result.message || '-'}</TableCell>
                               </TableRow>
                             )
                           })}
@@ -704,19 +712,19 @@ export function CopyEnvDialog({ open, appId, envs, onClose, onBusyChange, onFini
         {step === 'create' ? (
           <>
             <Button onClick={handleClose} disabled={copying}>
-              Cancel
+              {t('management.common.cancel')}
             </Button>
             <Button variant="contained" onClick={() => void startCopy()} disabled={!canStart}>
-              Start copy
+              {t('management.copy.start')}
             </Button>
           </>
         ) : (
           <>
             <Button onClick={handleClose} disabled={copying}>
-              Close
+              {t('management.common.close')}
             </Button>
             <Button variant="contained" onClick={viewCopiedEnv} disabled={copying || progress.createEnv !== 'done'}>
-              View copied env
+              {t('management.copy.viewEnv')}
             </Button>
           </>
         )}

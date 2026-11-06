@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"github.com/yeqown/cassem/api/agent"
-	"github.com/yeqown/cassem/api/concept"
+	"github.com/yeqown/cassem/internal/concept"
+	sdk "github.com/yeqown/cassem/sdk/go"
 	"github.com/yeqown/cassem/tests/testutil"
 )
 
@@ -28,10 +28,10 @@ func TestConfigCenterReleaseGate_FullPublishNotifiesWatchingClients(t *testing.T
 	createJSONElement(t, adm, app, env, unrelatedKey, `{"minutes":5}`)
 	publishReleaseGateElement(t, adm, app, env, unrelatedKey, 1, concept.PublishMode_FULL, nil)
 
-	target, err := agent.New(cluster.AgentEndpoint, agent.WithClientId(scope.ClientID("inventory-target")), agent.WithClientIp("127.0.0.1"))
+	target, err := sdk.New(cluster.AgentEndpoint, sdk.WithToken(issueAgentToken(t, adm.HTTPClient)), sdk.WithClientId(scope.ClientID("inventory-target")), sdk.WithClientIp("127.0.0.1"))
 	require.NoError(t, err)
 	t.Cleanup(target.Quit)
-	other, err := agent.New(cluster.AgentEndpoint, agent.WithClientId(scope.ClientID("inventory-other")), agent.WithClientIp("127.0.0.1"))
+	other, err := sdk.New(cluster.AgentEndpoint, sdk.WithToken(issueAgentToken(t, adm.HTTPClient)), sdk.WithClientId(scope.ClientID("inventory-other")), sdk.WithClientIp("127.0.0.1"))
 	require.NoError(t, err)
 	t.Cleanup(other.Quit)
 
@@ -65,10 +65,10 @@ func TestConfigCenterReleaseGate_GrayPublishTargetsSelectedCheckoutInstance(t *t
 	publishReleaseGateElement(t, adm, app, env, key, 1, concept.PublishMode_FULL, nil)
 	targetID := scope.ClientID("checkout-worker-a")
 	otherID := scope.ClientID("checkout-worker-b")
-	target, err := agent.New(cluster.AgentEndpoint, agent.WithClientId(targetID), agent.WithClientIp("127.0.0.1"))
+	target, err := sdk.New(cluster.AgentEndpoint, sdk.WithToken(issueAgentToken(t, adm.HTTPClient)), sdk.WithClientId(targetID), sdk.WithClientIp("127.0.0.1"))
 	require.NoError(t, err)
 	t.Cleanup(target.Quit)
-	other, err := agent.New(cluster.AgentEndpoint, agent.WithClientId(otherID), agent.WithClientIp("127.0.0.1"))
+	other, err := sdk.New(cluster.AgentEndpoint, sdk.WithToken(issueAgentToken(t, adm.HTTPClient)), sdk.WithClientId(otherID), sdk.WithClientIp("127.0.0.1"))
 	require.NoError(t, err)
 	t.Cleanup(other.Quit)
 
@@ -100,7 +100,7 @@ func TestConfigCenterReleaseGate_AgentReadThroughCacheRefreshesAfterPublish(t *t
 	createAppEnv(t, adm, app, env)
 	createJSONElement(t, adm, app, env, key, v1)
 	publishReleaseGateElement(t, adm, app, env, key, 1, concept.PublishMode_FULL, nil)
-	reader, err := agent.New(cluster.AgentEndpoint, agent.WithClientId(scope.ClientID("catalog-reader")), agent.WithClientIp("127.0.0.1"))
+	reader, err := sdk.New(cluster.AgentEndpoint, sdk.WithToken(issueAgentToken(t, adm.HTTPClient)), sdk.WithClientId(scope.ClientID("catalog-reader")), sdk.WithClientIp("127.0.0.1"))
 	require.NoError(t, err)
 	t.Cleanup(reader.Quit)
 	waitAgentRaw(t, reader, app, env, key, v1)

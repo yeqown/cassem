@@ -7,28 +7,30 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/require"
-	"google.golang.org/grpc/metadata"
+	pb "github.com/yeqown/cassem/internal/protogen"
+	clientpb "github.com/yeqown/cassem/sdk/go/protogen"
 
-	apiagent "github.com/yeqown/cassem/api/agent"
-	"github.com/yeqown/cassem/api/concept"
+	"github.com/stretchr/testify/require"
+	"github.com/yeqown/cassem/internal/concept"
+	"google.golang.org/grpc/metadata"
 )
 
 func TestWatchPersistsWatchingMetadata(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(tokenContext())
 	defer cancel()
 
 	agg := &watchPersistAggregate{}
 	d := app{
 		uniqueId:     "agent-a",
+		authorizer:   allowTokenAuthorizer(),
 		aggregate:    agg,
 		instancePool: NewInstancePool(),
 	}
-	watching := &concept.Instance_Watching{App: "demo", Env: "prod", WatchKeys: []string{"db.url"}}
+	watching := &concept.Instance_Watching{App: "demo", Env: "prod", WatchKeys: []string{"db_url"}}
 
 	done := make(chan error, 1)
 	go func() {
-		done <- d.Watch(&apiagent.WatchReq{
+		done <- d.Watch(&clientpb.WatchReq{
 			ClientId: "client-01",
 			ClientIp: "10.0.0.1",
 			Watching: []*concept.Instance_Watching{watching},
@@ -52,23 +54,24 @@ func TestWatchReturnsSendErrors(t *testing.T) {
 	sendErr := errors.New("send failed")
 	d := app{
 		uniqueId:     "agent-a",
+		authorizer:   allowTokenAuthorizer(),
 		aggregate:    &watchPersistAggregate{},
 		cache:        NewCache(10),
 		instancePool: NewInstancePool(),
 	}
-	insId := (&concept.Instance{ClientId: "client-01", ClientIp: "10.0.0.1"}).Id()
-	d.instancePool.Register(insId, "demo", "prod", []string{"db.url"})
+	insId := concept.InstanceID(&concept.Instance{ClientId: "client-01", ClientIp: "10.0.0.1"})
+	d.instancePool.Register(insId, "demo", "prod", []string{"db_url"})
 
 	done := make(chan error, 1)
 	go func() {
-		done <- d.Watch(&apiagent.WatchReq{
+		done <- d.Watch(&clientpb.WatchReq{
 			ClientId: "client-01",
 			ClientIp: "10.0.0.1",
-			Watching: []*concept.Instance_Watching{{App: "demo", Env: "prod", WatchKeys: []string{"db.url"}}},
-		}, watchServer{ctx: context.Background(), sendErr: sendErr})
+			Watching: []*concept.Instance_Watching{{App: "demo", Env: "prod", WatchKeys: []string{"db_url"}}},
+		}, watchServer{ctx: tokenContext(), sendErr: sendErr})
 	}()
 
-	d.instancePool.Notify(insId, &concept.Element{Metadata: &concept.ElementMetadata{App: "demo", Env: "prod", Key: "db.url"}})
+	d.instancePool.Notify(insId, &concept.Element{Metadata: &concept.ElementMetadata{App: "demo", Env: "prod", Key: "db_url"}})
 	require.ErrorIs(t, <-done, sendErr)
 }
 
@@ -82,7 +85,7 @@ func TestDispatchFiltersTargetInstances(t *testing.T) {
 		Raw:      []byte("value"),
 		Version:  1,
 	}
-	_, err := d.Dispatch(context.Background(), &apiagent.DispatchReq{
+	_, err := d.Dispatch(context.Background(), &pb.DispatchReq{
 		Elems:       []*concept.Element{elem},
 		InstanceIds: []string{"client-1@127.0.0.1"},
 	})
@@ -133,7 +136,7 @@ func (a *watchPersistAggregate) GetElementOperations(context.Context, string, st
 	return nil, nil
 }
 
-func (a *watchPersistAggregate) GetApp(context.Context, string) (*concept.AppMetadata, error) {
+func (a *watchPersistAggregate) GetApp(context.Context, string) (*pb.AppMetadata, error) {
 	return nil, nil
 }
 
@@ -172,15 +175,15 @@ func (a *watchPersistAggregate) UnregisterInstance(context.Context, string) erro
 	return nil
 }
 
-func (a *watchPersistAggregate) Watch(context.Context, chan<- *concept.AgentInstanceChange) error {
+func (a *watchPersistAggregate) Watch(context.Context, chan<- *pb.AgentInstanceChange) error {
 	return nil
 }
 
-func (a *watchPersistAggregate) Register(context.Context, *concept.AgentInstance, int32) error {
+func (a *watchPersistAggregate) Register(context.Context, *pb.AgentInstance, int32) error {
 	return nil
 }
 
-func (a *watchPersistAggregate) Renew(context.Context, *concept.AgentInstance, int32) error {
+func (a *watchPersistAggregate) Renew(context.Context, *pb.AgentInstance, int32) error {
 	return nil
 }
 
@@ -197,7 +200,7 @@ type watchServer struct {
 	sendErr error
 }
 
-func (s watchServer) Send(*apiagent.WatchResp) error { return s.sendErr }
+func (s watchServer) Send(*clientpb.WatchResp) error { return s.sendErr }
 
 func (s watchServer) SetHeader(metadata.MD) error { return nil }
 

@@ -5,15 +5,17 @@ package integration_test
 import (
 	"context"
 	"fmt"
-	apikv "github.com/yeqown/cassem/api/kv"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
+	pb "github.com/yeqown/cassem/internal/protogen"
+
 	"github.com/stretchr/testify/require"
-	"github.com/yeqown/cassem/api/agent"
-	"github.com/yeqown/cassem/api/concept"
+	"github.com/yeqown/cassem/internal/concept"
+	"github.com/yeqown/cassem/internal/kvclient"
+	sdk "github.com/yeqown/cassem/sdk/go"
 	"github.com/yeqown/cassem/tests/testutil"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -33,7 +35,7 @@ func TestConfigCenterReleaseGate_RaftLeaderFailoverPreservesWriteAvailability(t 
 	createAppEnv(t, adm, app, env)
 	createJSONElement(t, adm, app, env, key, v1)
 	publishReleaseGateElement(t, adm, app, env, key, 1, concept.PublishMode_FULL, nil)
-	reader, err := agent.New(cluster.AgentEndpoint, agent.WithClientId(scope.ClientID("risk-reader")), agent.WithClientIp("127.0.0.1"))
+	reader, err := sdk.New(cluster.AgentEndpoint, sdk.WithToken(issueAgentToken(t, adm.HTTPClient)), sdk.WithClientId(scope.ClientID("risk-reader")), sdk.WithClientIp("127.0.0.1"))
 	require.NoError(t, err)
 	t.Cleanup(reader.Quit)
 	waitAgentRaw(t, reader, app, env, key, v1)
@@ -106,13 +108,13 @@ func compose(t testing.TB, args ...string) {
 
 	cmdArgs := []string{
 		"IMAGE_TAG=" + imageTag,
-		"CASSEM_EXAMPLES_DIR=" + filepath.Join(root, "examples"),
+		"CASSEM_EXAMPLE_CONFIGS_DIR=" + filepath.Join(root, ".deploy", "example-configs"),
 		tool,
 		"compose",
 		"-p",
 		"cassem",
 		"-f",
-		"examples/compose.cluster.yaml",
+		".deploy/example-configs/compose.cluster.yaml",
 	}
 	cmdArgs = append(cmdArgs, args...)
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -124,15 +126,15 @@ func compose(t testing.TB, args ...string) {
 }
 
 func testDBWrite(endpoints []string) error {
-	cc, err := apikv.DialWithMode(endpoints, apikv.Mode_X)
+	cc, err := kvclient.DialWithMode(endpoints, kvclient.Mode_X)
 	if err != nil {
 		return err
 	}
 	defer cc.Close()
-	client := apikv.NewKVClient(cc)
+	client := pb.NewKVClient(cc)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	_, err = client.SetKV(ctx, &apikv.SetKVReq{
+	_, err = client.SetKV(ctx, &pb.SetKVReq{
 		Key:       fmt.Sprintf("tests/failover/%d", time.Now().UnixNano()),
 		Val:       []byte("ok"),
 		Overwrite: true,

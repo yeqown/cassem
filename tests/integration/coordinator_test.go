@@ -8,8 +8,10 @@ import (
 	"testing"
 	"time"
 
+	pb "github.com/yeqown/cassem/internal/protogen"
+
 	"github.com/stretchr/testify/require"
-	"github.com/yeqown/cassem/api/concept"
+	"github.com/yeqown/cassem/internal/concept"
 	"github.com/yeqown/cassem/internal/coord"
 	"github.com/yeqown/cassem/tests/testutil"
 )
@@ -22,12 +24,12 @@ func TestCoordinatorAdmAggregateElementLifecycle(t *testing.T) {
 	ctx := context.Background()
 	app, env, key := uniqueNames(t)
 
-	require.NoError(t, agg.CreateApp(ctx, &concept.AppMetadata{
+	require.NoError(t, agg.CreateApp(ctx, &pb.AppMetadata{
 		Id:          app,
 		Description: "integration test app",
 		Creator:     "integration",
 		Owner:       "integration",
-		Status:      concept.AppMetadata_INUSE,
+		Status:      pb.AppMetadata_INUSE,
 	}))
 	require.NoError(t, agg.CreateEnvironment(ctx, app, env))
 	require.NoError(t, agg.CreateElement(ctx, app, env, key, []byte("value-v1"), concept.ContentType_PLAINTEXT))
@@ -71,12 +73,12 @@ func TestCoordinatorAdmAggregateInstanceLifecycle(t *testing.T) {
 	}
 
 	require.NoError(t, agg.RegisterInstance(ctx, ins))
-	got, err := agg.GetInstance(ctx, ins.Id())
+	got, err := agg.GetInstance(ctx, concept.InstanceID(ins))
 	require.NoError(t, err)
-	require.Equal(t, ins.Id(), got.Id())
+	require.Equal(t, concept.InstanceID(ins), concept.InstanceID(got))
 
 	require.NoError(t, agg.RenewInstance(ctx, ins))
-	require.NoError(t, agg.UnregisterInstance(ctx, ins.Id()))
+	require.NoError(t, agg.UnregisterInstance(ctx, concept.InstanceID(ins)))
 }
 
 func TestCoordinatorAdmAggregateRBAC(t *testing.T) {
@@ -85,11 +87,11 @@ func TestCoordinatorAdmAggregateRBAC(t *testing.T) {
 	require.NoError(t, err)
 
 	account := fmt.Sprintf("user-%d@example.com", time.Now().UnixNano())
-	require.NoError(t, agg.AddUser(&concept.User{
+	require.NoError(t, agg.AddUser(&pb.User{
 		Account:        account,
 		Nickname:       "integration user",
 		HashedPassword: "password",
-		Status:         concept.User_NORMAL,
+		Status:         pb.User_NORMAL,
 	}))
 
 	user, err := agg.GetUser(account)
@@ -110,5 +112,5 @@ func TestCoordinatorAdmAggregateRBAC(t *testing.T) {
 	require.NoError(t, agg.DisableUser(account))
 	disabled, err := agg.GetUser(account)
 	require.NoError(t, err)
-	require.Equal(t, concept.User_FORBIDDEN, disabled.GetStatus())
+	require.Equal(t, pb.User_FORBIDDEN, disabled.GetStatus())
 }

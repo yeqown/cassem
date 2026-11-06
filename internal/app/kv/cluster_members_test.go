@@ -6,13 +6,14 @@ import (
 	"testing"
 	"time"
 
+	pb "github.com/yeqown/cassem/internal/protogen"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	errorx "github.com/yeqown/cassem/api/concept"
-	apikv "github.com/yeqown/cassem/api/kv"
 	"github.com/yeqown/cassem/internal/app/kv/storage"
-	"github.com/yeqown/cassem/pkg/conf"
+	errorx "github.com/yeqown/cassem/internal/concept"
+	"github.com/yeqown/cassem/internal/pkg/conf"
 )
 
 func TestClusterMemberKey(t *testing.T) {
@@ -55,43 +56,43 @@ func newFakeDiscoveryRaft() *fakeDiscoveryRaft {
 	return &fakeDiscoveryRaft{nodeID: 1, raftAddr: "http://cassemkv1:3021", leaderID: 1, store: map[string][]byte{}}
 }
 
-func (f *fakeDiscoveryRaft) NodeID() uint64                         { return f.nodeID }
-func (f *fakeDiscoveryRaft) RaftAddr() string                       { return f.raftAddr }
-func (f *fakeDiscoveryRaft) Peers() []string                        { return []string{f.raftAddr} }
-func (f *fakeDiscoveryRaft) LeaderID() uint64                       { return f.leaderID }
-func (f *fakeDiscoveryRaft) IsLeader() bool                         { return f.leaderID == f.nodeID }
-func (f *fakeDiscoveryRaft) LeaderChangeCh(chan<- bool)             {}
+func (f *fakeDiscoveryRaft) NodeID() uint64                       { return f.nodeID }
+func (f *fakeDiscoveryRaft) RaftAddr() string                     { return f.raftAddr }
+func (f *fakeDiscoveryRaft) Peers() []string                      { return []string{f.raftAddr} }
+func (f *fakeDiscoveryRaft) LeaderID() uint64                     { return f.leaderID }
+func (f *fakeDiscoveryRaft) IsLeader() bool                       { return f.leaderID == f.nodeID }
+func (f *fakeDiscoveryRaft) LeaderChangeCh(chan<- bool)           {}
 func (f *fakeDiscoveryRaft) ChangeNotifyCh() <-chan errorx.Change { return nil }
 func (f *fakeDiscoveryRaft) AddNode(_ context.Context, addr string) (uint64, []string, error) {
 	return 2, []string{f.raftAddr, addr}, nil
 }
 func (f *fakeDiscoveryRaft) RemoveNode(context.Context, uint64) error { return nil }
 func (f *fakeDiscoveryRaft) Shutdown() error                          { return nil }
-func (f *fakeDiscoveryRaft) GetKV(req *apikv.GetKVReq) (*apikv.Entity, error) {
+func (f *fakeDiscoveryRaft) GetKV(req *pb.GetKVReq) (*pb.Entity, error) {
 	data, ok := f.store[req.GetKey()]
 	if !ok {
 		return nil, storage.ErrNotFound
 	}
-	return apikv.NewEntityWithCreated(req.GetKey(), data, 0, time.Now().Unix()), nil
+	return storage.NewEntityWithCreated(req.GetKey(), data, 0, time.Now().Unix()), nil
 }
-func (f *fakeDiscoveryRaft) SetKV(_ context.Context, req *apikv.SetKVReq) error {
+func (f *fakeDiscoveryRaft) SetKV(_ context.Context, req *pb.SetKVReq) error {
 	f.store[req.GetKey()] = append([]byte(nil), req.GetVal()...)
 	return nil
 }
-func (f *fakeDiscoveryRaft) UnsetKV(_ context.Context, req *apikv.UnsetKVReq) error {
+func (f *fakeDiscoveryRaft) UnsetKV(_ context.Context, req *pb.UnsetKVReq) error {
 	delete(f.store, req.GetKey())
 	return nil
 }
-func (f *fakeDiscoveryRaft) Range(req *apikv.RangeReq) (*apikv.RangeResp, error) {
-	resp := &apikv.RangeResp{}
+func (f *fakeDiscoveryRaft) Range(req *pb.RangeReq) (*pb.RangeResp, error) {
+	resp := &pb.RangeResp{}
 	for key, value := range f.store {
 		if strings.HasPrefix(key, req.GetKey()+"/") {
-			resp.Entities = append(resp.Entities, apikv.NewEntityWithCreated(key, value, 0, time.Now().Unix()))
+			resp.Entities = append(resp.Entities, storage.NewEntityWithCreated(key, value, 0, time.Now().Unix()))
 		}
 	}
 	return resp, nil
 }
-func (f *fakeDiscoveryRaft) Expire(*apikv.ExpireReq) error { return nil }
+func (f *fakeDiscoveryRaft) Expire(*pb.ExpireReq) error { return nil }
 
 func TestRegisterCurrentMember(t *testing.T) {
 	raft := newFakeDiscoveryRaft()
@@ -137,7 +138,7 @@ func TestListMembersRPC(t *testing.T) {
 	d := &app{config: &conf.CassemKVConfig{ListenAddr: "0.0.0.0:2021", AdvertiseAddr: "cassemkv1:2021"}, raft: raft}
 	require.NoError(t, d.registerCurrentMember())
 
-	resp, err := (grpcServer{coord: d}).ListMembers(context.Background(), &apikv.ListMembersRequest{})
+	resp, err := (grpcServer{coord: d}).ListMembers(context.Background(), &pb.ListMembersRequest{})
 	require.NoError(t, err)
 	require.Len(t, resp.GetMembers(), 1)
 	assert.Equal(t, "cassemkv1:2021", resp.GetMembers()[0].GetGrpcEndpoint())

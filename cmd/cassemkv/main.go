@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/yeqown/cassem/internal/app/kv"
-	"github.com/yeqown/cassem/pkg/conf"
+	"github.com/yeqown/cassem/internal/pkg/conf"
 
 	"github.com/urfave/cli/v2"
 	"github.com/yeqown/log"

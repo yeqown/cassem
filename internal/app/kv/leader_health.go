@@ -5,7 +5,7 @@ import (
 	"google.golang.org/grpc/health"
 	"google.golang.org/grpc/health/grpc_health_v1"
 
-	"github.com/yeqown/cassem/pkg/runtime"
+	"github.com/yeqown/cassem/internal/pkg/runtime"
 )
 
 // setupLeaderAwareHealthServer registers leader-aware health checks on s.

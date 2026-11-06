@@ -19,6 +19,8 @@ import { Link as RouterLink, useSearchParams } from 'react-router-dom'
 import { EmptyState, ErrorState, LoadingState } from '../../components/StateView'
 import { useErrorState } from '../../components/useErrorState'
 import type { AppsResponse, ElementsResponse, EnvsResponse, Instance, InstancesResponse } from '../../domain/types'
+import { useI18n, type Translator } from '../../i18n'
+import { isOperationsMessageKey } from '../../i18n/catalogs/operations'
 import { ApiError, apiRequest, buildQuery } from '../../lib/api'
 
 function getErrorMessage(error: unknown, fallback: string) {
@@ -65,7 +67,7 @@ function renderTargets(instance: Instance) {
   )
 }
 
-function formatLastSeen(timestamp?: number) {
+function formatLastSeen(timestamp: number | undefined, t: Translator) {
   if (!timestamp) return '-'
 
   const elapsed = Math.max(0, Math.floor(Date.now() / 1000) - timestamp)
@@ -73,9 +75,9 @@ function formatLastSeen(timestamp?: number) {
   const minutes = Math.floor((elapsed % 3600) / 60)
   const seconds = elapsed % 60
 
-  if (hours > 0) return `${hours}h${minutes}m ago`
-  if (minutes > 0) return `${minutes}m${seconds}s ago`
-  return `${seconds}s ago`
+  if (hours > 0) return t('operations.instances.hoursAgo', { hours, minutes })
+  if (minutes > 0) return t('operations.instances.minutesAgo', { minutes, seconds })
+  return t('operations.instances.secondsAgo', { seconds })
 }
 
 async function requestApps() {
@@ -105,6 +107,7 @@ type InstancesPageFlowProps = {
 }
 
 function InstancesPageFlow({ initialApp, initialEnv, initialKey }: InstancesPageFlowProps) {
+  const { t, formatDateTime } = useI18n()
   const [app, setApp] = useState(initialApp)
   const [env, setEnv] = useState(initialEnv)
   const [key, setKey] = useState(initialKey)
@@ -141,7 +144,7 @@ function InstancesPageFlow({ initialApp, initialEnv, initialKey }: InstancesPage
     } catch (err) {
       if (!mountedRef.current || requestId !== requestSeq.current) return
       setInstances([])
-      setError(getErrorMessage(err, 'failed to load instances'))
+      setError(getErrorMessage(err, 'operations.instances.loadFailed'))
     } finally {
       if (mountedRef.current && requestId === requestSeq.current) setLoading(false)
     }
@@ -169,7 +172,7 @@ function InstancesPageFlow({ initialApp, initialEnv, initialKey }: InstancesPage
       } catch (err) {
         if (!mountedRef.current || requestId !== requestSeq.current) return
         setInstances([])
-        setError(getErrorMessage(err, 'failed to filter instances'))
+        setError(getErrorMessage(err, 'operations.instances.filterFailed'))
       } finally {
         if (mountedRef.current && requestId === requestSeq.current) setLoading(false)
       }
@@ -189,7 +192,7 @@ function InstancesPageFlow({ initialApp, initialEnv, initialKey }: InstancesPage
     } catch (err) {
       if (!mountedRef.current || requestId !== candidateSeq.current) return
       setAppOptions([])
-      setFilterError(getErrorMessage(err, 'failed to load app candidates'))
+      setFilterError(getErrorMessage(err, 'operations.instances.appsFailed'))
     } finally {
       if (mountedRef.current && requestId === candidateSeq.current) setCandidateLoading(false)
     }
@@ -216,7 +219,7 @@ function InstancesPageFlow({ initialApp, initialEnv, initialKey }: InstancesPage
       if (!mountedRef.current || requestId !== candidateSeq.current) return
       setEnvOptions([])
       setKeyOptions([])
-      setFilterError(getErrorMessage(err, 'failed to load environment candidates'))
+      setFilterError(getErrorMessage(err, 'operations.instances.envsFailed'))
     } finally {
       if (mountedRef.current && requestId === candidateSeq.current) setCandidateLoading(false)
     }
@@ -240,7 +243,7 @@ function InstancesPageFlow({ initialApp, initialEnv, initialKey }: InstancesPage
     } catch (err) {
       if (!mountedRef.current || requestId !== candidateSeq.current) return
       setKeyOptions([])
-      setFilterError(getErrorMessage(err, 'failed to load key candidates'))
+      setFilterError(getErrorMessage(err, 'operations.instances.keysFailed'))
     } finally {
       if (mountedRef.current && requestId === candidateSeq.current) setCandidateLoading(false)
     }
@@ -306,7 +309,7 @@ function InstancesPageFlow({ initialApp, initialEnv, initialKey }: InstancesPage
     } catch (err) {
       if (!mountedRef.current || requestId !== detailRequestSeq.current) return
       setDetail(null)
-      setDetailError(getErrorMessage(err, 'failed to load instance detail'))
+      setDetailError(getErrorMessage(err, 'operations.instances.detailFailed'))
     } finally {
       if (mountedRef.current && requestId === detailRequestSeq.current) setDetailLoading(false)
     }
@@ -316,18 +319,18 @@ function InstancesPageFlow({ initialApp, initialEnv, initialKey }: InstancesPage
     <Stack spacing={3}>
       <Box>
         <Typography variant="h4" component="h1">
-          Instances
+          {t('operations.instances.title')}
         </Typography>
-        <Typography color="text.secondary">Inspect cluster clients, filter by element ownership, and load individual instance detail.</Typography>
+        <Typography color="text.secondary">{t('operations.instances.description')}</Typography>
       </Box>
 
-      {error.message && <ErrorState message={error.message} eventKey={error.eventKey} />}
-      {filterError && <ErrorState message={filterError} />}
+      {error.message && <ErrorState message={isOperationsMessageKey(error.message) ? t(error.message) : error.message} eventKey={error.eventKey} />}
+      {filterError && <ErrorState message={isOperationsMessageKey(filterError) ? t(filterError) : filterError} />}
 
       <Paper component="form" onSubmit={(event) => void handleFilter(event)} sx={{ p: 3 }}>
         <Stack spacing={2}>
           <Typography variant="h6" component="h2">
-            Filter by element
+            {t('operations.instances.filterByElement')}
           </Typography>
           <Stack data-testid="instances-filter-row" direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems={{ xs: 'stretch', md: 'flex-start' }}>
             <Autocomplete
@@ -353,7 +356,7 @@ function InstancesPageFlow({ initialApp, initialEnv, initialKey }: InstancesPage
                 setKeyOptions([])
                 void loadEnvCandidates(nextApp)
               }}
-              renderInput={(params) => <TextField {...params} label="App" helperText="Type or choose an application." />}
+              renderInput={(params) => <TextField {...params} label={t('operations.app')} helperText={t('operations.instances.appHelp')} />}
               sx={{ flex: 1 }}
               fullWidth
             />
@@ -377,7 +380,7 @@ function InstancesPageFlow({ initialApp, initialEnv, initialKey }: InstancesPage
                 setKey('')
                 void loadKeyCandidates(app, nextEnv)
               }}
-              renderInput={(params) => <TextField {...params} label="Env" helperText="Choose an environment after app." />}
+              renderInput={(params) => <TextField {...params} label={t('operations.env')} helperText={t('operations.instances.envHelp')} />}
               sx={{ flex: 1 }}
               fullWidth
             />
@@ -392,16 +395,16 @@ function InstancesPageFlow({ initialApp, initialEnv, initialKey }: InstancesPage
                 if (reason === 'input') setKey(value)
               }}
               onChange={(_, value) => setKey(value || '')}
-              renderInput={(params) => <TextField {...params} label="Key" helperText="Choose an element key after env." />}
+              renderInput={(params) => <TextField {...params} label={t('operations.key')} helperText={t('operations.instances.keyHelp')} />}
               sx={{ flex: 1 }}
               fullWidth
             />
             <Stack direction="row" spacing={1.5} sx={{ whiteSpace: 'nowrap' }}>
               <Button type="submit" variant="contained" disabled={loading} sx={{ height: 40 }}>
-                Filter
+                {t('operations.instances.filter')}
               </Button>
               <Button variant="outlined" onClick={() => void handleRefreshAll()} disabled={loading} sx={{ height: 40 }}>
-                Refresh all
+                {t('operations.instances.refreshAll')}
               </Button>
             </Stack>
           </Stack>
@@ -409,20 +412,20 @@ function InstancesPageFlow({ initialApp, initialEnv, initialKey }: InstancesPage
       </Paper>
 
       {loading ? (
-        <LoadingState label="Loading instances" />
+        <LoadingState label={t('operations.instances.loading')} />
       ) : error.message ? null : instances.length === 0 ? (
-        <EmptyState title="No instances found" description="Adjust the filter or refresh the full cluster instance list." />
+        <EmptyState title={t('operations.instances.emptyTitle')} description={t('operations.instances.emptyDescription')} />
       ) : (
         <TableContainer component={Paper}>
           <Table>
             <TableHead>
               <TableRow>
-                <TableCell>Client</TableCell>
-                <TableCell>Agent</TableCell>
-                <TableCell>IP</TableCell>
-                <TableCell>Targets</TableCell>
-                <TableCell>Last seen</TableCell>
-                <TableCell align="right">Actions</TableCell>
+                <TableCell>{t('operations.instances.client')}</TableCell>
+                <TableCell>{t('operations.instances.agent')}</TableCell>
+                <TableCell>{t('operations.instances.ip')}</TableCell>
+                <TableCell>{t('operations.targets')}</TableCell>
+                <TableCell>{t('operations.instances.lastSeen')}</TableCell>
+                <TableCell align="right">{t('operations.instances.actions')}</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -436,10 +439,10 @@ function InstancesPageFlow({ initialApp, initialEnv, initialKey }: InstancesPage
                     <TableCell>{instance.agentId || '-'}</TableCell>
                     <TableCell>{instance.clientIp || '-'}</TableCell>
                     <TableCell>{renderTargets(instance)}</TableCell>
-                    <TableCell>{formatLastSeen(instance.lastRenewTimestamp)}</TableCell>
+                    <TableCell title={instance.lastRenewTimestamp ? formatDateTime(instance.lastRenewTimestamp * 1000) : undefined}>{formatLastSeen(instance.lastRenewTimestamp, t)}</TableCell>
                     <TableCell align="right">
                       <Button size="small" onClick={() => instanceId && void handleLoadDetail(instanceId)} disabled={detailLoading || !instanceId}>
-                        Detail
+                        {t('operations.instances.detail')}
                       </Button>
                     </TableCell>
                   </TableRow>
@@ -454,11 +457,11 @@ function InstancesPageFlow({ initialApp, initialEnv, initialKey }: InstancesPage
         <Paper sx={{ p: 3 }}>
           <Stack spacing={2}>
             <Typography variant="h6" component="h2">
-              Instance detail
+              {t('operations.instances.detailTitle')}
             </Typography>
-            {detailError && <ErrorState message={detailError} />}
+            {detailError && <ErrorState message={isOperationsMessageKey(detailError) ? t(detailError) : detailError} />}
             {detailLoading ? (
-              <LoadingState label="Loading instance detail" />
+              <LoadingState label={t('operations.instances.loadingDetail')} />
             ) : detail ? (
               <Box
                 component="pre"

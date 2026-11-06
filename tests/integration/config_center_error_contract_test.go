@@ -8,15 +8,17 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	apikv "github.com/yeqown/cassem/api/kv"
 	"io"
 	"net/http"
 	"testing"
 	"time"
 
+	pb "github.com/yeqown/cassem/internal/protogen"
+
 	"github.com/stretchr/testify/require"
-	errorx "github.com/yeqown/cassem/api/concept"
-	"github.com/yeqown/cassem/pkg/httpx"
+	errorx "github.com/yeqown/cassem/internal/concept"
+	"github.com/yeqown/cassem/internal/kvclient"
+	"github.com/yeqown/cassem/internal/pkg/httpx"
 	"github.com/yeqown/cassem/tests/testutil"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -49,9 +51,9 @@ func TestConfigCenterReleaseGate_APIErrorMappingSmoke(t *testing.T) {
 	rawCC, err := grpc.NewClient(cluster.DBEndpoints[0], grpc.WithTransportCredentials(insecure.NewCredentials()))
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = rawCC.Close() })
-	rawClient := apikv.NewKVClient(rawCC)
+	rawClient := pb.NewKVClient(rawCC)
 	rawCtx, rawCancel := context.WithTimeout(context.Background(), 3*time.Second)
-	_, err = rawClient.GetKV(rawCtx, &apikv.GetKVReq{Key: missingKVKey})
+	_, err = rawClient.GetKV(rawCtx, &pb.GetKVReq{Key: missingKVKey})
 	rawCancel()
 	require.Error(t, err)
 	rawStatus, ok := status.FromError(err)
@@ -59,11 +61,11 @@ func TestConfigCenterReleaseGate_APIErrorMappingSmoke(t *testing.T) {
 	require.Equal(t, codes.NotFound, rawStatus.Code())
 	require.Equal(t, "NOT_FOUND", rawStatus.Message())
 
-	cc := testutil.DialCassemKV(t, cluster.DBEndpoints, apikv.Mode_X)
+	cc := testutil.DialCassemKV(t, cluster.DBEndpoints, kvclient.Mode_X)
 	t.Cleanup(func() { _ = cc.Close() })
-	client := apikv.NewKVClient(cc)
+	client := pb.NewKVClient(cc)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-	_, err = client.GetKV(ctx, &apikv.GetKVReq{Key: missingKVKey})
+	_, err = client.GetKV(ctx, &pb.GetKVReq{Key: missingKVKey})
 	cancel()
 	require.Error(t, err)
 	require.True(t, errors.Is(err, errorx.Err_NOT_FOUND))

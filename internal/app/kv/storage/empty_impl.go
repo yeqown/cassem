@@ -1,13 +1,13 @@
 package storage
 
 import (
-	apikv "github.com/yeqown/cassem/api/kv"
+	pb "github.com/yeqown/cassem/internal/protogen"
 )
 
 type empty struct{}
 
-func (e empty) GetKV(key string, isDir bool) (*apikv.Entity, error) {
-	return &apikv.Entity{
+func (e empty) GetKV(key string, isDir bool) (*pb.Entity, error) {
+	return &pb.Entity{
 		Fingerprint: "empty",
 		Key:         key,
 		Val:         []byte("empty to test"),
@@ -22,7 +22,7 @@ func NewEmptyRepository() KV {
 	return empty{}
 }
 
-func (e empty) SetKV(key string, value *apikv.Entity, isDir bool) error {
+func (e empty) SetKV(key string, value *pb.Entity, isDir bool) error {
 	return nil
 }
 

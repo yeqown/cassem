@@ -8,65 +8,67 @@ import (
 	"strings"
 	"testing"
 
+	storage "github.com/yeqown/cassem/internal/app/kv/storage"
+	pb "github.com/yeqown/cassem/internal/protogen"
+
 	"buf.build/go/protovalidate"
 	"github.com/stretchr/testify/require"
-	"github.com/yeqown/cassem/api/concept"
-	apikv "github.com/yeqown/cassem/api/kv"
-	"github.com/yeqown/cassem/pkg/hash"
+	"github.com/yeqown/cassem/internal/concept"
+	"github.com/yeqown/cassem/internal/pkg/hash"
 	"google.golang.org/grpc"
 )
 
 type aclTestKV struct {
-	data   map[string]*apikv.Entity
+	data   map[string]*pb.Entity
 	setErr error
 }
 
 func newACLTestKV() *aclTestKV {
-	return &aclTestKV{data: make(map[string]*apikv.Entity)}
+	return &aclTestKV{data: make(map[string]*pb.Entity)}
 }
 
-func (f *aclTestKV) GetKV(_ context.Context, req *apikv.GetKVReq, _ ...grpc.CallOption) (*apikv.GetKVResp, error) {
+func (f *aclTestKV) GetKV(_ context.Context, req *pb.GetKVReq, _ ...grpc.CallOption) (*pb.GetKVResp, error) {
 	entity, ok := f.data[req.GetKey()]
 	if !ok {
 		return nil, concept.Err_NOT_FOUND
 	}
-	return &apikv.GetKVResp{Entity: entity}, nil
+	return &pb.GetKVResp{Entity: entity}, nil
 }
 
-func (f *aclTestKV) GetKVs(context.Context, *apikv.GetKVsReq, ...grpc.CallOption) (*apikv.GetKVsResp, error) {
+func (f *aclTestKV) GetKVs(context.Context, *pb.GetKVsReq, ...grpc.CallOption) (*pb.GetKVsResp, error) {
 	return nil, errors.New("unused")
 }
 
-func (f *aclTestKV) SetKV(_ context.Context, req *apikv.SetKVReq, _ ...grpc.CallOption) (*apikv.Empty, error) {
+func (f *aclTestKV) SetKV(_ context.Context, req *pb.SetKVReq, _ ...grpc.CallOption) (*pb.Empty, error) {
 	if f.setErr != nil {
 		return nil, f.setErr
 	}
-	f.data[req.GetKey()] = apikv.NewEntityWithCreated(req.GetKey(), req.GetVal(), 0, 1)
-	return &apikv.Empty{}, nil
+	f.data[req.GetKey()] = storage.NewEntityWithCreated(req.GetKey(), req.GetVal(), 0, 1)
+	return &pb.Empty{}, nil
 }
 
-func (f *aclTestKV) UnsetKV(context.Context, *apikv.UnsetKVReq, ...grpc.CallOption) (*apikv.Empty, error) {
+func (f *aclTestKV) UnsetKV(context.Context, *pb.UnsetKVReq, ...grpc.CallOption) (*pb.Empty, error) {
 	return nil, errors.New("unused")
 }
 
-func (f *aclTestKV) Watch(context.Context, *apikv.WatchReq, ...grpc.CallOption) (apikv.KV_WatchClient, error) {
+func (f *aclTestKV) Watch(context.Context, *pb.WatchReq, ...grpc.CallOption) (pb.KV_WatchClient, error) {
 	return nil, errors.New("unused")
 }
 
-func (f *aclTestKV) TTL(context.Context, *apikv.TtlReq, ...grpc.CallOption) (*apikv.TtlResp, error) {
+func (f *aclTestKV) TTL(context.Context, *pb.TtlReq, ...grpc.CallOption) (*pb.TtlResp, error) {
 	return nil, errors.New("unused")
 }
 
-func (f *aclTestKV) Expire(context.Context, *apikv.ExpireReq, ...grpc.CallOption) (*apikv.Empty, error) {
+func (f *aclTestKV) Expire(context.Context, *pb.ExpireReq, ...grpc.CallOption) (*pb.Empty, error) {
 	return nil, errors.New("unused")
 }
 
-func (f *aclTestKV) Range(_ context.Context, req *apikv.RangeReq, _ ...grpc.CallOption) (*apikv.RangeResp, error) {
+func (f *aclTestKV) Range(_ context.Context, req *pb.RangeReq, _ ...grpc.CallOption) (*pb.RangeResp, error) {
 	if err := protovalidate.Validate(req); err != nil {
 		return nil, err
 	}
 
-	entities := make([]*apikv.Entity, 0)
+	entities := make([]*pb.Entity, 0)
 	for key, entity := range f.data {
 		if req.GetKey() != "" && !strings.HasPrefix(key, req.GetKey()) {
 			continue
@@ -76,18 +78,18 @@ func (f *aclTestKV) Range(_ context.Context, req *apikv.RangeReq, _ ...grpc.Call
 		}
 		entities = append(entities, entity)
 	}
-	slices.SortFunc(entities, func(a, b *apikv.Entity) int { return strings.Compare(a.GetKey(), b.GetKey()) })
+	slices.SortFunc(entities, func(a, b *pb.Entity) int { return strings.Compare(a.GetKey(), b.GetKey()) })
 	if len(entities) > int(req.GetLimit()) {
-		return &apikv.RangeResp{
+		return &pb.RangeResp{
 			Entities:    entities[:req.GetLimit()],
 			HasMore:     true,
 			NextSeekKey: concept.ExtractPureKey(entities[req.GetLimit()].GetKey()),
 		}, nil
 	}
-	return &apikv.RangeResp{Entities: entities}, nil
+	return &pb.RangeResp{Entities: entities}, nil
 }
 
-func (f *aclTestKV) CompactElementHistory(context.Context, *apikv.CompactElementHistoryReq, ...grpc.CallOption) (*apikv.CompactElementHistoryResp, error) {
+func (f *aclTestKV) CompactElementHistory(context.Context, *pb.CompactElementHistoryReq, ...grpc.CallOption) (*pb.CompactElementHistoryResp, error) {
 	return nil, errors.New("unused")
 }
 
@@ -156,12 +158,12 @@ func TestNewRBACSeedsBuiltinPolicies(t *testing.T) {
 
 func TestAutoMigrateRemovesLegacyRoleSubjectBypass(t *testing.T) {
 	store := newACLTestKV()
-	legacy := &concept.Casbin{Policies: []*concept.Casbin_Policy{
+	legacy := &pb.Casbin{Policies: []*pb.Casbin_Policy{
 		{Ptype: "p", V0: concept.Role_SUPERADMIN, V1: concept.Domain_ALL, V2: concept.Object_ALL, V3: concept.Action_ANY},
 		{Ptype: "g", V0: "alice", V1: concept.Role_SUPERADMIN, V2: concept.Domain_ALL},
 	}}
-	store.data[concept.GenAclPolicyKey()] = apikv.NewEntityWithCreated(
-		concept.GenAclPolicyKey(), apikv.Must(apikv.Marshal(legacy)), 0, 1)
+	store.data[concept.GenAclPolicyKey()] = storage.NewEntityWithCreated(
+		concept.GenAclPolicyKey(), concept.MustMarshalProto(legacy), 0, 1)
 
 	rbac, err := newRBAC(store)
 	require.NoError(t, err)
@@ -181,17 +183,17 @@ func TestResetUserAllowsLoginWithNewPassword(t *testing.T) {
 	require.NoError(t, err)
 	acl := rbac.(aclImpl)
 
-	require.NoError(t, acl.AddUser(&concept.User{
+	require.NoError(t, acl.AddUser(&pb.User{
 		Account:        "alice@example.com",
 		Nickname:       "Alice",
 		HashedPassword: "old-secret",
-		Status:         concept.User_FORBIDDEN,
+		Status:         pb.User_FORBIDDEN,
 	}))
 
 	require.NoError(t, acl.ResetUser("alice@example.com", "new-secret"))
 	u, err := acl.GetUser("alice@example.com")
 	require.NoError(t, err)
-	require.Equal(t, concept.User_NORMAL, u.GetStatus())
+	require.Equal(t, pb.User_NORMAL, u.GetStatus())
 	require.Equal(t, u.GetHashedPassword(), hash.WithSalt("new-secret", u.GetSalt()))
 	require.NotEqual(t, u.GetHashedPassword(), hash.WithSalt("old-secret", u.GetSalt()))
 }
@@ -202,7 +204,7 @@ func TestAssignRoleRejectsSuperadmin(t *testing.T) {
 	require.NoError(t, err)
 	acl := rbac.(aclImpl)
 
-	require.NoError(t, acl.AddUser(&concept.User{Account: "alice@example.com", Nickname: "Alice", HashedPassword: "secret", Status: concept.User_NORMAL}))
+	require.NoError(t, acl.AddUser(&pb.User{Account: "alice@example.com", Nickname: "Alice", HashedPassword: "secret", Status: pb.User_NORMAL}))
 
 	err = acl.AssignRole("alice@example.com", concept.Role_SUPERADMIN, concept.Domain_ALL)
 	require.ErrorIs(t, err, concept.Err_PERMISSION_DENIED)
@@ -234,11 +236,11 @@ func TestACLVisitorRoleIsReadOnlyWithinAppEnvironment(t *testing.T) {
 	require.NoError(t, err)
 	acl := rbac.(aclImpl)
 
-	require.NoError(t, acl.AddUser(&concept.User{
+	require.NoError(t, acl.AddUser(&pb.User{
 		Account:        "viewer@example.com",
 		Nickname:       "Viewer",
 		HashedPassword: "secret",
-		Status:         concept.User_NORMAL,
+		Status:         pb.User_NORMAL,
 	}))
 	require.NoError(t, acl.AssignRole("viewer@example.com", concept.Role_VISITOR, "payment-service/production"))
 
@@ -312,8 +314,8 @@ func TestACLListDomainOptionsPagesAppsAndEnvironments(t *testing.T) {
 	store := newACLTestKV()
 	for i := range 101 {
 		app := fmt.Sprintf("app-%03d", i)
-		store.data[concept.GenAppKey(app)] = apikv.NewEntityWithCreated(concept.GenAppKey(app), []byte("app"), 0, 1)
-		store.data[concept.GenAppElementEnvKey(app, "prod")] = apikv.NewEntityWithCreated(concept.GenAppElementEnvKey(app, "prod"), []byte("env"), 0, 1)
+		store.data[concept.GenAppKey(app)] = storage.NewEntityWithCreated(concept.GenAppKey(app), []byte("app"), 0, 1)
+		store.data[concept.GenAppElementEnvKey(app, "prod")] = storage.NewEntityWithCreated(concept.GenAppElementEnvKey(app, "prod"), []byte("env"), 0, 1)
 	}
 
 	rbac, err := newRBAC(store)
@@ -329,15 +331,15 @@ func TestACLListDomainOptionsPagesAppsAndEnvironments(t *testing.T) {
 
 func TestACLGetUsersAndRoles(t *testing.T) {
 	store := newACLTestKV()
-	store.data[concept.GenAppKey("demo")] = apikv.NewEntityWithCreated(concept.GenAppKey("demo"), []byte("app"), 0, 1)
-	store.data[concept.GenAppElementEnvKey("demo", "prod")] = apikv.NewEntityWithCreated(concept.GenAppElementEnvKey("demo", "prod"), []byte("env"), 0, 1)
+	store.data[concept.GenAppKey("demo")] = storage.NewEntityWithCreated(concept.GenAppKey("demo"), []byte("app"), 0, 1)
+	store.data[concept.GenAppElementEnvKey("demo", "prod")] = storage.NewEntityWithCreated(concept.GenAppElementEnvKey("demo", "prod"), []byte("env"), 0, 1)
 
 	rbac, err := newRBAC(store)
 	require.NoError(t, err)
 	acl := rbac.(aclImpl)
 
-	require.NoError(t, acl.AddUser(&concept.User{Account: "alice@example.com", Nickname: "Alice", HashedPassword: "secret-1", Status: concept.User_NORMAL}))
-	require.NoError(t, acl.AddUser(&concept.User{Account: "bob@example.com", Nickname: "Bob", HashedPassword: "secret-2", Status: concept.User_FORBIDDEN}))
+	require.NoError(t, acl.AddUser(&pb.User{Account: "alice@example.com", Nickname: "Alice", HashedPassword: "secret-1", Status: pb.User_NORMAL}))
+	require.NoError(t, acl.AddUser(&pb.User{Account: "bob@example.com", Nickname: "Bob", HashedPassword: "secret-2", Status: pb.User_FORBIDDEN}))
 	require.NoError(t, acl.AssignRole("alice@example.com", concept.Role_ADMIN, concept.Domain_ALL))
 	require.NoError(t, acl.AssignRole("alice@example.com", concept.Role_APPOWNER, concept.Domain_CLUSTER))
 	require.NoError(t, acl.AssignRole("alice@example.com", "developer", "demo/prod"))

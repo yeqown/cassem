@@ -260,6 +260,7 @@ describe('app shell routing', () => {
     renderRoute('/settings')
 
     expect(await screen.findByRole('heading', { name: /settings/i })).toBeInTheDocument()
+    expect(screen.getByRole('main')).toHaveStyle({ padding: '48px' })
     for (const brand of screen.getAllByTestId('sidebar-brand')) {
       expect(brand).toHaveStyle({ backgroundColor: '#2454ff' })
     }
@@ -360,10 +361,14 @@ describe('app shell routing', () => {
     )
 
     const user = userEvent.setup()
-    renderRoute('/dashboard')
+    const router = renderRoute('/dashboard')
 
-    expect(screen.getByRole('heading', { name: /dashboard/i })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /apps/i })).toHaveAttribute('href', '/ui/apps')
+    expect(await screen.findByRole('heading', { name: 'Cassem Guide', level: 1 })).toBeInTheDocument()
+    expect(router.state.location.pathname).toBe('/ui/docs')
+    const navigation = screen.getByRole('navigation', { name: /^navigation$/i })
+    expect(within(navigation).getAllByRole('link', { name: 'Guide' })).toHaveLength(1)
+    expect(within(navigation).queryByRole('link', { name: /dashboard/i })).not.toBeInTheDocument()
+    expect(within(navigation).getByRole('link', { name: /apps/i })).toHaveAttribute('href', '/ui/apps')
     expect(screen.getByRole('img', { name: /cassem logo/i })).toHaveAttribute('src', '/logo.svg')
     screen.getAllByTestId('sidebar-logo').forEach((logo) => {
       expect(logo).not.toHaveClass('MuiAvatar-root')
@@ -371,7 +376,6 @@ describe('app shell routing', () => {
     expect(screen.getAllByText('CASSEM').length).toBeGreaterThan(0)
     expect(screen.queryByText('Cassem Admin')).not.toBeInTheDocument()
     expect(screen.getAllByText('Super Admin').length).toBeGreaterThan(0)
-    expect(screen.getByRole('main')).toHaveStyle({ padding: '48px' })
 
     await user.click(screen.getByRole('button', { name: /account menu/i }))
 

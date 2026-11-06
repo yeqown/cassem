@@ -4,13 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	apikv "github.com/yeqown/cassem/api/kv"
 	"time"
 
-	"github.com/yeqown/log"
+	pb "github.com/yeqown/cassem/internal/protogen"
 
-	"github.com/yeqown/cassem/api/concept"
-	"github.com/yeqown/cassem/pkg/runtime"
+	"github.com/yeqown/cassem/internal/concept"
+	"github.com/yeqown/cassem/internal/pkg/runtime"
+	"github.com/yeqown/log"
 )
 
 var (
@@ -18,17 +18,17 @@ var (
 )
 
 type instanceHybrid struct {
-	cassemkv apikv.KVClient
+	cassemkv pb.KVClient
 }
 
 // func NewInstanceHybrid(endpoints []string) (InstanceHybrid, error) {
-//	cc, err := apikv.DialWithMode(endpoints, apikv.Mode_X)
+//	cc, err := kvclient.DialWithMode(endpoints, kvclient.Mode_X)
 //	if err != nil {
 //		return nil, errors.Wrap(err, "NewInstanceHybrid")
 //	}
 //
 //	return instanceHybrid{
-//		cassemkv: apikv.NewKVClient(cc),
+//		cassemkv: pb.NewKVClient(cc),
 //	}, nil
 // }
 
@@ -43,7 +43,7 @@ func (i instanceHybrid) GetInstances(
 		}).
 		Debug("instanceHybrid.GetInstances")
 
-	r, err := i.cassemkv.Range(ctx, &apikv.RangeReq{
+	r, err := i.cassemkv.Range(ctx, &pb.RangeReq{
 		Key:   k,
 		Seek:  seek,
 		Limit: int32(limit),
@@ -69,7 +69,7 @@ func (i instanceHybrid) GetInstances(
 	}
 
 	// // get all instance detail information.
-	// r2, err2 := i.cassemkv.GetKVs(ctx, &apikv.GetKVsReq{
+	// r2, err2 := i.cassemkv.GetKVs(ctx, &pb.GetKVsReq{
 	//	Keys: insIds,
 	// })
 	// if err2 != nil {
@@ -97,7 +97,7 @@ func (i instanceHybrid) GetInstancesByElement(
 		}).
 		Debug("instanceHybrid.GetInstances")
 
-	r, err := i.cassemkv.Range(ctx, &apikv.RangeReq{
+	r, err := i.cassemkv.Range(ctx, &pb.RangeReq{
 		Key:   k,
 		Seek:  "",
 		Limit: 100,
@@ -123,7 +123,7 @@ func (i instanceHybrid) GetInstancesByElement(
 		insIds = append(insIds, insId)
 	}
 	// get all instance detail information.
-	r2, err2 := i.cassemkv.GetKVs(ctx, &apikv.GetKVsReq{
+	r2, err2 := i.cassemkv.GetKVs(ctx, &pb.GetKVsReq{
 		Keys: insIds,
 	})
 	if err2 != nil {
@@ -144,7 +144,7 @@ func (i instanceHybrid) GetInstancesByElement(
 
 func (i instanceHybrid) GetInstance(ctx context.Context, insId string) (*concept.Instance, error) {
 	k := concept.GenInstanceNormalKey(insId)
-	r, err := i.cassemkv.GetKV(ctx, &apikv.GetKVReq{
+	r, err := i.cassemkv.GetKV(ctx, &pb.GetKVReq{
 		Key: k,
 	})
 	if err != nil {
@@ -161,10 +161,10 @@ func (i instanceHybrid) GetInstance(ctx context.Context, insId string) (*concept
 // duplicated error to client.
 func (i instanceHybrid) RegisterInstance(ctx context.Context, ins *concept.Instance) (err error) {
 	// check duplicate instance
-	insId := ins.Id()
+	insId := concept.InstanceID(ins)
 	k := concept.GenInstanceNormalKey(insId)
 
-	r, err := i.cassemkv.GetKV(ctx, &apikv.GetKVReq{
+	r, err := i.cassemkv.GetKV(ctx, &pb.GetKVReq{
 		Key: k,
 	})
 	if err != nil && !errors.Is(err, concept.Err_NOT_FOUND) {
@@ -187,7 +187,7 @@ func (i instanceHybrid) setInstanceInfo(ctx context.Context, ins *concept.Instan
 			Warn("InstanceHybrid.RegisterInstance get nil instance, skipped")
 		return
 	}
-	insId := ins.Id()
+	insId := concept.InstanceID(ins)
 
 	// save normalized kv
 	k := concept.GenInstanceNormalKey(insId)
@@ -202,7 +202,7 @@ func (i instanceHybrid) setInstanceInfo(ctx context.Context, ins *concept.Instan
 	if err != nil {
 		return fmt.Errorf("instanceHybrid.setInstanceInfo.marshal: %w", err)
 	}
-	_, err = i.cassemkv.SetKV(ctx, &apikv.SetKVReq{
+	_, err = i.cassemkv.SetKV(ctx, &pb.SetKVReq{
 		Key:       k,
 		IsDir:     false,
 		Ttl:       120,
@@ -217,7 +217,7 @@ func (i instanceHybrid) setInstanceInfo(ctx context.Context, ins *concept.Instan
 	for _, w := range ins.GetWatching() {
 		for _, key := range w.GetWatchKeys() {
 			k2 := concept.GenInstanceReversedKeyWithInsId(w.GetApp(), w.GetEnv(), key, insId)
-			_, err = i.cassemkv.SetKV(ctx, &apikv.SetKVReq{
+			_, err = i.cassemkv.SetKV(ctx, &pb.SetKVReq{
 				Key:       k2,
 				IsDir:     false,
 				Ttl:       120,
@@ -244,9 +244,9 @@ func (i instanceHybrid) setInstanceInfo(ctx context.Context, ins *concept.Instan
 
 func (i instanceHybrid) RenewInstance(ctx context.Context, ins *concept.Instance) error {
 	// check duplicate instance
-	// insId := ins.Id()
+	// insId := concept.InstanceID(ins)
 	// k := concept.GenInstanceNormalKey(insId)
-	// r, _ := i.cassemkv.GetKV(ctx, &apikv.GetKVReq{
+	// r, _ := i.cassemkv.GetKV(ctx, &pb.GetKVReq{
 	//	Key: k,
 	// })
 	// if r.GetEntity() != nil {
@@ -268,7 +268,7 @@ func (i instanceHybrid) UnregisterInstance(ctx context.Context, insId string) er
 		Debug("instanceHybrid.UnregisterInstance")
 
 	// try to get instance detail
-	r, err := i.cassemkv.GetKV(ctx, &apikv.GetKVReq{
+	r, err := i.cassemkv.GetKV(ctx, &pb.GetKVReq{
 		Key: k,
 	})
 	if err != nil {
@@ -285,7 +285,7 @@ func (i instanceHybrid) UnregisterInstance(ctx context.Context, insId string) er
 	}
 
 	// unset normalized kv
-	_, err = i.cassemkv.UnsetKV(ctx, &apikv.UnsetKVReq{
+	_, err = i.cassemkv.UnsetKV(ctx, &pb.UnsetKVReq{
 		Key:   k,
 		IsDir: false,
 	})
@@ -297,7 +297,7 @@ func (i instanceHybrid) UnregisterInstance(ctx context.Context, insId string) er
 	for _, w := range ins.GetWatching() {
 		for _, key := range w.GetWatchKeys() {
 			k2 := concept.GenInstanceReversedKeyWithInsId(w.GetApp(), w.GetEnv(), key, insId)
-			_, err = i.cassemkv.UnsetKV(ctx, &apikv.UnsetKVReq{
+			_, err = i.cassemkv.UnsetKV(ctx, &pb.UnsetKVReq{
 				Key: k2,
 			})
 			if err != nil {

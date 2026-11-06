@@ -5,11 +5,15 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/yeqown/log"
+	"buf.build/go/protovalidate"
+	"google.golang.org/grpc/status"
 
-	apiagent "github.com/yeqown/cassem/api/agent"
-	"github.com/yeqown/cassem/api/concept"
-	"github.com/yeqown/cassem/pkg/runtime"
+	pb "github.com/yeqown/cassem/internal/protogen"
+	clientpb "github.com/yeqown/cassem/sdk/go/protogen"
+
+	"github.com/yeqown/cassem/internal/concept"
+	"github.com/yeqown/cassem/internal/pkg/runtime"
+	"github.com/yeqown/log"
 )
 
 // GetElement execute query request from clients, and also at the same time, agent app is
@@ -17,18 +21,22 @@ import (
 // query from cassemkv. It failed only when query from local cache and remote both failed.
 //
 // DONE(@yeqown): get from cache first, if not hit send request to cassemkv component, and then refresh caches.
-func (d *app) GetElement(ctx context.Context, req *apiagent.GetElementReq) (*apiagent.GetElementResp, error) {
-	resp := new(apiagent.GetElementResp)
-	if len(req.GetKeys()) == 0 {
-		return resp, nil
-	}
-
+func (d *app) GetElement(ctx context.Context, req *clientpb.GetElementReq) (*clientpb.GetElementResp, error) {
 	if _, ok := ctx.Deadline(); !ok {
-		// hasn't set a deadline for request.
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, 3*time.Second)
 		defer cancel()
 	}
+	if req == nil {
+		return nil, concept.Err_INVALID_ARGUMENT
+	}
+	if err := protovalidate.Validate(req); err != nil {
+		return nil, concept.New(concept.Code_INVALID_ARGUMENT, err.Error())
+	}
+	if err := d.authorize(ctx, concept.TokenTarget{App: req.GetApp(), Env: req.GetEnv()}); err != nil {
+		return nil, err
+	}
+	resp := new(clientpb.GetElementResp)
 
 	cr := d.queryFromCache(req.GetApp(), req.GetEnv(), req.GetKeys()...)
 	resp.Elems = append(resp.Elems, cr.elems...)
@@ -47,10 +55,10 @@ func (d *app) GetElement(ctx context.Context, req *apiagent.GetElementReq) (*api
 }
 
 var (
-	_emptyResp = new(apiagent.EmptyResp)
+	_emptyResp = new(clientpb.EmptyResp)
 )
 
-func (d *app) Register(ctx context.Context, req *apiagent.RegisterReq) (*apiagent.EmptyResp, error) {
+func (d *app) Register(ctx context.Context, req *clientpb.RegisterReq) (*clientpb.EmptyResp, error) {
 	ins := &concept.Instance{
 		ClientId:           req.GetClientId(),
 		AgentId:            d.uniqueId,
@@ -66,7 +74,7 @@ func (d *app) Register(ctx context.Context, req *apiagent.RegisterReq) (*apiagen
 	return _emptyResp, nil
 }
 
-func (d *app) Renew(ctx context.Context, req *apiagent.RegisterReq) (*apiagent.EmptyResp, error) {
+func (d *app) Renew(ctx context.Context, req *clientpb.RegisterReq) (*clientpb.EmptyResp, error) {
 	ins := &concept.Instance{
 		ClientId:           req.GetClientId(),
 		AgentId:            d.uniqueId,
@@ -82,11 +90,11 @@ func (d *app) Renew(ctx context.Context, req *apiagent.RegisterReq) (*apiagent.E
 	return _emptyResp, nil
 }
 
-func (d *app) Unregister(ctx context.Context, req *apiagent.UnregisterReq) (*apiagent.EmptyResp, error) {
-	insId := (&concept.Instance{
+func (d *app) Unregister(ctx context.Context, req *clientpb.UnregisterReq) (*clientpb.EmptyResp, error) {
+	insId := concept.InstanceID(&concept.Instance{
 		ClientId: req.GetClientId(),
 		ClientIp: req.GetClientIp(),
-	}).Id()
+	})
 	// make sure unregister instance from memory, avoid memory leaking.
 	d.instancePool.Unregister(insId)
 
@@ -98,11 +106,28 @@ func (d *app) Unregister(ctx context.Context, req *apiagent.UnregisterReq) (*api
 	return _emptyResp, nil
 }
 
-func (d *app) Watch(req *apiagent.WatchReq, server apiagent.Agent_WatchServer) error {
+func (d *app) Watch(req *clientpb.WatchReq, server clientpb.Agent_WatchServer) error {
+	if req == nil {
+		return concept.ToStatus(concept.Err_INVALID_ARGUMENT)
+	}
+	if err := protovalidate.Validate(req); err != nil {
+		return status.Error(concept.Code_INVALID_ARGUMENT.Code(), err.Error())
+	}
+	targets := make([]concept.TokenTarget, 0, len(req.GetWatching()))
+	allowed := make(map[watchElementKey]struct{})
+	for _, watching := range req.GetWatching() {
+		targets = append(targets, concept.TokenTarget{App: watching.GetApp(), Env: watching.GetEnv()})
+		for _, key := range watching.GetWatchKeys() {
+			allowed[watchElementKey{watching.GetApp(), watching.GetEnv(), key}] = struct{}{}
+		}
+	}
+	if err := d.authorize(server.Context(), targets...); err != nil {
+		return concept.ToStatus(err)
+	}
 	// if connection broken, unregister the instance from app.
 	defer func() {
 		ctx, cancel := context.WithTimeout(d.lifecycleContext(), 10*time.Second)
-		if _, err := d.Unregister(ctx, &apiagent.UnregisterReq{
+		if _, err := d.Unregister(ctx, &clientpb.UnregisterReq{
 			ClientId: req.GetClientId(),
 			ClientIp: req.GetClientIp(),
 		}); err != nil {
@@ -116,10 +141,10 @@ func (d *app) Watch(req *apiagent.WatchReq, server apiagent.Agent_WatchServer) e
 		cancel()
 	}()
 
-	insId := (&concept.Instance{
+	insId := concept.InstanceID(&concept.Instance{
 		ClientId: req.GetClientId(),
 		ClientIp: req.GetClientIp(),
-	}).Id()
+	})
 
 	// register all watching
 	ch := make(<-chan *concept.Element, 10)
@@ -145,10 +170,20 @@ func (d *app) Watch(req *apiagent.WatchReq, server apiagent.Agent_WatchServer) e
 wait:
 	for {
 		select {
-		case elem := <-ch:
+		case elem, ok := <-ch:
+			if !ok {
+				return nil
+			}
+			md := elem.GetMetadata()
+			if _, ok := allowed[watchElementKey{md.GetApp(), md.GetEnv(), md.GetKey()}]; !ok {
+				continue
+			}
+			if err := d.authorize(server.Context(), targets...); err != nil {
+				return concept.ToStatus(err)
+			}
 			// DONE(@yeqown): update cache item while new changes pushed to instance.
 			go d.updateCache(elem.GetMetadata().GetApp(), elem.GetMetadata().GetEnv(), elem)
-			if err := server.Send(&apiagent.WatchResp{Elem: elem}); err != nil {
+			if err := server.Send(&clientpb.WatchResp{Elem: elem}); err != nil {
 				log.
 					WithFields(log.Fields{"element": elem, "err": err}).
 					Error("app.Watch could not send")
@@ -169,12 +204,14 @@ wait:
 	return nil
 }
 
+type watchElementKey struct{ app, env, key string }
+
 var (
-	_dispathResp = new(apiagent.DispatchResp)
+	_dispathResp = new(pb.DispatchResp)
 )
 
-// Dispatch implements apiagent.Delivery service
-func (d *app) Dispatch(ctx context.Context, req *apiagent.DispatchReq) (*apiagent.DispatchResp, error) {
+// Dispatch implements the internal Delivery service.
+func (d *app) Dispatch(ctx context.Context, req *pb.DispatchReq) (*pb.DispatchResp, error) {
 	// DONE(@yeqown): implement dispatch rpc call to related client instances.
 	log.
 		WithFields(log.Fields{

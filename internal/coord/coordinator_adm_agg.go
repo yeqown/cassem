@@ -2,9 +2,10 @@ package coord
 
 import (
 	"fmt"
-	apikv "github.com/yeqown/cassem/api/kv"
 
-	"github.com/yeqown/cassem/api/concept"
+	"github.com/yeqown/cassem/internal/concept"
+	"github.com/yeqown/cassem/internal/kvclient"
+	pb "github.com/yeqown/cassem/internal/protogen"
 )
 
 type admAggregate struct {
@@ -16,12 +17,12 @@ type admAggregate struct {
 }
 
 func NewAdmAggregate(endpoints []string) (concept.AdmAggregate, error) {
-	cc, err := apikv.DialWithMode(endpoints, apikv.Mode_X)
+	cc, err := kvclient.DialWithMode(endpoints, kvclient.Mode_X)
 	if err != nil {
 		return nil, err
 	}
 
-	c := apikv.NewKVClient(cc)
+	c := pb.NewKVClient(cc)
 
 	acl, err := newRBAC(c)
 	if err != nil {

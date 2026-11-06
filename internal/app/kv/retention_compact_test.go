@@ -9,15 +9,17 @@ import (
 	"testing"
 	"time"
 
+	storage "github.com/yeqown/cassem/internal/app/kv/storage"
+	pb "github.com/yeqown/cassem/internal/protogen"
+
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/yeqown/cassem/api/concept"
-	apikv "github.com/yeqown/cassem/api/kv"
+	"github.com/yeqown/cassem/internal/concept"
 )
 
 type retentionCompactFakeCoord struct {
-	entities map[string]*apikv.Entity
+	entities map[string]*pb.Entity
 	deleted  []string
 	fail     map[string]error
 	rangeErr map[string]error
@@ -25,14 +27,14 @@ type retentionCompactFakeCoord struct {
 
 func newRetentionCompactFakeCoord() *retentionCompactFakeCoord {
 	return &retentionCompactFakeCoord{
-		entities: make(map[string]*apikv.Entity),
+		entities: make(map[string]*pb.Entity),
 		deleted:  make([]string, 0),
 		fail:     make(map[string]error),
 		rangeErr: make(map[string]error),
 	}
 }
 
-func (f *retentionCompactFakeCoord) getKV(key string) (*apikv.Entity, error) {
+func (f *retentionCompactFakeCoord) getKV(key string) (*pb.Entity, error) {
 	entity, ok := f.entities[key]
 	if !ok {
 		return nil, errors.New("not found")
@@ -40,7 +42,7 @@ func (f *retentionCompactFakeCoord) getKV(key string) (*apikv.Entity, error) {
 	return entity, nil
 }
 
-func (f *retentionCompactFakeCoord) iterate(param *rangeParam) (*apikv.RangeResp, error) {
+func (f *retentionCompactFakeCoord) iterate(param *rangeParam) (*pb.RangeResp, error) {
 	if err := f.rangeErr[param.key]; err != nil {
 		return nil, err
 	}
@@ -67,12 +69,12 @@ func (f *retentionCompactFakeCoord) iterate(param *rangeParam) (*apikv.RangeResp
 		limit = len(keys)
 	}
 
-	entities := make([]*apikv.Entity, 0, limit)
+	entities := make([]*pb.Entity, 0, limit)
 	for _, key := range keys[:limit] {
 		entities = append(entities, f.entities[key])
 	}
 
-	resp := &apikv.RangeResp{Entities: entities}
+	resp := &pb.RangeResp{Entities: entities}
 	if len(keys) > limit {
 		resp.HasMore = true
 		resp.NextSeekKey = leafName(keys[limit])
@@ -108,21 +110,21 @@ func mustProtoBytes(t *testing.T, msg proto.Message) []byte {
 func addMetadata(t *testing.T, fake *retentionCompactFakeCoord, root string, md *concept.ElementMetadata) {
 	t.Helper()
 	key := concept.WithMetadataSuffix(root)
-	fake.entities[key] = apikv.NewEntityWithCreated(key, mustProtoBytes(t, md), 0, time.Now().Unix())
+	fake.entities[key] = storage.NewEntityWithCreated(key, mustProtoBytes(t, md), 0, time.Now().Unix())
 }
 
 func addVersion(t *testing.T, fake *retentionCompactFakeCoord, root string, version int32, createdAt time.Time) string {
 	t.Helper()
 	key := concept.WithVersion(root, int(version))
-	fake.entities[key] = apikv.NewEntityWithCreated(key, mustProtoBytes(t, &concept.Element{Version: version, Raw: []byte("v")}), 0, createdAt.Unix())
+	fake.entities[key] = storage.NewEntityWithCreated(key, mustProtoBytes(t, &concept.Element{Version: version, Raw: []byte("v")}), 0, createdAt.Unix())
 	return key
 }
 
 func addOperation(t *testing.T, fake *retentionCompactFakeCoord, appID, env, key string, operatedAt time.Time) string {
 	t.Helper()
 	opKey := concept.GenElementOperationKey(appID, env, key, operatedAt.UnixNano())
-	op := &concept.ElementOperation{OperatedAt: operatedAt.UnixNano(), OperatedKey: key, Op: concept.ElementOperation_SET}
-	fake.entities[opKey] = apikv.NewEntityWithCreated(opKey, mustProtoBytes(t, op), 0, operatedAt.Unix())
+	op := &pb.ElementOperation{OperatedAt: operatedAt.UnixNano(), OperatedKey: key, Op: pb.ElementOperation_SET}
+	fake.entities[opKey] = storage.NewEntityWithCreated(opKey, mustProtoBytes(t, op), 0, operatedAt.Unix())
 	return opKey
 }
 
@@ -135,7 +137,7 @@ func TestCompactElementHistoryKeepsProtectedVersions(t *testing.T) {
 		addVersion(t, fake, root, version, now.Add(-60*24*time.Hour))
 	}
 
-	resp, err := compactElementHistory(fake, &apikv.CompactElementHistoryReq{
+	resp, err := compactElementHistory(fake, &pb.CompactElementHistoryReq{
 		ElementKey:           root,
 		KeepVersionCount:     2,
 		KeepVersionSeconds:   int64((30 * 24 * time.Hour).Seconds()),
@@ -162,7 +164,7 @@ func TestCompactElementHistoryKeepsLatestVersionsByNumber(t *testing.T) {
 		addVersion(t, fake, root, version, now.Add(-60*24*time.Hour))
 	}
 
-	resp, err := compactElementHistory(fake, &apikv.CompactElementHistoryReq{
+	resp, err := compactElementHistory(fake, &pb.CompactElementHistoryReq{
 		ElementKey:           root,
 		KeepVersionCount:     2,
 		KeepVersionSeconds:   int64((30 * 24 * time.Hour).Seconds()),
@@ -186,7 +188,7 @@ func TestCompactElementHistoryKeepsVersionsCreatedWithinWindow(t *testing.T) {
 	addVersion(t, fake, root, 2, now.Add(-60*24*time.Hour))
 	addVersion(t, fake, root, 3, now.Add(-5*24*time.Hour))
 
-	resp, err := compactElementHistory(fake, &apikv.CompactElementHistoryReq{
+	resp, err := compactElementHistory(fake, &pb.CompactElementHistoryReq{
 		ElementKey:           root,
 		KeepVersionCount:     1,
 		KeepVersionSeconds:   int64((30 * 24 * time.Hour).Seconds()),
@@ -211,7 +213,7 @@ func TestCompactElementHistoryDeletesOldVersionsOutsideKeepRules(t *testing.T) {
 	addVersion(t, fake, root, 3, now.Add(-10*24*time.Hour))
 	addVersion(t, fake, root, 4, now.Add(-60*24*time.Hour))
 
-	resp, err := compactElementHistory(fake, &apikv.CompactElementHistoryReq{
+	resp, err := compactElementHistory(fake, &pb.CompactElementHistoryReq{
 		ElementKey:           root,
 		KeepVersionCount:     1,
 		KeepVersionSeconds:   int64((30 * 24 * time.Hour).Seconds()),
@@ -235,7 +237,7 @@ func TestCompactElementHistoryDeletesOperationLogsByOperatedAt(t *testing.T) {
 	oldOperation := addOperation(t, fake, "demo", "prod", "db.url", now.Add(-181*24*time.Hour))
 	newOperation := addOperation(t, fake, "demo", "prod", "db.url", now.Add(-10*24*time.Hour))
 
-	resp, err := compactElementHistory(fake, &apikv.CompactElementHistoryReq{
+	resp, err := compactElementHistory(fake, &pb.CompactElementHistoryReq{
 		ElementKey:           root,
 		KeepVersionCount:     1,
 		KeepVersionSeconds:   int64((30 * 24 * time.Hour).Seconds()),
@@ -258,9 +260,9 @@ func TestCompactElementHistoryReportsMalformedVersionKeys(t *testing.T) {
 	addVersion(t, fake, root, 1, now.Add(-60*24*time.Hour))
 	addVersion(t, fake, root, 2, now.Add(-60*24*time.Hour))
 	malformedVersionKey := root + "/vbad"
-	fake.entities[malformedVersionKey] = apikv.NewEntityWithCreated(malformedVersionKey, []byte("bad"), 0, now.Add(-60*24*time.Hour).Unix())
+	fake.entities[malformedVersionKey] = storage.NewEntityWithCreated(malformedVersionKey, []byte("bad"), 0, now.Add(-60*24*time.Hour).Unix())
 
-	resp, err := compactElementHistory(fake, &apikv.CompactElementHistoryReq{
+	resp, err := compactElementHistory(fake, &pb.CompactElementHistoryReq{
 		ElementKey:           root,
 		KeepVersionCount:     1,
 		KeepVersionSeconds:   int64((30 * 24 * time.Hour).Seconds()),
@@ -292,7 +294,7 @@ func TestCompactElementHistoryReturnsPartialFailures(t *testing.T) {
 		failedKey := concept.WithVersion(root, 1)
 		fake.fail[failedKey] = errors.New("delete failed")
 
-		resp, err := compactElementHistory(fake, &apikv.CompactElementHistoryReq{
+		resp, err := compactElementHistory(fake, &pb.CompactElementHistoryReq{
 			ElementKey:           root,
 			KeepVersionCount:     1,
 			KeepVersionSeconds:   int64((30 * 24 * time.Hour).Seconds()),
@@ -316,9 +318,9 @@ func TestCompactElementHistoryReturnsPartialFailures(t *testing.T) {
 		addVersion(t, fake, root, 1, now)
 		validOperation := addOperation(t, fake, "demo", "prod", "db.url", now.Add(-181*24*time.Hour))
 		corruptedOperation := concept.GenElementOperationKey("demo", "prod", "db.url", now.Add(-200*24*time.Hour).UnixNano())
-		fake.entities[corruptedOperation] = apikv.NewEntityWithCreated(corruptedOperation, []byte("bad"), 0, now.Add(-200*24*time.Hour).Unix())
+		fake.entities[corruptedOperation] = storage.NewEntityWithCreated(corruptedOperation, []byte("bad"), 0, now.Add(-200*24*time.Hour).Unix())
 
-		resp, err := compactElementHistory(fake, &apikv.CompactElementHistoryReq{
+		resp, err := compactElementHistory(fake, &pb.CompactElementHistoryReq{
 			ElementKey:           root,
 			KeepVersionCount:     1,
 			KeepVersionSeconds:   int64((30 * 24 * time.Hour).Seconds()),
@@ -347,7 +349,7 @@ func TestCompactElementHistoryKeepsEverythingWhenRetentionSecondsOverflow(t *tes
 		v2 := addVersion(t, fake, root, 2, now.Add(-364*24*time.Hour))
 		v3 := addVersion(t, fake, root, 3, now.Add(-363*24*time.Hour))
 
-		resp, err := compactElementHistory(fake, &apikv.CompactElementHistoryReq{
+		resp, err := compactElementHistory(fake, &pb.CompactElementHistoryReq{
 			ElementKey:           root,
 			KeepVersionCount:     0,
 			KeepVersionSeconds:   math.MaxInt64,
@@ -372,7 +374,7 @@ func TestCompactElementHistoryKeepsEverythingWhenRetentionSecondsOverflow(t *tes
 		op1 := addOperation(t, fake, "demo", "prod", "db.url", now.Add(-365*24*time.Hour))
 		op2 := addOperation(t, fake, "demo", "prod", "db.url", now.Add(-364*24*time.Hour))
 
-		resp, err := compactElementHistory(fake, &apikv.CompactElementHistoryReq{
+		resp, err := compactElementHistory(fake, &pb.CompactElementHistoryReq{
 			ElementKey:           root,
 			KeepVersionCount:     1,
 			KeepVersionSeconds:   int64((30 * 24 * time.Hour).Seconds()),
@@ -395,17 +397,17 @@ func TestCompactElementHistoryReturnsErrors(t *testing.T) {
 	root := "cassem/elements/demo/prod/db.url"
 
 	t.Run("nil coordinator", func(t *testing.T) {
-		_, err := compactElementHistory(nil, &apikv.CompactElementHistoryReq{ElementKey: root}, now)
+		_, err := compactElementHistory(nil, &pb.CompactElementHistoryReq{ElementKey: root}, now)
 		require.Error(t, err)
 	})
 
 	t.Run("empty element key", func(t *testing.T) {
-		_, err := compactElementHistory(newRetentionCompactFakeCoord(), &apikv.CompactElementHistoryReq{}, now)
+		_, err := compactElementHistory(newRetentionCompactFakeCoord(), &pb.CompactElementHistoryReq{}, now)
 		require.Error(t, err)
 	})
 
 	t.Run("missing metadata", func(t *testing.T) {
-		_, err := compactElementHistory(newRetentionCompactFakeCoord(), &apikv.CompactElementHistoryReq{
+		_, err := compactElementHistory(newRetentionCompactFakeCoord(), &pb.CompactElementHistoryReq{
 			ElementKey:           root,
 			KeepVersionCount:     1,
 			KeepVersionSeconds:   int64((30 * 24 * time.Hour).Seconds()),
@@ -417,8 +419,8 @@ func TestCompactElementHistoryReturnsErrors(t *testing.T) {
 
 	t.Run("invalid metadata", func(t *testing.T) {
 		fake := newRetentionCompactFakeCoord()
-		fake.entities[concept.WithMetadataSuffix(root)] = apikv.NewEntityWithCreated(concept.WithMetadataSuffix(root), []byte("bad"), 0, now.Unix())
-		_, err := compactElementHistory(fake, &apikv.CompactElementHistoryReq{
+		fake.entities[concept.WithMetadataSuffix(root)] = storage.NewEntityWithCreated(concept.WithMetadataSuffix(root), []byte("bad"), 0, now.Unix())
+		_, err := compactElementHistory(fake, &pb.CompactElementHistoryReq{
 			ElementKey:           root,
 			KeepVersionCount:     1,
 			KeepVersionSeconds:   int64((30 * 24 * time.Hour).Seconds()),
@@ -432,7 +434,7 @@ func TestCompactElementHistoryReturnsErrors(t *testing.T) {
 		fake := newRetentionCompactFakeCoord()
 		addMetadata(t, fake, root, &concept.ElementMetadata{Key: "db.url", App: "demo", Env: "prod"})
 		fake.rangeErr[root] = errors.New("range failed")
-		_, err := compactElementHistory(fake, &apikv.CompactElementHistoryReq{
+		_, err := compactElementHistory(fake, &pb.CompactElementHistoryReq{
 			ElementKey:           root,
 			KeepVersionCount:     1,
 			KeepVersionSeconds:   int64((30 * 24 * time.Hour).Seconds()),

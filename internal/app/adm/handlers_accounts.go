@@ -5,9 +5,11 @@ import (
 	"slices"
 	"time"
 
-	"github.com/yeqown/cassem/api/concept"
-	"github.com/yeqown/cassem/pkg/hash"
-	"github.com/yeqown/cassem/pkg/httpx"
+	pb "github.com/yeqown/cassem/internal/protogen"
+
+	"github.com/yeqown/cassem/internal/concept"
+	"github.com/yeqown/cassem/internal/pkg/hash"
+	"github.com/yeqown/cassem/internal/pkg/httpx"
 )
 
 func normalizeAccountRole(role string) string {
@@ -33,7 +35,7 @@ func (d app) UserLoginHTTP(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, err)
 		return
 	}
-	if u.GetStatus() != concept.User_NORMAL {
+	if u.GetStatus() != pb.User_NORMAL {
 		httpx.WriteError(w, concept.Err_PERMISSION_DENIED)
 		return
 	}
@@ -135,7 +137,7 @@ func (d app) AddUserHTTP(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, err)
 		return
 	}
-	u := &concept.User{Account: req.Account, Nickname: req.Nickname, HashedPassword: req.Password, Status: concept.User_NORMAL}
+	u := &pb.User{Account: req.Account, Nickname: req.Nickname, HashedPassword: req.Password, Status: pb.User_NORMAL}
 	if err := d.aggregate.AddUser(u); err != nil {
 		httpx.WriteError(w, err)
 		return

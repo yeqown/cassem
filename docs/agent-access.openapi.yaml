@@ -1,0 +1,302 @@
+openapi: 3.0.3
+info:
+  title: Cassem agent fetch and access tokens
+  version: 1.0.0
+  description: HTTP fetch and user-bound token lifecycle. See agent-access.md for gRPC metadata and watch behavior.
+servers:
+  - url: http://127.0.0.1:20219
+    description: Agent HTTP/gRPC listener
+tags:
+  - name: Configuration
+  - name: Access tokens
+paths:
+  /api/apps/{appId}/envs/{env}/elements:
+    get:
+      operationId: fetchAgentElements
+      tags: [Configuration]
+      summary: Fetch selected configuration keys with current user READ permission
+      description: Authorization precedes cache access. Missing or unpublished keys are omitted using the existing gRPC fetch semantics. Result order is unspecified. Raw bytes use base64 encoding.
+      security:
+        - bearerToken: []
+      parameters:
+        - name: appId
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/NamespaceIdentifier'
+        - name: env
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/NamespaceIdentifier'
+        - name: key
+          in: query
+          required: true
+          style: form
+          explode: true
+          schema:
+            type: array
+            minItems: 1
+            maxItems: 100
+            uniqueItems: true
+            items:
+              type: string
+              pattern: '^[A-Za-z0-9][A-Za-z0-9_-]*$'
+          example: [config, limits]
+      responses:
+        '200':
+          description: Selected values using the same cache and lookup path as gRPC GetElement
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                enum: [no-store]
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [errcode, data]
+                properties:
+                  errcode:
+                    type: integer
+                    enum: [0]
+                  errmsg:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      elems:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Element'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          description: Valid credential without current element READ permission for this app/env
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example: {errcode: 7, errmsg: PERMISSION_DENIED}
+        '503':
+          description: Authorization or configuration storage is unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/account/users/{account}/tokens:
+    servers:
+      - url: http://127.0.0.1:20218
+        description: Admin HTTP listener
+    parameters:
+      - $ref: '#/components/parameters/Account'
+    post:
+      operationId: issueUserAccessToken
+      tags: [Access tokens]
+      summary: Issue a token for an enabled user
+      description: Requires an admin session and current cluster ACL WRITE permission. Only a global superadmin can issue tokens for a superadmin. Returns the bearer only once. The token inherits the bound user's current app/env permissions.
+      security:
+        - adminSession: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                  description: Trimmed before storage; whitespace-only names are invalid.
+                expiresInSeconds:
+                  type: integer
+                  minimum: 1
+                  maximum: 31536000
+                  default: 2592000
+            example: {name: checkout-worker, expiresInSeconds: 86400}
+      responses:
+        '200':
+          description: Newly issued token; store the bearer securely
+          headers:
+            Cache-Control:
+              schema: {type: string, enum: [no-store]}
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [errcode, data]
+                properties:
+                  errcode: {type: integer, enum: [0]}
+                  errmsg: {type: string}
+                  data:
+                    allOf:
+                      - $ref: '#/components/schemas/AccessToken'
+                      - type: object
+                        required: [token]
+                        properties:
+                          token:
+                            type: string
+                            description: Opaque bearer credential; never returned by listing.
+        '400':
+          $ref: '#/components/responses/AdminError'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+    get:
+      operationId: listUserAccessTokens
+      tags: [Access tokens]
+      summary: List token metadata for one user
+      description: Requires cluster ACL READ permission. Includes expired credentials until revoked; never returns bearer values.
+      security:
+        - adminSession: []
+      parameters:
+        - name: limit
+          in: query
+          schema: {type: integer, minimum: 1, maximum: 100, default: 100}
+        - name: seek
+          in: query
+          schema:
+            $ref: '#/components/schemas/TokenId'
+          description: Opaque nextSeek cursor from the previous page.
+      responses:
+        '200':
+          description: Paginated token metadata
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [errcode, data]
+                properties:
+                  errcode: {type: integer, enum: [0]}
+                  errmsg: {type: string}
+                  data:
+                    type: object
+                    required: [tokens, hasMore, nextSeek]
+                    properties:
+                      tokens:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/AccessToken'
+                      hasMore: {type: boolean}
+                      nextSeek: {type: string}
+        '400':
+          $ref: '#/components/responses/AdminError'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+  /api/account/users/{account}/tokens/{tokenId}:
+    servers:
+      - url: http://127.0.0.1:20218
+        description: Admin HTTP listener
+    parameters:
+      - $ref: '#/components/parameters/Account'
+      - name: tokenId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/TokenId'
+    delete:
+      operationId: revokeUserAccessToken
+      tags: [Access tokens]
+      summary: Revoke a user's token
+      description: Requires current cluster ACL WRITE permission. Only a global superadmin can revoke tokens for a superadmin. Idempotent, account-scoped removal; next fetch or watch delivery must reauthorize against storage.
+      security:
+        - adminSession: []
+      responses:
+        '200':
+          description: Credential removed or already absent
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [errcode]
+                properties:
+                  errcode: {type: integer, enum: [0]}
+                  errmsg: {type: string}
+        '400':
+          $ref: '#/components/responses/AdminError'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+components:
+  securitySchemes:
+    bearerToken:
+      type: http
+      scheme: bearer
+      description: User-bound credential from the admin issuance endpoint.
+    adminSession:
+      type: apiKey
+      in: header
+      name: X-CASSEM-SESSION
+      description: Signed management session from POST /api/account/login.
+  parameters:
+    Account:
+      name: account
+      in: path
+      required: true
+      schema: {type: string, format: email}
+  schemas:
+    NamespaceIdentifier:
+      type: string
+      minLength: 3
+      maxLength: 30
+      pattern: '^[A-Za-z0-9][A-Za-z0-9_-]*$'
+    TokenId:
+      type: string
+      pattern: '^[a-f0-9]{64}$'
+    AccessToken:
+      type: object
+      required: [id, account, name, createdAt, expiresAt]
+      properties:
+        id:
+          $ref: '#/components/schemas/TokenId'
+        account: {type: string, format: email}
+        name: {type: string}
+        createdAt: {type: integer, format: int64, description: Unix seconds}
+        expiresAt: {type: integer, format: int64, description: Unix seconds}
+    Element:
+      type: object
+      properties:
+        metadata:
+          type: object
+          properties:
+            app: {type: string}
+            env: {type: string}
+            key: {type: string}
+            contentType: {type: integer}
+            usingVersion: {type: integer}
+            latestVersion: {type: integer}
+        raw:
+          type: string
+          format: byte
+          description: Base64-encoded configuration bytes.
+        version: {type: integer, minimum: 0, maximum: 4294967295}
+        published: {type: boolean}
+    Error:
+      type: object
+      required: [errcode]
+      properties:
+        errcode: {type: integer, description: Stable gRPC-compatible error code.}
+        errmsg: {type: string}
+  responses:
+    InvalidRequest:
+      description: Invalid identifiers, keys, or parameters
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example: {errcode: 3, errmsg: INVALID_ARGUMENT}
+    Unauthenticated:
+      description: Missing or invalid credentials; agent tokens also fail on expiry, revocation, or disabled/deleted users
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example: {errcode: 16, errmsg: UNAUTHENTICATED}
+    AdminError:
+      description: Existing admin error convention. errcode 3 invalid parameters, 5 missing user, 7 insufficient ACL permissions, 14 unavailable storage, or 16 disabled target user.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'

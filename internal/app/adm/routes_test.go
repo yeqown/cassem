@@ -6,10 +6,12 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	pb "github.com/yeqown/cassem/internal/protogen"
+
 	"github.com/stretchr/testify/require"
 
-	"github.com/yeqown/cassem/api/concept"
-	"github.com/yeqown/cassem/pkg/conf"
+	"github.com/yeqown/cassem/internal/concept"
+	"github.com/yeqown/cassem/internal/pkg/conf"
 )
 
 type routeTestAggregate struct {
@@ -17,7 +19,7 @@ type routeTestAggregate struct {
 	*authHTTPFakeRBAC
 }
 
-func (a routeTestAggregate) GetUser(account string) (*concept.User, error) {
+func (a routeTestAggregate) GetUser(account string) (*pb.User, error) {
 	return a.authHTTPFakeRBAC.GetUser(account)
 }
 
@@ -37,7 +39,7 @@ func (a routeTestAggregate) ListDomainOptions() ([]string, error) {
 	return a.authHTTPFakeRBAC.ListDomainOptions()
 }
 
-func (a routeTestAggregate) AddUser(u *concept.User) error {
+func (a routeTestAggregate) AddUser(u *pb.User) error {
 	return a.authHTTPFakeRBAC.AddUser(u)
 }
 

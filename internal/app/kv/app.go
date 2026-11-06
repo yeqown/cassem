@@ -9,13 +9,14 @@ import (
 	"syscall"
 	"time"
 
+	pb "github.com/yeqown/cassem/internal/protogen"
+
 	"github.com/yeqown/log"
 
-	"github.com/yeqown/cassem/api/concept"
-	apikv "github.com/yeqown/cassem/api/kv"
 	"github.com/yeqown/cassem/internal/app/kv/raftimpl"
-	"github.com/yeqown/cassem/pkg/conf"
-	"github.com/yeqown/cassem/pkg/runtime"
+	"github.com/yeqown/cassem/internal/concept"
+	"github.com/yeqown/cassem/internal/pkg/conf"
+	"github.com/yeqown/cassem/internal/pkg/runtime"
 )
 
 // app is the storage server that would guard api server running and alas controls other components.
@@ -191,8 +192,8 @@ func (d *app) removeNode(ctx context.Context, nodeID uint64) error {
 	return nil
 }
 
-func (d *app) getKV(key string) (*apikv.Entity, error) {
-	val, err := d.raft.GetKV(&apikv.GetKVReq{Key: key})
+func (d *app) getKV(key string) (*pb.Entity, error) {
+	val, err := d.raft.GetKV(&pb.GetKVReq{Key: key})
 	if err != nil {
 		return nil, err
 	}
@@ -219,7 +220,7 @@ func (d *app) setKV(ctx context.Context, param *setKVParam) (err error) {
 		}).
 		Debug("app.setKV called")
 
-	return d.raft.SetKV(ctx, &apikv.SetKVReq{
+	return d.raft.SetKV(ctx, &pb.SetKVReq{
 		Key:       param.key,
 		IsDir:     param.isDir,
 		Ttl:       param.ttl,
@@ -235,7 +236,7 @@ func (d *app) unsetKV(ctx context.Context, param *unsetKVParam) error {
 		}).
 		Debug("app.unsetKV called")
 
-	return d.raft.UnsetKV(ctx, &apikv.UnsetKVReq{
+	return d.raft.UnsetKV(ctx, &pb.UnsetKVReq{
 		Key:   param.key,
 		IsDir: param.isDir,
 	})
@@ -259,15 +260,15 @@ func (d *app) watch(keys ...string) (ob *builtinObserver, cancelFn func()) {
 	}
 }
 
-func (d *app) iterate(param *rangeParam) (*apikv.RangeResp, error) {
-	return d.raft.Range(&apikv.RangeReq{
+func (d *app) iterate(param *rangeParam) (*pb.RangeResp, error) {
+	return d.raft.Range(&pb.RangeReq{
 		Key:   param.key,
 		Seek:  param.seek,
 		Limit: int32(param.limit),
 	})
 }
 
-func (d *app) compactElementHistory(req *apikv.CompactElementHistoryReq) (*apikv.CompactElementHistoryResp, error) {
+func (d *app) compactElementHistory(req *pb.CompactElementHistoryReq) (*pb.CompactElementHistoryResp, error) {
 	return compactElementHistory(d, req, time.Now())
 }
 
@@ -276,7 +277,7 @@ func (d *app) compactElementHistory(req *apikv.CompactElementHistoryReq) (*apikv
 //
 // FIXED(@yeqown): expire the key instead of clear it directly.
 func (d *app) expire(key string) error {
-	return d.raft.Expire(&apikv.ExpireReq{Key: key})
+	return d.raft.Expire(&pb.ExpireReq{Key: key})
 }
 
 func (d *app) ttl(key string) (int32, error) {

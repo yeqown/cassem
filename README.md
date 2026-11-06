@@ -72,9 +72,33 @@ The manager in cassem, provide RESTful API to communicate. It is serving for CTL
 
 Agent is serving for user's client, agent SDK, actually. Of course, agent is stateless server.
 
+## Client SDK
+
+Application developers can start directly with the [Go SDK](./sdk/go/README.md), an independent module at `github.com/yeqown/cassem/sdk/go`. See [`sdk/`](./sdk/README.md) for the SDK overview.
+
+The Go SDK connects to `cassemagent` for configuration reads, change subscriptions and client registration/renewal. Its guide documents installation from this checkout and runnable usage; the module path does not imply a release has been published.
+
+## Repository Layout
+
+```text
+sdk/                     # Application-facing SDKs, currently Go
+thirdparty/cassem/       # Canonical client/ and internal/ protobuf definitions
+internal/protogen/       # All internal generated protobuf and gRPC bindings
+internal/concept/        # Shared handwritten interfaces, adapters and key rules
+internal/kvclient/       # Shared KV client, resolver and distributed locking
+internal/pkg/            # Server configuration, transport and runtime helpers
+internal/app/            # Service implementations
+internal/coord/          # Internal coordination logic
+cmd/                     # Server entrypoints
+.deploy/example-configs/ # Example TOML configs and local Compose cluster
+web/                     # Admin UI
+```
+
+The server belongs to the root Go module; only `sdk/go` is a separate Go module. Client protocol bindings are generated once into `sdk/go/protogen` and shared by the SDK and server. KV, Raft, ACL and delivery bindings share `internal/protogen`. See [protocol generation](./thirdparty/cassem/README.md) for source and generated-code ownership.
+
 ## Local Cluster
 
-The local full-cluster workflow uses Compose from [`examples/compose.cluster.yaml`](./examples/compose.cluster.yaml). The Makefile exposes `build-image`, cluster lifecycle, and quality-check entrypoints. `build-image` writes Linux binaries to ignored `bin/` before building local images.
+The local full-cluster workflow uses Compose from [`.deploy/example-configs/compose.cluster.yaml`](./.deploy/example-configs/compose.cluster.yaml). The Makefile exposes `build-image`, cluster lifecycle, and quality-check entrypoints. `build-image` writes Linux binaries to ignored `bin/` before building local images.
 
 ```bash
 make cluster.start
@@ -122,9 +146,14 @@ Then open `http://<your-ip>:4173/` for the standalone dev UI. If you started the
 
 Production and local image builds still use embedded assets under `/ui/` through `make ui.build` and `make cluster.start`.
 
+The Web UI supports English and Simplified Chinese. Use the language menu immediately to the left of the account icon; the login page also provides a language menu. The initial language follows the browser's preferences (falling back to English), and an explicit choice is saved in `localStorage` as `cassem.locale`. Switching languages preserves the current page and unsaved form contents.
+
+Translations live in `web/src/i18n/catalogs/`, grouped by feature. Add matching English and Chinese entries with the same `{parameter}` names, and use the typed `useI18n().t` helper for interface text. Use its date and number formatters for locale-sensitive values. Configuration contents, identifiers, and diagnostic details returned by the server remain unchanged.
+
 ## Tests and Benchmark
 
 - Unit tests: `make test`
+- Go SDK tests with race detection: `make test.sdk`.
 - Vet: `make vet`
 - Lint: `make lint`
 - Integration tests: `make test.integration.cluster`

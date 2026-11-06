@@ -12,10 +12,10 @@ Cassem is a distributed configuration management system written in Go 1.26. It u
 
 ## Build & Run Commands
 
-The Makefile exposes `build-image`, cluster lifecycle, and quality-check targets. `build-image` writes Linux binaries to ignored `bin/`, builds local images, and `cluster.start` then runs Compose from `examples/compose.cluster.yaml`.
+The Makefile exposes `build-image`, cluster lifecycle, and quality-check targets. `build-image` writes Linux binaries to ignored `bin/`, builds local images, and `cluster.start` then runs Compose from `.deploy/example-configs/compose.cluster.yaml`.
 
 ```bash
-make cluster.start           # Build images and start the local Compose cluster from examples/compose.cluster.yaml
+make cluster.start           # Build images and start the local Compose cluster from .deploy/example-configs/compose.cluster.yaml
 make cluster.stop            # Stop the local Compose cluster
 make cluster.restart         # Restart the local Compose cluster
 make cluster.status          # Show local Compose cluster status
@@ -26,29 +26,28 @@ make test                    # Run all Go tests
 make vet                     # Run go vet
 make lint                    # Run golangci-lint
 
-go test ./pkg/watcher/...    # Run tests for a specific package
+go test ./internal/pkg/conf/...    # Run tests for a specific package
 ```
 
 Single-binary local builds can still be run directly with `go build ./cmd/<binary>` when needed.
 
 ## Protobuf Generation
 
-The `api/Makefile` centralizes proto generation for all API modules:
+The `thirdparty/cassem/Makefile` centralizes proto generation:
 
 ```bash
-make -C api                          # Generate all API protobuf files
-make -C api kv.gen-proto             # cassemkv.api.proto, cassemkv.raft.proto
-make -C api concept.gen-proto        # types.proto, acl.proto
-make -C api agent.gen-proto          # cassemagent.api.proto
+make -C thirdparty/cassem gen-proto      # Generate all current Go protobuf files
+make -C thirdparty/cassem gen-internal   # Generate internal Go protocol bindings
+make -C thirdparty/cassem gen-sdk-go     # Generate client Go protocol bindings
 ```
 
 The top-level Makefile intentionally does not expose proto generation targets.
 
-All proto generation requires `protoc-gen-validate` and `protoc-gen-go` (with gRPC plugin). The `thirdparty/` directory contains vendored `.proto` includes (envoyproxy validate, google protobuf).
+Generation currently uses `github.com/golang/protobuf/protoc-gen-go` v1.5.4 (including its legacy gRPC plugin for KV) and `protoc-gen-go-grpc` v1.3.0 for Agent/Delivery. The `thirdparty/` directory contains canonical Cassem schemas plus vendored buf.validate and Google protobuf includes. `thirdparty/cassem/client` generates into `sdk/go/protogen`; all schemas in `thirdparty/cassem/internal` generate into the single `internal/protogen` package. Generated packages contain no handwritten business logic. Client schemas retain validation annotations; SDK bindings reference annotation definitions but do not run Protovalidate.
 
 ## Architecture
 
-### Key Namespace Hierarchy (`api/concept/key_generator.go`)
+### Key Namespace Hierarchy (`internal/concept/key_generator.go`)
 
 All application data is stored as KV pairs in BoltDB with a structured key namespace:
 
@@ -63,7 +62,7 @@ cassem/acl/policy                            — casbin RBAC policies
 cassem/acl/users/{account}                   — user credentials (scrypt hashed)
 ```
 
-### Aggregate Interfaces (`api/concept/coordinator.go`)
+### Aggregate Interfaces (`internal/concept/coordinator.go`)
 
 The system uses **composition-over-inheritance** to define access profiles:
 
@@ -80,7 +79,7 @@ Concrete implementations (`internal/coord/coordinator_adm_agg.go`, `internal/coo
 
 ### Leader-Aware gRPC Routing
 
-The cassemkv client (`api/kv/client.go`) uses a custom gRPC resolver (`cassemkv://` scheme). Only the Raft leader marks its gRPC health services as `SERVING`. Write-mode clients (`Mode_X`) use health-checking LB to route to leader; read-mode clients (`Mode_R`) use round-robin to any node.
+The cassemkv client (`internal/kvclient/client.go`) uses a custom gRPC resolver (`cassemkv://` scheme). Only the Raft leader marks its gRPC health services as `SERVING`. Write-mode clients (`Mode_X`) use health-checking LB to route to leader; read-mode clients (`Mode_R`) use round-robin to any node.
 
 ### Element Versioning
 
@@ -92,7 +91,7 @@ Elements enforce a **publish-before-update** workflow: create v1 → review → 
 
 ### Change Notification in Raft
 
-Writes now produce one `MutateCommand` Raft log entry. FSM apply is semantic center: it mutates BoltDB, resolves pending request acknowledgment, and emits committed change events from same apply step. The watcher system (`pkg/watcher/`) is still topic-scoped pub/sub, but core path no longer silently drops events; slow observers are explicitly unsubscribed after a bounded delay. Watch delivery is online-only and does not replay missed history after disconnect.
+Writes now produce one `MutateCommand` Raft log entry. FSM apply is semantic center: it mutates BoltDB, resolves pending request acknowledgment, and emits committed change events from same apply step. The watcher system (`internal/app/kv/app_watcher.go`) is still topic-scoped pub/sub, but core path no longer silently drops events; slow observers are explicitly unsubscribed after a bounded delay. Watch delivery is online-only and does not replay missed history after disconnect.
 
 ### Agent Cache
 
@@ -102,21 +101,23 @@ The agent uses a three-level `sync.Map` hierarchy (`appPool → envPool → elem
 
 | Package | Role |
 |---|---|
-| `pkg/errorx/` | Custom error type with bidirectional gRPC status conversion. Sentinel errors: `Err_NOT_FOUND`, `Err_ALREADY_EXISTS` |
-| `pkg/grpcx/` | gRPC interceptor chains (Recovery, Logger, Errorx, Validation) for both server and client |
-| `pkg/httpx/` | HTTP+gRPC gateway (h2c), common JSON response format, recovery middleware |
-| `pkg/watcher/` | Channel-based pub/sub with topic-scoped distribution |
-| `pkg/runtime/` | `GoFunc` runs goroutines with auto-restart on panic; `IsDebug()` reads `DEBUG` env var |
-| `pkg/hash/` | Scrypt password hashing, MD5 fingerprinting, SHA-256 checksums |
+| `internal/concept/error.go` | Custom error type with bidirectional gRPC status conversion. Sentinel errors: `Err_NOT_FOUND`, `Err_ALREADY_EXISTS` |
+| `internal/pkg/grpcx/` | gRPC interceptor chains (Recovery, Logger, Errorx, Validation) for both server and client |
+| `internal/pkg/httpx/` | HTTP+gRPC gateway (h2c), common JSON response format, recovery middleware |
+| `internal/app/kv/app_watcher.go` | Channel-based pub/sub with topic-scoped distribution |
+| `internal/pkg/runtime/` | `GoFunc` runs goroutines with auto-restart on panic; `IsDebug()` reads `DEBUG` env var |
+| `internal/pkg/hash/` | Scrypt password hashing, MD5 fingerprinting, SHA-256 checksums |
 
-## `api/` is a Separate Go Module
+## Go Module and SDK Boundaries
 
-`api/` has its own `go.mod` (module `github.com/yeqown/cassem/api`) and is consumed as a dependency by the main module. It contains the protobuf-generated types, the client SDK (`api/agent/client.go`), and the shared concept interfaces.
+The root module owns all `internal/` code. Internal protocol bindings live in `internal/protogen`; handwritten domain interfaces live in `internal/concept` and the shared KV client in `internal/kvclient`. `sdk/go` is the independent public Go module (`github.com/yeqown/cassem/sdk/go`); the workspace includes only the root and this SDK. Go is currently the only SDK implementation. SDK implementations must never import server internals.
+
+Client message definitions live in `thirdparty/cassem/client/types.proto` and Agent RPCs in `client/agent.proto`. The internal delivery service is defined separately in `internal/delivery.proto`. Client schemas may only import client contracts and third-party dependencies; internal schemas may import client contracts. Server code imports `sdk/go/protogen` directly; `internal/concept` reuses client message types through aliases. Each protobuf descriptor is registered once per process.
 
 ## Testing
 
-Tests use `testify/assert`. Unit tests exist in `pkg/`, `api/concept/`, `internal/app/agent/`, `internal/app/kv/storage/`, and `internal/coord/`. Some tests use `storage.EmptyImpl` (a no-op KV implementation) as a test double.
+Tests use `testify/assert`. Unit tests exist in `internal/pkg/`, `internal/concept/`, `internal/app/agent/`, `internal/app/kv/storage/`, and `internal/coord/`. Some tests use `storage.EmptyImpl` (a no-op KV implementation) as a test double.
 
 ## Configuration
 
-Config files are TOML, loaded via `pkg/conf.Load()`. cassemkv cluster endpoints and Raft bind/cluster addresses are passed as CLI flags (not TOML). Set `DEBUG=1` to enable debug logging.
+Config files are TOML, loaded via `internal/pkg/conf.Load()`. cassemkv cluster endpoints and Raft bind/cluster addresses are passed as CLI flags (not TOML). Set `DEBUG=1` to enable debug logging.

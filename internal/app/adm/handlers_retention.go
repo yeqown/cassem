@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/yeqown/cassem/pkg/conf"
-	"github.com/yeqown/cassem/pkg/httpx"
+	"github.com/yeqown/cassem/internal/pkg/conf"
+	"github.com/yeqown/cassem/internal/pkg/httpx"
 )
 
 type retentionPolicyResp struct {

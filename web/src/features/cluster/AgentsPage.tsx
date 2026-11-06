@@ -16,6 +16,8 @@ import { alpha } from '@mui/material/styles'
 import { EmptyState, ErrorState, LoadingState } from '../../components/StateView'
 import { useErrorState } from '../../components/useErrorState'
 import type { AgentNode, ClusterTopologyResponse, CommonResponse, DBNode, HealthState, Instance } from '../../domain/types'
+import { useI18n, type Translator } from '../../i18n'
+import { isOperationsMessageKey } from '../../i18n/catalogs/operations'
 import { ApiError } from '../../lib/api'
 import { clearSession, getSession } from '../../lib/session'
 
@@ -89,14 +91,14 @@ function normalizeHealth(health?: HealthState, fallback: HealthState = 'offline'
   return fallback
 }
 
-function healthLabel(health: HealthState) {
+function healthLabel(health: HealthState, t: Translator) {
   switch (health) {
     case 'healthy':
-      return 'Healthy'
+      return t('operations.topology.healthy')
     case 'unhealthy':
-      return 'Unhealthy'
+      return t('operations.topology.unhealthy')
     case 'offline':
-      return 'Offline'
+      return t('operations.topology.offline')
   }
 }
 
@@ -177,22 +179,23 @@ function NodeIcon({ kind }: Pick<TopologyNodeProps, 'kind'>) {
 }
 
 function TopologyNode({ kind, id, ip, addr, health, subtitle, aggregateCount }: TopologyNodeProps) {
+  const { t, formatNumber } = useI18n()
   const healthTone = health === 'healthy' ? 'success.main' : health === 'unhealthy' ? 'warning.main' : 'text.disabled'
   const accent = health === 'healthy' ? 'success.main' : health === 'unhealthy' ? 'warning.main' : 'grey.400'
-  const label = aggregateCount ? `${aggregateCount} instances` : id || '-'
-  const typeLabel = kind === 'db' ? 'DB' : kind === 'agent' ? 'Agent' : kind === 'group' ? 'Instances' : 'Instance'
+  const label = aggregateCount ? t('operations.topology.instanceCount', { count: formatNumber(aggregateCount) }) : id || '-'
+  const typeLabel = t(kind === 'db' ? 'operations.topology.db' : kind === 'agent' ? 'operations.topology.agent' : kind === 'group' ? 'operations.topology.instances' : 'operations.topology.instance')
 
   return (
     <Tooltip
       arrow
       title={(
         <Stack spacing={0.25}>
-          <Typography variant="caption">Type: {typeLabel}</Typography>
-          <Typography variant="caption">ID: {id || '-'}</Typography>
-          <Typography variant="caption">Health: {healthLabel(health)}</Typography>
+          <Typography variant="caption">{t('operations.topology.type', { type: typeLabel })}</Typography>
+          <Typography variant="caption">{t('operations.topology.id', { id: id || '-' })}</Typography>
+          <Typography variant="caption">{t('operations.topology.health', { health: healthLabel(health, t) })}</Typography>
           {subtitle && <Typography variant="caption">{subtitle}</Typography>}
-          <Typography variant="caption">IP: {ip || '-'}</Typography>
-          {addr && <Typography variant="caption">Addr: {addr}</Typography>}
+          <Typography variant="caption">{t('operations.topology.ip', { ip: ip || '-' })}</Typography>
+          {addr && <Typography variant="caption">{t('operations.topology.addr', { addr })}</Typography>}
         </Stack>
       )}
     >
@@ -231,7 +234,7 @@ function TopologyNode({ kind, id, ip, addr, health, subtitle, aggregateCount }: 
           <Typography variant="caption" color="text.secondary" sx={{ fontSize: 11, lineHeight: 1 }}>{typeLabel}</Typography>
           <Typography variant="subtitle2" noWrap sx={{ maxWidth: '100%', fontSize: 14, lineHeight: 1.1 }}>{label}</Typography>
           <Box
-            aria-label={healthLabel(health)}
+            aria-label={healthLabel(health, t)}
             sx={{
               width: 10,
               height: 10,
@@ -324,7 +327,7 @@ function groupInstancesByAgent(instances: Instance[]) {
   }, {})
 }
 
-function getInstanceGraphNodes(instances: Instance[]) {
+function getInstanceGraphNodes(instances: Instance[], t: Translator) {
   const grouped = groupInstancesByAgent(instances)
 
   return Object.entries(grouped).flatMap<TopologyNodeProps>(([agentId, agentInstances]) => {
@@ -334,7 +337,7 @@ function getInstanceGraphNodes(instances: Instance[]) {
         id: agentId,
         ip: '-',
         health: 'healthy',
-        subtitle: `Attached to ${agentId}`,
+        subtitle: t('operations.topology.attachedTo', { agentId: agentInstances[0].agentId || t('operations.topology.unassigned') }),
         aggregateCount: agentInstances.length,
         attachedAgentId: agentId,
       }]
@@ -347,14 +350,14 @@ function getInstanceGraphNodes(instances: Instance[]) {
         id,
         ip: instance.clientIp || '-',
         health: normalizeHealth(instance.health, instance.lastRenewTimestamp ? 'healthy' : 'offline'),
-        subtitle: `Attached to ${agentId}`,
+        subtitle: t('operations.topology.attachedTo', { agentId: instance.agentId || t('operations.topology.unassigned') }),
         attachedAgentId: agentId,
       }
     })
   })
 }
 
-function buildTopologyGraph(dbs: DBNode[], agents: AgentNode[], instances: Instance[]): TopologyGraphModel {
+function buildTopologyGraph(dbs: DBNode[], agents: AgentNode[], instances: Instance[], t: Translator): TopologyGraphModel {
   const dbGraphNodes = positionLayer(dbs.map<TopologyNodeProps>((db, index) => {
     const id = db.id || `db-${index + 1}`
     return {
@@ -375,7 +378,7 @@ function buildTopologyGraph(dbs: DBNode[], agents: AgentNode[], instances: Insta
       health: normalizeHealth(agent.health, agent.addr ? 'healthy' : 'offline'),
     }
   }), 'agents', 50)
-  const instanceGraphNodes = positionLayer(getInstanceGraphNodes(instances), 'instances', 85)
+  const instanceGraphNodes = positionLayer(getInstanceGraphNodes(instances, t), 'instances', 85)
   const edges: TopologyEdge[] = []
 
   dbGraphNodes.forEach((dbNode) => {
@@ -385,7 +388,7 @@ function buildTopologyGraph(dbs: DBNode[], agents: AgentNode[], instances: Insta
         from: dbNode,
         to: agentNode,
         testId: `topology-edge-${dbNode.edgeToken}-${agentNode.edgeToken}`,
-        label: `${dbNode.id} connects to ${agentNode.id}`,
+        label: t('operations.topology.connection', { from: dbNode.id, to: agentNode.id }),
       })
     })
   })
@@ -395,8 +398,8 @@ function buildTopologyGraph(dbs: DBNode[], agents: AgentNode[], instances: Insta
     const agentNode = agentNodeById.get(instanceNode.attachedAgentId || '') || agentGraphNodes[0]
     if (!agentNode) return
     const label = instanceNode.aggregateCount
-      ? `${agentNode.id} connects to ${instanceNode.aggregateCount} instances`
-      : `${agentNode.id} connects to ${instanceNode.id}`
+      ? t('operations.topology.instanceConnection', { from: agentNode.id, count: instanceNode.aggregateCount })
+      : t('operations.topology.connection', { from: agentNode.id, to: instanceNode.id })
     edges.push({
       key: `${agentNode.graphId}-${instanceNode.graphId}`,
       from: agentNode,
@@ -419,6 +422,7 @@ function isTopologyEmpty(topology: ClusterTopologyResponse) {
 }
 
 export function AgentsPage() {
+  const { t, formatNumber } = useI18n()
   const [topology, setTopology] = useState<ClusterTopologyResponse>({ dbs: [], agents: [], instances: [] })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useErrorState()
@@ -438,7 +442,7 @@ export function AgentsPage() {
     } catch (err) {
       if (!mountedRef.current || requestId !== requestSeq.current) return
       setTopology({ dbs: [], agents: [], instances: [] })
-      setError(getErrorMessage(err, 'failed to load cluster topology'))
+      setError(getErrorMessage(err, 'operations.topology.loadFailed'))
     } finally {
       if (mountedRef.current && requestId === requestSeq.current) setLoading(false)
     }
@@ -463,28 +467,28 @@ export function AgentsPage() {
   const dbs = topology.dbs || EMPTY_DBS
   const agents = topology.agents || EMPTY_AGENTS
   const instances = topology.instances || EMPTY_INSTANCES
-  const graph = useMemo(() => buildTopologyGraph(dbs, agents, instances), [dbs, agents, instances])
+  const graph = useMemo(() => buildTopologyGraph(dbs, agents, instances, t), [dbs, agents, instances, t])
 
   return (
     <Stack spacing={3}>
       <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} justifyContent="space-between" alignItems={{ md: 'center' }}>
         <Box>
           <Typography variant="h4" component="h1">
-            Topology
+            {t('operations.topology.title')}
           </Typography>
-          <Typography color="text.secondary">Inspect db, agent, and client instance relationships with live health signals.</Typography>
+          <Typography color="text.secondary">{t('operations.topology.description')}</Typography>
         </Box>
         <Button variant="outlined" onClick={() => void loadTopology()} disabled={loading}>
-          Refresh
+          {t('operations.topology.refresh')}
         </Button>
       </Stack>
 
-      {error.message && <ErrorState message={error.message} eventKey={error.eventKey} />}
+      {error.message && <ErrorState message={isOperationsMessageKey(error.message) ? t(error.message) : error.message} eventKey={error.eventKey} />}
 
       {loading ? (
-        <LoadingState label="Loading cluster topology" />
+        <LoadingState label={t('operations.topology.loading')} />
       ) : error.message ? null : isTopologyEmpty(topology) ? (
-        <EmptyState title="No topology nodes found" description="No db, agent, or instance nodes were returned by the backend." />
+        <EmptyState title={t('operations.topology.emptyTitle')} description={t('operations.topology.emptyDescription')} />
       ) : (
         <Paper
           sx={{
@@ -498,17 +502,17 @@ export function AgentsPage() {
           <Stack spacing={3} sx={{ position: 'relative' }}>
             <Box>
               <Typography variant="h6" component="h2">
-                Cluster topology
+                {t('operations.topology.clusterTitle')}
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                Animated view from cassemkv through agents to connected instances.
+                {t('operations.topology.clusterDescription')}
               </Typography>
             </Box>
 
             <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
-              <Chip label={`${dbs.length} dbs`} color="primary" variant="outlined" />
-              <Chip label={`${agents.length} agents`} color="primary" variant="outlined" />
-              <Chip label={`${instances.length} instances`} color="primary" variant="outlined" />
+              <Chip label={t('operations.topology.dbCount', { count: formatNumber(dbs.length) })} color="primary" variant="outlined" />
+              <Chip label={t('operations.topology.agentCount', { count: formatNumber(agents.length) })} color="primary" variant="outlined" />
+              <Chip label={t('operations.topology.instanceCount', { count: formatNumber(instances.length) })} color="primary" variant="outlined" />
             </Stack>
 
             <Box sx={{ overflowX: 'auto', pb: 1 }}>

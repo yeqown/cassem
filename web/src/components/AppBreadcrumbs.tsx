@@ -1,5 +1,6 @@
 import { Breadcrumbs, Link, Typography } from '@mui/material'
 import { Link as RouterLink, useLocation } from 'react-router-dom'
+import { useI18n } from '../i18n'
 
 type BreadcrumbItem = {
   label: string
@@ -11,10 +12,11 @@ type AppBreadcrumbsProps = {
 }
 
 export function AppBreadcrumbs({ items }: AppBreadcrumbsProps) {
+  const { t } = useI18n()
   const location = useLocation()
 
   return (
-    <Breadcrumbs aria-label="breadcrumb">
+    <Breadcrumbs aria-label={t('common.breadcrumb')}>
       {items.map((item, index) => {
         const to = item.to
         if (index === items.length - 1 || !to || to === location.pathname) {

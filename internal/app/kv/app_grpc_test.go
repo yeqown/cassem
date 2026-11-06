@@ -5,18 +5,18 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/stretchr/testify/require"
+	pb "github.com/yeqown/cassem/internal/protogen"
 
-	apikv "github.com/yeqown/cassem/api/kv"
-	errorx "github.com/yeqown/cassem/api/concept"
+	"github.com/stretchr/testify/require"
+	errorx "github.com/yeqown/cassem/internal/concept"
 )
 
 type grpcGetKVsFakeCoord struct {
-	entities map[string]*apikv.Entity
+	entities map[string]*pb.Entity
 	errors   map[string]error
 }
 
-func (f *grpcGetKVsFakeCoord) getKV(key string) (*apikv.Entity, error) {
+func (f *grpcGetKVsFakeCoord) getKV(key string) (*pb.Entity, error) {
 	if err := f.errors[key]; err != nil {
 		return nil, err
 	}
@@ -32,25 +32,25 @@ func (f *grpcGetKVsFakeCoord) unsetKV(context.Context, *unsetKVParam) error {
 	return errors.New("unused")
 }
 func (f *grpcGetKVsFakeCoord) watch(...string) (*builtinObserver, func()) { return nil, func() {} }
-func (f *grpcGetKVsFakeCoord) ttl(string) (int32, error)                   { return 0, errors.New("unused") }
-func (f *grpcGetKVsFakeCoord) expire(string) error                         { return errors.New("unused") }
-func (f *grpcGetKVsFakeCoord) iterate(*rangeParam) (*apikv.RangeResp, error) {
+func (f *grpcGetKVsFakeCoord) ttl(string) (int32, error)                  { return 0, errors.New("unused") }
+func (f *grpcGetKVsFakeCoord) expire(string) error                        { return errors.New("unused") }
+func (f *grpcGetKVsFakeCoord) iterate(*rangeParam) (*pb.RangeResp, error) {
 	return nil, errors.New("unused")
 }
-func (f *grpcGetKVsFakeCoord) compactElementHistory(*apikv.CompactElementHistoryReq) (*apikv.CompactElementHistoryResp, error) {
+func (f *grpcGetKVsFakeCoord) compactElementHistory(*pb.CompactElementHistoryReq) (*pb.CompactElementHistoryResp, error) {
 	return nil, errors.New("unused")
 }
 func (f *grpcGetKVsFakeCoord) addNode(context.Context, string, string) (uint64, []string, error) {
 	return 0, nil, errors.New("unused")
 }
 func (f *grpcGetKVsFakeCoord) removeNode(context.Context, uint64) error { return errors.New("unused") }
-func (f *grpcGetKVsFakeCoord) listMembers() ([]*apikv.ClusterMember, error) {
+func (f *grpcGetKVsFakeCoord) listMembers() ([]*pb.ClusterMember, error) {
 	return nil, errors.New("unused")
 }
 
 func TestGrpcServerGetKVsReturnsPerKeyErrors(t *testing.T) {
 	coord := &grpcGetKVsFakeCoord{
-		entities: map[string]*apikv.Entity{
+		entities: map[string]*pb.Entity{
 			"cassem/key1": {Key: "cassem/key1", Val: []byte("value")},
 		},
 		errors: map[string]error{
@@ -58,7 +58,7 @@ func TestGrpcServerGetKVsReturnsPerKeyErrors(t *testing.T) {
 		},
 	}
 
-	resp, err := (grpcServer{coord: coord}).GetKVs(context.Background(), &apikv.GetKVsReq{Keys: []string{"cassem/key1", "cassem/key2", "cassem/key3"}})
+	resp, err := (grpcServer{coord: coord}).GetKVs(context.Background(), &pb.GetKVsReq{Keys: []string{"cassem/key1", "cassem/key2", "cassem/key3"}})
 	require.NoError(t, err)
 	require.Len(t, resp.GetEntities(), 1)
 	require.Equal(t, "cassem/key1", resp.GetEntities()[0].GetKey())

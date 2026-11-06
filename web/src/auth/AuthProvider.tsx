@@ -23,12 +23,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     () => ({
       session,
       user,
-      async login(account, password, redirectTo = '/dashboard') {
+      async login(account, password, redirectTo = '/docs') {
         const data = await apiRequest<LoginResponse>('/api/account/login', jsonBody({ account, password }))
         storeSession(data.session, data.user)
         setSession(data.session)
         setUser(data.user)
-        navigate(redirectTo || '/dashboard', { replace: true })
+        navigate(redirectTo || '/docs', { replace: true })
       },
       logout() {
         clearSession()

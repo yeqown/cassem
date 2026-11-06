@@ -1,0 +1,65 @@
+syntax = "proto3";
+
+package cassem.api.kv;
+option go_package = "github.com/yeqown/cassem/internal/protogen;protogen";
+
+import "cassem/internal/kv.proto";
+import "buf/validate/validate.proto";
+
+message LogEntry  {
+  enum Action {
+    UNKNOWN = 0;
+    Mutate  = 1;
+  }
+
+  // action indicates what's the format of data dose the log entry contains.
+  Action action    = 1;
+  bytes  command   = 2;
+  int64  createdAt = 3;
+}
+
+message MutateCommand {
+  enum Op {
+    OP_UNKNOWN = 0;
+    SET        = 1;
+    UNSET      = 2;
+  }
+
+  uint64 request_id = 1;
+  Op     op         = 2;
+  string key        = 3;
+  bool   is_dir     = 4;
+  Entity value      = 5;
+}
+
+message addNodeRequest {
+  string raft_addr     = 1 [(buf.validate.field).string = {prefix: "http"}];
+  string grpc_endpoint = 2 [(buf.validate.field).string = {min_len: 1}];
+}
+message addNodeResponse {
+  uint64 node_id = 1;
+  repeated string peers = 2;
+}
+
+message removeNodeRequest {
+  uint64 node_id = 1 [(buf.validate.field).uint64 = {gt: 0}];
+}
+message removeNodeResponse {}
+
+message clusterMember {
+  uint64 node_id       = 1;
+  string raft_addr     = 2;
+  string grpc_endpoint = 3;
+  bool   leader        = 4;
+}
+message listMembersRequest {}
+message listMembersResponse {
+  repeated clusterMember members = 1;
+}
+
+// Cluster is a service that manage members in the cassemkv raft cluster.
+service Cluster {
+  rpc AddNode(addNodeRequest) returns(addNodeResponse) {};
+  rpc RemoveNode(removeNodeRequest) returns(removeNodeResponse) {};
+  rpc ListMembers(listMembersRequest) returns(listMembersResponse) {};
+}

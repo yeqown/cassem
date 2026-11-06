@@ -1,7 +1,9 @@
 import { createTheme } from '@mui/material/styles'
+import { enUS, zhCN } from '@mui/material/locale'
+import type { Locale } from './i18n'
 import { defaultSettings, getUIThemeOption, type UITheme } from './lib/settings'
 
-export function createAppTheme(uiTheme: UITheme = defaultSettings.uiTheme) {
+export function createAppTheme(uiTheme: UITheme = defaultSettings.uiTheme, locale: Locale = 'en') {
   const palette = getUIThemeOption(uiTheme)
 
   return createTheme({
@@ -100,7 +102,7 @@ export function createAppTheme(uiTheme: UITheme = defaultSettings.uiTheme) {
         },
       },
     },
-  })
+  }, locale === 'zh-CN' ? zhCN : enUS)
 }
 
 export const theme = createAppTheme()

@@ -7,33 +7,35 @@ import (
 	"strings"
 	"testing"
 
+	storage "github.com/yeqown/cassem/internal/app/kv/storage"
+	pb "github.com/yeqown/cassem/internal/protogen"
+
 	"buf.build/go/protovalidate"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 
-	"github.com/yeqown/cassem/api/concept"
-	apikv "github.com/yeqown/cassem/api/kv"
+	"github.com/yeqown/cassem/internal/concept"
 )
 
 type kvReadOnlyTestKV struct {
-	entities map[string]*apikv.Entity
-	errors   map[string]*apikv.KeyError
+	entities map[string]*pb.Entity
+	errors   map[string]*pb.KeyError
 }
 
-func (f *kvReadOnlyTestKV) GetKV(_ context.Context, req *apikv.GetKVReq, _ ...grpc.CallOption) (*apikv.GetKVResp, error) {
+func (f *kvReadOnlyTestKV) GetKV(_ context.Context, req *pb.GetKVReq, _ ...grpc.CallOption) (*pb.GetKVResp, error) {
 	entity, ok := f.entities[req.GetKey()]
 	if !ok {
 		return nil, concept.Err_NOT_FOUND
 	}
-	return &apikv.GetKVResp{Entity: entity}, nil
+	return &pb.GetKVResp{Entity: entity}, nil
 }
 
-func (f *kvReadOnlyTestKV) GetKVs(_ context.Context, req *apikv.GetKVsReq, _ ...grpc.CallOption) (*apikv.GetKVsResp, error) {
+func (f *kvReadOnlyTestKV) GetKVs(_ context.Context, req *pb.GetKVsReq, _ ...grpc.CallOption) (*pb.GetKVsResp, error) {
 	if err := protovalidate.Validate(req); err != nil {
 		return nil, err
 	}
-	entities := make([]*apikv.Entity, 0, len(req.GetKeys()))
-	errs := make([]*apikv.KeyError, 0)
+	entities := make([]*pb.Entity, 0, len(req.GetKeys()))
+	errs := make([]*pb.KeyError, 0)
 	for _, key := range req.GetKeys() {
 		if item, ok := f.errors[key]; ok {
 			errs = append(errs, item)
@@ -41,30 +43,30 @@ func (f *kvReadOnlyTestKV) GetKVs(_ context.Context, req *apikv.GetKVsReq, _ ...
 		}
 		entity, ok := f.entities[key]
 		if !ok {
-			errs = append(errs, &apikv.KeyError{Key: key, Code: "NotFound", Message: "NOT_FOUND"})
+			errs = append(errs, &pb.KeyError{Key: key, Code: "NotFound", Message: "NOT_FOUND"})
 			continue
 		}
 		entities = append(entities, entity)
 	}
-	return &apikv.GetKVsResp{Entities: entities, Errors: errs}, nil
+	return &pb.GetKVsResp{Entities: entities, Errors: errs}, nil
 }
-func (f *kvReadOnlyTestKV) SetKV(context.Context, *apikv.SetKVReq, ...grpc.CallOption) (*apikv.Empty, error) {
+func (f *kvReadOnlyTestKV) SetKV(context.Context, *pb.SetKVReq, ...grpc.CallOption) (*pb.Empty, error) {
 	return nil, errors.New("unused")
 }
-func (f *kvReadOnlyTestKV) UnsetKV(context.Context, *apikv.UnsetKVReq, ...grpc.CallOption) (*apikv.Empty, error) {
+func (f *kvReadOnlyTestKV) UnsetKV(context.Context, *pb.UnsetKVReq, ...grpc.CallOption) (*pb.Empty, error) {
 	return nil, errors.New("unused")
 }
-func (f *kvReadOnlyTestKV) Watch(context.Context, *apikv.WatchReq, ...grpc.CallOption) (apikv.KV_WatchClient, error) {
+func (f *kvReadOnlyTestKV) Watch(context.Context, *pb.WatchReq, ...grpc.CallOption) (pb.KV_WatchClient, error) {
 	return nil, errors.New("unused")
 }
-func (f *kvReadOnlyTestKV) TTL(context.Context, *apikv.TtlReq, ...grpc.CallOption) (*apikv.TtlResp, error) {
+func (f *kvReadOnlyTestKV) TTL(context.Context, *pb.TtlReq, ...grpc.CallOption) (*pb.TtlResp, error) {
 	return nil, errors.New("unused")
 }
-func (f *kvReadOnlyTestKV) Expire(context.Context, *apikv.ExpireReq, ...grpc.CallOption) (*apikv.Empty, error) {
+func (f *kvReadOnlyTestKV) Expire(context.Context, *pb.ExpireReq, ...grpc.CallOption) (*pb.Empty, error) {
 	return nil, errors.New("unused")
 }
-func (f *kvReadOnlyTestKV) Range(_ context.Context, req *apikv.RangeReq, _ ...grpc.CallOption) (*apikv.RangeResp, error) {
-	entities := make([]*apikv.Entity, 0)
+func (f *kvReadOnlyTestKV) Range(_ context.Context, req *pb.RangeReq, _ ...grpc.CallOption) (*pb.RangeResp, error) {
+	entities := make([]*pb.Entity, 0)
 	for key, entity := range f.entities {
 		if req.GetKey() != "" {
 			prefix := req.GetKey() + "/"
@@ -80,24 +82,24 @@ func (f *kvReadOnlyTestKV) Range(_ context.Context, req *apikv.RangeReq, _ ...gr
 		}
 		entities = append(entities, entity)
 	}
-	slices.SortFunc(entities, func(a, b *apikv.Entity) int { return strings.Compare(a.GetKey(), b.GetKey()) })
+	slices.SortFunc(entities, func(a, b *pb.Entity) int { return strings.Compare(a.GetKey(), b.GetKey()) })
 	if len(entities) > int(req.GetLimit()) {
-		return &apikv.RangeResp{
+		return &pb.RangeResp{
 			Entities:    entities[:req.GetLimit()],
 			HasMore:     true,
 			NextSeekKey: concept.ExtractPureKey(entities[req.GetLimit()].GetKey()),
 		}, nil
 	}
-	return &apikv.RangeResp{Entities: entities}, nil
+	return &pb.RangeResp{Entities: entities}, nil
 }
-func (f *kvReadOnlyTestKV) CompactElementHistory(context.Context, *apikv.CompactElementHistoryReq, ...grpc.CallOption) (*apikv.CompactElementHistoryResp, error) {
+func (f *kvReadOnlyTestKV) CompactElementHistory(context.Context, *pb.CompactElementHistoryReq, ...grpc.CallOption) (*pb.CompactElementHistoryResp, error) {
 	return nil, errors.New("unused")
 }
 
-func addElementTestData(t *testing.T, entities map[string]*apikv.Entity, app, env, key string, version int32) {
+func addElementTestData(t *testing.T, entities map[string]*pb.Entity, app, env, key string, version int32) {
 	t.Helper()
 	baseKey := concept.GenElementKey(app, env, key)
-	entities[baseKey] = apikv.NewEntityWithCreated(baseKey, nil, 0, 1)
+	entities[baseKey] = storage.NewEntityWithCreated(baseKey, nil, 0, 1)
 	metadata := &concept.ElementMetadata{
 		Key:           key,
 		App:           app,
@@ -108,25 +110,25 @@ func addElementTestData(t *testing.T, entities map[string]*apikv.Entity, app, en
 	}
 	metadataData, err := concept.MarshalProto(metadata)
 	require.NoError(t, err)
-	entities[concept.WithMetadataSuffix(baseKey)] = apikv.NewEntityWithCreated(concept.WithMetadataSuffix(baseKey), metadataData, 0, 1)
+	entities[concept.WithMetadataSuffix(baseKey)] = storage.NewEntityWithCreated(concept.WithMetadataSuffix(baseKey), metadataData, 0, 1)
 
 	elementData, err := concept.MarshalProto(&concept.Element{Raw: []byte(key), Version: version, Published: true})
 	require.NoError(t, err)
-	entities[concept.WithVersion(baseKey, int(version))] = apikv.NewEntityWithCreated(concept.WithVersion(baseKey, int(version)), elementData, 0, 1)
+	entities[concept.WithVersion(baseKey, int(version))] = storage.NewEntityWithCreated(concept.WithVersion(baseKey, int(version)), elementData, 0, 1)
 }
 
 func TestKVReadOnlyGetAppsSearchesByIdAndDescription(t *testing.T) {
-	apps := []*concept.AppMetadata{
+	apps := []*pb.AppMetadata{
 		{Id: "alpha", Description: "General app"},
 		{Id: "billing", Description: "Payment Demo"},
 		{Id: "demo-api", Description: "Backend service"},
 		{Id: "zeta", Description: "Other app"},
 	}
-	entities := make(map[string]*apikv.Entity, len(apps))
+	entities := make(map[string]*pb.Entity, len(apps))
 	for _, app := range apps {
 		data, err := concept.MarshalProto(app)
 		require.NoError(t, err)
-		entities[concept.GenAppKey(app.Id)] = apikv.NewEntityWithCreated(concept.GenAppKey(app.Id), data, 0, 1)
+		entities[concept.GenAppKey(app.Id)] = storage.NewEntityWithCreated(concept.GenAppKey(app.Id), data, 0, 1)
 	}
 
 	out, err := (kvReadOnly{cassemkv: &kvReadOnlyTestKV{entities: entities}}).GetApps(context.Background(), "", 1, "demo")
@@ -144,7 +146,7 @@ func TestKVReadOnlyGetAppsSearchesByIdAndDescription(t *testing.T) {
 }
 
 func TestKVReadOnlyGetElementsSearchesByKey(t *testing.T) {
-	entities := make(map[string]*apikv.Entity)
+	entities := make(map[string]*pb.Entity)
 	addElementTestData(t, entities, "demo", "prod", "api.host", 1)
 	addElementTestData(t, entities, "demo", "prod", "db.url", 1)
 	addElementTestData(t, entities, "demo", "prod", "feature.flag", 1)
@@ -165,9 +167,9 @@ func TestKVReadOnlyGetElementsSearchesByKey(t *testing.T) {
 }
 
 func TestKVReadOnlyGetElementsNormalizesRangeKeys(t *testing.T) {
-	entities := make(map[string]*apikv.Entity)
+	entities := make(map[string]*pb.Entity)
 	baseKey := concept.GenElementKey("demo", "prod", "api.host")
-	entities[baseKey] = apikv.NewEntityWithCreated(baseKey, nil, 0, 1)
+	entities[baseKey] = storage.NewEntityWithCreated(baseKey, nil, 0, 1)
 	metadata := &concept.ElementMetadata{
 		Key:          "api.host",
 		App:          "demo",
@@ -177,10 +179,10 @@ func TestKVReadOnlyGetElementsNormalizesRangeKeys(t *testing.T) {
 	}
 	metadataData, err := concept.MarshalProto(metadata)
 	require.NoError(t, err)
-	entities[concept.WithMetadataSuffix(baseKey)] = apikv.NewEntityWithCreated(concept.WithMetadataSuffix(baseKey), metadataData, 0, 1)
+	entities[concept.WithMetadataSuffix(baseKey)] = storage.NewEntityWithCreated(concept.WithMetadataSuffix(baseKey), metadataData, 0, 1)
 	elementData, err := concept.MarshalProto(&concept.Element{Raw: []byte("value"), Version: 1, Published: true})
 	require.NoError(t, err)
-	entities[concept.WithVersion(baseKey, 1)] = apikv.NewEntityWithCreated(concept.WithVersion(baseKey, 1), elementData, 0, 1)
+	entities[concept.WithVersion(baseKey, 1)] = storage.NewEntityWithCreated(concept.WithVersion(baseKey, 1), elementData, 0, 1)
 
 	out, err := (kvReadOnly{cassemkv: &kvReadOnlyTestKV{entities: entities}}).GetElements(context.Background(), "demo", "prod", "", 15, "")
 	require.NoError(t, err)
@@ -200,8 +202,8 @@ func TestKVReadOnlyGetElementsByKeysReturnsEmptyWhenMetadataHasNoAvailableVersio
 	metadataData, err := concept.MarshalProto(metadata)
 	require.NoError(t, err)
 
-	kv := &kvReadOnlyTestKV{entities: map[string]*apikv.Entity{
-		concept.WithMetadataSuffix(baseKey): apikv.NewEntityWithCreated(concept.WithMetadataSuffix(baseKey), metadataData, 0, 1),
+	kv := &kvReadOnlyTestKV{entities: map[string]*pb.Entity{
+		concept.WithMetadataSuffix(baseKey): storage.NewEntityWithCreated(concept.WithMetadataSuffix(baseKey), metadataData, 0, 1),
 	}}
 
 	out, err := (kvReadOnly{cassemkv: kv}).GetElementsByKeys(context.Background(), "app", "env", []string{"key"})
@@ -210,7 +212,7 @@ func TestKVReadOnlyGetElementsByKeysReturnsEmptyWhenMetadataHasNoAvailableVersio
 }
 
 func TestKVReadOnlyGetElementsByKeysIgnoresMetadataNotFoundErrors(t *testing.T) {
-	entities := make(map[string]*apikv.Entity)
+	entities := make(map[string]*pb.Entity)
 	addElementTestData(t, entities, "app", "env", "exists", 1)
 	kv := &kvReadOnlyTestKV{entities: entities}
 
@@ -225,8 +227,8 @@ func TestKVReadOnlyGetElementsByKeysReturnsVersionNotFoundErrors(t *testing.T) {
 	metadata := &concept.ElementMetadata{Key: "key", App: "app", Env: "env", UsingVersion: 1, ContentType: concept.ContentType_JSON}
 	metadataData, err := concept.MarshalProto(metadata)
 	require.NoError(t, err)
-	kv := &kvReadOnlyTestKV{entities: map[string]*apikv.Entity{
-		concept.WithMetadataSuffix(baseKey): apikv.NewEntityWithCreated(concept.WithMetadataSuffix(baseKey), metadataData, 0, 1),
+	kv := &kvReadOnlyTestKV{entities: map[string]*pb.Entity{
+		concept.WithMetadataSuffix(baseKey): storage.NewEntityWithCreated(concept.WithMetadataSuffix(baseKey), metadataData, 0, 1),
 	}}
 
 	_, err = (kvReadOnly{cassemkv: kv}).GetElementsByKeys(context.Background(), "app", "env", []string{"key"})
@@ -238,8 +240,8 @@ func TestKVReadOnlyGetElementsByKeysReturnsVersionNotFoundErrors(t *testing.T) {
 func TestKVReadOnlyGetElementsByKeysReturnsNonNotFoundMetadataErrors(t *testing.T) {
 	baseKey := concept.GenElementKey("app", "env", "key")
 	kv := &kvReadOnlyTestKV{
-		entities: map[string]*apikv.Entity{},
-		errors: map[string]*apikv.KeyError{
+		entities: map[string]*pb.Entity{},
+		errors: map[string]*pb.KeyError{
 			concept.WithMetadataSuffix(baseKey): {Key: concept.WithMetadataSuffix(baseKey), Code: "Internal", Message: "boom"},
 		},
 	}
@@ -265,9 +267,9 @@ func TestGetElementWithVersionReturnsVersionZeroWhenNoUsingVersion(t *testing.T)
 	elementData, err := concept.MarshalProto(&concept.Element{Raw: []byte("draft"), Version: 1})
 	require.NoError(t, err)
 
-	kv := &kvReadOnlyTestKV{entities: map[string]*apikv.Entity{
-		concept.WithMetadataSuffix(baseKey): apikv.NewEntityWithCreated("md", metadataData, 0, 1),
-		concept.WithVersion(baseKey, 1):     apikv.NewEntityWithCreated("v1", elementData, 0, 1),
+	kv := &kvReadOnlyTestKV{entities: map[string]*pb.Entity{
+		concept.WithMetadataSuffix(baseKey): storage.NewEntityWithCreated("md", metadataData, 0, 1),
+		concept.WithVersion(baseKey, 1):     storage.NewEntityWithCreated("v1", elementData, 0, 1),
 	}}
 
 	out, err := (kvReadOnly{cassemkv: kv}).GetElementWithVersion(context.Background(), "app", "env", "key", 0)
@@ -283,8 +285,8 @@ func TestGetElementWithVersionReturnsVersionLookupError(t *testing.T) {
 	data, err := concept.MarshalProto(metadata)
 	require.NoError(t, err)
 
-	kv := &kvReadOnlyTestKV{entities: map[string]*apikv.Entity{
-		concept.WithMetadataSuffix(concept.GenElementKey("app", "env", "key")): apikv.NewEntityWithCreated("md", data, 0, 1),
+	kv := &kvReadOnlyTestKV{entities: map[string]*pb.Entity{
+		concept.WithMetadataSuffix(concept.GenElementKey("app", "env", "key")): storage.NewEntityWithCreated("md", data, 0, 1),
 	}}
 
 	_, err = (kvReadOnly{cassemkv: kv}).GetElementWithVersion(context.Background(), "app", "env", "key", 99)

@@ -12,10 +12,10 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
 
-	"github.com/yeqown/cassem/api/concept"
+	"github.com/yeqown/cassem/internal/concept"
 	"github.com/yeqown/cassem/internal/coord"
-	"github.com/yeqown/cassem/pkg/conf"
-	"github.com/yeqown/cassem/pkg/httpx"
+	"github.com/yeqown/cassem/internal/pkg/conf"
+	"github.com/yeqown/cassem/internal/pkg/httpx"
 )
 
 func isDebug() bool {
@@ -29,6 +29,7 @@ type app struct {
 	// aggregate is special methods interface customized form adm component which
 	// can only be used by cassemadm.app.
 	aggregate concept.AdmAggregate
+	tokens    concept.TokenManager
 
 	// ap type agentPool is a pool contains all ap nodes, and agentPool will update
 	// agent nodes  automatically.
@@ -54,6 +55,10 @@ func New(c *conf.CassemAdminConfig) (*app, error) {
 			return nil, fmt.Errorf("adm.New.BootstrapAdmin: %w", err)
 		}
 	}
+	tokens, err := coord.NewTokenService(c.CassemKVEndpoints)
+	if err != nil {
+		return nil, fmt.Errorf("adm.New.TokenService: %w", err)
+	}
 
 	retention, err := newRetentionGC(c.CassemKVEndpoints, c.Retention)
 	if err != nil {
@@ -62,6 +67,7 @@ func New(c *conf.CassemAdminConfig) (*app, error) {
 
 	d := &app{
 		aggregate: agg,
+		tokens:    tokens,
 		conf:      c,
 		ap:        newAgentPool(agg),
 		retention: retention,

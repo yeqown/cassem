@@ -1,6 +1,7 @@
 import CloseIcon from '@mui/icons-material/Close'
 import { Alert, IconButton, Snackbar } from '@mui/material'
 import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactElement, type ReactNode } from 'react'
+import { useI18n } from '../i18n'
 
 export type ToastSeverity = 'success' | 'error' | 'warning' | 'info'
 
@@ -17,6 +18,7 @@ type ToastContextValue = {
 const ToastContext = createContext<ToastContextValue | null>(null)
 
 export function ToastProvider({ children }: { children: ReactNode }): ReactElement {
+  const { t } = useI18n()
   const [toast, setToast] = useState<ToastState | null>(null)
   const toastIdRef = useRef(0)
 
@@ -50,7 +52,7 @@ export function ToastProvider({ children }: { children: ReactNode }): ReactEleme
           variant="standard"
           onClose={closeToast}
           action={
-            <IconButton color="inherit" size="small" aria-label="Close toast" onClick={() => closeToast()}>
+            <IconButton color="inherit" size="small" aria-label={t('common.closeToast')} onClick={() => closeToast()}>
               <CloseIcon fontSize="small" />
             </IconButton>
           }

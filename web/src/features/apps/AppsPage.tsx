@@ -29,6 +29,7 @@ import { DangerConfirmDialog } from '../../components/DangerConfirmDialog'
 import { EmptyState, ErrorState, LoadingState } from '../../components/StateView'
 import { useErrorState } from '../../components/useErrorState'
 import type { AppMetadata, AppsResponse } from '../../domain/types'
+import { useI18n } from '../../i18n'
 import { ApiError, apiRequest, buildQuery, jsonBody } from '../../lib/api'
 
 function getErrorMessage(error: unknown, fallback: string) {
@@ -37,16 +38,12 @@ function getErrorMessage(error: unknown, fallback: string) {
 
 const pageSizeOptions = [15, 30, 50, 100]
 
-function formatCreatedAt(createdAt?: number) {
-  if (!createdAt) return '-'
-  return new Date(createdAt * 1000).toLocaleString()
-}
-
 async function requestApps(limit: number, seek: string, query: string) {
   return apiRequest<AppsResponse>(`/api/apps${buildQuery({ limit, query: query || undefined, seek: seek || undefined })}`)
 }
 
 export function AppsPage() {
+  const { t, formatDateTime, formatNumber } = useI18n()
   const [apps, setApps] = useState<AppMetadata[]>([])
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
@@ -82,11 +79,11 @@ export function AppsPage() {
       setApps([])
       setHasMore(false)
       setNextSeek('')
-      setError(getErrorMessage(err, 'failed to load apps'))
+      setError(getErrorMessage(err, t('management.apps.loadFailed')))
     } finally {
       if (mountedRef.current && requestId === requestSeq.current) setLoading(false)
     }
-  }, [pageSize, query, seek, setError])
+  }, [pageSize, query, seek, setError, t])
 
   useEffect(() => {
     mountedRef.current = true
@@ -175,7 +172,7 @@ export function AppsPage() {
       resetPaging()
       await loadApps()
     } catch (err) {
-      setError(getErrorMessage(err, 'failed to create app'))
+      setError(getErrorMessage(err, t('management.apps.createFailed')))
     } finally {
       setSubmitting(false)
     }
@@ -194,7 +191,7 @@ export function AppsPage() {
       resetPaging()
       await loadApps()
     } catch (err) {
-      setError(getErrorMessage(err, 'failed to delete app'))
+      setError(getErrorMessage(err, t('management.apps.deleteFailed')))
     } finally {
       setSubmitting(false)
     }
@@ -202,20 +199,20 @@ export function AppsPage() {
 
   return (
     <Stack spacing={3}>
-      <AppBreadcrumbs items={[{ label: 'Apps' }]} />
+      <AppBreadcrumbs items={[{ label: t('management.apps.title') }]} />
 
       <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} justifyContent="space-between" alignItems={{ md: 'center' }}>
         <Box>
           <Stack direction="row" spacing={1} alignItems="center">
             <AppsIcon data-testid="apps-title-icon" color="primary" />
             <Typography variant="h4" component="h1">
-              Apps
+              {t('management.apps.title')}
             </Typography>
           </Stack>
-          <Typography color="text.secondary">Manage application namespaces and navigate to their environments.</Typography>
+          <Typography color="text.secondary">{t('management.apps.description')}</Typography>
         </Box>
         <Button variant="contained" startIcon={<AddCircleOutlineIcon />} onClick={() => setCreateOpen(true)} disabled={submitting}>
-          Add app
+          {t('management.apps.add')}
         </Button>
       </Stack>
 
@@ -223,7 +220,7 @@ export function AppsPage() {
 
       <Stack component="form" onSubmit={handleSearch} direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems={{ md: 'center' }}>
         <TextField
-          label="Search apps"
+          label={t('management.apps.search')}
           value={queryInput}
           onChange={(event) => setQueryInput(event.target.value)}
           size="small"
@@ -231,14 +228,14 @@ export function AppsPage() {
           disabled={loading}
         />
         <Button type="submit" variant="contained" startIcon={<SearchIcon />} disabled={loading} sx={{ minWidth: 128, height: 40, px: 3 }}>
-          Search
+          {t('management.common.search')}
         </Button>
         <Button variant="text" onClick={handleClearSearch} disabled={loading || (!query && !queryInput)}>
-          Clear
+          {t('management.common.clear')}
         </Button>
         <TextField
           select
-          label="Rows per page"
+          label={t('management.common.rowsPerPage')}
           value={String(pageSize)}
           onChange={(event) => handlePageSizeChange(event.target.value)}
           size="small"
@@ -246,16 +243,16 @@ export function AppsPage() {
           disabled={loading}
         >
           {pageSizeOptions.map((option) => (
-            <MenuItem key={option} value={option}>{option}</MenuItem>
+            <MenuItem key={option} value={option}>{formatNumber(option)}</MenuItem>
           ))}
         </TextField>
       </Stack>
 
       <DangerConfirmDialog
         open={Boolean(deleteTarget)}
-        title="Delete app"
-        description={<>This will delete app <strong>{deleteTarget?.id}</strong>.</>}
-        confirmLabel="Delete"
+        title={t('management.apps.delete')}
+        description={t('management.apps.deleteDescription', { app: deleteTarget?.id || '' })}
+        confirmLabel={t('management.common.delete')}
         loading={submitting}
         onClose={closeDeleteDialog}
         onConfirm={() => void handleDelete()}
@@ -263,11 +260,11 @@ export function AppsPage() {
 
       <Dialog open={createOpen} onClose={closeCreateDialog} fullWidth maxWidth="sm">
         <Box component="form" onSubmit={(event) => void handleCreate(event)}>
-          <DialogTitle>Add app</DialogTitle>
+          <DialogTitle>{t('management.apps.add')}</DialogTitle>
           <DialogContent>
             <Stack spacing={2} sx={{ mt: 1 }}>
               <TextField
-                label="App ID"
+                label={t('management.common.appId')}
                 value={appId}
                 onChange={(event) => setAppId(event.target.value)}
                 required
@@ -275,7 +272,7 @@ export function AppsPage() {
                 disabled={submitting}
               />
               <TextField
-                label="Description"
+                label={t('management.common.description')}
                 value={description}
                 onChange={(event) => setDescription(event.target.value)}
                 required
@@ -286,31 +283,31 @@ export function AppsPage() {
           </DialogContent>
           <DialogActions>
             <Button onClick={closeCreateDialog} disabled={submitting}>
-              Cancel
+              {t('management.common.cancel')}
             </Button>
             <Button type="submit" variant="contained" disabled={submitting || !appId.trim() || !description.trim()}>
-              Create
+              {t('management.common.create')}
             </Button>
           </DialogActions>
         </Box>
       </Dialog>
 
       {loading ? (
-        <LoadingState label="Loading apps" />
+        <LoadingState label={t('management.apps.loading')} />
       ) : apps.length === 0 ? (
-        error.message ? null : <EmptyState title="No apps found" description="Create an app to start organizing environments and elements." />
+        error.message ? null : <EmptyState title={t('management.apps.empty')} description={t('management.apps.emptyDescription')} />
       ) : (
         <Paper>
           <TableContainer>
             <Table>
             <TableHead>
               <TableRow>
-                <TableCell>App ID</TableCell>
-                <TableCell>Description</TableCell>
-                <TableCell>Created At</TableCell>
-                <TableCell>Creator</TableCell>
-                <TableCell>Owner</TableCell>
-                <TableCell align="right">Actions</TableCell>
+                <TableCell>{t('management.common.appId')}</TableCell>
+                <TableCell>{t('management.common.description')}</TableCell>
+                <TableCell>{t('management.common.createdAt')}</TableCell>
+                <TableCell>{t('management.common.creator')}</TableCell>
+                <TableCell>{t('management.common.owner')}</TableCell>
+                <TableCell align="right">{t('management.common.actions')}</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -318,16 +315,16 @@ export function AppsPage() {
                 <TableRow key={app.id} hover>
                   <TableCell>{app.id}</TableCell>
                   <TableCell>{app.description || '-'}</TableCell>
-                  <TableCell>{formatCreatedAt(app.createdAt)}</TableCell>
+                  <TableCell>{app.createdAt ? formatDateTime(app.createdAt * 1000) : '-'}</TableCell>
                   <TableCell>{app.creator || '-'}</TableCell>
                   <TableCell>{app.owner || '-'}</TableCell>
                   <TableCell align="right">
                     <Stack direction="row" spacing={1} justifyContent="flex-end">
                       <Button component={RouterLink} to={`/apps/${encodeURIComponent(app.id)}/envs`} size="small" startIcon={<DnsIcon />}>
-                        Envs
+                        {t('management.apps.envs')}
                       </Button>
                       <Button color="error" size="small" startIcon={<DeleteOutlineIcon />} onClick={() => setDeleteTarget(app)} disabled={submitting}>
-                        Delete
+                        {t('management.common.delete')}
                       </Button>
                     </Stack>
                   </TableCell>
@@ -337,9 +334,9 @@ export function AppsPage() {
             </Table>
           </TableContainer>
           <Stack direction="row" spacing={2} justifyContent="flex-end" alignItems="center" sx={{ p: 2 }}>
-            <Typography color="text.secondary">Page {pageIndex}</Typography>
-            <Button onClick={handlePreviousPage} disabled={loading || seekStack.length === 0}>Previous</Button>
-            <Button onClick={handleNextPage} disabled={loading || !hasMore || !nextSeek}>Next</Button>
+            <Typography color="text.secondary">{t('management.common.page', { page: formatNumber(pageIndex) })}</Typography>
+            <Button onClick={handlePreviousPage} disabled={loading || seekStack.length === 0}>{t('management.common.previous')}</Button>
+            <Button onClick={handleNextPage} disabled={loading || !hasMore || !nextSeek}>{t('management.common.next')}</Button>
           </Stack>
         </Paper>
       )}

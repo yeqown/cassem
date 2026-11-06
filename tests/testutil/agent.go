@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/yeqown/cassem/api/agent"
+	clientpb "github.com/yeqown/cassem/sdk/go/protogen"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
@@ -36,10 +36,10 @@ func checkCassemAgentOnce(endpoint string, deadline time.Time) error {
 	}
 	defer func() { _ = cc.Close() }()
 
-	client := agent.NewAgentClient(cc)
+	client := clientpb.NewAgentClient(cc)
 	clientID := fmt.Sprintf("ready-%d", time.Now().UnixNano())
 	registerCtx, registerCancel := context.WithTimeout(context.Background(), time.Until(deadline))
-	_, err = client.Register(registerCtx, &agent.RegisterReq{
+	_, err = client.Register(registerCtx, &clientpb.RegisterReq{
 		ClientId: clientID,
 		ClientIp: "127.0.0.1",
 	})
@@ -53,7 +53,7 @@ func checkCassemAgentOnce(endpoint string, deadline time.Time) error {
 		return fmt.Errorf("unregister readiness client: deadline exceeded")
 	}
 	unregisterCtx, unregisterCancel := context.WithTimeout(context.Background(), remaining)
-	_, err = client.Unregister(unregisterCtx, &agent.UnregisterReq{
+	_, err = client.Unregister(unregisterCtx, &clientpb.UnregisterReq{
 		ClientId: clientID,
 		ClientIp: "127.0.0.1",
 	})

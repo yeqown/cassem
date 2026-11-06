@@ -9,13 +9,14 @@ import (
 	"strings"
 	"time"
 
-	"github.com/yeqown/cassem/api/concept"
-	apikv "github.com/yeqown/cassem/api/kv"
+	pb "github.com/yeqown/cassem/internal/protogen"
+
+	"github.com/yeqown/cassem/internal/concept"
 )
 
 type retentionCompactCoordinator interface {
-	getKV(key string) (*apikv.Entity, error)
-	iterate(param *rangeParam) (*apikv.RangeResp, error)
+	getKV(key string) (*pb.Entity, error)
+	iterate(param *rangeParam) (*pb.RangeResp, error)
 	unsetKV(ctx context.Context, param *unsetKVParam) error
 }
 
@@ -30,7 +31,7 @@ type compactOperation struct {
 	operatedAt int64
 }
 
-func compactElementHistory(coord retentionCompactCoordinator, req *apikv.CompactElementHistoryReq, now time.Time) (*apikv.CompactElementHistoryResp, error) {
+func compactElementHistory(coord retentionCompactCoordinator, req *pb.CompactElementHistoryReq, now time.Time) (*pb.CompactElementHistoryResp, error) {
 	if coord == nil {
 		return nil, fmt.Errorf("compact element history: nil coordinator")
 	}
@@ -60,7 +61,7 @@ func compactElementHistory(coord retentionCompactCoordinator, req *apikv.Compact
 
 	versionCutoff := safeRetentionCutoff(now.Unix(), req.GetKeepVersionSeconds(), 1)
 	keep := retainedVersionSet(metadata, versions, req.GetKeepVersionCount(), versionCutoff)
-	resp := &apikv.CompactElementHistoryResp{
+	resp := &pb.CompactElementHistoryResp{
 		ScannedVersions:   int32(len(versions) + len(failedVersionKeys)),
 		ScannedOperations: int32(len(operations) + len(failedOperationKeys)),
 		FailedKeys:        append(append([]string(nil), failedVersionKeys...), failedOperationKeys...),
@@ -156,7 +157,7 @@ func loadCompactOperations(coord retentionCompactCoordinator, appID, env, key st
 		}
 
 		for _, entity := range resp.GetEntities() {
-			op := new(concept.ElementOperation)
+			op := new(pb.ElementOperation)
 			if err := concept.UnmarshalProto(entity.GetVal(), op); err != nil {
 				failedKeys = append(failedKeys, entity.GetKey())
 				continue

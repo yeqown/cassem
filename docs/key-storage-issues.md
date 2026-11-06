@@ -61,9 +61,9 @@ app=a,   env=b-c, key=d  => a-b-c-d
 
 ### 证据
 
-- reverse key 拼接：`api/concept/key_generator.go:111`
-- reverse key + instanceId 拼接：`api/concept/key_generator.go:116`
-- `app/env/key` regex 允许 `-`：`api/concept/types.proto:38`、`api/concept/types.proto:101`
+- reverse key 拼接：`internal/concept/key_generator.go:111`
+- reverse key + instanceId 拼接：`internal/concept/key_generator.go:116`
+- `app/env/key` regex 允许 `-`：`thirdparty/cassem/client/types.proto`
 - 反查实例依赖 reverse key：`internal/coord/coordinator_ins_hybrid.go:89`
 - 写 reverse key：`internal/coord/coordinator_ins_hybrid.go:211`
 - 删除 reverse key：`internal/coord/coordinator_ins_hybrid.go:284`
@@ -129,7 +129,7 @@ cassem/operations/{app}/{env}/{key}/operations/{operatedAt}
 
 ### 证据
 
-- operation key 生成：`api/concept/key_generator.go:68`
+- operation key 生成：`internal/concept/key_generator.go:68`
 - operation 写入：`internal/coord/coordinator_kv_w.go:296`
 - `DeleteElement` 删除 elements 目录后写 UNSET operation：`internal/coord/coordinator_kv_w.go:109`
 - `DeleteEnvironment` 只删除 env elements 目录：`internal/coord/coordinator_kv_w.go:140`
@@ -248,7 +248,7 @@ TTL 存在 entity 中。过期判断发生在读取或 range 时；物理删除�
 
 ### 证据
 
-- TTL 计算与过期判断：`api/kv/cassemkv.raft.pb.supplement.go:64`
+- TTL 计算与过期判断：`internal/app/kv/storage/entity.go`
 - `GetKV` 发现过期后删除：`internal/app/kv/raftimpl/raft_impl.go:414`
 - `probeRemoveExpired` 调用 `UnsetKV`：`internal/app/kv/raftimpl/raft_impl.go:421`
 - `Range` 收集 expired keys：`internal/app/kv/storage/bbolt_impl.go:265`
@@ -391,8 +391,8 @@ Retention GC 默认每 10 分钟最多处理 20 个元素。
 - query 分支做 substring filter：`internal/coord/coordinator_kv_r.go:172`
 - query 未凑够结果会继续 Range：`internal/coord/coordinator_kv_r.go:160`
 - query 返回 `NextSeek: matched[limit]`：`internal/coord/coordinator_kv_r.go:200`
-- retention 默认 interval 10m：`pkg/conf/cassemadm.go:34`
-- retention 默认每轮 20 个元素：`pkg/conf/cassemadm.go:35`
+- retention 默认 interval 10m：`internal/pkg/conf/cassemadm.go:34`
+- retention 默认每轮 20 个元素：`internal/pkg/conf/cassemadm.go:35`
 - retention 每轮按 `maxElementsPerRun` 停止：`internal/app/adm/retention_gc.go:72`
 
 ### 决策

@@ -3,6 +3,7 @@ import { Box, FormControl, FormControlLabel, InputLabel, MenuItem, Paper, Select
 import type { SelectChangeEvent } from '@mui/material/Select'
 import { ContentViewer } from '../elements/ContentViewer'
 import { codeThemeOptions, readSettings, uiThemeOptions, updateSettings, type CodeTheme, type UITheme } from '../../lib/settings'
+import { useI18n } from '../../i18n'
 
 const codePreview = `{
   "enabled": true,
@@ -12,6 +13,7 @@ const codePreview = `{
 }`
 
 export function SettingsPage() {
+  const { t } = useI18n()
   const [settings, setSettings] = useState(readSettings)
 
   function handleCodeThemeChange(event: SelectChangeEvent<CodeTheme>) {
@@ -35,18 +37,18 @@ export function SettingsPage() {
   return (
     <Stack spacing={3}>
       <Box>
-        <Typography variant="h4" component="h1">Settings</Typography>
-        <Typography color="text.secondary">Local preferences stored in this browser.</Typography>
+        <Typography variant="h4" component="h1">{t('common.settings')}</Typography>
+        <Typography color="text.secondary">{t('common.localPreferences')}</Typography>
       </Box>
 
       <Paper variant="outlined" sx={{ p: 3 }}>
         <Stack spacing={2}>
-          <Typography variant="h6" component="h2">Appearance</Typography>
+          <Typography variant="h6" component="h2">{t('common.appearance')}</Typography>
           <FormControl fullWidth>
-            <InputLabel id="ui-theme-label">UI theme</InputLabel>
-            <Select labelId="ui-theme-label" label="UI theme" value={settings.uiTheme} onChange={handleUIThemeChange}>
+            <InputLabel id="ui-theme-label">{t('common.uiTheme')}</InputLabel>
+            <Select labelId="ui-theme-label" label={t('common.uiTheme')} value={settings.uiTheme} onChange={handleUIThemeChange}>
               {uiThemeOptions.map((option) => (
-                <MenuItem key={option.value} value={option.value}>{option.label}</MenuItem>
+                <MenuItem key={option.value} value={option.value}>{t(`common.theme.${option.value}`)}</MenuItem>
               ))}
             </Select>
           </FormControl>
@@ -55,12 +57,12 @@ export function SettingsPage() {
 
       <Paper variant="outlined" sx={{ p: 3 }}>
         <Stack spacing={2}>
-          <Typography variant="h6" component="h2">Editor</Typography>
+          <Typography variant="h6" component="h2">{t('common.editor')}</Typography>
           <Stack data-testid="editor-settings-layout" data-preview-position="right" direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems="stretch">
             <Stack data-testid="editor-settings-panel" spacing={2} flex={1} minWidth={0}>
               <FormControl fullWidth>
-                <InputLabel id="code-theme-label">Code theme</InputLabel>
-                <Select labelId="code-theme-label" label="Code theme" value={settings.codeTheme} onChange={handleCodeThemeChange}>
+                <InputLabel id="code-theme-label">{t('common.codeTheme')}</InputLabel>
+                <Select labelId="code-theme-label" label={t('common.codeTheme')} value={settings.codeTheme} onChange={handleCodeThemeChange}>
                   {codeThemeOptions.map((option) => (
                     <MenuItem key={option.value} value={option.value}>{option.label}</MenuItem>
                   ))}
@@ -68,12 +70,12 @@ export function SettingsPage() {
               </FormControl>
               <FormControlLabel
                 control={<Switch checked={settings.editorLineWrapping} onChange={handleLineWrappingChange} />}
-                label="Editor line wrapping"
+                label={t('common.lineWrapping')}
               />
             </Stack>
             <Stack data-testid="code-theme-preview-panel" flex={1.2} minWidth={0}>
               <ContentViewer
-                ariaLabel="Code theme preview"
+                ariaLabel={t('common.codePreview')}
                 codeTheme={settings.codeTheme}
                 contentType={1}
                 lineWrapping={settings.editorLineWrapping}

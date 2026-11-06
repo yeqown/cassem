@@ -1,18 +1,19 @@
 package storage
 
 import (
-	apikv "github.com/yeqown/cassem/api/kv"
 	"strconv"
 	"testing"
 	"time"
+
+	pb "github.com/yeqown/cassem/internal/protogen"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	bolt "go.etcd.io/bbolt"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/yeqown/cassem/pkg/conf"
-	"github.com/yeqown/cassem/pkg/runtime"
+	"github.com/yeqown/cassem/internal/pkg/conf"
+	"github.com/yeqown/cassem/internal/pkg/runtime"
 )
 
 var (
@@ -97,7 +98,7 @@ func (s *testRepositoryBBoltSuite) Test_locateBucket() {
 	_ = impl
 }
 
-var _setkv = &apikv.Entity{
+var _setkv = &pb.Entity{
 	Fingerprint: "1231231",
 	Key:         "a/b",
 	Val:         []byte("hello"),
@@ -108,7 +109,7 @@ var _setkv = &apikv.Entity{
 }
 
 func (s *testRepositoryBBoltSuite) Test_Set_Get_Unset_DIR() {
-	var dirVal *apikv.Entity
+	var dirVal *pb.Entity
 	err := s.repo.SetKV("dir/b", dirVal, true)
 	s.NoError(err)
 
@@ -146,7 +147,7 @@ func (s *testRepositoryBBoltSuite) Test_Snapshot_Recover() {
 	err := s.repo.SetKV("snapshot/dir", nil, true)
 	s.Require().NoError(err)
 
-	before := apikv.NewEntityWithCreated("snapshot/dir/key", []byte("before"), 0, time.Now().Unix())
+	before := NewEntityWithCreated("snapshot/dir/key", []byte("before"), 0, time.Now().Unix())
 	err = s.repo.SetKV("snapshot/dir/key", before, false)
 	s.Require().NoError(err)
 
@@ -154,7 +155,7 @@ func (s *testRepositoryBBoltSuite) Test_Snapshot_Recover() {
 	s.Require().NoError(err)
 	s.Require().NotEmpty(snap)
 
-	after := apikv.NewEntityWithCreated("snapshot/dir/after", []byte("after"), 0, time.Now().Unix())
+	after := NewEntityWithCreated("snapshot/dir/after", []byte("after"), 0, time.Now().Unix())
 	err = s.repo.SetKV("snapshot/dir/after", after, false)
 	s.Require().NoError(err)
 	err = s.repo.UnsetKV("snapshot/dir/key", false)
@@ -209,7 +210,7 @@ func (s *testRepositoryBBoltSuite) Test_Range() {
 	// write kv under range/dir bucket
 	for i := 0; i < 10; i++ {
 		k := "range/dir/" + strconv.Itoa(i)
-		v := apikv.NewEntityWithCreated(k, []byte("range value"), 0, time.Now().Unix())
+		v := NewEntityWithCreated(k, []byte("range value"), 0, time.Now().Unix())
 		err := s.repo.SetKV(k, v, false)
 		s.NoError(err)
 	}

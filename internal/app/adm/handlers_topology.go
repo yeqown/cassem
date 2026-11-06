@@ -9,12 +9,14 @@ import (
 	"strings"
 	"time"
 
+	pb "github.com/yeqown/cassem/internal/protogen"
+
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/health/grpc_health_v1"
 
-	"github.com/yeqown/cassem/api/concept"
-	"github.com/yeqown/cassem/pkg/httpx"
+	"github.com/yeqown/cassem/internal/concept"
+	"github.com/yeqown/cassem/internal/pkg/httpx"
 )
 
 type instanceTargetView struct {
@@ -44,7 +46,7 @@ func newInstanceView(instance *concept.Instance) instanceView {
 	}
 
 	return instanceView{
-		ID:                 instance.Id(),
+		ID:                 concept.InstanceID(instance),
 		ClientID:           instance.GetClientId(),
 		AgentID:            instance.GetAgentId(),
 		ClientIP:           instance.GetClientIp(),
@@ -130,7 +132,7 @@ type clusterTopologyResp struct {
 }
 
 func (d app) GetAgentsHTTP(w http.ResponseWriter, r *http.Request) {
-	out := []*concept.AgentInstance(nil)
+	out := []*pb.AgentInstance(nil)
 	if d.ap != nil {
 		out = d.ap.all()
 	}
@@ -189,7 +191,7 @@ func (d app) GetClusterTopologyHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (d app) clusterTopology(ctx context.Context, now time.Time) (*clusterTopologyResp, error) {
-	agents := make([]*concept.AgentInstance, 0)
+	agents := make([]*pb.AgentInstance, 0)
 	if d.ap != nil {
 		agents = d.ap.all()
 	}
@@ -244,7 +246,7 @@ func (d app) topologyDBNodes(ctx context.Context) []topologyDBNode {
 	return out
 }
 
-func topologyAgentNodes(agents []*concept.AgentInstance) []topologyAgentNode {
+func topologyAgentNodes(agents []*pb.AgentInstance) []topologyAgentNode {
 	out := make([]topologyAgentNode, 0, len(agents))
 	for _, agent := range agents {
 		if agent == nil {
@@ -279,7 +281,7 @@ func topologyInstanceNodes(instances []*concept.Instance, now time.Time) []topol
 	return out
 }
 
-func agentHealth(agent *concept.AgentInstance) topologyHealth {
+func agentHealth(agent *pb.AgentInstance) topologyHealth {
 	if agent == nil || strings.TrimSpace(agent.GetAddr()) == "" {
 		return topologyHealthOffline
 	}

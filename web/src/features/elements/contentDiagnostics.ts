@@ -1,6 +1,7 @@
 import { jsonParseLinter } from '@codemirror/lang-json'
 import { linter, type Diagnostic } from '@codemirror/lint'
 import type { EditorState, Extension } from '@codemirror/state'
+import type { Translator } from '../../i18n'
 import { validateContent, type ContentDiagnostic, type ContentTypeInput } from './contentValidation'
 
 function contentTypeKey(contentType?: ContentTypeInput) {
@@ -27,14 +28,14 @@ function diagnosticRange(state: EditorState, item: ContentDiagnostic) {
   return { from, to: Math.max(to, from + 1) }
 }
 
-export function createContentDiagnostics(contentType?: ContentTypeInput): Extension[] {
+export function createContentDiagnostics(contentType?: ContentTypeInput, t?: Translator): Extension[] {
   if (contentTypeKey(contentType) === 1) {
     return [linter(jsonParseLinter(), { delay: 250 })]
   }
 
   return [
     linter((view): Diagnostic[] => {
-      const result = validateContent(contentType, view.state.doc.toString())
+      const result = validateContent(contentType, view.state.doc.toString(), t)
 
       return (result.diagnostics || []).map((item): Diagnostic => ({
         ...diagnosticRange(view.state, item),

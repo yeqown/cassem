@@ -4,15 +4,16 @@ import (
 	"context"
 	"net"
 
+	pb "github.com/yeqown/cassem/internal/protogen"
+
 	"github.com/yeqown/log"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/status"
 
-	errorx "github.com/yeqown/cassem/api/concept"
-	apikv "github.com/yeqown/cassem/api/kv"
-	"github.com/yeqown/cassem/pkg/grpcx"
+	errorx "github.com/yeqown/cassem/internal/concept"
+	"github.com/yeqown/cassem/internal/pkg/grpcx"
 )
 
 type grpcServer struct {
@@ -33,28 +34,28 @@ func gRPC(coord ICoordinator) *grpc.Server {
 				grpcx.ServerRecovery(), grpcx.ServerLogger(), grpcx.SevrerErrorx(), grpcx.ServerValidation()),
 		),
 	)
-	apikv.RegisterKVServer(s, srv)
-	apikv.RegisterClusterServer(s, srv)
+	pb.RegisterKVServer(s, srv)
+	pb.RegisterClusterServer(s, srv)
 	reflection.Register(s)
 
 	return s
 }
 
-func (s grpcServer) GetKV(ctx context.Context, req *apikv.GetKVReq) (*apikv.GetKVResp, error) {
+func (s grpcServer) GetKV(ctx context.Context, req *pb.GetKVReq) (*pb.GetKVResp, error) {
 	v, err := s.coord.getKV(req.GetKey())
 	if err != nil {
 		return nil, err
 	}
 
-	resp := &apikv.GetKVResp{
+	resp := &pb.GetKVResp{
 		Entity: v,
 	}
 	return resp, nil
 }
 
-func (s grpcServer) GetKVs(ctx context.Context, req *apikv.GetKVsReq) (*apikv.GetKVsResp, error) {
-	entities := make([]*apikv.Entity, 0, len(req.GetKeys()))
-	errors := make([]*apikv.KeyError, 0)
+func (s grpcServer) GetKVs(ctx context.Context, req *pb.GetKVsReq) (*pb.GetKVsResp, error) {
+	entities := make([]*pb.Entity, 0, len(req.GetKeys()))
+	errors := make([]*pb.KeyError, 0)
 	for _, k := range req.GetKeys() {
 		v, err := s.coord.getKV(k)
 		if err != nil {
@@ -65,14 +66,14 @@ func (s grpcServer) GetKVs(ctx context.Context, req *apikv.GetKVsReq) (*apikv.Ge
 		entities = append(entities, v)
 	}
 
-	resp := &apikv.GetKVsResp{
+	resp := &pb.GetKVsResp{
 		Entities: entities,
 		Errors:   errors,
 	}
 	return resp, nil
 }
 
-func newKeyError(key string, err error) *apikv.KeyError {
+func newKeyError(key string, err error) *pb.KeyError {
 	code := codes.Unknown
 	message := err.Error()
 	if x, ok := errorx.FromError(err); ok {
@@ -83,14 +84,14 @@ func newKeyError(key string, err error) *apikv.KeyError {
 		message = s.Message()
 	}
 
-	return &apikv.KeyError{
+	return &pb.KeyError{
 		Key:     key,
 		Code:    code.String(),
 		Message: message,
 	}
 }
 
-func (s grpcServer) SetKV(ctx context.Context, req *apikv.SetKVReq) (*apikv.Empty, error) {
+func (s grpcServer) SetKV(ctx context.Context, req *pb.SetKVReq) (*pb.Empty, error) {
 	err := s.coord.setKV(ctx, &setKVParam{
 		key:       req.GetKey(),
 		val:       req.GetVal(),
@@ -102,9 +103,9 @@ func (s grpcServer) SetKV(ctx context.Context, req *apikv.SetKVReq) (*apikv.Empt
 	return _empty, err
 }
 
-var _empty = new(apikv.Empty)
+var _empty = new(pb.Empty)
 
-func (s grpcServer) UnsetKV(ctx context.Context, req *apikv.UnsetKVReq) (*apikv.Empty, error) {
+func (s grpcServer) UnsetKV(ctx context.Context, req *pb.UnsetKVReq) (*pb.Empty, error) {
 	err := s.coord.unsetKV(ctx, &unsetKVParam{
 		key:   req.GetKey(),
 		isDir: req.GetIsDir(),
@@ -112,7 +113,7 @@ func (s grpcServer) UnsetKV(ctx context.Context, req *apikv.UnsetKVReq) (*apikv.
 	return _empty, err
 }
 
-func (s grpcServer) Watch(req *apikv.WatchReq, stream apikv.KV_WatchServer) (err error) {
+func (s grpcServer) Watch(req *pb.WatchReq, stream pb.KV_WatchServer) (err error) {
 	ob, cancel := s.coord.watch(req.GetKeys()...)
 	defer cancel()
 
@@ -154,17 +155,17 @@ func (s grpcServer) Watch(req *apikv.WatchReq, stream apikv.KV_WatchServer) (err
 	}
 }
 
-func (s grpcServer) TTL(ctx context.Context, req *apikv.TtlReq) (*apikv.TtlResp, error) {
+func (s grpcServer) TTL(ctx context.Context, req *pb.TtlReq) (*pb.TtlResp, error) {
 	ttl, err := s.coord.ttl(req.GetKey())
-	return &apikv.TtlResp{Ttl: ttl}, err
+	return &pb.TtlResp{Ttl: ttl}, err
 }
 
-func (s grpcServer) Expire(ctx context.Context, req *apikv.ExpireReq) (*apikv.Empty, error) {
+func (s grpcServer) Expire(ctx context.Context, req *pb.ExpireReq) (*pb.Empty, error) {
 	err := s.coord.expire(req.GetKey())
 	return _empty, err
 }
 
-func (s grpcServer) Range(ctx context.Context, req *apikv.RangeReq) (*apikv.RangeResp, error) {
+func (s grpcServer) Range(ctx context.Context, req *pb.RangeReq) (*pb.RangeResp, error) {
 	result, err := s.coord.iterate(&rangeParam{
 		key:   req.GetKey(),
 		seek:  req.GetSeek(),
@@ -184,25 +185,28 @@ func (s grpcServer) Range(ctx context.Context, req *apikv.RangeReq) (*apikv.Rang
 	return result, nil
 }
 
-func (s grpcServer) CompactElementHistory(ctx context.Context, req *apikv.CompactElementHistoryReq) (*apikv.CompactElementHistoryResp, error) {
+func (s grpcServer) CompactElementHistory(ctx context.Context, req *pb.CompactElementHistoryReq) (*pb.CompactElementHistoryResp, error) {
 	return s.coord.compactElementHistory(req)
 }
 
 // translateChange construct an kv.Change from concept.Change interface.
 // DONE(@yeqown): use proto to ignore convert procedure.
-func translateChange(change errorx.Change) *apikv.Change {
+func translateChange(change errorx.Change) *pb.Change {
 	var (
-		c  *apikv.Change
+		c  *pb.Change
 		ok bool
 	)
 
 	switch change.Type() {
-	case errorx.ChangeType_KV:
-		c, ok = change.(*apikv.Change)
-	case errorx.ChangeType_DIR:
-		var pdc *apikv.ParentDirectoryChange
-		if pdc, ok = change.(*apikv.ParentDirectoryChange); ok {
-			c = pdc.Change
+	case pb.ChangeType_KV:
+		var kvChange *errorx.KVChange
+		if kvChange, ok = change.(*errorx.KVChange); ok {
+			c = kvChange.Change
+		}
+	case pb.ChangeType_DIR:
+		var pdc *errorx.DirectoryChange
+		if pdc, ok = change.(*errorx.DirectoryChange); ok {
+			c = pdc.GetChange()
 		}
 	default:
 	}
@@ -217,26 +221,26 @@ func translateChange(change errorx.Change) *apikv.Change {
 }
 
 func (s grpcServer) AddNode(
-	ctx context.Context, req *apikv.AddNodeRequest) (resp *apikv.AddNodeResponse, err error) {
-	resp = new(apikv.AddNodeResponse)
+	ctx context.Context, req *pb.AddNodeRequest) (resp *pb.AddNodeResponse, err error) {
+	resp = new(pb.AddNodeResponse)
 	resp.NodeId, resp.Peers, err = s.coord.addNode(ctx, req.GetRaftAddr(), req.GetGrpcEndpoint())
 	return
 }
 
 func (s grpcServer) RemoveNode(
-	ctx context.Context, req *apikv.RemoveNodeRequest) (resp *apikv.RemoveNodeResponse, err error) {
+	ctx context.Context, req *pb.RemoveNodeRequest) (resp *pb.RemoveNodeResponse, err error) {
 	err = s.coord.removeNode(ctx, req.GetNodeId())
-	resp = new(apikv.RemoveNodeResponse)
+	resp = new(pb.RemoveNodeResponse)
 	return
 }
 
 func (s grpcServer) ListMembers(
-	ctx context.Context, req *apikv.ListMembersRequest) (*apikv.ListMembersResponse, error) {
+	ctx context.Context, req *pb.ListMembersRequest) (*pb.ListMembersResponse, error) {
 	members, err := s.coord.listMembers()
 	if err != nil {
 		return nil, err
 	}
-	return &apikv.ListMembersResponse{Members: members}, nil
+	return &pb.ListMembersResponse{Members: members}, nil
 }
 
 // // isClientClosed check whether the error contains any code which indicates client is offline.

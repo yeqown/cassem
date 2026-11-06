@@ -7,16 +7,18 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	apikv "github.com/yeqown/cassem/api/kv"
 	"io"
 	"net/http"
 	"net/url"
 	"testing"
 	"time"
 
+	pb "github.com/yeqown/cassem/internal/protogen"
+
 	"github.com/stretchr/testify/require"
-	"github.com/yeqown/cassem/api/agent"
-	"github.com/yeqown/cassem/api/concept"
+	"github.com/yeqown/cassem/internal/concept"
+	"github.com/yeqown/cassem/internal/kvclient"
+	sdk "github.com/yeqown/cassem/sdk/go"
 	"github.com/yeqown/cassem/tests/testutil"
 	"google.golang.org/grpc"
 )
@@ -29,9 +31,9 @@ func TestElementLifecycleThroughAdmAndAgent(t *testing.T) {
 	createAppEnvElement(t, adm, app, env, key, "value-v1")
 	publishElement(t, adm, app, env, key, 1, concept.PublishMode_FULL, nil)
 
-	agentClient, err := agent.New(cluster.AgentEndpoint,
-		agent.WithClientId("client-lifecycle"),
-		agent.WithClientIp("127.0.0.1"))
+	agentClient, err := sdk.New(cluster.AgentEndpoint, sdk.WithToken(issueAgentToken(t, adm.HTTPClient)),
+		sdk.WithClientId("client-lifecycle"),
+		sdk.WithClientIp("127.0.0.1"))
 	require.NoError(t, err)
 	t.Cleanup(agentClient.Quit)
 
@@ -73,7 +75,7 @@ func TestOperationAuditAndResetUser(t *testing.T) {
 	require.GreaterOrEqual(t, len(ops.Operations), 3)
 	require.Equal(t, "superadmin@example.com", ops.Operations[0].GetOperator())
 	require.Equal(t, key, ops.Operations[0].GetOperatedKey())
-	require.Equal(t, concept.ElementOperation_SET, ops.Operations[0].GetOp())
+	require.Equal(t, pb.ElementOperation_SET, ops.Operations[0].GetOp())
 
 	account := fmt.Sprintf("user-%d@example.com", time.Now().UnixNano())
 	adm.post(t, "/api/account/add", map[string]any{
@@ -84,8 +86,8 @@ func TestOperationAuditAndResetUser(t *testing.T) {
 
 	loginClient := testutil.NewHTTPClient(cluster.AdmBaseURL)
 	var loginResp struct {
-		User    *concept.User `json:"user"`
-		Session string        `json:"session"`
+		User    *pb.User `json:"user"`
+		Session string   `json:"session"`
 	}
 	loginClient.DoJSON(t, http.MethodPost, "/api/account/login", map[string]any{
 		"account":  account,
@@ -141,10 +143,10 @@ func TestGrayPublishToInstance(t *testing.T) {
 
 	targetID := "gray-target"
 	otherID := "gray-other"
-	target, err := agent.New(cluster.AgentEndpoint, agent.WithClientId(targetID), agent.WithClientIp("127.0.0.1"))
+	target, err := sdk.New(cluster.AgentEndpoint, sdk.WithToken(issueAgentToken(t, adm.HTTPClient)), sdk.WithClientId(targetID), sdk.WithClientIp("127.0.0.1"))
 	require.NoError(t, err)
 	t.Cleanup(target.Quit)
-	other, err := agent.New(cluster.AgentEndpoint, agent.WithClientId(otherID), agent.WithClientIp("127.0.0.1"))
+	other, err := sdk.New(cluster.AgentEndpoint, sdk.WithToken(issueAgentToken(t, adm.HTTPClient)), sdk.WithClientId(otherID), sdk.WithClientIp("127.0.0.1"))
 	require.NoError(t, err)
 	t.Cleanup(other.Quit)
 
@@ -166,27 +168,27 @@ func TestGrayPublishToInstance(t *testing.T) {
 
 func TestKVTTLExpireThroughDB(t *testing.T) {
 	cluster := testutil.UseDBCluster(t)
-	cc := testutil.DialCassemKV(t, cluster.DBEndpoints, apikv.Mode_X)
+	cc := testutil.DialCassemKV(t, cluster.DBEndpoints, kvclient.Mode_X)
 	t.Cleanup(func() { _ = cc.Close() })
-	client := apikv.NewKVClient(cc)
+	client := pb.NewKVClient(cc)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	dir := fmt.Sprintf("tests/ttl/%d", time.Now().UnixNano())
 	key := dir + "/item"
-	_, err := client.SetKV(ctx, &apikv.SetKVReq{Key: key, Val: []byte("ttl"), Ttl: 1, Overwrite: true})
+	_, err := client.SetKV(ctx, &pb.SetKVReq{Key: key, Val: []byte("ttl"), Ttl: 1, Overwrite: true})
 	require.NoError(t, err)
 
 	require.Eventually(t, func() bool {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 		defer cancel()
-		_, err := client.GetKV(ctx, &apikv.GetKVReq{Key: key})
+		_, err := client.GetKV(ctx, &pb.GetKVReq{Key: key})
 		return err != nil
 	}, 5*time.Second, 200*time.Millisecond)
 
 	ctx, cancel = context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	r, err := client.Range(ctx, &apikv.RangeReq{Key: dir, Limit: 100})
+	r, err := client.Range(ctx, &pb.RangeReq{Key: dir, Limit: 100})
 	require.NoError(t, err)
 	for _, entity := range r.GetEntities() {
 		require.NotEqual(t, key, entity.GetKey())
@@ -257,12 +259,12 @@ func waitDeliveryToInstance(t testing.TB, endpoint string, app string, env strin
 	cc, err := grpc.Dial(endpoint, grpc.WithInsecure(), grpc.WithBlock(), grpc.WithTimeout(5*time.Second))
 	require.NoError(t, err)
 	defer cc.Close()
-	client := agent.NewDeliveryClient(cc)
+	client := pb.NewDeliveryClient(cc)
 
 	probe := &concept.Element{Metadata: &concept.ElementMetadata{App: app, Env: env, Key: key}, Raw: []byte("probe")}
 	require.Eventually(t, func() bool {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-		_, err := client.Dispatch(ctx, &agent.DispatchReq{Elems: []*concept.Element{probe}, InstanceIds: []string{instanceID}})
+		_, err := client.Dispatch(ctx, &pb.DispatchReq{Elems: []*concept.Element{probe}, InstanceIds: []string{instanceID}})
 		cancel()
 		if err != nil {
 			return false

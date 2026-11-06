@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	apikv "github.com/yeqown/cassem/api/kv"
 	"net/http"
 	"net/url"
 	"os"
@@ -12,6 +11,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	concept "github.com/yeqown/cassem/internal/concept"
 
 	"github.com/yeqown/log"
 	"go.etcd.io/etcd/client/pkg/v3/fileutil"
@@ -25,8 +26,8 @@ import (
 	"go.etcd.io/etcd/server/v3/wal/walpb"
 	"go.uber.org/zap"
 
-	"github.com/yeqown/cassem/pkg/retry"
-	"github.com/yeqown/cassem/pkg/runtime"
+	"github.com/yeqown/cassem/internal/pkg/retry"
+	"github.com/yeqown/cassem/internal/pkg/runtime"
 )
 
 type commit struct {
@@ -36,9 +37,9 @@ type commit struct {
 
 // A key-value stream backed by raft
 type raftNode struct {
-	proposeC    <-chan *apikv.Propose // proposed messages (k,v)
-	commitC     chan<- *commit        // entries committed to log (k,v)
-	errorC      chan<- error          // errors from raft session
+	proposeC    <-chan *proposal // proposed messages (k,v)
+	commitC     chan<- *commit   // entries committed to log (k,v)
+	errorC      chan<- error     // errors from raft session
 	leadershipC chan<- raft.StateType
 
 	confChangeCount uint64
@@ -105,7 +106,7 @@ type peerOperator interface {
 // current), then new log entries. To shut it down, close proposeC and read errorC.
 func newRaftNode(
 	cfg *config,
-	proposeC <-chan *apikv.Propose,
+	proposeC <-chan *proposal,
 	leadershipC chan<- raft.StateType,
 ) (<-chan *commit, <-chan error, <-chan *snap.Snapshotter, peerOperator) {
 
@@ -469,7 +470,7 @@ func (rc *raftNode) serveChannels() {
 				} else {
 					// blocks until accepted by raft state machine
 					// DONE(@yeqown): return error to request (synchronized?)
-					prop.ErrC <- rc.node.Propose(prop.Ctx, apikv.Must(apikv.Marshal(prop.Entry)))
+					prop.ErrC <- rc.node.Propose(prop.Ctx, concept.MustMarshalProto(prop.Entry))
 				}
 			}
 			// client closed channel; shutdown raft if not already

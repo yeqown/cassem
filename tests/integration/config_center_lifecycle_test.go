@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"github.com/yeqown/cassem/api/agent"
-	"github.com/yeqown/cassem/api/concept"
+	"github.com/yeqown/cassem/internal/concept"
+	sdk "github.com/yeqown/cassem/sdk/go"
 	"github.com/yeqown/cassem/tests/testutil"
 )
 
@@ -29,7 +29,7 @@ func TestConfigCenterReleaseGate_OnlinePaymentFeatureFlagLifecycle(t *testing.T)
 	createJSONElement(t, adm, app, env, key, v1)
 	publishReleaseGateElement(t, adm, app, env, key, 1, concept.PublishMode_FULL, nil)
 
-	agentClient, err := agent.New(cluster.AgentEndpoint, agent.WithClientId(scope.ClientID("checkout-worker")), agent.WithClientIp("127.0.0.1"))
+	agentClient, err := sdk.New(cluster.AgentEndpoint, sdk.WithToken(issueAgentToken(t, adm.HTTPClient)), sdk.WithClientId(scope.ClientID("checkout-worker")), sdk.WithClientIp("127.0.0.1"))
 	require.NoError(t, err)
 	t.Cleanup(agentClient.Quit)
 	waitAgentRaw(t, agentClient, app, env, key, v1)
@@ -99,7 +99,7 @@ func TestConfigCenterReleaseGate_RollbackPaymentLimitPolicyToStableVersion(t *te
 	current := getElement(t, adm, app, env, key, 0)
 	require.Equal(t, v1, string(current.GetRaw()))
 
-	agentClient, err := agent.New(cluster.AgentEndpoint, agent.WithClientId(scope.ClientID("payment-reader")), agent.WithClientIp("127.0.0.1"))
+	agentClient, err := sdk.New(cluster.AgentEndpoint, sdk.WithToken(issueAgentToken(t, adm.HTTPClient)), sdk.WithClientId(scope.ClientID("payment-reader")), sdk.WithClientIp("127.0.0.1"))
 	require.NoError(t, err)
 	t.Cleanup(agentClient.Quit)
 	waitAgentRaw(t, agentClient, app, env, key, v1)

@@ -4,9 +4,10 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/yeqown/cassem/api/concept"
-	"github.com/yeqown/cassem/pkg/httpx"
-	"github.com/yeqown/cassem/pkg/runtime"
+	"github.com/yeqown/cassem/internal/concept"
+	"github.com/yeqown/cassem/internal/pkg/httpx"
+	"github.com/yeqown/cassem/internal/pkg/runtime"
+	pb "github.com/yeqown/cassem/internal/protogen"
 )
 
 func (d app) GetAppsHTTP(w http.ResponseWriter, r *http.Request) {
@@ -48,7 +49,7 @@ func (d app) CreateAppHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	operator := concept.OperatorFromContext(r.Context())
-	md := &concept.AppMetadata{
+	md := &pb.AppMetadata{
 		Id:          req.App,
 		Description: req.Description,
 		CreatedAt:   time.Now().Unix(),
@@ -122,7 +123,7 @@ func (d app) GetAppEnvElementsHTTP(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, err)
 		return
 	}
-	var out any
+	var out *concept.GetElementsResult
 	var err error
 	if len(req.ElementKeys) != 0 {
 		out, err = d.aggregate.GetElementsByKeys(r.Context(), req.AppId, req.Env, req.ElementKeys)
@@ -133,7 +134,7 @@ func (d app) GetAppEnvElementsHTTP(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, err)
 		return
 	}
-	httpx.WriteJSON(w, out)
+	httpx.WriteJSON(w, elementsJSON{result: out})
 }
 
 func (d app) GetAppEnvElementHTTP(w http.ResponseWriter, r *http.Request) {
@@ -147,7 +148,7 @@ func (d app) GetAppEnvElementHTTP(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, err)
 		return
 	}
-	httpx.WriteJSON(w, out)
+	httpx.WriteJSON(w, elementJSON{element: out})
 }
 
 func (d app) CreateAppEnvElementHTTP(w http.ResponseWriter, r *http.Request) {
@@ -205,7 +206,7 @@ func (d app) GetAppEnvElementAllVersionsHTTP(w http.ResponseWriter, r *http.Requ
 		httpx.WriteError(w, err)
 		return
 	}
-	httpx.WriteJSON(w, out)
+	httpx.WriteJSON(w, elementsJSON{result: out})
 }
 
 func (d app) GetAppEnvElementOperationsHTTP(w http.ResponseWriter, r *http.Request) {

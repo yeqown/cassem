@@ -11,9 +11,10 @@ import (
 	"testing"
 	"time"
 
+	pb "github.com/yeqown/cassem/internal/protogen"
+
 	"github.com/stretchr/testify/require"
-	"github.com/yeqown/cassem/api/agent"
-	"github.com/yeqown/cassem/api/concept"
+	"github.com/yeqown/cassem/internal/concept"
 	"github.com/yeqown/cassem/tests/testutil"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -29,6 +30,35 @@ func newReleaseGateAdm(t testing.TB, baseURL string) releaseGateAdmClient {
 	client := testutil.NewHTTPClient(baseURL)
 	client.Session = testutil.LoginSuperadmin(t, baseURL)
 	return releaseGateAdmClient{HTTPClient: client}
+}
+
+// issueAgentToken uses the current superadmin session and revokes the credential
+// after clients registered later in the test have completed their cleanup.
+func issueAgentToken(t testing.TB, adm *testutil.HTTPClient) string {
+	t.Helper()
+	token, _ := issueAgentTokenForAccount(t, adm, "superadmin@example.com")
+	return token
+}
+
+func issueAgentTokenForAccount(t testing.TB, adm *testutil.HTTPClient, account string) (string, func()) {
+	t.Helper()
+	path := "/api/account/users/" + url.PathEscape(account) + "/tokens"
+	var issued struct {
+		ID    string `json:"id"`
+		Token string `json:"token"`
+	}
+	adm.DoJSON(t, http.MethodPost, path, map[string]any{
+		"name":             fmt.Sprintf("integration-%d", time.Now().UnixNano()),
+		"expiresInSeconds": 3600,
+	}, &issued)
+	require.NotEmpty(t, issued.ID, "issued token ID is missing")
+	require.NotEmpty(t, issued.Token, "issued token value is missing")
+	revoke := func() {
+		t.Helper()
+		adm.DoJSON(t, http.MethodDelete, path+"/"+url.PathEscape(issued.ID), nil, nil)
+	}
+	t.Cleanup(revoke)
+	return issued.Token, revoke
 }
 
 func createAppEnv(t testing.TB, adm releaseGateAdmClient, app string, env string) {
@@ -175,11 +205,11 @@ func waitWatchRegistered(t testing.TB, endpoint string, app string, env string, 
 	require.NoError(t, err)
 	defer cc.Close()
 
-	client := agent.NewDeliveryClient(cc)
+	client := pb.NewDeliveryClient(cc)
 	probe := &concept.Element{Metadata: &concept.ElementMetadata{App: app, Env: env, Key: key}, Raw: []byte("probe")}
 	testutil.RequireEventually(t, 10*time.Second, 200*time.Millisecond, func() (bool, string) {
 		callCtx, callCancel := context.WithTimeout(context.Background(), time.Second)
-		_, err := client.Dispatch(callCtx, &agent.DispatchReq{Elems: []*concept.Element{probe}, InstanceIds: []string{instanceID}})
+		_, err := client.Dispatch(callCtx, &pb.DispatchReq{Elems: []*concept.Element{probe}, InstanceIds: []string{instanceID}})
 		callCancel()
 		if err != nil {
 			return false, err.Error()

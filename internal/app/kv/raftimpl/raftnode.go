@@ -3,20 +3,21 @@ package raftimpl
 import (
 	"context"
 
-	errorx "github.com/yeqown/cassem/api/concept"
-	apikv "github.com/yeqown/cassem/api/kv"
+	pb "github.com/yeqown/cassem/internal/protogen"
+
+	errorx "github.com/yeqown/cassem/internal/concept"
 )
 
 // RaftNode defines the ability of what raft component should act.
 type RaftNode interface {
 	// GetKV get value of key
-	GetKV(getReq *apikv.GetKVReq) (*apikv.Entity, error)
+	GetKV(getReq *pb.GetKVReq) (*pb.Entity, error)
 	// SetKV save key and value
-	SetKV(ctx context.Context, setReq *apikv.SetKVReq) error
+	SetKV(ctx context.Context, setReq *pb.SetKVReq) error
 	// UnsetKV save key and value
-	UnsetKV(ctx context.Context, unsetReq *apikv.UnsetKVReq) error
-	Range(rangeReq *apikv.RangeReq) (*apikv.RangeResp, error)
-	Expire(expireReq *apikv.ExpireReq) error
+	UnsetKV(ctx context.Context, unsetReq *pb.UnsetKVReq) error
+	Range(rangeReq *pb.RangeReq) (*pb.RangeResp, error)
+	Expire(expireReq *pb.ExpireReq) error
 
 	// IsLeader returns current node is leader or not. true mean leader.
 	IsLeader() bool

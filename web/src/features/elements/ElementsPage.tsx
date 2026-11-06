@@ -29,6 +29,7 @@ import { DangerConfirmDialog } from '../../components/DangerConfirmDialog'
 import { EmptyState, ErrorState, LoadingState } from '../../components/StateView'
 import { useErrorState } from '../../components/useErrorState'
 import { contentTypes, formatVersionLabel, type Element, type ElementsResponse } from '../../domain/types'
+import { useI18n } from '../../i18n'
 import { ApiError, apiRequest, buildQuery, jsonBody } from '../../lib/api'
 import { readSettings } from '../../lib/settings'
 import { ContentEditor } from './ContentEditor'
@@ -53,6 +54,7 @@ async function requestElements(appId: string, env: string, query: string, limit:
 }
 
 export function ElementsPage() {
+  const { t, formatNumber } = useI18n()
   const { appId = '', env = '' } = useParams()
   const [elements, setElements] = useState<Element[]>([])
   const [loading, setLoading] = useState(true)
@@ -100,7 +102,7 @@ export function ElementsPage() {
           setElements([])
           setHasMore(false)
           setNextSeek('')
-          setError('missing app id or environment')
+          setError(t('elements.error.missingLocation'))
           setLoading(false)
           setLoadingMore(false)
         }
@@ -119,7 +121,7 @@ export function ElementsPage() {
         if (!append) setElements([])
         setHasMore(false)
         setNextSeek('')
-        setError(getErrorMessage(err, 'failed to load elements'))
+        setError(getErrorMessage(err, t('elements.error.load')))
       } finally {
         if (mountedRef.current && requestId === requestSeq.current) {
           setLoading(false)
@@ -127,7 +129,7 @@ export function ElementsPage() {
         }
       }
     },
-    [appId, env, setError],
+    [appId, env, setError, t],
   )
 
   useEffect(() => {
@@ -150,11 +152,11 @@ export function ElementsPage() {
     if (!createOpen) return
 
     const timer = window.setTimeout(() => {
-      setCreateValidation(validateContent(createContentType, createRaw))
+      setCreateValidation(validateContent(createContentType, createRaw, t))
     }, 250)
 
     return () => window.clearTimeout(timer)
-  }, [createOpen, createContentType, createRaw])
+  }, [createOpen, createContentType, createRaw, t])
 
   async function handleSearchSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -215,7 +217,7 @@ export function ElementsPage() {
     const nextKey = createKey.trim()
     if (!startedAppId || !startedEnv || !nextKey || !createRaw.trim()) return
 
-    const validation = validateContent(createContentType, createRaw)
+    const validation = validateContent(createContentType, createRaw, t)
     setCreateValidation(validation)
     if (!validation.valid) return
 
@@ -241,7 +243,7 @@ export function ElementsPage() {
       await loadElements(query, pageSize)
     } catch (err) {
       if (canApplyMutationResult(startedAppId, startedEnv)) {
-        setError(getErrorMessage(err, 'failed to create element'))
+        setError(getErrorMessage(err, t('elements.error.create')))
       }
     } finally {
       if (mountedRef.current) setSubmitting(false)
@@ -272,7 +274,7 @@ export function ElementsPage() {
       await loadElements(query, pageSize)
     } catch (err) {
       if (canApplyMutationResult(startedAppId, startedEnv)) {
-        setError(getErrorMessage(err, 'failed to delete element'))
+        setError(getErrorMessage(err, t('elements.error.delete')))
       }
     } finally {
       if (mountedRef.current) setSubmitting(false)
@@ -282,10 +284,10 @@ export function ElementsPage() {
   return (
     <Stack spacing={3}>
       <AppBreadcrumbs items={[
-        { label: 'Apps', to: '/apps' },
-        { label: appId || 'unknown', to: `/apps/${encodeURIComponent(appId)}/envs` },
-        { label: env || 'unknown', to: `/apps/${encodeURIComponent(appId)}/envs/${encodeURIComponent(env)}/elements` },
-        { label: 'Elements' },
+        { label: t('elements.apps'), to: '/apps' },
+        { label: appId || t('elements.unknown'), to: `/apps/${encodeURIComponent(appId)}/envs` },
+        { label: env || t('elements.unknown'), to: `/apps/${encodeURIComponent(appId)}/envs/${encodeURIComponent(env)}/elements` },
+        { label: t('elements.title') },
       ]} />
 
       <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" spacing={2} alignItems={{ md: 'center' }}>
@@ -293,13 +295,13 @@ export function ElementsPage() {
           <Stack direction="row" spacing={1} alignItems="center">
             <Inventory2Icon color="primary" />
             <Typography variant="h4" component="h1">
-              Elements
+              {t('elements.title')}
             </Typography>
           </Stack>
-          <Typography color="text.secondary">Elements are versioned configuration entries that can be reviewed, published, and consumed by clients.</Typography>
+          <Typography color="text.secondary">{t('elements.description')}</Typography>
         </Box>
         <Button variant="contained" startIcon={<AddCircleOutlineIcon />} onClick={() => setCreateOpen(true)} disabled={!appId || !env || submitting}>
-          Add element
+          {t('elements.add')}
         </Button>
       </Stack>
 
@@ -307,9 +309,9 @@ export function ElementsPage() {
 
       <DangerConfirmDialog
         open={Boolean(deleteTarget)}
-        title="Delete element"
-        description={<>This will delete element <strong>{deleteTarget}</strong> from <strong>{appId}/{env}</strong>.</>}
-        confirmLabel="Delete"
+        title={t('elements.deleteTitle')}
+        description={t('elements.deleteDescription', { key: deleteTarget, app: appId, env })}
+        confirmLabel={t('elements.delete')}
         loading={submitting}
         onClose={closeDeleteDialog}
         onConfirm={() => void handleDelete()}
@@ -317,7 +319,7 @@ export function ElementsPage() {
 
       <Stack component="form" onSubmit={(event) => void handleSearchSubmit(event)} direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems={{ md: 'center' }}>
         <TextField
-          label="Search elements"
+          label={t('elements.searchLabel')}
           value={queryInput}
           onChange={(event) => setQueryInput(event.target.value)}
           size="small"
@@ -325,14 +327,14 @@ export function ElementsPage() {
           disabled={loading || loadingMore || submitting || !appId || !env}
         />
         <Button type="submit" variant="contained" startIcon={<SearchIcon />} disabled={loading || loadingMore || submitting || !appId || !env} sx={{ minWidth: 128, height: 40, px: 3 }}>
-          Search
+          {t('elements.search')}
         </Button>
         <Button variant="text" onClick={handleClearSearch} disabled={loading || loadingMore || submitting || (!query && !queryInput)}>
-          Clear
+          {t('elements.clear')}
         </Button>
         <TextField
           select
-          label="Rows per page"
+          label={t('elements.rowsPerPage')}
           value={String(pageSize)}
           onChange={(event) => handlePageSizeChange(event.target.value)}
           size="small"
@@ -340,20 +342,20 @@ export function ElementsPage() {
           disabled={loading || loadingMore || submitting || !appId || !env}
         >
           {pageSizeOptions.map((option) => (
-            <MenuItem key={option} value={option}>{option}</MenuItem>
+            <MenuItem key={option} value={option}>{formatNumber(option)}</MenuItem>
           ))}
         </TextField>
       </Stack>
 
       <Dialog open={createOpen} onClose={closeCreateDialog} fullWidth maxWidth="md">
         <Box component="form" onSubmit={(event) => void handleCreate(event)}>
-          <DialogTitle>Add element</DialogTitle>
+          <DialogTitle>{t('elements.add')}</DialogTitle>
           <DialogContent>
             <Stack spacing={2} sx={{ mt: 1 }}>
-              <TextField label="Key" value={createKey} onChange={(event) => setCreateKey(event.target.value)} required fullWidth disabled={submitting} helperText="Configuration key name, for example db.url or redis.password." />
+              <TextField label={t('elements.key')} value={createKey} onChange={(event) => setCreateKey(event.target.value)} required fullWidth disabled={submitting} helperText={t('elements.keyHelp')} />
               <TextField
                 select
-                label="Content type"
+                label={t('elements.contentType')}
                 value={String(createContentType)}
                 onChange={(event) => setCreateContentType(Number(event.target.value))}
                 fullWidth
@@ -367,38 +369,38 @@ export function ElementsPage() {
               </TextField>
               <Stack spacing={0.75}>
                 <Typography variant="caption" color="text.secondary">
-                  Raw *
+                  {t('elements.rawRequired')}
                 </Typography>
-                <ContentEditor value={createRaw} contentType={createContentType} ariaLabel="Raw" codeTheme={settings.codeTheme} disabled={submitting} lineWrapping={settings.editorLineWrapping} minRows={10} showContentType={false} validation={createValidation} onChange={setCreateRaw} />
+                <ContentEditor value={createRaw} contentType={createContentType} ariaLabel={t('elements.raw')} codeTheme={settings.codeTheme} disabled={submitting} lineWrapping={settings.editorLineWrapping} minRows={10} showContentType={false} validation={createValidation} onChange={setCreateRaw} />
                 <Typography variant="caption" color="text.secondary">
-                  Paste the full configuration payload for this element.
+                  {t('elements.rawHelp')}
                 </Typography>
               </Stack>
             </Stack>
           </DialogContent>
           <DialogActions>
-            <Button onClick={closeCreateDialog} disabled={submitting}>Cancel</Button>
-            <Button type="submit" variant="contained" disabled={submitting || !createKey.trim() || !createRaw.trim() || !createValidation.valid}>Create</Button>
+            <Button onClick={closeCreateDialog} disabled={submitting}>{t('elements.cancel')}</Button>
+            <Button type="submit" variant="contained" disabled={submitting || !createKey.trim() || !createRaw.trim() || !createValidation.valid}>{t('elements.create')}</Button>
           </DialogActions>
         </Box>
       </Dialog>
 
       {loading ? (
-        <LoadingState label="Loading elements" />
+        <LoadingState label={t('elements.loading')} />
       ) : elements.length === 0 ? (
-        error.message ? null : <EmptyState title="No matching records" description={query ? 'Try a different key search or create a new element.' : 'Add an element to manage versioned configuration.'} />
+        error.message ? null : <EmptyState title={t('elements.noMatchingRecords')} description={query ? t('elements.noSearchResults') : t('elements.emptyDescription')} />
       ) : (
         <Paper>
           <TableContainer data-testid="elements-table-scroll" sx={{ maxHeight: 560, overflowY: 'auto' }}>
             <Table stickyHeader>
             <TableHead>
               <TableRow>
-                <TableCell>Key</TableCell>
-                <TableCell>Latest</TableCell>
-                <TableCell>Using</TableCell>
-                <TableCell>Draft</TableCell>
-                <TableCell>Type</TableCell>
-                <TableCell align="right">Actions</TableCell>
+                <TableCell>{t('elements.key')}</TableCell>
+                <TableCell>{t('elements.latest')}</TableCell>
+                <TableCell>{t('elements.using')}</TableCell>
+                <TableCell>{t('elements.draft')}</TableCell>
+                <TableCell>{t('elements.type')}</TableCell>
+                <TableCell align="right">{t('elements.actions')}</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -414,10 +416,10 @@ export function ElementsPage() {
                     <TableCell align="right">
                       <Stack direction="row" spacing={1} justifyContent="flex-end">
                         <Button component={RouterLink} to={`/apps/${encodeURIComponent(appId)}/envs/${encodeURIComponent(env)}/elements/${encodeURIComponent(metadata.key)}`} size="small" startIcon={<OpenInNewIcon />}>
-                          Detail
+                          {t('elements.detail')}
                         </Button>
                         <Button color="error" size="small" startIcon={<DeleteOutlineIcon />} onClick={() => setDeleteTarget(metadata.key)} disabled={submitting}>
-                          Delete
+                          {t('elements.delete')}
                         </Button>
                       </Stack>
                     </TableCell>
@@ -430,7 +432,7 @@ export function ElementsPage() {
           {hasMore && (
             <Stack direction="row" justifyContent="center" sx={{ p: 2 }}>
               <Button onClick={handleLoadMore} disabled={loadingMore || submitting}>
-                {loadingMore ? 'Loading more' : 'Load more'}
+                {loadingMore ? t('elements.loadingMore') : t('elements.loadMore')}
               </Button>
             </Stack>
           )}

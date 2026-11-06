@@ -8,7 +8,7 @@ import (
 	"net/url"
 	"testing"
 
-	"github.com/yeqown/cassem/api/concept"
+	"github.com/yeqown/cassem/internal/concept"
 	"github.com/yeqown/cassem/tests/testutil"
 )
 

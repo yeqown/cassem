@@ -7,7 +7,7 @@ import (
 	"github.com/yeqown/log"
 
 	"github.com/yeqown/cassem/internal/app/agent"
-	"github.com/yeqown/cassem/pkg/conf"
+	"github.com/yeqown/cassem/internal/pkg/conf"
 )
 
 func isDebug() bool {

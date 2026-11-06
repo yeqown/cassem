@@ -1,17 +1,18 @@
 package coord
 
 import (
-	apikv "github.com/yeqown/cassem/api/kv"
 	"strconv"
 	"strings"
 
+	pb "github.com/yeqown/cassem/internal/protogen"
+
 	"google.golang.org/protobuf/proto"
 
-	"github.com/yeqown/cassem/api/concept"
+	"github.com/yeqown/cassem/internal/concept"
 	"github.com/yeqown/log"
 )
 
-// Note: The following functions were moved from api/concept/types.pb.supplement.go
+// Note: The following functions were moved from the former protobuf helpers
 // to resolve circular dependency.
 
 // MarshalProto marshals a protobuf message to bytes.
@@ -25,7 +26,7 @@ func UnmarshalProto(data []byte, v proto.Message) error {
 }
 
 // ConvertFromEntitiesToElements converts cassemkv entities to concept Elements.
-func ConvertFromEntitiesToElements(in []*apikv.Entity, mdMapping map[string]*concept.ElementMetadata) (out []*concept.Element) {
+func ConvertFromEntitiesToElements(in []*pb.Entity, mdMapping map[string]*concept.ElementMetadata) (out []*concept.Element) {
 	out = make([]*concept.Element, 0, len(in))
 	for _, entity := range in {
 		elt := &concept.Element{
@@ -50,7 +51,7 @@ func ConvertFromEntitiesToElements(in []*apikv.Entity, mdMapping map[string]*con
 // - arr: ElementMetadata in slice structure
 // - mdMapping: ElementMetadata in format: map[app/env/ele]*ElementMetadata
 func ConvertFromEntitiesToMetadata(
-	in []*apikv.Entity, wipeUnpublish bool,
+	in []*pb.Entity, wipeUnpublish bool,
 ) (keys []string, arr []*concept.ElementMetadata, mdMapping map[string]*concept.ElementMetadata) {
 
 	arr = make([]*concept.ElementMetadata, 0, len(in))
@@ -80,27 +81,27 @@ func ConvertFromEntitiesToMetadata(
 	return keys, arr, mdMapping
 }
 
-// ConvertChangeToChange converts kv.Change (cassemkv.api) to concept.AgentInstanceChange.
+// ConvertChangeToChange converts kv.Change (cassemkv.api) to pb.AgentInstanceChange.
 // Make sure of that c1 is agentInstance format rather than any other.
-func ConvertChangeToChange(c1 *apikv.Change) (c2 *concept.AgentInstanceChange, ok bool) {
+func ConvertChangeToChange(c1 *pb.Change) (c2 *pb.AgentInstanceChange, ok bool) {
 	if c1 == nil {
 		return
 	}
 
-	var op concept.ChangeOp
+	var op pb.ChangeOp
 	switch c1.GetOp() {
-	case apikv.Change_Set:
-		op = concept.ChangeOp_UPDATE
+	case pb.Change_Set:
+		op = pb.ChangeOp_UPDATE
 		if c1.GetLast() == nil {
-			op = concept.ChangeOp_NEW
+			op = pb.ChangeOp_NEW
 		}
-	case apikv.Change_Unset:
-		op = concept.ChangeOp_DELETE
+	case pb.Change_Unset:
+		op = pb.ChangeOp_DELETE
 	default:
 		return
 	}
 
-	var ins = new(concept.AgentInstance)
+	var ins = new(pb.AgentInstance)
 	if err := UnmarshalProto(c1.GetCurrent().GetVal(), ins); err != nil {
 		log.
 			WithFields(log.Fields{
@@ -113,7 +114,7 @@ func ConvertChangeToChange(c1 *apikv.Change) (c2 *concept.AgentInstanceChange, o
 
 	// all convert OK
 	ok = true
-	return &concept.AgentInstanceChange{
+	return &pb.AgentInstanceChange{
 		Ins: ins,
 		Op:  op,
 	}, ok

@@ -5,13 +5,16 @@ import { useAuth } from '../../auth/AuthProvider'
 import { useToast } from '../../components/ToastProvider'
 import { ApiError } from '../../lib/api'
 import { assetUrl } from '../../lib/assets'
+import { useI18n } from '../../i18n'
+import { LanguageSwitcher } from '../../components/LanguageSwitcher'
 
 export function LoginPage() {
+  const { t } = useI18n()
   const { login } = useAuth()
   const { showToast } = useToast()
   const location = useLocation()
   const state = location.state as { from?: unknown } | null
-  const redirectTo = typeof state?.from === 'string' && state.from.trim() ? state.from : '/dashboard'
+  const redirectTo = typeof state?.from === 'string' && state.from.trim() ? state.from : '/docs'
   const [account, setAccount] = useState('')
   const [password, setPassword] = useState('')
 
@@ -20,7 +23,7 @@ export function LoginPage() {
     try {
       await login(account, password, redirectTo)
     } catch (err) {
-      showToast(err instanceof ApiError ? err.message : 'login failed', 'error')
+      showToast(err instanceof ApiError ? err.message : t('common.loginFailed'), 'error')
     }
   }
 
@@ -39,6 +42,9 @@ export function LoginPage() {
         px: 2,
       }}
     >
+      <Box sx={{ position: 'absolute', top: 12, right: 12, color: 'primary.main' }}>
+        <LanguageSwitcher />
+      </Box>
       <Paper
         data-testid="login-card"
         data-visual="glass"
@@ -58,19 +64,19 @@ export function LoginPage() {
       >
         <Stack spacing={2}>
           <Stack data-testid="login-brand" direction="row" spacing={2} alignItems="center">
-            <Box component="img" src={assetUrl('logo.svg')} alt="Cassem logo" sx={{ width: 72, height: 72, flexShrink: 0 }} />
+            <Box component="img" src={assetUrl('logo.svg')} alt={t('common.logo')} sx={{ width: 72, height: 72, flexShrink: 0 }} />
             <Box>
               <Typography variant="overline" color="primary">
                 CASSEM
               </Typography>
               <Typography variant="h4" component="h1">
-                Configuration Center
+                {t('common.configurationCenter')}
               </Typography>
-              <Typography color="text.secondary">Sign in with a cassemadm account.</Typography>
+              <Typography color="text.secondary">{t('common.signInDescription')}</Typography>
             </Box>
           </Stack>
           <TextField
-            label="Account"
+            label={t('common.account')}
             type="email"
             value={account}
             onChange={(event) => setAccount(event.target.value)}
@@ -78,7 +84,7 @@ export function LoginPage() {
             autoComplete="username"
           />
           <TextField
-            label="Password"
+            label={t('common.password')}
             type="password"
             value={password}
             onChange={(event) => setPassword(event.target.value)}
@@ -86,7 +92,7 @@ export function LoginPage() {
             autoComplete="current-password"
           />
           <Button type="submit" variant="contained" size="large">
-            Login
+            {t('common.login')}
           </Button>
         </Stack>
       </Paper>
