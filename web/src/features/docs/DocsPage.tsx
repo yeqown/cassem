@@ -26,6 +26,7 @@ import {
   goExample,
   httpFetchExample,
   httpResponseExample,
+  httpSaveExample,
   installExample,
   localModuleExample,
   tokenCreateExample,
@@ -222,6 +223,8 @@ export function DocsPage() {
             <CodeExample title={t('docs.consume.httpCommand')} code={httpFetchExample} />
             <CodeExample title={t('docs.consume.httpResponse')} code={httpResponseExample} />
             <Typography>{t('docs.consume.httpResult')}</Typography>
+            <Typography>{t('docs.consume.httpSaveBody')}</Typography>
+            <CodeExample title={t('docs.consume.httpSaveCommand')} code={httpSaveExample} />
             <Alert severity="info">{t('docs.consume.httpErrors')}</Alert>
             <Typography variant="h6" component="h4">{t('docs.consume.tokenTitle')}</Typography>
             <Typography>{t('docs.consume.tokenPermissions')}</Typography>

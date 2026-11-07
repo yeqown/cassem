@@ -6,24 +6,24 @@ export const configurationExample = `{
 
 export const httpFetchExample = `export CASSEM_TOKEN='TOKEN_FROM_CREATE_RESPONSE'
 
-curl --fail-with-body -sS \\
+curl --fail-with-body -sS --include \\
   'http://127.0.0.1:20219/api/apps/order-service/envs/dev/elements?key=app-config' \\
   -H "Authorization: Bearer $CASSEM_TOKEN"`
 
-export const httpResponseExample = `{
-  "errcode": 0,
-  "errmsg": "success",
-  "data": {
-    "elems": [
-      {
-        "metadata": {"app":"order-service","env":"dev","key":"app-config"},
-        "raw": "eyJsb2dMZXZlbCI6ImluZm8iLCJyZXF1ZXN0VGltZW91dE1zIjozMDAwLCJmZWF0dXJlRW5hYmxlZCI6dHJ1ZX0=",
-        "version": 1,
-        "published": true
-      }
-    ]
-  }
-}`
+export const httpResponseExample = `HTTP/1.1 200 OK
+Content-Type: application/json
+Content-Disposition: inline
+Cache-Control: no-store
+X-CASSEM-Key: app-config
+X-CASSEM-Version: 1
+X-CASSEM-Published: true
+
+${configurationExample}`
+
+export const httpSaveExample = `curl --fail -sS \\
+  'http://127.0.0.1:20219/api/apps/order-service/envs/dev/elements?key=app-config' \\
+  -H "Authorization: Bearer $CASSEM_TOKEN" \\
+  --output app-config.json`
 
 export const tokenLoginExample = `curl --fail-with-body -sS -X POST \\
   'http://127.0.0.1:20218/api/account/login' \\

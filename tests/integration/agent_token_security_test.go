@@ -4,8 +4,8 @@ package integration_test
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"testing"
@@ -71,16 +71,15 @@ func TestAgentAccessTokenSecurityAcrossHTTPAndGRPC(t *testing.T) {
 		defer func() { require.NoError(t, resp.Body.Close()) }()
 		require.Equal(t, wantHTTP, resp.StatusCode, "%s HTTP status", label)
 		if wantHTTP == http.StatusOK {
-			var result struct {
-				ErrCode int `json:"errcode"`
-				Data    struct {
-					Elems []*sdk.Element `json:"elems"`
-				} `json:"data"`
-			}
-			require.NoError(t, json.NewDecoder(resp.Body).Decode(&result), "%s HTTP response decoding", label)
-			require.Zero(t, result.ErrCode)
-			require.Len(t, result.Data.Elems, 1)
-			require.Equal(t, raw, string(result.Data.Elems[0].GetRaw()), "%s HTTP published bytes", label)
+			body, err := io.ReadAll(resp.Body)
+			require.NoError(t, err, "%s HTTP response reading", label)
+			require.Equal(t, raw, string(body), "%s HTTP published bytes", label)
+			require.Equal(t, "application/json", resp.Header.Get("Content-Type"), "%s HTTP content type", label)
+			require.Equal(t, "inline", resp.Header.Get("Content-Disposition"), "%s HTTP disposition", label)
+			require.Equal(t, key, resp.Header.Get("X-CASSEM-Key"), "%s HTTP key", label)
+			require.Equal(t, "1", resp.Header.Get("X-CASSEM-Version"), "%s HTTP version", label)
+			require.Equal(t, "true", resp.Header.Get("X-CASSEM-Published"), "%s HTTP published state", label)
+			require.Equal(t, "no-store", resp.Header.Get("Cache-Control"), "%s HTTP cache policy", label)
 		}
 		elems, err := client.GetElement(ctx, targetApp, targetEnv, key)
 		require.Equal(t, wantGRPC, status.Code(err), "%s gRPC status", label)

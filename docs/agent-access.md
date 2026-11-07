@@ -63,43 +63,36 @@ admin session headers are not accepted as fetch credentials.
 
 ```sh
 curl -sS \
-  'http://127.0.0.1:20219/api/apps/checkout/envs/production/elements?key=config&key=limits' \
+  'http://127.0.0.1:20219/api/apps/checkout/envs/production/elements?key=config' \
   -H "Authorization: Bearer $CASSEM_TOKEN"
 ```
 
-Request 1–100 distinct keys with repeated `key` parameters. App/environment
-identifiers contain 3–30 characters; keys are nonempty. All identifiers start
-with an ASCII letter or digit and contain only letters, digits, `_`, and `-`.
-Validation and cache behavior match gRPC `GetElement`; missing or unpublished
-keys are omitted according to the existing fetch semantics. Results are not
-guaranteed to follow request order.
+Request exactly one key. App/environment identifiers contain 3–30 characters;
+keys are nonempty. All identifiers start with an ASCII letter or digit and contain
+only letters, digits, `_`, and `-`. Validation and cache behavior otherwise match
+gRPC `GetElement`. A request with repeated `key` parameters returns HTTP 400;
+request each key separately.
 
-```json
-{
-  "errcode": 0,
-  "errmsg": "success",
-  "data": {
-    "elems": [
-      {
-        "metadata": {"app":"checkout","env":"production","key":"config"},
-        "raw": "aGVsbG8=",
-        "version": 1,
-        "published": true
-      }
-    ]
-  }
-}
-```
+The successful response body is the stored raw bytes, without a JSON envelope or
+Base64 encoding. For example, if the stored value is `hello`, the body is exactly
+`hello`. Whitespace and binary bytes are preserved; an empty published value
+returns HTTP 200 with an empty body. `Content-Type` is derived from the element:
+`application/json`, `application/toml`,
+`text/plain; charset=utf-8`, or `application/octet-stream` for an unknown type.
+`Content-Disposition` is `inline`, so browsers display supported text formats.
+`X-CASSEM-Key`, `X-CASSEM-Version`, and `X-CASSEM-Published` expose the element's
+metadata without changing the body.
 
-`raw` is base64-encoded bytes (`aGVsbG8=` decodes to `hello`). Response fields use
-the generated Go JSON representation. Fetch and token management responses use
-`Cache-Control: no-store`. HTTP watch is not provided.
+A missing key or an element without a published version returns HTTP 404. Error
+responses retain the JSON `errcode` / `errmsg` envelope. Fetch and token management
+responses use `Cache-Control: no-store`. HTTP watch is not provided.
 
 | Condition | Agent HTTP status | `errcode` / gRPC status |
 | --- | --- | --- |
 | Missing, malformed, unknown, revoked, or expired token; disabled/deleted user | 401 | 16 / `Unauthenticated` |
 | Valid token without element READ permission for the requested app/env | 403 | 7 / `PermissionDenied` |
-| Invalid request identifiers or keys | 400 | 3 / `InvalidArgument` |
+| Invalid request identifiers, keys, or more than one key | 400 | 3 / `InvalidArgument` |
+| Missing key or no published version | 404 | 5 / `NotFound` |
 | Unavailable authorization storage | 503 | 14 / `Unavailable` |
 
 ## gRPC and the Go SDK

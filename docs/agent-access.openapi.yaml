@@ -12,10 +12,10 @@ tags:
 paths:
   /api/apps/{appId}/envs/{env}/elements:
     get:
-      operationId: fetchAgentElements
+      operationId: fetchAgentElement
       tags: [Configuration]
-      summary: Fetch selected configuration keys with current user READ permission
-      description: Authorization precedes cache access. Missing or unpublished keys are omitted using the existing gRPC fetch semantics. Result order is unspecified. Raw bytes use base64 encoding.
+      summary: Fetch one configuration key as its original raw bytes
+      description: Authorization precedes cache access. The successful response body is the stored raw value without a JSON envelope or Base64 encoding, preserving whitespace and binary bytes. An empty published value returns 200 with an empty body. Exactly one key is accepted per request; missing or unpublished values return 404. Errors retain the JSON errcode/errmsg envelope.
       security:
         - bearerToken: []
       parameters:
@@ -37,38 +37,39 @@ paths:
           schema:
             type: array
             minItems: 1
-            maxItems: 100
+            maxItems: 1
             uniqueItems: true
             items:
               type: string
               pattern: '^[A-Za-z0-9][A-Za-z0-9_-]*$'
-          example: [config, limits]
+          example: [config]
       responses:
         '200':
-          description: Selected values using the same cache and lookup path as gRPC GetElement
+          description: The element's original raw bytes using the same cache and lookup path as gRPC GetElement
           headers:
             Cache-Control:
               schema:
                 type: string
                 enum: [no-store]
+            Content-Disposition:
+              schema:
+                type: string
+                enum: [inline]
+            X-CASSEM-Key:
+              schema: {type: string}
+            X-CASSEM-Version:
+              schema: {type: integer, minimum: 0, maximum: 4294967295}
+            X-CASSEM-Published:
+              schema: {type: boolean}
           content:
             application/json:
-              schema:
-                type: object
-                required: [errcode, data]
-                properties:
-                  errcode:
-                    type: integer
-                    enum: [0]
-                  errmsg:
-                    type: string
-                  data:
-                    type: object
-                    properties:
-                      elems:
-                        type: array
-                        items:
-                          $ref: '#/components/schemas/Element'
+              schema: {type: string, format: binary}
+            application/toml:
+              schema: {type: string, format: binary}
+            text/plain:
+              schema: {type: string, format: binary}
+            application/octet-stream:
+              schema: {type: string, format: binary}
         '400':
           $ref: '#/components/responses/InvalidRequest'
         '401':
@@ -80,6 +81,13 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
               example: {errcode: 7, errmsg: PERMISSION_DENIED}
+        '404':
+          description: The key does not exist or has no published version
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example: {errcode: 5, errmsg: configuration key not found or unpublished}
         '503':
           description: Authorization or configuration storage is unavailable
           content:
@@ -255,24 +263,6 @@ components:
         name: {type: string}
         createdAt: {type: integer, format: int64, description: Unix seconds}
         expiresAt: {type: integer, format: int64, description: Unix seconds}
-    Element:
-      type: object
-      properties:
-        metadata:
-          type: object
-          properties:
-            app: {type: string}
-            env: {type: string}
-            key: {type: string}
-            contentType: {type: integer}
-            usingVersion: {type: integer}
-            latestVersion: {type: integer}
-        raw:
-          type: string
-          format: byte
-          description: Base64-encoded configuration bytes.
-        version: {type: integer, minimum: 0, maximum: 4294967295}
-        published: {type: boolean}
     Error:
       type: object
       required: [errcode]
